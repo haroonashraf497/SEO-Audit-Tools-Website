@@ -1,0 +1,75 @@
+@import "tailwindcss";
+
+/* Use system font stack for fastest rendering - no external font loading */
+* {
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+}
+
+html {
+  scroll-behavior: smooth;
+  text-rendering: optimizeLegibility;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+/* Line clamp utility for better performance */
+.line-clamp-1 {
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* GPU-accelerated smooth transitions */
+.will-animate {
+  transform: translateZ(0);
+  backface-visibility: hidden;
+}
+
+/* Content visibility for performance - off-screen sections skip rendering */
+.cv-auto {
+  content-visibility: auto;
+  contain-intrinsic-size: 1px 500px;
+}
+
+/* Reduce repaints on hover effects */
+.transition-optimized {
+  transition: transform 0.2s ease, opacity 0.2s ease;
+  will-change: transform;
+}
+
+/* Skip rendering heavy effects on slow connections */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+  html { scroll-behavior: auto; }
+}
+
+/* Critical above-the-fold styles */
+.hero-bg {
+  background: linear-gradient(135deg, #f8fafc 0%, #eef2ff 50%, #f5f3ff 100%);
+}
+
+/* Optimize SVG rendering */
+svg {
+  shape-rendering: optimizeSpeed;
+}
+
+/* Focus styles for accessibility */
+:focus-visible {
+  outline: 2px solid #6366f1;
+  outline-offset: 2px;
+}
+
+/* Print styles for PDF generation */
+@media print {
+  nav, footer, button { display: none !important; }
+  body { background: white !important; }
+}
