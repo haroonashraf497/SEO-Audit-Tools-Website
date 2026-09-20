@@ -1,0 +1,19 @@
+# SEO Audit Tools — clean URLs for Apache (Namecheap / Webuzo)
+DirectoryIndex index.php
+Options -MultiViews
+RewriteEngine On
+RewriteBase /
+
+# Existing files and directories are served as-is (assets, php files).
+RewriteCond %{REQUEST_FILENAME} -f [OR]
+RewriteCond %{REQUEST_FILENAME} -d
+RewriteRule ^ - [L]
+
+RewriteRule ^tools/?$ tools.php [L,QSA]
+RewriteRule ^blog/?$ blog.php [L,QSA]
+RewriteRule ^competitor-analysis/?$ competitor-analysis.php [L,QSA]
+RewriteRule ^tool/([a-z0-9-]+)/?$ tool.php?slug=$1 [L,QSA]
+RewriteRule ^blog/([a-z0-9-]+)/?$ post.php?slug=$1 [L,QSA]
+RewriteRule ^p/([a-z0-9-]+)/?$ page.php?slug=$1 [L,QSA]
+
+ErrorDocument 404 /404.php

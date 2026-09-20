@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { useCms, type CmsPage, type CmsPost, type CmsTool, type PageBlock, type SeoEntry, type SidebarLinkSource, type SidebarWidget, type SidebarWidgetType, type Status } from './store';
 import { categoryLabels, categoryOrder, ToolIcon, type ToolCategory } from '../tools/data';
+import { RichTextEditor } from './RichTextEditor';
 
 /* ---------------- shared bits ---------------- */
 const STATUS_META: Record<Status, { label: string; cls: string }> = {
@@ -303,6 +304,9 @@ const ToolEditor: React.FC<{ tool: CmsTool; onClose: () => void }> = ({ tool, on
         <Field label="URL slug" hint="Becomes #/tool/your-slug"><input className={inputCls} value={f.slug} onChange={e => set('slug')(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '-'))} /></Field>
       </div>
       <Field label="Description (shown under the title and in the directory)"><textarea rows={3} className={inputCls} value={f.description} onChange={e => set('description')(e.target.value)} /></Field>
+      <div id="tool-about-editor">
+        <Field label="About content (optional)" hint="Replaces the 'About the …' text shown on this tool's page. Leave empty to keep the shared default content."><RichTextEditor value={f.about || ''} onChange={html => set('about')(html)} minHeight={220} placeholder="Write a custom About section for this tool — what it does, how to use it, tips and FAQs…" /></Field>
+      </div>
       <div className="grid md:grid-cols-3 gap-4">
         <Field label="Category"><select className={inputCls} value={f.category} onChange={e => set('category')(e.target.value)}>{categoryOrder.map(c => <option key={c} value={c}>{categoryLabels[c]}</option>)}</select></Field>
         <Field label="Page state"><select className={inputCls} value={f.status} onChange={e => set('status')(e.target.value)}><option value="live">Live</option><option value="hidden">Hidden</option><option value="draft">Draft</option></select></Field>
@@ -410,7 +414,7 @@ const PostEditor: React.FC<{ post: CmsPost; onClose: () => void }> = ({ post, on
       </div>
       <Field label="Excerpt / summary"><textarea rows={2} className={inputCls} value={f.excerpt} onChange={e => setF({ ...f, excerpt: e.target.value })} /></Field>
       <Field label="Keywords (comma separated)"><input className={inputCls} value={f.keywords.join(', ')} onChange={e => setF({ ...f, keywords: e.target.value.split(',').map(s => s.trim()).filter(Boolean) })} /></Field>
-      <Field label="Body" hint="Markdown-ish: ## Heading, - bullet, **bold**"><textarea rows={14} className={inputCls + ' font-mono text-xs'} value={f.content} onChange={e => setF({ ...f, content: e.target.value })} /></Field>
+      <Field label="Body" hint="Visual editor — use the toolbar for headings, lists, links and formatting"><RichTextEditor value={f.content} onChange={html => setF({ ...f, content: html })} minHeight={320} placeholder="Write your blog post…" /></Field>
       <FeaturedImageEditor image={f.featuredImage} alt={f.featuredImageAlt} onChange={patch => setF({ ...f, ...patch })} />
       <SeoMetaEditor value={seo} onChange={setSeoDraft} fallbackTitle={f.metaTitle || f.title} fallbackDescription={f.metaDescription || f.excerpt} routeHint={`#/blog/${f.slug || post.slug}`} />
       <div className="flex gap-2"><Btn onClick={() => { savePost(post.slug, f); if (f.slug !== post.slug) clearSeo(`post:${post.slug}`); setSeo(`post:${f.slug || post.slug}`, seo); onClose(); }}>Save post</Btn><Btn tone="ghost" onClick={onClose}>Cancel</Btn></div>
@@ -464,7 +468,7 @@ const NewPostForm: React.FC<{ onDone: () => void }> = ({ onDone }) => {
         <Field label="SEO title"><input className={inputCls} value={f.metaTitle} onChange={e => setF({ ...f, metaTitle: e.target.value })} placeholder={f.title} /></Field>
         <Field label="Meta description"><textarea rows={2} className={inputCls} value={f.metaDescription} onChange={e => setF({ ...f, metaDescription: e.target.value })} /></Field>
       </div>
-      <Field label="Body" hint="## Heading · - bullet · **bold**"><textarea rows={10} className={inputCls + ' font-mono text-xs'} value={f.content} onChange={e => setF({ ...f, content: e.target.value })} /></Field>
+      <Field label="Body" hint="Visual editor — use the toolbar for headings, lists, links and formatting"><RichTextEditor value={f.content} onChange={html => setF({ ...f, content: html })} minHeight={280} placeholder="Write your blog post…" /></Field>
       <FeaturedImageEditor image={f.featuredImage} alt={f.featuredImageAlt} onChange={patch => setF({ ...f, ...patch })} />
       <Field label="State"><select className={inputCls} value={f.status} onChange={e => setF({ ...f, status: e.target.value as Status })}><option value="draft">Draft</option><option value="live">Published</option><option value="hidden">Hidden</option></select></Field>
       <div className="flex gap-2"><Btn onClick={() => { addPost({ ...f, slug, metaTitle: f.metaTitle || f.title }); onDone(); }}>Create post</Btn><Btn tone="ghost" onClick={onDone}>Cancel</Btn></div>
@@ -493,8 +497,22 @@ const BlockEditor: React.FC<{ blocks: PageBlock[]; onChange: (b: PageBlock[]) =>
               <input className={inputCls} value={b.text} onChange={e => set(i, { text: e.target.value })} placeholder="Heading text" />
             </div>
           )}
-          {b.type === 'text' && <textarea rows={3} className={inputCls} value={b.text} onChange={e => set(i, { text: e.target.value })} placeholder="Paragraph" />}
+          {b.type === 'text' && <RichTextEditor value={b.text} onChange={html => set(i, { text: html })} minHeight={120} placeholder="Write this paragraph…" />}
           {b.type === 'list' && <textarea rows={3} className={inputCls} value={b.items.join('\n')} onChange={e => set(i, { items: e.target.value.split('\n').filter(Boolean) })} placeholder="One item per line" />}
+          {b.type === 'table' && (
+            <div className="space-y-2">
+              <div className="grid gap-1" style={{ gridTemplateColumns: `repeat(${b.head.length}, 1fr)` }}>
+                {b.head.map((h, ci) => <input key={ci} className={inputCls} value={h} onChange={e => set(i, { head: b.head.map((c, j) => (j === ci ? e.target.value : c)) })} placeholder={`Column ${ci + 1}`} />)}
+              </div>
+              {b.rows.map((row, ri) => (
+                <div key={ri} className="grid gap-1 items-start" style={{ gridTemplateColumns: `repeat(${b.head.length}, 1fr) auto` }}>
+                  {row.map((cell, ci) => <input key={ci} className={inputCls} value={cell} onChange={e => set(i, { rows: b.rows.map((r, j) => (j === ri ? r.map((c, k) => (k === ci ? e.target.value : c)) : r)) })} />)}
+                  <button type="button" onClick={() => set(i, { rows: b.rows.filter((_, j) => j !== ri) })} className="w-9 h-9 rounded bg-red-50 hover:bg-red-100 text-red-600 text-sm">✕</button>
+                </div>
+              ))}
+              <button type="button" onClick={() => set(i, { rows: [...b.rows, b.head.map(() => '')] })} className="text-xs font-bold text-indigo-600 hover:underline">+ add row</button>
+            </div>
+          )}
           {b.type === 'cta' && (
             <div className="space-y-2">
               <textarea rows={2} className={inputCls} value={b.text} onChange={e => set(i, { text: e.target.value })} placeholder="CTA text" />
@@ -504,8 +522,8 @@ const BlockEditor: React.FC<{ blocks: PageBlock[]; onChange: (b: PageBlock[]) =>
         </div>
       ))}
       <div className="flex flex-wrap gap-2">
-        {(['heading', 'text', 'list', 'cta'] as const).map(t => (
-          <Btn key={t} tone="ghost" onClick={() => onChange([...blocks, t === 'heading' ? { id: Math.random().toString(36).slice(2, 9), type: 'heading', text: 'New heading', level: 2 } : t === 'text' ? { id: Math.random().toString(36).slice(2, 9), type: 'text', text: '' } : t === 'list' ? { id: Math.random().toString(36).slice(2, 9), type: 'list', items: ['First item'] } : { id: Math.random().toString(36).slice(2, 9), type: 'cta', text: '', label: 'Learn more', href: '#/' }])}>+ {t}</Btn>
+        {(['heading', 'text', 'list', 'table', 'cta'] as const).map(t => (
+          <Btn key={t} tone="ghost" onClick={() => onChange([...blocks, t === 'heading' ? { id: Math.random().toString(36).slice(2, 9), type: 'heading', text: 'New heading', level: 2 } : t === 'text' ? { id: Math.random().toString(36).slice(2, 9), type: 'text', text: '' } : t === 'list' ? { id: Math.random().toString(36).slice(2, 9), type: 'list', items: ['First item'] } : t === 'table' ? { id: Math.random().toString(36).slice(2, 9), type: 'table', head: ['Column 1', 'Column 2'], rows: [['', '']] } : { id: Math.random().toString(36).slice(2, 9), type: 'cta', text: '', label: 'Learn more', href: '#/' }])}>+ {t}</Btn>
         ))}
       </div>
     </div>

@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { categories, type BlogArticle } from './index';
 import { Sidebar } from '../tools/Sidebar';
 import { useCms, livePosts } from '../cms/store';
+import { sanitizeRichHtml } from '../utils/sanitize';
 
 // ---------- Tiny markdown renderer (headings, bold, lists, paragraphs) ----------
 const renderInline = (text: string): React.ReactNode[] => {
@@ -22,7 +23,12 @@ const renderInline = (text: string): React.ReactNode[] => {
 };
 
 const MarkdownContent: React.FC<{ content: string }> = ({ content }) => {
+  // Content written in the CMS rich-text editor contains HTML tags; render it
+  // as sanitised rich HTML. Legacy posts use the markdown parser below.
+  const isRichHtml = /<[a-z][^>]*>/i.test(content);
+  const html = useMemo(() => (isRichHtml ? sanitizeRichHtml(content) : ''), [content, isRichHtml]);
   const blocks = useMemo(() => {
+    if (isRichHtml) return [];
     const lines = content.split('\n');
     const out: React.ReactNode[] = [];
     let listItems: string[] = [];
@@ -62,7 +68,9 @@ const MarkdownContent: React.FC<{ content: string }> = ({ content }) => {
     }
     flushList();
     return out;
-  }, [content]);
+  }, [content, isRichHtml]);
+
+  if (isRichHtml) return <div className="rich-text text-slate-700" dangerouslySetInnerHTML={{ __html: html }} />;
 
   return <div>{blocks}</div>;
 };

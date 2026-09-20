@@ -5,6 +5,7 @@ import CompetitorAnalysis, { CompetitorToolContent } from './tools/CompetitorAna
 import { categoryLabels, ToolIcon } from './tools/data';
 import { fetchPageData, type LivePageData } from './utils/pageFetch';
 import { fetchDomainInfo, type DomainInfo } from './utils/domainLookup';
+import { sanitizeRichHtml } from './utils/sanitize';
 import { CmsProvider, useCms, liveTools, livePosts, findPage } from './cms/store';
 import { AdminApp } from './cms/Admin';
 
@@ -1357,6 +1358,14 @@ const getRoute = (): string => {
   return 'home';
 };
 
+// Footer social links — placeholder platform URLs, replace with real profiles.
+const footerSocials = [
+  { label: 'X (Twitter)', href: 'https://x.com/', icon: () => (<svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zM17.083 19.77h1.833L7.084 4.126H5.117z" /></svg>) },
+  { label: 'LinkedIn', href: 'https://www.linkedin.com/', icon: () => (<svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.063 2.063 0 1 1 0-4.126 2.063 2.063 0 0 1 0 4.126zM7.119 20.452H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.225 0z" /></svg>) },
+  { label: 'YouTube', href: 'https://www.youtube.com/', icon: () => (<svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z" /></svg>) },
+  { label: 'Facebook', href: 'https://www.facebook.com/', icon: () => (<svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" /></svg>) },
+];
+
 const SiteApp: React.FC = () => {
   const cms = useCms();
   const visibleTools = useMemo(() => liveTools(cms.state), [cms.state]);
@@ -1366,6 +1375,7 @@ const SiteApp: React.FC = () => {
   const [analysisProgress, setAnalysisProgress] = useState(0);
   const [result, setResult] = useState<AuditResult | null>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [cookiePrefsOpen, setCookiePrefsOpen] = useState(false);
   const [route, setRoute] = useState<string>(getRoute);
 
   useEffect(() => {
@@ -1480,7 +1490,7 @@ const SiteApp: React.FC = () => {
               {cms.state.nav.filter(n => n.visible).map(n => (
                 <a key={n.id} href={n.href} className={`transition-colors ${(isTools && n.href.includes('tools')) || (isBlog && n.href.includes('blog')) || n.href.includes('competitor') ? 'text-indigo-600 font-semibold' : 'text-slate-600 hover:text-indigo-600'}`}>{n.label}</a>
               ))}
-              <a href="#/competitor-analysis" className="text-slate-600 hover:text-indigo-600 transition-colors">Competitor</a>
+              <a href="#/competitor-analysis" className="text-slate-600 hover:text-indigo-600 transition-colors">Competitor Analysis</a>
               <a href="#/admin" className="text-slate-600 hover:text-indigo-600 transition-colors" title="Content manager">Admin</a>
               <a href="#/" className="bg-gradient-to-r from-indigo-500 to-purple-600 text-white px-6 py-2.5 rounded-xl font-medium hover:shadow-lg hover:shadow-indigo-500/25 transition-all">
                 Get Started Free
@@ -1944,28 +1954,74 @@ const SiteApp: React.FC = () => {
       </>)}
 
       {/* Footer — simple, lightweight */}
-      <footer className={`bg-slate-900 text-white py-10 px-4 ${cms.state.sections.footer ? '' : 'hidden'}`}>
-        <div className="max-w-5xl mx-auto text-center">
-          <div className="flex items-center justify-center gap-2 mb-3">
-            <div className="w-9 h-9 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-lg flex items-center justify-center text-white">
-              <InlineIcons.BarChart3 />
+      <footer className={`bg-slate-900 text-white pt-10 pb-6 px-4 ${cms.state.sections.footer ? '' : 'hidden'}`}>
+        <div className="max-w-7xl mx-auto">
+          {/* Brand + social icons */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-5 pb-8 border-b border-slate-800">
+            <a href="#/" className="flex items-center gap-2.5">
+              <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center text-white">
+                <InlineIcons.BarChart3 />
+              </div>
+              <span>
+                <span className="block text-lg font-bold leading-tight">{cms.state.settings.name}</span>
+                <span className="block text-xs text-slate-400">{cms.state.settings.tagline}</span>
+              </span>
+            </a>
+            <div className="flex items-center gap-2">
+              {footerSocials.map(s => (
+                <a key={s.label} href={s.href} target="_blank" rel="noopener noreferrer" aria-label={s.label} title={s.label} className="w-9 h-9 rounded-lg bg-slate-800 hover:bg-indigo-600 flex items-center justify-center text-slate-400 hover:text-white transition-colors">
+                  <s.icon />
+                </a>
+              ))}
             </div>
-            <span className="text-lg font-bold">SEO Audit Tool</span>
           </div>
-          <nav className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm text-slate-400 mb-5">
-            <a href="#features" className="hover:text-white transition-colors">Features</a>
-            <a href="#/tools" className="hover:text-white transition-colors">Free SEO Tools</a>
-            <a href="#/blog" className="hover:text-white transition-colors">Blog</a>
-            <a href="#audiences" className="hover:text-white transition-colors">Who It's For</a>
-          </nav>
-          <div className="border-t border-slate-800 pt-5">
-            <p className="text-sm text-slate-300 font-medium">seoaudittool.pk · EKSTRUH LTD</p>
-            <p className="text-xs text-slate-500 mt-1">
-              © {new Date().getFullYear()} EKSTRUH LTD · Free website SEO checker, calculators and unit converters.
-            </p>
+
+          {/* Four link columns */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-8 py-10">
+            {[
+              { title: 'SEO Tools', links: [
+                { label: 'Free SEO Audit', href: '#/' },
+                { label: 'Competitor Analysis', href: '#/competitor-analysis' },
+              ] },
+              { title: 'Resources', links: [
+                { label: 'Blog', href: '#/blog' },
+                { label: 'FAQ', href: '#/p/faq' },
+                { label: "Who It's For", href: '#audiences' },
+              ] },
+              { title: 'Company', links: [
+                { label: 'About', href: '#/p/about' },
+                { label: 'Contact', href: '#/p/contact' },
+              ] },
+            ].map(col => (
+              <nav key={col.title} aria-label={col.title}>
+                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-4">{col.title}</h3>
+                <ul className="space-y-2.5">
+                  {col.links.map(l => (
+                    <li key={l.label}><a href={l.href} className="text-sm text-slate-400 hover:text-white transition-colors">{l.label}</a></li>
+                  ))}
+                </ul>
+              </nav>
+            ))}
+            <nav aria-label="Legal">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-4">Legal</h3>
+              <ul className="space-y-2.5">
+                <li><a href="#/p/privacy-policy" className="text-sm text-slate-400 hover:text-white transition-colors">Privacy Policy</a></li>
+                <li><a href="#/p/cookie-policy" className="text-sm text-slate-400 hover:text-white transition-colors">Cookie Policy</a></li>
+                <li><a href="#/p/terms-of-service" className="text-sm text-slate-400 hover:text-white transition-colors">Terms &amp; Conditions</a></li>
+                <li><button type="button" onClick={() => setCookiePrefsOpen(true)} className="text-sm text-slate-400 hover:text-white transition-colors underline decoration-dotted underline-offset-4">Cookie preferences</button></li>
+              </ul>
+            </nav>
+          </div>
+
+          {/* Bottom bar */}
+          <div className="border-t border-slate-800 pt-6 text-xs text-slate-500">
+            <p>© {new Date().getFullYear()} EKSTRUH LTD · Trading as {cms.state.settings.domain}. All rights reserved.</p>
           </div>
         </div>
       </footer>
+
+      {/* Cookie consent (PECR) */}
+      <CookieConsent prefsOpen={cookiePrefsOpen} onPrefsOpen={setCookiePrefsOpen} />
     </div>
   );
 };
@@ -2025,8 +2081,16 @@ const CmsPageView: React.FC<{ slug: string }> = ({ slug }) => {
             if (b.type === 'heading') return b.level === 2
               ? <h2 key={b.id} className="text-2xl font-bold text-slate-900 mt-8 mb-3 first:mt-0">{b.text}</h2>
               : <h3 key={b.id} className="text-xl font-bold text-slate-900 mt-6 mb-2">{b.text}</h3>;
-            if (b.type === 'text') return <p key={b.id} className="text-slate-700 leading-relaxed my-4">{b.text}</p>;
+            if (b.type === 'text') return <div key={b.id} className="rich-text text-slate-700 leading-relaxed my-4" dangerouslySetInnerHTML={{ __html: sanitizeRichHtml(b.text) }} />;
             if (b.type === 'list') return <ul key={b.id} className="my-5 space-y-2">{b.items.map((it, i) => <li key={i} className="flex gap-3 text-slate-700"><span className="mt-2.5 w-1.5 h-1.5 rounded-full bg-indigo-500 flex-shrink-0" />{it}</li>)}</ul>;
+            if (b.type === 'table') return (
+              <div key={b.id} className="my-5 overflow-x-auto rounded-xl border border-slate-200">
+                <table className="w-full text-sm">
+                  <thead><tr className="bg-slate-50 text-left text-[11px] uppercase tracking-wide text-slate-500">{b.head.map((h, hi) => <th key={hi} className="px-3 py-2.5 border-b border-slate-200 whitespace-nowrap">{h}</th>)}</tr></thead>
+                  <tbody className="divide-y divide-slate-100">{b.rows.map((row, ri) => <tr key={ri} className={ri % 2 ? 'bg-slate-50/60' : 'bg-white'}>{row.map((cell, ci) => <td key={ci} className={`px-3 py-2.5 align-top ${ci === 0 ? 'font-mono text-xs text-slate-800 whitespace-nowrap' : 'text-slate-600'}`}>{cell}</td>)}</tr>)}</tbody>
+                </table>
+              </div>
+            );
             return (
               <div key={b.id} className="mt-8 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl p-6 text-white">
                 {b.text && <p className="mb-4">{b.text}</p>}
@@ -2041,6 +2105,106 @@ const CmsPageView: React.FC<{ slug: string }> = ({ slug }) => {
 };
 
 const Btn: React.FC<{ href: string }> = ({ href }) => <a href={href} className="inline-block bg-gradient-to-r from-indigo-500 to-purple-600 text-white px-6 py-3 rounded-xl font-semibold">Back to the audit tool</a>;
+
+// ---------- Cookie consent (PECR) ----------
+type ConsentRecord = { essential: true; analytics: boolean; advertising: boolean; affiliate: boolean; decided: string };
+const CONSENT_KEY = 'ekstruh:cookie-consent:v1';
+
+const readConsent = (): ConsentRecord | null => {
+  try {
+    const raw = localStorage.getItem(CONSENT_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Partial<ConsentRecord>;
+    if (typeof parsed.analytics !== 'boolean' || typeof parsed.advertising !== 'boolean' || typeof parsed.affiliate !== 'boolean') return null;
+    return { essential: true, analytics: parsed.analytics, advertising: parsed.advertising, affiliate: parsed.affiliate, decided: typeof parsed.decided === 'string' ? parsed.decided : new Date().toISOString() };
+  } catch { return null; }
+};
+
+const CookieToggle: React.FC<{ title: string; description: string; checked: boolean; locked?: boolean; onChange?: (v: boolean) => void }> = ({ title, description, checked, locked, onChange }) => (
+  <div className="flex items-start justify-between gap-4 py-3">
+    <div>
+      <p className="text-sm font-bold text-slate-800">{title}</p>
+      <p className="text-xs text-slate-500 mt-0.5 leading-relaxed">{description}</p>
+    </div>
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      aria-label={`${title} cookies`}
+      disabled={locked}
+      onClick={() => onChange?.(!checked)}
+      className={`relative w-11 h-6 rounded-full flex-shrink-0 transition-colors mt-0.5 ${checked ? 'bg-indigo-600' : 'bg-slate-300'} ${locked ? 'opacity-70 cursor-not-allowed' : 'cursor-pointer'}`}
+    >
+      <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${checked ? 'translate-x-5' : ''}`} />
+    </button>
+  </div>
+);
+
+const CookieConsent: React.FC<{ prefsOpen: boolean; onPrefsOpen: (v: boolean) => void }> = ({ prefsOpen, onPrefsOpen }) => {
+  const [consent, setConsent] = useState<ConsentRecord | null>(() => readConsent());
+  const [draft, setDraft] = useState({ analytics: false, advertising: false, affiliate: false });
+
+  useEffect(() => {
+    if (prefsOpen) setDraft({ analytics: consent?.analytics ?? false, advertising: consent?.advertising ?? false, affiliate: consent?.affiliate ?? false });
+  }, [prefsOpen, consent]);
+
+  useEffect(() => {
+    if (!prefsOpen) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onPrefsOpen(false); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [prefsOpen, onPrefsOpen]);
+
+  const save = (choice: { analytics: boolean; advertising: boolean; affiliate: boolean }) => {
+    const record: ConsentRecord = { essential: true, ...choice, decided: new Date().toISOString() };
+    try { localStorage.setItem(CONSENT_KEY, JSON.stringify(record)); } catch { /* storage blocked — session-only consent */ }
+    setConsent(record);
+    onPrefsOpen(false);
+  };
+
+  return <>
+    {prefsOpen && (
+      <div className="fixed inset-0 z-[70] flex items-end sm:items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm" role="dialog" aria-modal="true" aria-label="Cookie preferences">
+        <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl border border-slate-200 overflow-hidden">
+          <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+            <h2 className="font-bold text-slate-900">Manage cookie preferences</h2>
+            <button type="button" onClick={() => onPrefsOpen(false)} aria-label="Close cookie preferences" className="text-slate-400 hover:text-slate-600 text-xl leading-none">&times;</button>
+          </div>
+          <div className="px-5 py-2 divide-y divide-slate-100">
+            <CookieToggle title="Essential" description="Required for the site to work and to remember your choices. Always on." checked locked />
+            <CookieToggle title="Analytics" description="Google Analytics shows us which tools are used so we can improve them." checked={draft.analytics} onChange={v => setDraft(d => ({ ...d, analytics: v }))} />
+            <CookieToggle title="Advertising" description="Google AdSense serves and measures the ads that keep this site free." checked={draft.advertising} onChange={v => setDraft(d => ({ ...d, advertising: v }))} />
+            <CookieToggle title="Affiliate tracking" description="Credits referrals when you click partner links, at no cost to you." checked={draft.affiliate} onChange={v => setDraft(d => ({ ...d, affiliate: v }))} />
+          </div>
+          <div className="px-5 py-4 border-t border-slate-100 bg-slate-50 flex flex-col sm:flex-row items-center justify-between gap-3">
+            <a href="#/p/cookie-policy" onClick={() => onPrefsOpen(false)} className="text-xs font-semibold text-indigo-600 hover:underline">Read our Cookie Policy</a>
+            <button type="button" autoFocus onClick={() => save(draft)} className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-bold text-sm hover:shadow-lg transition-shadow">Save Preferences</button>
+          </div>
+        </div>
+      </div>
+    )}
+    {!consent && !prefsOpen && (
+      <div className="fixed bottom-0 inset-x-0 z-[60] p-3 sm:p-4" role="region" aria-label="Cookie consent">
+        <div className="max-w-5xl mx-auto bg-white border border-slate-200 rounded-2xl shadow-2xl p-4 sm:p-5">
+          <div className="flex flex-col lg:flex-row lg:items-center gap-4">
+            <div className="flex-1 min-w-0">
+              <h2 className="text-sm font-bold text-slate-900">We use cookies</h2>
+              <p className="text-xs sm:text-[13px] text-slate-600 mt-1 leading-relaxed">
+                We use essential cookies to make our site work. With your consent, we may also use analytics, advertising, and affiliate tracking cookies to improve your experience and understand how visitors use our site.{' '}
+                <a href="#/p/cookie-policy" className="font-semibold text-indigo-600 hover:underline">Read our Cookie Policy</a>.
+              </p>
+            </div>
+            <div className="flex flex-wrap items-center gap-2 flex-shrink-0">
+              <button type="button" onClick={() => onPrefsOpen(true)} className="px-4 py-2.5 rounded-xl border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 font-semibold text-sm">Manage Preferences</button>
+              <button type="button" onClick={() => save({ analytics: false, advertising: false, affiliate: false })} className="px-4 py-2.5 rounded-xl border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 font-semibold text-sm">Decline</button>
+              <button type="button" onClick={() => save({ analytics: true, advertising: true, affiliate: true })} className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-bold text-sm hover:shadow-lg transition-shadow">Accept All</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    )}
+  </>;
+};
 
 const App: React.FC = () => (
   <CmsProvider>

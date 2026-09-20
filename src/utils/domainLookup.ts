@@ -51,7 +51,11 @@ const eventDate = (events: unknown, action: string): string => {
 const formatDate = (value: string): string => {
   if (!value) return '';
   const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? value : date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+  // Format in UTC: registry event dates are UTC timestamps (e.g. Verisign uses
+  // 04:00Z = midnight US Eastern), so converting to the viewer's local
+  // timezone can shift the displayed day by one. WHOIS services publish the
+  // UTC date, so UTC keeps the tool consistent with them worldwide.
+  return Number.isNaN(date.getTime()) ? value : date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' });
 };
 const age = (registered: string): string => {
   const date = new Date(registered);

@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { fetchPageData, type LivePageData } from '../utils/pageFetch';
+import { fetchDomainInfo, type DomainInfo } from '../utils/domainLookup';
 
 type State = 'pass' | 'warning' | 'error';
 type Check = { label: string; detail: string; fix: string; state: State };
@@ -12,7 +13,7 @@ type Audit = {
   keywords: { term: string; count: number; density: number }[];
   links: { href: string; anchor: string; nofollow: boolean; internal: boolean }[];
 };
-type CompareRow = { label: string; yours: string | number; theirs: string | number; winner: 'yours' | 'theirs' | 'tie' };
+type CompareRow = { label: string; yours: string | number; theirs: string | number; winner: 'yours' | 'theirs' | 'tie'; result?: string };
 
 const inputClass = 'w-full px-4 py-4 rounded-xl border border-slate-300 bg-white outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20';
 const normalise = (url: string) => /^https?:\/\//i.test(url.trim()) ? url.trim() : `https://${url.trim()}`;
@@ -130,6 +131,54 @@ const AuditOverview: React.FC<{ audit: Audit; label: string; badge: string }> = 
   </article>
 );
 
+// Human-readable renewal status derived from the RDAP expiry date.
+const expiryStatus = (days: number | null): { text: string; cls: string } => {
+  if (days === null) return { text: 'Expiry date unavailable', cls: 'text-slate-400' };
+  if (days < 0) return { text: `Expired ${Math.abs(days).toLocaleString()} day${Math.abs(days) === 1 ? '' : 's'} ago`, cls: 'text-red-600' };
+  if (days < 30) return { text: `Only ${days.toLocaleString()} day${days === 1 ? '' : 's'} to renewal`, cls: 'text-red-600' };
+  if (days < 90) return { text: `${days.toLocaleString()} days to renewal`, cls: 'text-amber-600' };
+  return { text: `${days.toLocaleString()} days remaining`, cls: 'text-emerald-600' };
+};
+
+const DomainOverview: React.FC<{ info: DomainInfo | null; label: string; badge: string }> = ({ info, label, badge }) => {
+  const expiry = expiryStatus(info?.daysToExpiry ?? null);
+  return (
+    <article className="bg-slate-100 border border-slate-200 rounded-3xl p-5 md:p-6">
+      <div className="flex justify-between gap-3 mb-4">
+        <div className="min-w-0">
+          <span className={`inline-flex px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-wide text-white ${badge}`}>{label}</span>
+          <h2 className="text-lg font-bold text-slate-900 truncate mt-2">{info?.domain || 'Unknown domain'}</h2>
+          <p className="text-xs text-slate-500 truncate">{info?.live ? 'Public registry data via RDAP' : 'No registry data available'}</p>
+        </div>
+        <span className={`h-fit text-[10px] font-bold border rounded-full px-2 py-1 ${info?.live ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 'bg-amber-50 text-amber-700 border-amber-100'}`}>{info?.live ? 'RDAP registry' : 'Unavailable'}</span>
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        <div className="bg-white border border-slate-200 rounded-xl p-3">
+          <small className="text-slate-500">Registered</small>
+          <b className="block text-slate-900" title={info?.registeredIso || ''}>{info?.registered || '—'}</b>
+          <span className="text-[11px] text-slate-500">Age: {info?.registered ? info.ageLabel : 'Unknown'}</span>
+        </div>
+        <div className="bg-white border border-slate-200 rounded-xl p-3">
+          <small className="text-slate-500">Expires</small>
+          <b className="block text-slate-900" title={info?.expiryIso || ''}>{info?.expiry || '—'}</b>
+          <span className={`text-[11px] font-semibold ${expiry.cls}`}>{expiry.text}</span>
+        </div>
+        <div className="bg-white border border-slate-200 rounded-xl p-3">
+          <small className="text-slate-500">Registrar</small>
+          <b className="block text-slate-900 truncate" title={info?.registrar || ''}>{info?.registrar || '—'}</b>
+        </div>
+        <div className="bg-white border border-slate-200 rounded-xl p-3">
+          <small className="text-slate-500">Last registry update</small>
+          <b className="block text-slate-900">{info?.updated || '—'}</b>
+        </div>
+      </div>
+      {info?.statuses.length ? <div className="flex flex-wrap gap-1.5 mt-3">{info.statuses.map(status => <span key={status} className="text-[10px] font-mono bg-slate-200 text-slate-600 rounded px-1.5 py-0.5">{status}</span>)}</div> : null}
+      {info && !info.live && info.error && <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2 mt-3">{info.error}</p>}
+      {info?.live && <p className="text-[11px] text-slate-400 mt-3 leading-relaxed">Dates reflect the current registry record. If a domain previously expired and was re-registered, the registry publishes the new registration date, not the original one.<a href={`https://lookup.icann.org/en/lookup?name=${info.domain}`} target="_blank" rel="noopener noreferrer" className="ml-1 font-semibold text-indigo-600 hover:underline">Verify at ICANN ↗</a></p>}
+    </article>
+  );
+};
+
 const AuditDetails: React.FC<{ audit: Audit }> = ({ audit }) => {
   const internal = audit.links.filter(link => link.internal).slice(0, 8);
   const external = audit.links.filter(link => !link.internal).slice(0, 8);
@@ -151,15 +200,27 @@ const AuditDetails: React.FC<{ audit: Audit }> = ({ audit }) => {
   </div>;
 };
 
-const comparison = (a: Audit, b: Audit): CompareRow[] => {
+const comparison = (a: Audit, b: Audit, da: DomainInfo | null, db: DomainInfo | null): CompareRow[] => {
   const row = (label: string, av: number, bv: number, high = true, suffix = ''): CompareRow => ({ label, yours: `${av.toLocaleString()}${suffix}`, theirs: `${bv.toLocaleString()}${suffix}`, winner: av === bv ? 'tie' : high ? av > bv ? 'yours' : 'theirs' : av < bv ? 'yours' : 'theirs' });
-  return [row('Overall score', a.score, b.score), ...a.categories.map((c, i) => row(`${c.name} score`, c.score, b.categories[i].score)), row('Word count', +a.metrics.words, +b.metrics.words), row('Internal links', +a.metrics.internal, +b.metrics.internal), row('External links', +a.metrics.external, +b.metrics.external), row('Missing alt text', +a.metrics.missingAlt, +b.metrics.missingAlt, false), row('HTML size', +a.metrics.htmlKb, +b.metrics.htmlKb, false, ' KB'), row('Response time', +a.metrics.response, +b.metrics.response, false, ' ms')];
+  // Date rows compare registry timestamps from RDAP. `laterWins` picks whether
+  // the later or earlier date is the stronger signal (older registration is a
+  // mild trust signal; a later expiry means the domain is renewed further out).
+  const domainRow = (label: string, av: string, bv: string, aIso: string, bIso: string, laterWins: boolean, winText: string): CompareRow => {
+    const aT = aIso ? Date.parse(aIso) : NaN;
+    const bT = bIso ? Date.parse(bIso) : NaN;
+    const hasBoth = !Number.isNaN(aT) && !Number.isNaN(bT);
+    const winner: CompareRow['winner'] = !hasBoth || aT === bT ? 'tie' : laterWins === (aT > bT) ? 'yours' : 'theirs';
+    return { label, yours: av || '—', theirs: bv || '—', winner, result: !hasBoth ? 'No data' : winner === 'tie' ? 'Same date' : winText };
+  };
+  return [row('Overall score', a.score, b.score), ...a.categories.map((c, i) => row(`${c.name} score`, c.score, b.categories[i].score)), row('Word count', +a.metrics.words, +b.metrics.words), row('Internal links', +a.metrics.internal, +b.metrics.internal), row('External links', +a.metrics.external, +b.metrics.external), row('Missing alt text', +a.metrics.missingAlt, +b.metrics.missingAlt, false), row('HTML size', +a.metrics.htmlKb, +b.metrics.htmlKb, false, ' KB'), row('Response time', +a.metrics.response, +b.metrics.response, false, ' ms'),
+    domainRow('Domain registered', da?.registered || '—', db?.registered || '—', da?.registeredIso || '', db?.registeredIso || '', false, 'Older domain'),
+    domainRow('Domain expires', da?.expiry || '—', db?.expiry || '—', da?.expiryIso || '', db?.expiryIso || '', true, 'Valid longer')];
 };
 
 export const CompetitorToolContent: React.FC = () => {
   const [open, setOpen] = useState(0);
   const faqs = [
-    ['What does the competitor analysis compare?', 'It compares both pages across on-page SEO, technical signals, mobile readiness, security, performance, keywords, content depth and link structure.'],
+    ['What does the competitor analysis compare?', 'It compares both pages across on-page SEO, technical signals, mobile readiness, security, performance, keywords, content depth and link structure. Domain registration and expiry dates for both sites come from public RDAP registry data.'],
     ['Does this tool check an entire website?', 'It compares the two exact URLs you enter. For a broader view, test matching templates such as both homepages, both service pages, or both product pages.'],
     ['Why does a report say Estimated fallback?', 'Some websites block browser or CORS access. In that case the tool completes with stable URL-based sample data so the workflow does not fail, and labels the result clearly.'],
     ['Does a higher SEO score guarantee better rankings?', 'No. The score measures important technical and on-page signals. Rankings also depend on relevance, backlinks, brand trust, user intent and competition.'],
@@ -173,21 +234,29 @@ export const CompetitorToolContent: React.FC = () => {
 const CompetitorAnalysis: React.FC = () => {
   const [yours, setYours] = useState(''), [theirs, setTheirs] = useState('');
   const [yourAudit, setYourAudit] = useState<Audit | null>(null), [theirAudit, setTheirAudit] = useState<Audit | null>(null);
+  const [yourDomain, setYourDomain] = useState<DomainInfo | null>(null), [theirDomain, setTheirDomain] = useState<DomainInfo | null>(null);
   const [busy, setBusy] = useState(false), [progress, setProgress] = useState(0), [status, setStatus] = useState(''), [error, setError] = useState('');
   const run = async () => {
     if (!yours.trim() || !theirs.trim()) { setError('Enter both website URLs.'); return; }
-    setBusy(true); setError(''); setProgress(8); setStatus('Fetching and auditing both websites…'); setYourAudit(null); setTheirAudit(null);
+    setBusy(true); setError(''); setProgress(8); setStatus('Auditing both pages and querying domain registries…'); setYourAudit(null); setTheirAudit(null); setYourDomain(null); setTheirDomain(null);
     const timer = window.setInterval(() => setProgress(v => Math.min(90, v + 4)), 250);
-    const [a, b] = await Promise.all([getAudit(yours), getAudit(theirs)]);
-    window.clearInterval(timer); setProgress(100); setStatus('Comparison report ready.'); setYourAudit(a); setTheirAudit(b); setBusy(false);
+    const [a, b, da, db] = await Promise.all([
+      getAudit(yours),
+      getAudit(theirs),
+      // RDAP lookups run in parallel with the page audits; they never hold the
+      // report for longer than the audits themselves could take.
+      Promise.race([fetchDomainInfo(yours).catch(() => null), timeout(9500)]),
+      Promise.race([fetchDomainInfo(theirs).catch(() => null), timeout(9500)]),
+    ]);
+    window.clearInterval(timer); setProgress(100); setStatus('Comparison report ready.'); setYourAudit(a); setTheirAudit(b); setYourDomain(da); setTheirDomain(db); setBusy(false);
   };
-  const rows = useMemo(() => yourAudit && theirAudit ? comparison(yourAudit, theirAudit) : [], [yourAudit, theirAudit]);
+  const rows = useMemo(() => yourAudit && theirAudit ? comparison(yourAudit, theirAudit, yourDomain, theirDomain) : [], [yourAudit, theirAudit, yourDomain, theirDomain]);
   const gaps = yourAudit?.categories.flatMap(c => c.checks.filter(x => x.state !== 'pass').map(x => ({ ...x, category: c.name }))).slice(0, 10) || [];
 
   if (!yourAudit || !theirAudit) return <div className="space-y-6"><section className="text-center bg-gradient-to-br from-indigo-500 to-purple-600 rounded-3xl p-8 md:p-10 text-white"><p className="text-xs font-bold uppercase tracking-[.18em] text-indigo-200 mb-3">Side-by-side SEO audit</p><h1 className="text-3xl md:text-4xl font-extrabold">Website Competitor Analysis</h1><p className="max-w-2xl mx-auto text-indigo-100 mt-3">Run two complete audits with the same on-page, technical, mobile, security and performance checks used by the homepage audit.</p></section><section className="bg-white rounded-2xl border border-slate-200 p-5 md:p-6 shadow-sm"><div className="grid md:grid-cols-2 gap-4"><div><label className="block text-sm font-semibold text-slate-700 mb-1">Your website</label><Input value={yours} onChange={e => setYours(e.target.value)} placeholder="https://yourwebsite.com/page" /></div><div><label className="block text-sm font-semibold text-slate-700 mb-1">Competitor website</label><Input value={theirs} onChange={e => setTheirs(e.target.value)} placeholder="https://competitor.com/page" /></div></div>{busy ? <div className="mt-6"><div className="flex justify-between text-sm text-slate-600 mb-2"><span>{status}</span><span>{progress}%</span></div><div className="h-2 bg-slate-200 rounded-full overflow-hidden"><div className="h-full bg-gradient-to-r from-indigo-500 to-purple-600" style={{ width: `${progress}%` }} /></div></div> : <button onClick={run} className="w-full mt-5 py-4 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold">Compare Both Websites →</button>}{error && <p className="text-sm text-red-600 text-center mt-3">{error}</p>}<p className="text-xs text-slate-400 text-center mt-3">If a site blocks browser access, a clearly labelled URL-based fallback keeps the comparison working.</p></section></div>;
 
   const yourWins = rows.filter(r => r.winner === 'yours').length, theirWins = rows.filter(r => r.winner === 'theirs').length;
-  return <div className="space-y-8"><div className="flex flex-wrap justify-between gap-3"><div><h1 className="text-2xl md:text-3xl font-extrabold text-slate-900">SEO Competitor Comparison</h1><p className="text-sm text-slate-500 mt-1">Two full audit reports, side by side.</p></div><button onClick={() => { setYourAudit(null); setTheirAudit(null); setProgress(0); }} className="px-4 py-2 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-sm font-semibold">Compare different URLs</button></div><div className="grid xl:grid-cols-2 gap-6"><AuditOverview audit={yourAudit} label="Your Website" badge="bg-indigo-600" /><AuditOverview audit={theirAudit} label="Competitor" badge="bg-violet-600" /></div><section className="bg-white rounded-2xl border border-slate-200 overflow-hidden"><div className="flex flex-wrap justify-between gap-3 px-5 py-4 border-b border-slate-100"><div><h2 className="font-bold text-slate-900">Head-to-Head Comparison</h2><p className="text-xs text-slate-500 mt-0.5">Green values show the stronger result.</p></div><div className="flex gap-2 text-xs font-bold"><span className="bg-indigo-50 text-indigo-700 rounded-full px-3 py-1">You win {yourWins}</span><span className="bg-violet-50 text-violet-700 rounded-full px-3 py-1">Competitor wins {theirWins}</span></div></div><div className="overflow-x-auto"><table className="w-full text-sm"><thead><tr className="bg-slate-50 text-left text-xs uppercase text-slate-500"><th className="px-4 py-3">Metric</th><th className="px-4 py-3">Your site</th><th className="px-4 py-3">Competitor</th><th className="px-4 py-3">Result</th></tr></thead><tbody>{rows.map((r, i) => <tr key={r.label} className={i % 2 ? 'bg-slate-50/60' : 'bg-white'}><td className="px-4 py-3 font-semibold text-slate-700">{r.label}</td><td className={`px-4 py-3 font-mono ${r.winner === 'yours' ? 'text-emerald-600 font-bold' : ''}`}>{r.yours}</td><td className={`px-4 py-3 font-mono ${r.winner === 'theirs' ? 'text-emerald-600 font-bold' : ''}`}>{r.theirs}</td><td className={`px-4 py-3 text-xs font-bold ${r.winner === 'yours' ? 'text-indigo-600' : r.winner === 'theirs' ? 'text-violet-600' : 'text-slate-400'}`}>{r.winner === 'yours' ? 'Your site leads' : r.winner === 'theirs' ? 'Competitor leads' : 'Tie'}</td></tr>)}</tbody></table></div></section><section className="grid lg:grid-cols-2 gap-6"><div><h2 className="text-xl font-bold text-slate-900 mb-3">Your Full Audit</h2><AuditDetails audit={yourAudit} /></div><div><h2 className="text-xl font-bold text-slate-900 mb-3">Competitor Full Audit</h2><AuditDetails audit={theirAudit} /></div></section><section className="bg-white rounded-2xl border border-slate-200 p-5 md:p-6"><h2 className="text-xl font-bold text-slate-900">Your Priority Improvement Plan</h2><p className="text-sm text-slate-500 mt-1 mb-5">Fix errors first, then warnings.</p>{gaps.length ? <div className="grid md:grid-cols-2 gap-3">{gaps.map((g, i) => <article key={`${g.category}-${g.label}`} className="rounded-xl border border-slate-200 p-4 flex gap-3"><span className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 ${g.state === 'error' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'}`}>{i + 1}</span><div><p className="text-[10px] uppercase font-bold text-slate-400">{g.category}</p><h3 className="text-sm font-bold text-slate-800">{g.label}</h3><p className="text-xs text-slate-500 mt-1">{g.fix}</p></div></article>)}</div> : <p className="text-emerald-600 font-semibold">All audited checks passed.</p>}</section></div>;
+  return <div className="space-y-8"><div className="flex flex-wrap justify-between gap-3"><div><h1 className="text-2xl md:text-3xl font-extrabold text-slate-900">SEO Competitor Comparison</h1><p className="text-sm text-slate-500 mt-1">Two full audit reports, side by side.</p></div><button onClick={() => { setYourAudit(null); setTheirAudit(null); setYourDomain(null); setTheirDomain(null); setProgress(0); }} className="px-4 py-2 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-sm font-semibold">Compare different URLs</button></div><div className="grid xl:grid-cols-2 gap-6"><AuditOverview audit={yourAudit} label="Your Website" badge="bg-indigo-600" /><AuditOverview audit={theirAudit} label="Competitor" badge="bg-violet-600" /></div><section className="space-y-4"><div className="flex flex-wrap justify-between gap-3"><div><h2 className="text-xl font-bold text-slate-900">Domain Registration &amp; Expiry</h2><p className="text-sm text-slate-500 mt-0.5">Registration and expiry dates from public RDAP registry data.</p></div><span className="h-fit text-[10px] font-bold bg-sky-50 text-sky-700 border border-sky-100 rounded-full px-2 py-1">RDAP · public registry protocol</span></div><div className="grid xl:grid-cols-2 gap-6"><DomainOverview info={yourDomain} label="Your Website" badge="bg-indigo-600" /><DomainOverview info={theirDomain} label="Competitor" badge="bg-violet-600" /></div></section><section className="bg-white rounded-2xl border border-slate-200 overflow-hidden"><div className="flex flex-wrap justify-between gap-3 px-5 py-4 border-b border-slate-100"><div><h2 className="font-bold text-slate-900">Head-to-Head Comparison</h2><p className="text-xs text-slate-500 mt-0.5">Green values show the stronger result.</p></div><div className="flex gap-2 text-xs font-bold"><span className="bg-indigo-50 text-indigo-700 rounded-full px-3 py-1">You win {yourWins}</span><span className="bg-violet-50 text-violet-700 rounded-full px-3 py-1">Competitor wins {theirWins}</span></div></div><div className="overflow-x-auto"><table className="w-full text-sm"><thead><tr className="bg-slate-50 text-left text-xs uppercase text-slate-500"><th className="px-4 py-3">Metric</th><th className="px-4 py-3">Your site</th><th className="px-4 py-3">Competitor</th><th className="px-4 py-3">Result</th></tr></thead><tbody>{rows.map((r, i) => <tr key={r.label} className={i % 2 ? 'bg-slate-50/60' : 'bg-white'}><td className="px-4 py-3 font-semibold text-slate-700">{r.label}</td><td className={`px-4 py-3 font-mono ${r.winner === 'yours' ? 'text-emerald-600 font-bold' : ''}`}>{r.yours}</td><td className={`px-4 py-3 font-mono ${r.winner === 'theirs' ? 'text-emerald-600 font-bold' : ''}`}>{r.theirs}</td><td className={`px-4 py-3 text-xs font-bold ${r.winner === 'yours' ? 'text-indigo-600' : r.winner === 'theirs' ? 'text-violet-600' : 'text-slate-400'}`}>{r.result ?? (r.winner === 'yours' ? 'Your site leads' : r.winner === 'theirs' ? 'Competitor leads' : 'Tie')}</td></tr>)}</tbody></table></div></section><section className="grid lg:grid-cols-2 gap-6"><div><h2 className="text-xl font-bold text-slate-900 mb-3">Your Full Audit</h2><AuditDetails audit={yourAudit} /></div><div><h2 className="text-xl font-bold text-slate-900 mb-3">Competitor Full Audit</h2><AuditDetails audit={theirAudit} /></div></section><section className="bg-white rounded-2xl border border-slate-200 p-5 md:p-6"><h2 className="text-xl font-bold text-slate-900">Your Priority Improvement Plan</h2><p className="text-sm text-slate-500 mt-1 mb-5">Fix errors first, then warnings.</p>{gaps.length ? <div className="grid md:grid-cols-2 gap-3">{gaps.map((g, i) => <article key={`${g.category}-${g.label}`} className="rounded-xl border border-slate-200 p-4 flex gap-3"><span className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 ${g.state === 'error' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'}`}>{i + 1}</span><div><p className="text-[10px] uppercase font-bold text-slate-400">{g.category}</p><h3 className="text-sm font-bold text-slate-800">{g.label}</h3><p className="text-xs text-slate-500 mt-1">{g.fix}</p></div></article>)}</div> : <p className="text-emerald-600 font-semibold">All audited checks passed.</p>}</section></div>;
 };
 
 export default CompetitorAnalysis;
