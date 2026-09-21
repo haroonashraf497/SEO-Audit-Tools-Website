@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { fetchPageData, type LivePageData } from '../utils/pageFetch';
 import { fetchDomainInfo, type DomainInfo } from '../utils/domainLookup';
-import SerpPreview, { SerpCompare } from '../components/SerpPreview';
+import { SerpCompare } from '../components/SerpPreview';
 
 type State = 'pass' | 'warning' | 'error';
 type Check = { label: string; detail: string; fix: string; state: State };
@@ -139,8 +139,6 @@ const timeout = (ms: number) => new Promise<null>(resolve => window.setTimeout((
 const getAudit = async (url: string) => { const clean = normalise(url); const live = await Promise.race([fetchPageData(clean).catch(() => null), timeout(12000)]); return buildAudit(url, live || fallback(clean), Boolean(live)); };
 const tone = (n: number) => n >= 80 ? 'text-emerald-600' : n >= 60 ? 'text-amber-600' : 'text-red-600';
 const stroke = (n: number) => n >= 80 ? '#10b981' : n >= 60 ? '#f59e0b' : '#ef4444';
-const checkStyle: Record<State, string> = { pass: 'bg-emerald-50 border-emerald-100 text-emerald-700', warning: 'bg-amber-50 border-amber-100 text-amber-700', error: 'bg-red-50 border-red-100 text-red-700' };
-
 const scoreLabel = (n: number) => n >= 80 ? 'Strong' : n >= 60 ? 'Needs work' : 'Weak';
 const sectionHeading = 'text-xl font-bold text-slate-900';
 const Input: React.FC<React.InputHTMLAttributes<HTMLInputElement>> = props => <input {...props} className={`${inputClass} ${props.className || ''}`} />;
@@ -254,95 +252,144 @@ const DomainOverview: React.FC<{ info: DomainInfo | null; label: string; accent:
   );
 };
 
-const AuditDetails: React.FC<{ audit: Audit }> = ({ audit }) => {
-  const internal = audit.links.filter(link => link.internal);
-  const external = audit.links.filter(link => !link.internal);
-  const maxKw = Math.max(...audit.keywords.map(k => k.count), 1);
-  const LinkPanel: React.FC<{ title: string; links: Audit['links']; toneClass: string }> = ({ title, links, toneClass }) => (
-    <div className="rounded-2xl border border-slate-200 overflow-hidden min-w-0 bg-white">
-      <div className={`px-5 py-3.5 border-b border-slate-200 ${toneClass}`}>
-        <h3 className={sectionHeading}>{title}</h3>
-        <p className="text-sm mt-1 opacity-80">{links.length} URL{links.length === 1 ? '' : 's'}</p>
-      </div>
-      <div className="divide-y divide-slate-100">
-        {links.length ? links.map((link, index) => (
-          <a key={`${link.href}-${index}`} href={link.href} target="_blank" rel="noopener noreferrer" className="flex items-start gap-3 px-5 py-3.5 hover:bg-slate-50">
-            <span className="min-w-0 flex-1">
-              <span className="block text-sm font-medium text-slate-800 break-words">{link.anchor || '(no anchor)'}</span>
-              <span className="block text-xs font-mono text-slate-400 break-all mt-1">{link.href}</span>
-            </span>
-            {link.nofollow && <span className="text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-100 rounded px-1.5 py-0.5 flex-shrink-0">nofollow</span>}
-          </a>
-        )) : <p className="px-5 py-6 text-sm text-slate-500">No URLs available.</p>}
-      </div>
-    </div>
+
+const Pair: React.FC<{ children: React.ReactNode }> = ({ children }) => (
+  <div className="grid lg:grid-cols-2 gap-6 items-stretch [&>*]:min-w-0 [&>*]:h-full">{children}</div>
+);
+
+const StateIcon: React.FC<{ state: State }> = ({ state }) => {
+  if (state === 'pass') return (
+    <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <circle cx="12" cy="12" r="10" /><path d="m9 12 2 2 4-5" />
+    </svg>
+  );
+  if (state === 'warning') return (
+    <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M12 3 2 20h20L12 3z" /><line x1="12" y1="10" x2="12" y2="14" /><line x1="12" y1="17" x2="12.01" y2="17" />
+    </svg>
   );
   return (
-    <div className="space-y-6 min-w-0">
-      <SerpPreview url={audit.url} title={audit.title} description={audit.description} live={audit.live} />
-      <section className="bg-white rounded-2xl border border-slate-200 p-6">
-        <h3 className={`${sectionHeading} mb-4`}>Page snapshot</h3>
-        <dl className="space-y-4">
-          <div>
-            <dt className="text-xs font-semibold text-slate-500 mb-1.5">Title · {audit.title.length} characters</dt>
-            <dd className="text-sm text-slate-800 break-words leading-relaxed">{audit.title || 'No title tag found'}</dd>
-          </div>
-          <div className="border-t border-slate-100 pt-4">
-            <dt className="text-xs font-semibold text-slate-500 mb-1.5">Meta description · {audit.description.length} characters</dt>
-            <dd className="text-sm text-slate-800 break-words leading-relaxed">{audit.description || 'No meta description found'}</dd>
-          </div>
-          {audit.h1s.length > 0 && (
-            <div className="border-t border-slate-100 pt-4">
-              <dt className="text-xs font-semibold text-slate-500 mb-1.5">H1 headings · {audit.h1s.length}</dt>
-              <dd className="space-y-2">{audit.h1s.map((h1, i) => <p key={i} className="text-sm text-slate-800 break-words leading-relaxed">{h1}</p>)}</dd>
-            </div>
-          )}
-        </dl>
-      </section>
-      {audit.categories.map(category => (
-        <section key={category.name} className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
-          <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
-            <h3 className={sectionHeading}>{category.name}</h3>
-            <span className={`text-sm font-bold ${tone(category.score)}`}>{category.score}/100</span>
-          </div>
-          <div className="divide-y divide-slate-100">
-            {category.checks.map(item => (
-              <div key={item.label} className="px-6 py-5 flex items-start gap-4">
-                <span className={`text-[10px] font-bold uppercase rounded-full px-2.5 py-1 border flex-shrink-0 mt-0.5 ${checkStyle[item.state]}`}>{item.state}</span>
-                <div className="min-w-0">
-                  <p className="text-sm font-semibold text-slate-900">{item.label}</p>
-                  <p className="text-sm text-slate-600 mt-1 leading-relaxed break-words">{item.detail}</p>
-                  <p className="text-sm text-slate-500 mt-2 leading-relaxed"><span className="font-semibold text-slate-700">Fix:</span> {item.fix}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
-      ))}
-      <section className="bg-white rounded-2xl border border-slate-200 p-6">
-        <div className="flex items-end justify-between gap-3 mb-5">
-          <h3 className={sectionHeading}>Top keywords</h3>
-          <span className="text-xs text-slate-500">{audit.keywords.length} terms · {Number(audit.metrics.words).toLocaleString()} words</span>
-        </div>
-        {audit.keywords.length ? (
-          <div className="space-y-3">
-            {audit.keywords.map(keyword => (
-              <div key={keyword.term} className="flex items-center gap-4">
-                <span className="w-40 text-sm text-slate-700 truncate" title={keyword.term}>{keyword.term}</span>
-                <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden"><div className="h-full bg-indigo-500 rounded-full" style={{ width: `${(keyword.count / maxKw) * 100}%` }} /></div>
-                <span className="w-24 text-right text-xs text-slate-500">{keyword.count}× · {keyword.density}%</span>
-              </div>
-            ))}
-          </div>
-        ) : <p className="text-sm text-slate-500">No keyword data available.</p>}
-      </section>
-      <div className="space-y-6">
-        <LinkPanel title="Internal URLs" links={internal} toneClass="bg-indigo-50 text-indigo-700" />
-        <LinkPanel title="External URLs" links={external} toneClass="bg-sky-50 text-sky-700" />
-      </div>
-    </div>
+    <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <circle cx="12" cy="12" r="10" /><line x1="15" y1="9" x2="9" y2="15" /><line x1="9" y1="9" x2="15" y2="15" />
+    </svg>
   );
 };
+
+const checkTone: Record<State, { card: string; bar: string; icon: string; badge: string; label: string }> = {
+  pass: { card: 'bg-emerald-50/70 border-emerald-100', bar: 'bg-emerald-500', icon: 'text-emerald-600', badge: 'bg-emerald-100 text-emerald-800', label: 'Pass' },
+  warning: { card: 'bg-amber-50/80 border-amber-100', bar: 'bg-amber-500', icon: 'text-amber-600', badge: 'bg-amber-100 text-amber-800', label: 'Warning' },
+  error: { card: 'bg-rose-50/80 border-rose-100', bar: 'bg-rose-500', icon: 'text-rose-600', badge: 'bg-rose-100 text-rose-800', label: 'Error' },
+};
+
+const CheckCard: React.FC<{ item: Check }> = ({ item }) => {
+  const t = checkTone[item.state];
+  return (
+    <article className={`relative rounded-xl border overflow-hidden ${t.card}`}>
+      <span className={`absolute inset-y-0 left-0 w-1 ${t.bar}`} aria-hidden="true" />
+      <div className="pl-4 pr-4 py-3.5 flex items-start gap-3">
+        <span className={`flex-shrink-0 mt-0.5 ${t.icon}`}><StateIcon state={item.state} /></span>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-start justify-between gap-3">
+            <p className="text-sm font-bold text-slate-900">{item.label}</p>
+            <span className={`text-[10px] font-bold uppercase tracking-wide rounded-full px-2 py-0.5 flex-shrink-0 ${t.badge}`}>{t.label}</span>
+          </div>
+          <p className="text-sm text-slate-600 mt-1 leading-relaxed break-words">{item.detail}</p>
+          {item.state !== 'pass' && (
+            <p className="text-sm text-slate-700 mt-2.5 rounded-lg bg-white/90 border border-white px-3 py-2 leading-relaxed">
+              <span className="font-semibold">Fix:</span> {item.fix}
+            </p>
+          )}
+        </div>
+      </div>
+    </article>
+  );
+};
+
+const SiteCard: React.FC<{ audit: Audit; label: string }> = ({ audit, label }) => (
+  <div className="bg-white rounded-2xl border border-slate-200 px-5 py-4 h-full">
+    <div className="flex items-start justify-between gap-3">
+      <h3 className={sectionHeading}>{label}</h3>
+      <span className={`h-fit text-[10px] font-bold border rounded-full px-2 py-0.5 ${audit.live ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 'bg-amber-50 text-amber-700 border-amber-100'}`}>{audit.live ? 'Live HTML' : 'Estimated fallback'}</span>
+    </div>
+    <p className="text-sm font-semibold text-slate-700 break-all mt-2">{audit.host}</p>
+    <p className="text-sm text-slate-500 break-all mt-0.5">{audit.url}</p>
+  </div>
+);
+
+const PageSnapshot: React.FC<{ audit: Audit }> = ({ audit }) => (
+  <section className="bg-white rounded-2xl border border-slate-200 p-6 h-full flex flex-col">
+    <h3 className={`${sectionHeading} mb-4`}>Page snapshot</h3>
+    <dl className="space-y-4 flex-1">
+      <div>
+        <dt className="text-xs font-semibold text-slate-500 mb-1.5">Title · {audit.title.length} characters</dt>
+        <dd className="text-sm text-slate-800 break-words leading-relaxed">{audit.title || 'No title tag found'}</dd>
+      </div>
+      <div className="border-t border-slate-100 pt-4">
+        <dt className="text-xs font-semibold text-slate-500 mb-1.5">Meta description · {audit.description.length} characters</dt>
+        <dd className="text-sm text-slate-800 break-words leading-relaxed">{audit.description || 'No meta description found'}</dd>
+      </div>
+      <div className="border-t border-slate-100 pt-4">
+        <dt className="text-xs font-semibold text-slate-500 mb-1.5">H1 headings · {audit.h1s.length}</dt>
+        <dd className="space-y-2">{audit.h1s.length ? audit.h1s.map((h1, i) => <p key={i} className="text-sm text-slate-800 break-words leading-relaxed">{h1}</p>) : <p className="text-sm text-slate-500">No H1 tag found</p>}</dd>
+      </div>
+    </dl>
+  </section>
+);
+
+const CategoryPanel: React.FC<{ category: Category }> = ({ category }) => (
+  <section className="bg-white rounded-2xl border border-slate-200 overflow-hidden h-full flex flex-col">
+    <div className="flex items-center justify-between gap-3 px-5 py-4 border-b border-slate-100">
+      <h3 className={sectionHeading}>{category.name}</h3>
+      <span className={`text-sm font-bold tabular-nums ${tone(category.score)}`}>{category.score}/100</span>
+    </div>
+    <div className="p-4 space-y-3 flex-1">
+      {category.checks.map(item => <CheckCard key={item.label} item={item} />)}
+    </div>
+  </section>
+);
+
+const KeywordsPanel: React.FC<{ audit: Audit }> = ({ audit }) => {
+  const maxKw = Math.max(...audit.keywords.map(k => k.count), 1);
+  return (
+    <section className="bg-white rounded-2xl border border-slate-200 p-6 h-full flex flex-col">
+      <div className="flex items-end justify-between gap-3 mb-5">
+        <h3 className={sectionHeading}>Top keywords</h3>
+        <span className="text-xs text-slate-500">{audit.keywords.length} terms · {Number(audit.metrics.words).toLocaleString()} words</span>
+      </div>
+      {audit.keywords.length ? (
+        <div className="space-y-3 flex-1">
+          {audit.keywords.map(keyword => (
+            <div key={keyword.term} className="flex items-center gap-4">
+              <span className="w-40 text-sm text-slate-700 truncate" title={keyword.term}>{keyword.term}</span>
+              <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden"><div className="h-full bg-indigo-500 rounded-full" style={{ width: `${(keyword.count / maxKw) * 100}%` }} /></div>
+              <span className="w-24 text-right text-xs text-slate-500 tabular-nums">{keyword.count}× · {keyword.density}%</span>
+            </div>
+          ))}
+        </div>
+      ) : <p className="text-sm text-slate-500">No keyword data available.</p>}
+    </section>
+  );
+};
+
+const LinkPanel: React.FC<{ title: string; links: Audit['links']; toneClass: string }> = ({ title, links, toneClass }) => (
+  <div className="rounded-2xl border border-slate-200 overflow-hidden min-w-0 bg-white h-full flex flex-col">
+    <div className={`px-5 py-3.5 border-b border-slate-200 ${toneClass}`}>
+      <h3 className={sectionHeading}>{title}</h3>
+      <p className="text-sm mt-1 opacity-80">{links.length} URL{links.length === 1 ? '' : 's'}</p>
+    </div>
+    <div className="divide-y divide-slate-100 flex-1">
+      {links.length ? links.map((link, index) => (
+        <a key={`${link.href}-${index}`} href={link.href} target="_blank" rel="noopener noreferrer" className="flex items-start gap-3 px-5 py-3.5 hover:bg-slate-50">
+          <span className="min-w-0 flex-1">
+            <span className="block text-sm font-medium text-slate-800 break-words">{link.anchor || '(no anchor)'}</span>
+            <span className="block text-xs font-mono text-slate-400 break-all mt-1">{link.href}</span>
+          </span>
+          {link.nofollow && <span className="text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-100 rounded px-1.5 py-0.5 flex-shrink-0">nofollow</span>}
+        </a>
+      )) : <p className="px-5 py-6 text-sm text-slate-500">No URLs available.</p>}
+    </div>
+  </div>
+);
 
 const comparison = (a: Audit, b: Audit, da: DomainInfo | null, db: DomainInfo | null): CompareRow[] => {
   const row = (label: string, av: number, bv: number, high = true, suffix = ''): CompareRow => ({ label, yours: `${av.toLocaleString()}${suffix}`, theirs: `${bv.toLocaleString()}${suffix}`, winner: av === bv ? 'tie' : high ? av > bv ? 'yours' : 'theirs' : av < bv ? 'yours' : 'theirs' });
@@ -520,7 +567,9 @@ const CompetitorAnalysis: React.FC = () => {
                   <td className="px-5 py-3 font-medium text-slate-700">{r.label}</td>
                   <td className={`px-5 py-3 font-mono break-words ${r.winner === 'yours' ? 'text-emerald-600 font-bold' : 'text-slate-800'}`}>{r.yours}</td>
                   <td className={`px-5 py-3 font-mono break-words ${r.winner === 'theirs' ? 'text-emerald-600 font-bold' : 'text-slate-800'}`}>{r.theirs}</td>
-                  <td className={`px-5 py-3 text-xs font-semibold ${r.winner === 'yours' ? 'text-indigo-600' : r.winner === 'theirs' ? 'text-violet-600' : 'text-slate-400'}`}>{r.result ?? (r.winner === 'yours' ? 'Your site leads' : r.winner === 'theirs' ? 'Competitor leads' : 'Tie')}</td>
+                  <td className="px-5 py-3">
+                    <span className={`inline-flex text-[11px] font-semibold rounded-full px-2.5 py-1 ${r.winner === 'yours' ? 'bg-indigo-50 text-indigo-700' : r.winner === 'theirs' ? 'bg-violet-50 text-violet-700' : 'bg-slate-100 text-slate-500'}`}>{r.result ?? (r.winner === 'yours' ? 'Your site leads' : r.winner === 'theirs' ? 'Competitor leads' : 'Tie')}</span>
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -528,32 +577,34 @@ const CompetitorAnalysis: React.FC = () => {
         </div>
       </section>
 
-      <section>
-        <h2 className={`${sectionHeading} mb-5`}>Full audit</h2>
-        <div className="grid lg:grid-cols-2 gap-6 items-start">
-          <div className="min-w-0">
-            <div className="bg-white rounded-2xl border border-slate-200 px-5 py-4 mb-6">
-              <div className="flex items-start justify-between gap-3">
-                <h3 className={sectionHeading}>Your website</h3>
-                <span className={`h-fit text-[10px] font-bold border rounded-full px-2 py-0.5 ${yourAudit.live ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 'bg-amber-50 text-amber-700 border-amber-100'}`}>{yourAudit.live ? 'Live HTML' : 'Estimated fallback'}</span>
-              </div>
-              <p className="text-sm font-semibold text-slate-700 break-all mt-2">{yourAudit.host}</p>
-              <p className="text-sm text-slate-500 break-all mt-0.5">{yourAudit.url}</p>
-            </div>
-            <AuditDetails audit={yourAudit} />
-          </div>
-          <div className="min-w-0">
-            <div className="bg-white rounded-2xl border border-slate-200 px-5 py-4 mb-6">
-              <div className="flex items-start justify-between gap-3">
-                <h3 className={sectionHeading}>Competitor</h3>
-                <span className={`h-fit text-[10px] font-bold border rounded-full px-2 py-0.5 ${theirAudit.live ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 'bg-amber-50 text-amber-700 border-amber-100'}`}>{theirAudit.live ? 'Live HTML' : 'Estimated fallback'}</span>
-              </div>
-              <p className="text-sm font-semibold text-slate-700 break-all mt-2">{theirAudit.host}</p>
-              <p className="text-sm text-slate-500 break-all mt-0.5">{theirAudit.url}</p>
-            </div>
-            <AuditDetails audit={theirAudit} />
-          </div>
-        </div>
+      <section className="space-y-6">
+        <h2 className={sectionHeading}>Full audit</h2>
+        <Pair>
+          <SiteCard audit={yourAudit} label="Your website" />
+          <SiteCard audit={theirAudit} label="Competitor" />
+        </Pair>
+        <Pair>
+          <PageSnapshot audit={yourAudit} />
+          <PageSnapshot audit={theirAudit} />
+        </Pair>
+        {yourAudit.categories.map((category, i) => (
+          <Pair key={category.name}>
+            <CategoryPanel category={category} />
+            <CategoryPanel category={theirAudit.categories[i]} />
+          </Pair>
+        ))}
+        <Pair>
+          <KeywordsPanel audit={yourAudit} />
+          <KeywordsPanel audit={theirAudit} />
+        </Pair>
+        <Pair>
+          <LinkPanel title="Internal URLs" links={yourAudit.links.filter(link => link.internal)} toneClass="bg-indigo-50 text-indigo-700" />
+          <LinkPanel title="Internal URLs" links={theirAudit.links.filter(link => link.internal)} toneClass="bg-indigo-50 text-indigo-700" />
+        </Pair>
+        <Pair>
+          <LinkPanel title="External URLs" links={yourAudit.links.filter(link => !link.internal)} toneClass="bg-sky-50 text-sky-700" />
+          <LinkPanel title="External URLs" links={theirAudit.links.filter(link => !link.internal)} toneClass="bg-sky-50 text-sky-700" />
+        </Pair>
       </section>
 
       <section className="bg-white rounded-2xl border border-slate-200 p-6">
@@ -562,12 +613,19 @@ const CompetitorAnalysis: React.FC = () => {
         {gaps.length ? (
           <div className="space-y-3">
             {gaps.map((g, i) => (
-              <article key={`${g.category}-${g.label}`} className="rounded-xl border border-slate-200 px-5 py-4 flex gap-4">
-                <span className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 ${g.state === 'error' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'}`}>{i + 1}</span>
-                <div className="min-w-0">
-                  <p className="text-[11px] uppercase tracking-wide font-bold text-slate-400">{g.category} · {g.state}</p>
-                  <h3 className="text-sm font-bold text-slate-900 mt-0.5">{g.label}</h3>
-                  <p className="text-sm text-slate-600 mt-1 leading-relaxed">{g.fix}</p>
+              <article key={`${g.category}-${g.label}`} className={`relative rounded-xl border overflow-hidden pl-4 pr-5 py-4 ${g.state === 'error' ? 'border-rose-100 bg-rose-50/70' : 'border-amber-100 bg-amber-50/80'}`}>
+                <span className={`absolute inset-y-0 left-0 w-1 ${g.state === 'error' ? 'bg-rose-500' : 'bg-amber-500'}`} aria-hidden="true" />
+                <div className="flex items-start gap-3">
+                  <span className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 ${g.state === 'error' ? 'bg-rose-100 text-rose-700' : 'bg-amber-100 text-amber-800'}`}>{i + 1}</span>
+                  <span className={`flex-shrink-0 mt-1.5 ${g.state === 'error' ? 'text-rose-600' : 'text-amber-600'}`}><StateIcon state={g.state} /></span>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="text-[11px] uppercase tracking-wide font-bold text-slate-500">{g.category}</p>
+                      <span className={`text-[10px] font-bold uppercase tracking-wide rounded-full px-2 py-0.5 ${g.state === 'error' ? 'bg-rose-100 text-rose-800' : 'bg-amber-100 text-amber-800'}`}>{g.state === 'error' ? 'Error' : 'Warning'}</span>
+                    </div>
+                    <h3 className="text-sm font-bold text-slate-900 mt-1">{g.label}</h3>
+                    <p className="text-sm text-slate-700 mt-2 rounded-lg bg-white/90 px-3 py-2 leading-relaxed"><span className="font-semibold">Fix:</span> {g.fix}</p>
+                  </div>
                 </div>
               </article>
             ))}
