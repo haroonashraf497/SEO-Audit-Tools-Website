@@ -165,15 +165,33 @@ const AuditOverview: React.FC<{ audit: Audit; label: string; accent: string }> =
     <div className="h-1.5 bg-slate-100 rounded-full mt-3 overflow-hidden">
       <div className="h-full rounded-full" style={{ width: `${audit.score}%`, background: stroke(audit.score) }} />
     </div>
-    <div className="flex flex-wrap gap-x-4 gap-y-1 mt-3 text-sm text-slate-600">
-      <span><b className="text-slate-900">{audit.summary.total}</b> checks</span>
-      <span><b className="text-rose-600">{audit.summary.errors}</b> errors</span>
-      <span><b className="text-amber-600">{audit.summary.warnings}</b> warnings</span>
-      <span><b className="text-emerald-600">{audit.summary.passed}</b> passed</span>
+    <div className="grid grid-cols-4 gap-2 mt-4">
+      <div className="rounded-xl border border-sky-100 bg-sky-50 px-2 py-2.5 text-center min-w-0">
+        <p className="text-lg font-extrabold leading-none text-sky-900">{audit.summary.total}</p>
+        <p className="text-[10px] font-semibold text-sky-700 mt-1">Checks</p>
+      </div>
+      <div className="rounded-xl border border-rose-100 bg-rose-50 px-2 py-2.5 text-center min-w-0">
+        <p className="text-lg font-extrabold leading-none text-rose-700">{audit.summary.errors}</p>
+        <p className="text-[10px] font-semibold text-rose-700 mt-1">Errors</p>
+      </div>
+      <div className="rounded-xl border border-amber-100 bg-amber-50 px-2 py-2.5 text-center min-w-0">
+        <p className="text-lg font-extrabold leading-none text-amber-700">{audit.summary.warnings}</p>
+        <p className="text-[10px] font-semibold text-amber-700 mt-1">Warnings</p>
+      </div>
+      <div className="rounded-xl border border-emerald-100 bg-emerald-50 px-2 py-2.5 text-center min-w-0">
+        <p className="text-lg font-extrabold leading-none text-emerald-700">{audit.summary.passed}</p>
+        <p className="text-[10px] font-semibold text-emerald-700 mt-1">Passed</p>
+      </div>
     </div>
-    <div className="flex flex-wrap gap-x-4 gap-y-1 mt-3 pt-3 border-t border-slate-100 text-xs text-slate-500">
+    <div className="grid grid-cols-5 gap-2 mt-3">
       {audit.categories.map(c => (
-        <span key={c.name}><b className={tone(c.score)}>{c.score}</b> {c.name.replace(' SEO', '')}</span>
+        <div key={c.name} className="rounded-xl border border-slate-100 bg-slate-50 px-1.5 py-2.5 text-center min-w-0">
+          <p className={`text-lg font-extrabold leading-none ${tone(c.score)}`}>{c.score}</p>
+          <p className="text-[10px] text-slate-500 mt-1 leading-tight truncate">{c.name.replace(' SEO', '')}</p>
+          <div className="h-1 bg-slate-200 rounded-full mt-2 overflow-hidden">
+            <div className="h-full rounded-full" style={{ width: `${c.score}%`, background: stroke(c.score) }} />
+          </div>
+        </div>
       ))}
     </div>
   </article>
