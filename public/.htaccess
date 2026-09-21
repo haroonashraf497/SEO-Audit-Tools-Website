@@ -1,0 +1,48 @@
+# SEO Audit Tools — Apache / LiteSpeed (Namecheap, Webuzo, cPanel)
+# Upload this file to public_html together with index.html.
+
+DirectoryIndex index.html
+Options -Indexes -MultiViews
+RewriteEngine On
+RewriteBase /
+
+# Force HTTPS
+RewriteCond %{HTTPS} !=on
+RewriteCond %{HTTP:X-Forwarded-Proto} !https
+RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+
+# www → apex (canonical is seoaudittools.pk)
+RewriteCond %{HTTP_HOST} ^www\.seoaudittools\.pk$ [NC]
+RewriteRule ^ https://seoaudittools.pk%{REQUEST_URI} [L,R=301]
+
+# Real files (index.html, robots.txt, sitemap.xml, og.jpg, favicon, assets)
+RewriteCond %{REQUEST_FILENAME} -f [OR]
+RewriteCond %{REQUEST_FILENAME} -d
+RewriteRule ^ - [L]
+
+# All other paths serve the app so /tools, /p/contact, /blog, /tool/… still work.
+RewriteRule ^ index.html [L]
+
+<IfModule mod_headers.c>
+  Header set X-Content-Type-Options "nosniff"
+  Header set Referrer-Policy "strict-origin-when-cross-origin"
+  Header set X-Frame-Options "SAMEORIGIN"
+  Header set Permissions-Policy "camera=(), microphone=(), geolocation=()"
+  Header set Strict-Transport-Security "max-age=31536000; includeSubDomains"
+</IfModule>
+
+<IfModule mod_deflate.c>
+  AddOutputFilterByType DEFLATE text/html text/plain text/xml text/css application/javascript application/json image/svg+xml
+</IfModule>
+
+<IfModule mod_expires.c>
+  ExpiresActive On
+  ExpiresByType text/html "access plus 1 hour"
+  ExpiresByType text/plain "access plus 1 day"
+  ExpiresByType application/xml "access plus 1 day"
+  ExpiresByType image/jpeg "access plus 30 days"
+  ExpiresByType image/png "access plus 30 days"
+  ExpiresByType image/svg+xml "access plus 30 days"
+</IfModule>
+
+ErrorDocument 404 /index.html
