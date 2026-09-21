@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { categoryLabels, type ToolCategory, type ToolDef } from './data';
 import { useCms, liveTools, livePosts, type SidebarWidget } from '../cms/store';
+import { looksLikeHtml, sanitizeRichHtml } from '../utils/sanitize';
 
 const Arrow: React.FC<{ className?: string }> = ({ className = 'text-emerald-500' }) => (
   <svg className={`w-4 h-4 flex-shrink-0 ${className}`} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M13.2 5.2 20 12l-6.8 6.8-1.4-1.4 4.4-4.4H4v-2h12.2l-4.4-4.4z" /></svg>
@@ -153,7 +154,13 @@ const CmsSidebarWidget: React.FC<{ widget: SidebarWidget; tools: ToolDef[]; post
     return items.length ? <ListPanel title={widget.title || 'Featured links'} items={items} arrowClass="text-indigo-500" /> : null;
   }
   if (widget.type === 'text') {
-    return <section className="bg-white border border-slate-200 rounded-xl shadow-sm p-5"><h3 className="text-xl font-bold text-slate-900 mb-3">{widget.title || 'Sidebar note'}</h3><p className="text-sm text-slate-600 leading-relaxed whitespace-pre-line">{widget.content || 'Add text to this sidebar section from the CMS.'}</p></section>;
+    const note = widget.content || '';
+    // Notes written in the visual editor are rich HTML; legacy plain-text notes
+    // keep their line breaks. Either way the markup is sanitised before render.
+    const body = looksLikeHtml(note)
+      ? <div className="rich-text text-sm text-slate-600" dangerouslySetInnerHTML={{ __html: sanitizeRichHtml(note) }} />
+      : <p className="text-sm text-slate-600 leading-relaxed whitespace-pre-line">{note || 'Add text to this sidebar section from the CMS.'}</p>;
+    return <section className="bg-white border border-slate-200 rounded-xl shadow-sm p-5"><h3 className="text-xl font-bold text-slate-900 mb-3">{widget.title || 'Sidebar note'}</h3>{body}</section>;
   }
   if (widget.type === 'image') {
     return <section className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">{widget.title && <h3 className="text-xl font-bold text-slate-900 px-5 pt-5">{widget.title}</h3>}{widget.imageUrl ? <a href={widget.imageHref || '#/'} className="block m-3 overflow-hidden rounded-lg bg-slate-100"><img src={widget.imageUrl} alt={widget.imageAlt || widget.title || ''} width="1200" height="630" loading="lazy" className="w-full h-auto object-cover" /></a> : <p className="px-5 pb-5 pt-3 text-sm text-slate-500">Add an image URL in the CMS to display this section.</p>}</section>;

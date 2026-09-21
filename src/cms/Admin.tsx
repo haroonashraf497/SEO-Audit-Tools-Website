@@ -2,6 +2,8 @@ import React, { useMemo, useState } from 'react';
 import { useCms, type CmsPage, type CmsPost, type CmsTool, type PageBlock, type SeoEntry, type SidebarLinkSource, type SidebarWidget, type SidebarWidgetType, type Status } from './store';
 import { categoryLabels, categoryOrder, ToolIcon, type ToolCategory } from '../tools/data';
 import { RichTextEditor } from './RichTextEditor';
+import { clearDraft, draftId, formatDraftTime, listDrafts, clearAllDrafts, clearDrafts } from './drafts';
+import { estimateLocalStorageBytes, formatBytes, BROWSER_QUOTA_BYTES } from './media';
 
 /* ---------------- shared bits ---------------- */
 const STATUS_META: Record<Status, { label: string; cls: string }> = {
@@ -17,9 +19,24 @@ const Btn: React.FC<React.ButtonHTMLAttributes<HTMLButtonElement> & { tone?: 'pr
   const t = { primary: 'bg-indigo-600 text-white hover:bg-indigo-700', ghost: 'bg-white border border-slate-300 text-slate-700 hover:bg-slate-50', danger: 'bg-red-50 text-red-700 border border-red-200 hover:bg-red-100', ok: 'bg-emerald-600 text-white hover:bg-emerald-700' }[tone];
   return <button {...rest} className={`px-3.5 py-2 rounded-lg text-sm font-semibold transition-colors disabled:opacity-50 ${t} ${className}`}>{children}</button>;
 };
-const Field: React.FC<{ label: string; hint?: string; children: React.ReactNode }> = ({ label, hint, children }) => (
-  <label className="block"><span className="text-xs font-bold uppercase tracking-wide text-slate-500">{label}</span>{hint && <span className="block text-xs text-slate-400 mb-1">{hint}</span>}<span className="block mt-1">{children}</span></label>
-);
+/* A <label> around a plain input keeps click-to-focus behaviour, but wrapping
+   composite widgets (the rich-text editor, media pickers) in a <label> makes
+   the browser forward every click to the first labelable descendant — which
+   stole focus from the editor surface. So only simple controls get the label. */
+const Field: React.FC<{ label: string; hint?: string; children: React.ReactNode }> = ({ label, hint, children }) => {
+  const isSimpleControl = React.isValidElement(children)
+    && typeof children.type === 'string'
+    && ['input', 'textarea', 'select'].includes(children.type);
+  const caption = (
+    <>
+      <span className="text-xs font-bold uppercase tracking-wide text-slate-500">{label}</span>
+      {hint && <span className="block text-xs text-slate-400 mb-1">{hint}</span>}
+    </>
+  );
+  return isSimpleControl
+    ? <label className="block">{caption}<span className="block mt-1">{children}</span></label>
+    : <div className="block">{caption}<div className="block mt-1">{children}</div></div>;
+};
 const inputCls = 'w-full px-3 py-2.5 rounded-lg border border-slate-300 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 bg-white';
 const SeoMetaEditor: React.FC<{ value: SeoEntry; onChange: (entry: SeoEntry) => void; fallbackTitle: string; fallbackDescription: string; routeHint: string }> = ({ value, onChange, fallbackTitle, fallbackDescription, routeHint }) => {
   const entry = { title: value.title || fallbackTitle, description: value.description || fallbackDescription, slug: value.slug || '', noindex: value.noindex || false };
@@ -283,9 +300,9 @@ const ToolEditor: React.FC<{ tool: CmsTool; onClose: () => void }> = ({ tool, on
         <Field label="Tool name"><input className={inputCls} value={f.name} onChange={e => set('name')(e.target.value)} /></Field>
         <Field label="URL slug" hint="Becomes #/tool/your-slug"><input className={inputCls} value={f.slug} onChange={e => set('slug')(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '-'))} /></Field>
       </div>
-      <Field label="Description (shown under the title and in the directory)"><textarea rows={3} className={inputCls} value={f.description} onChange={e => set('description')(e.target.value)} /></Field>
+      <Field label="Description (shown under the title and in the directory)" hint="Plain text — one or two sentences, no HTML."><textarea rows={3} className={inputCls} value={f.description} onChange={e => set('description')(e.target.value)} /></Field>
       <div id="tool-about-editor">
-        <Field label="About content (optional)" hint={f.slug === 'competitor-analysis' ? 'Added under “What is Website Competitor Analysis?” on the Competitor Analysis page. Leave empty to keep only the default copy.' : "Replaces the 'About the …' text shown on this tool's page. Leave empty to keep the shared default content."}><RichTextEditor value={f.about || ''} onChange={html => set('about')(html)} minHeight={220} placeholder="Write extra about content — headings, paragraphs, lists and links…" /></Field>
+        <Field label="About content (optional)" hint={f.slug === 'competitor-analysis' ? 'Added under “What is Website Competitor Analysis?” on the Competitor Analysis page. Leave empty to keep only the default copy.' : "Replaces the 'About the …' text shown on this tool's page. Leave empty to keep the shared default content."}><RichTextEditor value={f.about || ''} onChange={html => set('about')(html)} minHeight={240} placeholder="Write extra about content — headings, paragraphs, lists, images and links…" draftKey={draftId('tool-about', tool.slug)} ariaLabel="Tool about copy" /></Field>
       </div>
       <div className="grid md:grid-cols-3 gap-4">
         <Field label="Category"><select className={inputCls} value={f.category} onChange={e => set('category')(e.target.value)}>{categoryOrder.map(c => <option key={c} value={c}>{categoryLabels[c]}</option>)}</select></Field>
@@ -300,7 +317,7 @@ const ToolEditor: React.FC<{ tool: CmsTool; onClose: () => void }> = ({ tool, on
       )}
       <FeaturedImageEditor image={f.featuredImage} alt={f.featuredImageAlt} onChange={patch => setF({ ...f, ...patch })} />
       <SeoMetaEditor value={seo} onChange={setSeoDraft} fallbackTitle={`${f.name} - Free Online SEO Tool | ${state.settings.name}`} fallbackDescription={f.description} routeHint={`# /tool/${f.slug || tool.slug}`} />
-      <div className="flex gap-2"><Btn onClick={() => { saveTool(tool.slug, f); if (f.slug !== tool.slug) clearSeo(`tool:${tool.slug}`); setSeo(`tool:${f.slug || tool.slug}`, seo); onClose(); }}>Save tool</Btn><Btn tone="ghost" onClick={onClose}>Cancel</Btn></div>
+      <div className="flex flex-wrap items-center gap-2"><Btn onClick={() => { saveTool(tool.slug, f); if (f.slug !== tool.slug) clearSeo(`tool:${tool.slug}`); setSeo(`tool:${f.slug || tool.slug}`, seo); clearDraft(draftId('tool-about', tool.slug)); onClose(); }}>Save tool</Btn><Btn tone="ghost" onClick={onClose}>Cancel</Btn><span className="text-xs text-slate-400">About copy drafts autosave in this browser.</span></div>
     </div>
   );
 };
@@ -392,12 +409,12 @@ const PostEditor: React.FC<{ post: CmsPost; onClose: () => void }> = ({ post, on
         <Field label="Publish date"><input type="date" className={inputCls} value={f.date} onChange={e => setF({ ...f, date: e.target.value })} /></Field>
         <Field label="Read time"><input className={inputCls} value={f.readTime} onChange={e => setF({ ...f, readTime: e.target.value })} /></Field>
       </div>
-      <Field label="Excerpt / summary"><textarea rows={2} className={inputCls} value={f.excerpt} onChange={e => setF({ ...f, excerpt: e.target.value })} /></Field>
-      <Field label="Keywords (comma separated)"><input className={inputCls} value={f.keywords.join(', ')} onChange={e => setF({ ...f, keywords: e.target.value.split(',').map(s => s.trim()).filter(Boolean) })} /></Field>
-      <Field label="Body" hint="Visual editor — use the toolbar for headings, lists, links and formatting"><RichTextEditor value={f.content} onChange={html => setF({ ...f, content: html })} minHeight={320} placeholder="Write your blog post…" /></Field>
+      <Field label="Excerpt / summary" hint="Plain text — used on cards, in the blog list and as the meta description fallback."><textarea rows={2} className={inputCls} value={f.excerpt} onChange={e => setF({ ...f, excerpt: e.target.value })} /></Field>
+      <Field label="Keywords (comma separated)" hint="Plain text — one comma-separated list."><input className={inputCls} value={f.keywords.join(', ')} onChange={e => setF({ ...f, keywords: e.target.value.split(',').map(s => s.trim()).filter(Boolean) })} /></Field>
+      <Field label="Body" hint="Visual editor — headings, lists, links, images, colour and alignment. Switch to the Code tab for raw HTML."><RichTextEditor value={f.content} onChange={html => setF({ ...f, content: html })} minHeight={320} placeholder="Write your blog post…" draftKey={draftId('blog', post.slug)} ariaLabel="Blog post body" /></Field>
       <FeaturedImageEditor image={f.featuredImage} alt={f.featuredImageAlt} onChange={patch => setF({ ...f, ...patch })} />
       <SeoMetaEditor value={seo} onChange={setSeoDraft} fallbackTitle={f.metaTitle || f.title} fallbackDescription={f.metaDescription || f.excerpt} routeHint={`#/blog/${f.slug || post.slug}`} />
-      <div className="flex gap-2"><Btn onClick={() => { savePost(post.slug, f); if (f.slug !== post.slug) clearSeo(`post:${post.slug}`); setSeo(`post:${f.slug || post.slug}`, seo); onClose(); }}>Save post</Btn><Btn tone="ghost" onClick={onClose}>Cancel</Btn></div>
+      <div className="flex flex-wrap items-center gap-2"><Btn onClick={() => { savePost(post.slug, f); if (f.slug !== post.slug) { clearSeo(`post:${post.slug}`); clearDraft(draftId('blog', post.slug)); } setSeo(`post:${f.slug || post.slug}`, seo); clearDraft(draftId('blog', post.slug)); onClose(); }}>Save post</Btn><Btn tone="ghost" onClick={onClose}>Cancel</Btn><span className="text-xs text-slate-400">Drafts save in this browser while you type.</span></div>
     </div>
   );
 };
@@ -443,20 +460,20 @@ const NewPostForm: React.FC<{ onDone: () => void }> = ({ onDone }) => {
         <Field label="Title"><input className={inputCls} value={f.title} onChange={e => setF({ ...f, title: e.target.value })} /></Field>
         <Field label="Slug" hint={slug ? `#/blog/${slug}` : ''}><input className={inputCls} value={f.slug} onChange={e => setF({ ...f, slug: e.target.value })} placeholder={slug} /></Field>
       </div>
-      <Field label="Excerpt"><textarea rows={2} className={inputCls} value={f.excerpt} onChange={e => setF({ ...f, excerpt: e.target.value })} /></Field>
+      <Field label="Excerpt" hint="Plain text — shown on blog cards."><textarea rows={2} className={inputCls} value={f.excerpt} onChange={e => setF({ ...f, excerpt: e.target.value })} /></Field>
       <div className="grid md:grid-cols-2 gap-4">
-        <Field label="SEO title"><input className={inputCls} value={f.metaTitle} onChange={e => setF({ ...f, metaTitle: e.target.value })} placeholder={f.title} /></Field>
-        <Field label="Meta description"><textarea rows={2} className={inputCls} value={f.metaDescription} onChange={e => setF({ ...f, metaDescription: e.target.value })} /></Field>
+        <Field label="SEO title" hint="Plain text — 50–60 characters."><input className={inputCls} value={f.metaTitle} onChange={e => setF({ ...f, metaTitle: e.target.value })} placeholder={f.title} /></Field>
+        <Field label="Meta description" hint="Plain text — 120–160 characters."><textarea rows={2} className={inputCls} value={f.metaDescription} onChange={e => setF({ ...f, metaDescription: e.target.value })} /></Field>
       </div>
-      <Field label="Body" hint="Visual editor — use the toolbar for headings, lists, links and formatting"><RichTextEditor value={f.content} onChange={html => setF({ ...f, content: html })} minHeight={280} placeholder="Write your blog post…" /></Field>
+      <Field label="Body" hint="Visual editor — headings, lists, links, images, colour and alignment. Your typing is auto-saved as a browser draft."><RichTextEditor value={f.content} onChange={html => setF({ ...f, content: html })} minHeight={280} placeholder="Write your blog post…" draftKey={draftId('blog', 'new-post')} ariaLabel="New blog post body" /></Field>
       <FeaturedImageEditor image={f.featuredImage} alt={f.featuredImageAlt} onChange={patch => setF({ ...f, ...patch })} />
       <Field label="State"><select className={inputCls} value={f.status} onChange={e => setF({ ...f, status: e.target.value as Status })}><option value="draft">Draft</option><option value="live">Published</option><option value="hidden">Hidden</option></select></Field>
-      <div className="flex gap-2"><Btn onClick={() => { addPost({ ...f, slug, metaTitle: f.metaTitle || f.title }); onDone(); }}>Create post</Btn><Btn tone="ghost" onClick={onDone}>Cancel</Btn></div>
+      <div className="flex flex-wrap items-center gap-2"><Btn onClick={() => { addPost({ ...f, slug, metaTitle: f.metaTitle || f.title }); clearDraft(draftId('blog', 'new-post')); onDone(); }}>Create post</Btn><Btn tone="ghost" onClick={onDone}>Cancel</Btn><span className="text-xs text-slate-400">Unsaved work is kept as a browser draft.</span></div>
     </div>
   );
 };
 
-const BlockEditor: React.FC<{ blocks: PageBlock[]; onChange: (b: PageBlock[]) => void }> = ({ blocks, onChange }) => {
+const BlockEditor: React.FC<{ blocks: PageBlock[]; onChange: (b: PageBlock[]) => void; scope?: string }> = ({ blocks, onChange, scope }) => {
   const set = (i: number, patch: Partial<PageBlock>) => onChange(blocks.map((b, j) => (j === i ? { ...b, ...patch } as PageBlock : b)));
   const move = (i: number, d: -1 | 1) => { const n = [...blocks]; const j = i + d; if (j < 0 || j >= n.length) return; [n[i], n[j]] = [n[j], n[i]]; onChange(n); };
   return (
@@ -477,7 +494,7 @@ const BlockEditor: React.FC<{ blocks: PageBlock[]; onChange: (b: PageBlock[]) =>
               <input className={inputCls} value={b.text} onChange={e => set(i, { text: e.target.value })} placeholder="Heading text" />
             </div>
           )}
-          {b.type === 'text' && <RichTextEditor value={b.text} onChange={html => set(i, { text: html })} minHeight={120} placeholder="Write this paragraph…" />}
+          {b.type === 'text' && <RichTextEditor value={b.text} onChange={html => set(i, { text: html })} minHeight={140} placeholder="Write this text block…" draftKey={scope ? draftId('page-block', `${scope}:${b.id}`) : undefined} ariaLabel="Page text block" />}
           {b.type === 'list' && <textarea rows={3} className={inputCls} value={b.items.join('\n')} onChange={e => set(i, { items: e.target.value.split('\n').filter(Boolean) })} placeholder="One item per line" />}
           {b.type === 'table' && (
             <div className="space-y-2">
@@ -521,10 +538,10 @@ const PageEditor: React.FC<{ page: CmsPage; onClose: () => void }> = ({ page, on
         <Field label="URL slug" hint={`#/p/${f.slug}`}><input className={inputCls} value={f.slug} onChange={e => setF({ ...f, slug: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '-') })} /></Field>
       </div>
       <Field label="State"><select className={inputCls} value={f.status} onChange={e => setF({ ...f, status: e.target.value as Status })}><option value="live">Live</option><option value="hidden">Hidden</option><option value="draft">Draft</option></select></Field>
-      <div><p className="text-xs font-bold uppercase tracking-wide text-slate-500 mb-2">Content blocks</p><BlockEditor blocks={f.blocks} onChange={b => setF({ ...f, blocks: b })} /></div>
+      <div><p className="text-xs font-bold uppercase tracking-wide text-slate-500 mb-2">Content blocks</p><p className="text-xs text-slate-400 mb-2">Text blocks use the visual editor; headings, lists and tables stay as structured fields so the page markup is always clean.</p><BlockEditor blocks={f.blocks} onChange={b => setF({ ...f, blocks: b })} scope={page.id} /></div>
       <FeaturedImageEditor image={f.featuredImage} alt={f.featuredImageAlt} onChange={patch => setF({ ...f, ...patch })} />
       <SeoMetaEditor value={seo} onChange={setSeoDraft} fallbackTitle={f.metaTitle || f.title} fallbackDescription={f.metaDescription} routeHint={`#/p/${f.slug || page.slug}`} />
-      <div className="flex gap-2"><Btn onClick={() => { savePage(page.id, f); if (f.slug !== page.slug) clearSeo(`page:${page.slug}`); setSeo(`page:${f.slug || page.slug}`, seo); onClose(); }}>Save page</Btn><Btn tone="ghost" onClick={onClose}>Cancel</Btn></div>
+      <div className="flex flex-wrap items-center gap-2"><Btn onClick={() => { savePage(page.id, f); if (f.slug !== page.slug) clearSeo(`page:${page.slug}`); setSeo(`page:${f.slug || page.slug}`, seo); clearDrafts(page.blocks.map(b => draftId('page-block', `${page.id}:${b.id}`))); onClose(); }}>Save page</Btn><Btn tone="ghost" onClick={onClose}>Cancel</Btn><span className="text-xs text-slate-400">Text drafts autosave in this browser.</span></div>
     </div>
   );
 };
@@ -579,7 +596,7 @@ const NewPageForm: React.FC<{ onDone: () => void }> = ({ onDone }) => {
         <Field label="Slug" hint={slug ? `#/p/${slug}` : ''}><input className={inputCls} value={f.slug} onChange={e => setF({ ...f, slug: e.target.value })} placeholder={slug} /></Field>
       </div>
       <div className="grid md:grid-cols-2 gap-4">
-        <Field label="SEO title"><input className={inputCls} value={f.metaTitle} onChange={e => setF({ ...f, metaTitle: e.target.value })} placeholder={f.title} /></Field>
+        <Field label="SEO title" hint="Plain text — 50–60 characters."><input className={inputCls} value={f.metaTitle} onChange={e => setF({ ...f, metaTitle: e.target.value })} placeholder={f.title} /></Field>
         <Field label="Meta description"><textarea rows={2} className={inputCls} value={f.metaDescription} onChange={e => setF({ ...f, metaDescription: e.target.value })} /></Field>
       </div>
       <FeaturedImageEditor image={f.featuredImage} alt={f.featuredImageAlt} onChange={patch => setF({ ...f, ...patch })} />
@@ -684,7 +701,7 @@ const SidebarPane: React.FC = () => {
     const widget: SidebarWidget = {
       id: Math.random().toString(36).slice(2, 9), title: names[type], type, visible: true,
       ...(type === 'links' ? { source, linkRefs: [], links: [] } : {}),
-      ...(type === 'text' ? { content: 'Add your text, promotion, notice or seasonal message here.' } : {}),
+      ...(type === 'text' ? { content: '<p>Add your promotion, notice or seasonal message here.</p>' } : {}),
       ...(type === 'image' ? { imageUrl: '', imageAlt: '', imageHref: '' } : {}),
       ...(type === 'code' ? { content: '<div style="padding:16px; font-family:system-ui">Your HTML snippet</div>' } : {}),
     };
@@ -751,7 +768,7 @@ const SidebarPane: React.FC = () => {
               <div key={widget.id} className="border-b border-slate-100 last:border-0">
                 <div className="flex flex-col lg:flex-row lg:items-center gap-3 px-5 py-4 md:px-6">
                   <div className="flex gap-1"><button type="button" onClick={() => moveWidget(index, -1)} disabled={index === 0} className="w-8 h-8 rounded-lg bg-slate-100 hover:bg-slate-200 disabled:opacity-30 text-slate-600">↑</button><button type="button" onClick={() => moveWidget(index, 1)} disabled={index === widgets.length - 1} className="w-8 h-8 rounded-lg bg-slate-100 hover:bg-slate-200 disabled:opacity-30 text-slate-600">↓</button></div>
-                  <div className="min-w-0 flex-1"><p className="font-semibold text-slate-800">{widget.title || 'Untitled sidebar section'}</p><p className="text-xs text-slate-500">{widget.type === 'links' ? `${source} links · ${(widget.linkRefs || widget.links || []).length} selected` : widget.type === 'text' ? 'Text content' : widget.type === 'image' ? 'Image content' : 'Sandboxed HTML / code'}</p></div>
+                  <div className="min-w-0 flex-1"><p className="font-semibold text-slate-800">{widget.title || 'Untitled sidebar section'}</p><p className="text-xs text-slate-500">{widget.type === 'links' ? `${source} links · ${(widget.linkRefs || widget.links || []).length} selected` : widget.type === 'text' ? 'Rich text note' : widget.type === 'image' ? 'Image content' : 'Sandboxed HTML / code'}</p></div>
                   <div className="flex flex-wrap items-center gap-2"><Btn tone={widget.visible ? 'ghost' : 'danger'} onClick={() => updateWidget(widget.id, { visible: !widget.visible })}>{widget.visible ? 'Visible' : 'Hidden'}</Btn><Btn tone="ghost" onClick={() => setEditing(isEditing ? null : widget.id)}>{isEditing ? 'Close' : 'Edit'}</Btn><Btn tone="ghost" onClick={() => { if (window.confirm(`Delete the sidebar section “${widget.title}”? This cannot be undone.`)) setWidgets(widgets.filter(item => item.id !== widget.id)); }}>Delete</Btn></div>
                 </div>
                 {isEditing && <div className="bg-slate-50 p-5 md:px-6 border-t border-slate-100 space-y-4">
@@ -786,7 +803,7 @@ const SidebarPane: React.FC = () => {
                     <div><p className="text-xs font-bold uppercase tracking-wide text-slate-500 mb-2">What should this section link to?</p><div className="grid sm:grid-cols-4 gap-2">{sourceOptions.map(option => <button key={option.value} type="button" onClick={() => updateWidget(widget.id, { source: option.value, linkRefs: [], links: option.value === 'manual' ? (widget.links || []) : [] })} className={`text-left rounded-lg border p-3 ${source === option.value ? 'border-indigo-500 bg-indigo-50' : 'border-slate-200 bg-white hover:border-indigo-300'}`}><span className="block text-sm font-semibold text-slate-800">{option.label}</span><span className="block text-xs text-slate-500 mt-0.5">{option.detail}</span></button>)}</div></div>
                     {source !== 'manual' ? <div className="bg-white rounded-xl border border-slate-200 p-4"><p className="text-sm font-semibold text-slate-800 mb-3">Choose items to show</p><div className="grid sm:grid-cols-2 gap-2 max-h-64 overflow-y-auto">{selectable.map(item => { const chosen = (widget.linkRefs || []).includes(item.id); return <button key={item.id} type="button" onClick={() => updateWidget(widget.id, { linkRefs: chosen ? (widget.linkRefs || []).filter(ref => ref !== item.id) : [...(widget.linkRefs || []), item.id] })} className={`flex items-center gap-3 text-left p-3 rounded-lg border ${chosen ? 'border-indigo-500 bg-indigo-50' : 'border-slate-200 hover:bg-slate-50'}`}><span className={`w-5 h-5 rounded flex items-center justify-center text-xs font-bold ${chosen ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-400'}`}>{chosen ? '✓' : '+'}</span><span className="min-w-0"><span className="block text-sm font-semibold text-slate-800 truncate">{item.label}</span><span className="block text-[11px] font-mono text-slate-400 truncate">{item.detail}</span></span></button>; })}{selectable.length === 0 && <p className="text-sm text-slate-500">There are no live {source} available to add.</p>}</div></div> : <div className="space-y-3"><p className="text-sm text-slate-600">Add any external or internal links manually.</p>{(widget.links || []).map((link, linkIndex) => <div key={link.id} className="grid lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_120px_auto] gap-2"><input className={inputCls} value={link.label} placeholder="Link label" onChange={e => updateWidget(widget.id, { links: (widget.links || []).map((x, i) => i === linkIndex ? { ...x, label: e.target.value } : x) })} /><input className={inputCls} value={link.href} placeholder="#/tool/example or https://..." onChange={e => updateWidget(widget.id, { links: (widget.links || []).map((x, i) => i === linkIndex ? { ...x, href: e.target.value } : x) })} /><input className={inputCls} value={link.badge || ''} placeholder="Badge" onChange={e => updateWidget(widget.id, { links: (widget.links || []).map((x, i) => i === linkIndex ? { ...x, badge: e.target.value } : x) })} /><button type="button" onClick={() => updateWidget(widget.id, { links: (widget.links || []).filter((_, i) => i !== linkIndex) })} className="px-3 rounded-lg bg-red-50 text-red-600 border border-red-100">×</button></div>)}<Btn tone="ghost" onClick={() => updateWidget(widget.id, { links: [...(widget.links || []), { id: Math.random().toString(36).slice(2, 9), label: 'New link', href: '#/', visible: true }] })}>+ Add manual link</Btn></div>}
                   </>}
-                  {widget.type === 'text' && <Field label="Text content" hint="Plain text is displayed with line breaks preserved."><textarea rows={6} className={inputCls} value={widget.content || ''} onChange={e => updateWidget(widget.id, { content: e.target.value })} placeholder="Write your announcement, promotion or sidebar note…" /></Field>}
+                  {widget.type === 'text' && <Field label="Sidebar note" hint="Visual editor — headings, bold, lists, quotes, links, images and colours. Short fields elsewhere stay plain text."><RichTextEditor value={widget.content || ''} onChange={html => updateWidget(widget.id, { content: html })} minHeight={180} placeholder="Write your announcement, promotion or sidebar note…" ariaLabel="Sidebar note" /></Field>}
                   {widget.type === 'image' && <div className="grid md:grid-cols-[minmax(0,1fr)_200px] gap-4"><div className="space-y-3"><Field label="Image URL"><input className={inputCls} value={widget.imageUrl || ''} onChange={e => updateWidget(widget.id, { imageUrl: e.target.value })} placeholder="https://example.com/banner.webp" /></Field><Field label="Alt text"><input className={inputCls} value={widget.imageAlt || ''} onChange={e => updateWidget(widget.id, { imageAlt: e.target.value })} /></Field><Field label="Click-through link (optional)"><input className={inputCls} value={widget.imageHref || ''} onChange={e => updateWidget(widget.id, { imageHref: e.target.value })} placeholder="#/tools" /></Field></div><div className="aspect-[1.91/1] rounded-xl border border-dashed border-slate-300 bg-white overflow-hidden flex items-center justify-center text-center text-xs text-slate-400">{widget.imageUrl ? <img src={widget.imageUrl} alt={widget.imageAlt || ''} className="w-full h-full object-cover" onError={e => { e.currentTarget.style.display = 'none'; }} /> : 'Image preview'}</div></div>}
                   {widget.type === 'code' && <Field label="HTML / embed code" hint="Rendered in a sandboxed iframe. Scripts and inline event handlers are disabled for safety."><textarea rows={8} className={inputCls + ' font-mono text-xs'} value={widget.content || ''} onChange={e => updateWidget(widget.id, { content: e.target.value })} placeholder="<div>Your safe HTML snippet</div>" /></Field>}
                   <p className="text-xs text-emerald-700">Saved automatically. This section is {widget.visible ? 'live in the sidebar' : 'currently hidden'}.</p>
@@ -801,10 +818,27 @@ const SidebarPane: React.FC = () => {
   );
 };
 
+const StorageSummary: React.FC = () => {
+  const used = estimateLocalStorageBytes();
+  const pct = Math.min(100, Math.round((used / BROWSER_QUOTA_BYTES) * 100));
+  const tone = pct >= 80 ? 'bg-red-500' : pct >= 55 ? 'bg-amber-500' : 'bg-emerald-500';
+  return (
+    <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+      <div className="flex items-center justify-between text-xs text-slate-600 mb-1">
+        <span className="font-semibold">Content, drafts and media in this browser</span>
+        <span className={pct >= 80 ? 'font-bold text-red-600' : ''}>{formatBytes(used)} / ~{formatBytes(BROWSER_QUOTA_BYTES)}</span>
+      </div>
+      <div className="h-1.5 rounded-full bg-white border border-slate-200 overflow-hidden"><div className={`h-full ${tone}`} style={{ width: `${Math.max(pct, 2)}%` }} /></div>
+      {pct >= 80 && <p className="text-[11px] text-red-600 mt-2">Storage is nearly full. Remove large inline images or export your JSON and reset.</p>}
+    </div>
+  );
+};
+
 const SettingsPane: React.FC = () => {
   const { setPasscode, exportJson, importJson, reset } = useCms();
   const [code, setCode] = useState('');
   const [msg, setMsg] = useState('');
+  const [draftVersion, setDraftVersion] = useState(0);
   const [json, setJson] = useState('');
   const download = () => { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([exportJson()], { type: 'application/json' })); a.download = 'cms-content.json'; a.click(); };
   return (
@@ -814,6 +848,24 @@ const SettingsPane: React.FC = () => {
         <Field label="New password" hint="Stored in this browser. Because this is a static site, this gate protects the admin UI, not the published files."><input type="password" className={inputCls} value={code} onChange={e => setCode(e.target.value)} autoComplete="new-password" /></Field>
         <Btn tone="ok" onClick={() => { if (code.trim().length >= 8) { void setPasscode(code.trim()); setMsg('Password updated.'); setCode(''); } else setMsg('Use at least 8 characters.'); }}>Update password</Btn>
         {msg && <p className={`text-sm ${msg.includes('updated') ? 'text-emerald-600' : 'text-red-600'}`}>{msg}</p>}
+      </div>
+      <div className="bg-white rounded-2xl border border-slate-200 p-5 space-y-4">
+        <h3 className="font-bold text-slate-900">Editor drafts &amp; browser storage</h3>
+        <p className="text-sm text-slate-600">While you write, the visual editor keeps a draft of every open item in this browser. Drafts are removed as soon as you save the item — clear any leftovers here.</p>
+        <StorageSummary />
+        <div key={draftVersion} className="space-y-2 max-h-64 overflow-y-auto">
+          {listDrafts().map(draft => (
+            <div key={draft.key} className="flex flex-wrap items-center gap-2 text-xs bg-slate-50 border border-slate-200 rounded-lg px-3 py-2">
+              <span className="font-mono text-slate-700 truncate max-w-[220px]" title={draft.key}>{draft.key}</span>
+              <span className="text-slate-400">{draft.words} words · {formatDraftTime(draft.savedAt)}</span>
+              <button type="button" onClick={() => { clearDraft(draft.key); setDraftVersion(v => v + 1); }} className="ml-auto px-2 py-1 rounded-md border border-slate-300 bg-white font-semibold text-slate-600 hover:text-red-600">Clear</button>
+            </div>
+          ))}
+          {listDrafts().length === 0 && <p className="text-sm text-slate-500">No unsaved drafts — everything is stored in your CMS content.</p>}
+        </div>
+        {listDrafts().length > 0 && (
+          <Btn tone="danger" onClick={() => { clearAllDrafts(); setDraftVersion(v => v + 1); }}>Clear all drafts</Btn>
+        )}
       </div>
       <div className="bg-white rounded-2xl border border-slate-200 p-5 space-y-4">
         <h3 className="font-bold text-slate-900">Backup &amp; deploy</h3>
@@ -832,7 +884,7 @@ type Tab = 'dashboard' | 'pages' | 'blog' | 'tools' | 'sidebar' | 'sections' | '
 const TABS: [Tab, string][] = [['dashboard', 'Dashboard'], ['pages', 'Pages'], ['blog', 'Blog posts'], ['tools', 'Tools'], ['sidebar', 'Sidebar'], ['sections', 'Sections & Nav'], ['settings', 'Settings']];
 
 export const AdminApp: React.FC = () => {
-  const { loggedIn, logout, state } = useCms();
+  const { loggedIn, logout, state, storageWarning } = useCms();
   const [tab, setTab] = useState<Tab>('dashboard');
   if (!loggedIn) return null;
   return (
@@ -861,6 +913,13 @@ export const AdminApp: React.FC = () => {
             ))}
           </nav>
         </header>
+        {storageWarning && (
+          <div className="flex items-start gap-3 mb-5 px-4 py-3 rounded-xl border border-amber-200 bg-amber-50 text-sm text-amber-900" role="alert">
+            <span className="w-5 h-5 flex-shrink-0 text-amber-600"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 4 2.5 20h19z" /><line x1="12" y1="10" x2="12" y2="15" /></svg></span>
+            <span><strong className="font-bold">Not saved.</strong> {storageWarning}</span>
+            <button type="button" onClick={() => setTab('settings')} className="ml-auto whitespace-nowrap text-sm font-bold text-amber-800 hover:underline">Open storage settings →</button>
+          </div>
+        )}
         {tab === 'dashboard' && <Dashboard go={setTab} />}
         {tab === 'pages' && <PagesPane />}
         {tab === 'blog' && <BlogPane />}

@@ -96,6 +96,43 @@ svg {
 .rich-text td { padding: 0.625rem 0.75rem; border-bottom: 1px solid #f1f5f9; color: #475569; vertical-align: top; }
 .rich-text img { max-width: 100%; border-radius: 0.75rem; margin: 1rem 0; }
 
+/* Headings 1 and 4–6 plus the extra inline formats the visual editor can produce. */
+.rich-text h1 { font-size: 1.875rem; font-weight: 800; color: #0f172a; margin: 2rem 0 0.875rem; line-height: 1.2; }
+.rich-text h4 { font-size: 1.125rem; font-weight: 700; color: #0f172a; margin: 1.25rem 0 0.5rem; line-height: 1.4; }
+.rich-text h5 { font-size: 1rem; font-weight: 700; color: #1e293b; margin: 1rem 0 0.4rem; line-height: 1.45; }
+.rich-text h6 { font-size: 0.875rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: #475569; margin: 1rem 0 0.4rem; }
+.rich-text h1:first-child, .rich-text h2:first-child, .rich-text h3:first-child,
+.rich-text h4:first-child, .rich-text h5:first-child, .rich-text h6:first-child { margin-top: 0; }
+.rich-text p:first-child { margin-top: 0; }
+.rich-text p:last-child { margin-bottom: 0; }
+.rich-text em { font-style: italic; }
+.rich-text u { text-decoration: underline; text-underline-offset: 2px; }
+.rich-text s, .rich-text del { text-decoration: line-through; }
+.rich-text mark { background: #fef08a; padding: 0 .15em; border-radius: .2em; }
+.rich-text code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 0.875em; background: #f1f5f9; border: 1px solid #e2e8f0; border-radius: 0.35rem; padding: 0.1rem 0.35rem; color: #0f172a; }
+.rich-text pre { background: #0f172a; color: #e2e8f0; border-radius: 0.75rem; padding: 0.875rem 1rem; overflow-x: auto; margin: 1rem 0; }
+.rich-text pre code { background: none; border: 0; color: inherit; padding: 0; }
+.rich-text hr { border: 0; border-top: 1px solid #e2e8f0; margin: 1.5rem 0; }
+.rich-text figure { margin: 1rem 0; }
+.rich-text figcaption { font-size: 0.8125rem; color: #64748b; text-align: center; margin-top: 0.4rem; font-style: italic; }
+.rich-text img { max-width: 100%; height: auto; border-radius: 0.75rem; margin: 1rem 0; }
+.rich-text a img { border: 0; }
+.rich-text table th, .rich-text table td { border: 1px solid #e2e8f0; }
+
+/* ============================================================
+   Visual editor surface (WYSIWYG) — mirrors the public styling
+   so what you write is what the page shows.
+   ============================================================ */
+.rte-surface { word-break: break-word; }
+.rte-surface:focus { outline: none; }
+.rte-surface img { cursor: pointer; }
+.rte-surface a { cursor: pointer; }
+.rte-surface blockquote { margin: 1rem 0; }
+.rte-surface table { border-collapse: collapse; }
+.rte-surface > *:first-child { margin-top: 0; }
+.rte-surface > *:last-child { margin-bottom: 0; }
+.rte-surface[contenteditable="false"] { background: #f8fafc; }
+
 /* WYSIWYG editor empty-state placeholder */
 [contenteditable].rich-text:empty::before {
   content: attr(data-placeholder);

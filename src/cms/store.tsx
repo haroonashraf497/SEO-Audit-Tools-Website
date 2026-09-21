@@ -542,6 +542,8 @@ interface Ctx {
   reset: () => void;
   importJson: (json: string) => boolean;
   exportJson: () => string;
+  /* storage health */
+  storageWarning: string | null;
   /* auth */
   loggedIn: boolean;
   login: (username: string, password: string, remember?: boolean) => Promise<boolean>;
@@ -554,8 +556,19 @@ const CmsContext = createContext<Ctx | null>(null);
 export const CmsProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [state, setState] = useState<CmsState>(() => load());
   const [loggedIn, setLoggedIn] = useState(() => readAdminSession() !== null);
+  const [storageWarning, setStorageWarning] = useState<string | null>(null);
 
-  useEffect(() => { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch { /* quota */ } }, [state]);
+  // Content is persisted in this browser. Uploaded images are embedded as
+  // data URLs, so a full quota is the one failure mode worth surfacing loudly
+  // instead of losing an edit silently.
+  useEffect(() => {
+    try {
+      localStorage.setItem(KEY, JSON.stringify(state));
+      setStorageWarning(null);
+    } catch {
+      setStorageWarning('Browser storage is full, so your latest change could not be saved. Remove large inline images, then export your CMS JSON before continuing.');
+    }
+  }, [state]);
 
   const update = useCallback((patch: Partial<CmsState>) => setState(s => ({ ...s, ...patch })), []);
 
@@ -587,6 +600,7 @@ export const CmsProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     exportJson: () => JSON.stringify(state, null, 2),
     importJson: (json) => { try { const parsed = JSON.parse(json) as CmsState; if (!parsed.tools || !parsed.posts) return false; const legacyItems = parsed.sidebar?.customItems || []; const widgets = parsed.sidebar?.widgets || (legacyItems.length ? [{ id: uid(), title: 'Featured links', type: 'links' as SidebarWidgetType, visible: true, source: 'manual' as SidebarLinkSource, links: legacyItems }] : []); const parsedVersion = typeof parsed.version === 'number' ? parsed.version : 1; setState({ ...defaultState, ...parsed, version: Math.max(defaultState.version, parsedVersion), pages: parsedVersion < defaultState.version ? migratePages(parsed.pages || []) : (parsed.pages || defaultState.pages), settings: migrateSettings(parsed.settings), nav: migrateNav(parsed.nav), sidebar: { ...defaultState.sidebar, ...parsed.sidebar, widgets } }); return true; } catch { return false; } },
 
+    storageWarning,
     loggedIn,
     login: async (username, password, remember = true) => {
       const ok = await verifyAdminLogin(username, password, state.passcode);
@@ -600,7 +614,7 @@ export const CmsProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setState(s => ({ ...s, passcode: code }));
       await saveAdminPassword(code);
     },
-  }), [state, loggedIn, update]);
+  }), [state, loggedIn, update, storageWarning]);
 
   return <CmsContext.Provider value={ctx}>{children}</CmsContext.Provider>;
 };
