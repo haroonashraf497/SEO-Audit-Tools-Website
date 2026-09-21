@@ -36,15 +36,6 @@ const splitSentences = (text: string): string[] =>
 
 const countWords = (t: string) => (t.trim() ? t.trim().split(/\s+/).length : 0);
 
-const Star: React.FC<{ fill: number }> = ({ fill }) => (
-  <svg className="w-5 h-5" viewBox="0 0 24 24" aria-hidden="true">
-    <defs>
-      <linearGradient id={`g${fill}`}><stop offset={`${fill * 100}%`} stopColor="#f59e0b" /><stop offset={`${fill * 100}%`} stopColor="#e2e8f0" /></linearGradient>
-    </defs>
-    <path fill={`url(#g${fill})`} d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
-  </svg>
-);
-
 const Gauge: React.FC<{ unique: number }> = ({ unique }) => {
   const r = 52;
   const c = 2 * Math.PI * r;
@@ -208,7 +199,6 @@ export const PlagiarismChecker: React.FC = () => {
               {label}
             </span>
           ))}
-          <button type="button" className="ml-auto bg-blue-600 hover:bg-blue-700 text-white font-semibold text-sm px-6 py-2.5 rounded-lg transition-colors">Go Pro</button>
         </div>
 
         {/* Mode tabs */}
@@ -270,11 +260,6 @@ export const PlagiarismChecker: React.FC = () => {
           <svg className="w-4 h-4 text-blue-500" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M6 2L0 6l6 4-6 4 6 4 6-4-6-4 6-4-6-4zm12 0l-6 4 6 4-6 4 6 4 6-4-6-4 6-4-6-4zM6 19l6 4 6-4-6-4-6 4z" /></svg>
           Choose from Dropbox
         </button>
-        <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-slate-200 bg-white">
-          <div className="flex">{[1, 1, 1, 1, 0.1].map((f, i) => <Star key={i} fill={f} />)}</div>
-          <span className="text-sm font-bold text-slate-800">4.1/5</span>
-          <span className="text-sm font-semibold text-slate-600">54.4k reviews</span>
-        </div>
       </div>
 
       {/* Exclude URLs */}
