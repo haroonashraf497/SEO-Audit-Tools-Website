@@ -297,7 +297,7 @@ const AuditDetails: React.FC<{ audit: Audit }> = ({ audit }) => {
           </div>
         ) : <p className="text-sm text-slate-500">No keyword data available.</p>}
       </section>
-      <div className="grid md:grid-cols-2 gap-6">
+      <div className="space-y-6">
         <LinkPanel title="Internal URLs" links={internal} toneClass="bg-indigo-50 text-indigo-700" />
         <LinkPanel title="External URLs" links={external} toneClass="bg-sky-50 text-sky-700" />
       </div>
@@ -367,11 +367,10 @@ const CompetitorAnalysis: React.FC = () => {
   const [yourAudit, setYourAudit] = useState<Audit | null>(null), [theirAudit, setTheirAudit] = useState<Audit | null>(null);
   const [yourDomain, setYourDomain] = useState<DomainInfo | null>(null), [theirDomain, setTheirDomain] = useState<DomainInfo | null>(null);
   const [busy, setBusy] = useState(false), [progress, setProgress] = useState(0), [status, setStatus] = useState(''), [error, setError] = useState('');
-  const [auditTab, setAuditTab] = useState<'yours' | 'theirs'>('yours');
   const run = async () => {
     if (!yours.trim() || !theirs.trim()) { setError('Enter both website URLs.'); return; }
     setBusy(true); setError(''); setProgress(8); setStatus('Auditing both pages and querying domain registries…');
-    setYourAudit(null); setTheirAudit(null); setYourDomain(null); setTheirDomain(null); setAuditTab('yours');
+    setYourAudit(null); setTheirAudit(null); setYourDomain(null); setTheirDomain(null);
     const timer = window.setInterval(() => setProgress(v => Math.min(90, v + 4)), 250);
     const [a, b, da, db] = await Promise.all([
       getAudit(yours),
@@ -418,7 +417,6 @@ const CompetitorAnalysis: React.FC = () => {
   );
 
   const yourWins = rows.filter(r => r.winner === 'yours').length, theirWins = rows.filter(r => r.winner === 'theirs').length;
-  const activeAudit = auditTab === 'yours' ? yourAudit : theirAudit;
 
   return (
     <div className="space-y-8">
@@ -487,18 +485,21 @@ const CompetitorAnalysis: React.FC = () => {
       </section>
 
       <section>
-        <div className="flex flex-wrap items-end justify-between gap-3 mb-5">
-          <div>
-            <h2 className="text-xl font-bold text-slate-900">Full audit</h2>
-            <p className="text-sm text-slate-500 mt-0.5">One site at a time, so every check has room to read.</p>
+        <h2 className="text-xl font-bold text-slate-900 mb-5">Full audit</h2>
+        <div className="grid lg:grid-cols-2 gap-6 items-start">
+          <div className="min-w-0">
+            <p className="text-[11px] font-bold uppercase tracking-wide text-indigo-600">Your website</p>
+            <h3 className="text-lg font-bold text-slate-900 break-all mt-0.5">{yourAudit.host}</h3>
+            <p className="text-xs text-slate-500 break-all mb-4">{yourAudit.url}</p>
+            <AuditDetails audit={yourAudit} />
           </div>
-          <div className="inline-flex rounded-xl border border-slate-200 bg-white p-1">
-            <button type="button" onClick={() => setAuditTab('yours')} className={`px-4 py-2 rounded-lg text-sm font-semibold ${auditTab === 'yours' ? 'bg-indigo-600 text-white' : 'text-slate-600 hover:text-slate-900'}`}>Your website</button>
-            <button type="button" onClick={() => setAuditTab('theirs')} className={`px-4 py-2 rounded-lg text-sm font-semibold ${auditTab === 'theirs' ? 'bg-violet-600 text-white' : 'text-slate-600 hover:text-slate-900'}`}>Competitor</button>
+          <div className="min-w-0">
+            <p className="text-[11px] font-bold uppercase tracking-wide text-violet-600">Competitor</p>
+            <h3 className="text-lg font-bold text-slate-900 break-all mt-0.5">{theirAudit.host}</h3>
+            <p className="text-xs text-slate-500 break-all mb-4">{theirAudit.url}</p>
+            <AuditDetails audit={theirAudit} />
           </div>
         </div>
-        <p className="text-xs text-slate-500 mb-4 break-all">{activeAudit.host} · {activeAudit.url}</p>
-        <AuditDetails audit={activeAudit} />
       </section>
 
       <section className="bg-white rounded-2xl border border-slate-200 p-6">
