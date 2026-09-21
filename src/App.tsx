@@ -1984,7 +1984,7 @@ const CmsPageView: React.FC<{ slug: string }> = ({ slug }) => {
   }
   return (
     <div className="pt-28 pb-20 px-4 min-h-screen">
-      <div className="max-w-3xl mx-auto">
+      <div className="max-w-7xl mx-auto">
         <nav aria-label="Breadcrumb" className="mb-8">
           <ol className="flex items-center gap-2 text-sm font-semibold flex-wrap">
             <li><a href="#/" className="text-slate-800 hover:text-indigo-600">Home</a></li>
