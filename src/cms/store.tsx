@@ -128,7 +128,7 @@ const defaultPosts: CmsPost[] = allArticles.map(a => ({
 }));
 
 export const defaultState: CmsState = {
-  version: 8,
+  version: 9,
   tools: defaultTools,
   posts: defaultPosts,
   pages: [
@@ -217,8 +217,6 @@ export const defaultState: CmsState = {
       blocks: [
         { id: uid(), type: 'heading', text: 'Talk to us', level: 2 },
         { id: uid(), type: 'text', text: 'Found a bug, need a tool we do not have yet, or want to work with us? Email help@seoaudittools.pk and we will get back to you, usually within one business day. There is no ticket system and no phone menu — your email goes straight to the people who build the site.' },
-        { id: uid(), type: 'heading', text: 'The details', level: 2 },
-        { id: uid(), type: 'list', items: ['Company: EKSTRUH LTD', 'Registered in: England and Wales (company number 16905290)', 'Registered office: Victoria Grove, Bolton, United Kingdom, BL1 4JW', 'Support: help@seoaudittools.pk', 'Data protection queries: help@seoaudittools.pk — please mark them "FAO data protection"'] },
         { id: uid(), type: 'heading', text: 'Reporting a bug', level: 2 },
         { id: uid(), type: 'text', text: 'The more you tell us, the faster we can fix it. Helpful things to include: the address of the tool page, the input you gave it, your browser and device, and what you expected to happen versus what actually did. A screenshot never hurts.' },
         { id: uid(), type: 'heading', text: 'Questions about your data', level: 2 },
@@ -444,7 +442,8 @@ const KEY = 'seoaudittool:cms:v1';
  *  with the new 14-section policy; version 5 replaced the Terms of Service
  *  with the new 22-section Terms & Conditions; version 6 replaced the About
  *  page with the new content; version 7 replaced the Cookie Policy with the
- *  new 8-section policy including cookie tables. Pages the admin created
+ *  new 8-section policy including cookie tables; version 9 removed the
+ *  company-details block from the Contact page. Pages the admin created
  *  themselves are always preserved. */
 const migratePages = (pages: CmsPage[]): CmsPage[] => {
   const bySlug = new Map(pages.map(p => [p.slug, p]));
