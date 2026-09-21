@@ -122,18 +122,40 @@ const tone = (n: number) => n >= 80 ? 'text-emerald-600' : n >= 60 ? 'text-amber
 const stroke = (n: number) => n >= 80 ? '#10b981' : n >= 60 ? '#f59e0b' : '#ef4444';
 const checkStyle: Record<State, string> = { pass: 'bg-emerald-50 border-emerald-100 text-emerald-700', warning: 'bg-amber-50 border-amber-100 text-amber-700', error: 'bg-red-50 border-red-100 text-red-700' };
 
-const Gauge: React.FC<{ value: number }> = ({ value }) => {
-  const r = 43, c = Math.PI * 2 * r;
-  return <div className="relative w-28 h-28 flex-shrink-0"><svg viewBox="0 0 100 100" className="w-full h-full -rotate-90"><circle cx="50" cy="50" r={r} fill="none" stroke="#e2e8f0" strokeWidth="7" /><circle cx="50" cy="50" r={r} fill="none" stroke={stroke(value)} strokeWidth="7" strokeLinecap="round" strokeDasharray={c} strokeDashoffset={c - value / 100 * c} /></svg><span className={`absolute inset-0 flex items-center justify-center text-3xl font-extrabold ${tone(value)}`}>{value}</span></div>;
-};
-
+const scoreLabel = (n: number) => n >= 80 ? 'Strong' : n >= 60 ? 'Needs work' : 'Weak';
 const Input: React.FC<React.InputHTMLAttributes<HTMLInputElement>> = props => <input {...props} className={`${inputClass} ${props.className || ''}`} />;
 
-const AuditOverview: React.FC<{ audit: Audit; label: string; badge: string }> = ({ audit, label, badge }) => (
-  <article className="bg-slate-100 border border-slate-200 rounded-3xl p-5 md:p-6 min-w-0">
-    <div className="flex justify-between gap-3 mb-4"><div className="min-w-0"><span className={`inline-flex px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-wide text-white ${badge}`}>{label}</span><h2 className="text-lg font-bold text-slate-900 break-all mt-2">{audit.host}</h2><p className="text-xs text-slate-500 break-all">{audit.url}</p></div><span className={`h-fit text-[10px] font-bold border rounded-full px-2 py-1 ${audit.live ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 'bg-amber-50 text-amber-700 border-amber-100'}`}>{audit.live ? 'Live HTML' : 'Estimated fallback'}</span></div>
-    <div className="bg-white border border-slate-200 rounded-2xl p-4 flex flex-col sm:flex-row items-center gap-5 mb-4"><Gauge value={audit.score} /><div className="flex-1 w-full"><h3 className="font-bold text-slate-900">Overall SEO Score</h3><p className="text-xs text-slate-500 mb-3">Full page audit</p><div className="grid grid-cols-2 xl:grid-cols-4 gap-2"><div className="bg-sky-50 rounded-lg p-2"><small className="text-sky-700">Checks</small><b className="block text-sky-900">{audit.summary.total}</b></div><div className="bg-rose-50 rounded-lg p-2"><small className="text-rose-700">Errors</small><b className="block text-rose-700">{audit.summary.errors}</b></div><div className="bg-amber-50 rounded-lg p-2"><small className="text-amber-700">Warnings</small><b className="block text-amber-700">{audit.summary.warnings}</b></div><div className="bg-emerald-50 rounded-lg p-2"><small className="text-emerald-700">Passed</small><b className="block text-emerald-700">{audit.summary.passed}</b></div></div></div></div>
-    <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-5 gap-2">{audit.categories.map(c => <div key={c.name} className="bg-white border border-slate-200 rounded-xl p-3 text-center"><p className={`text-xl font-bold ${tone(c.score)}`}>{c.score}</p><p className="text-[11px] text-slate-500 mt-1">{c.name}</p></div>)}</div>
+const AuditOverview: React.FC<{ audit: Audit; label: string; accent: string }> = ({ audit, label, accent }) => (
+  <article className="min-w-0">
+    <div className="flex items-start justify-between gap-3">
+      <div className="min-w-0">
+        <p className={`text-[11px] font-bold uppercase tracking-wide ${accent}`}>{label}</p>
+        <h2 className="text-base font-bold text-slate-900 break-all mt-0.5">{audit.host}</h2>
+        <p className="text-[11px] text-slate-500 break-all">{audit.url}</p>
+      </div>
+      <span className={`h-fit text-[10px] font-bold border rounded-full px-2 py-0.5 ${audit.live ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 'bg-amber-50 text-amber-700 border-amber-100'}`}>{audit.live ? 'Live HTML' : 'Estimated fallback'}</span>
+    </div>
+    <div className="flex items-end gap-3 mt-4">
+      <p className={`text-5xl font-extrabold leading-none tracking-tight ${tone(audit.score)}`}>{audit.score}</p>
+      <div className="pb-0.5">
+        <p className="text-sm font-bold text-slate-900">Overall SEO score</p>
+        <p className="text-xs text-slate-500">{scoreLabel(audit.score)}</p>
+      </div>
+    </div>
+    <div className="h-1.5 bg-slate-100 rounded-full mt-3 overflow-hidden">
+      <div className="h-full rounded-full" style={{ width: `${audit.score}%`, background: stroke(audit.score) }} />
+    </div>
+    <div className="flex flex-wrap gap-x-4 gap-y-1 mt-3 text-sm text-slate-600">
+      <span><b className="text-slate-900">{audit.summary.total}</b> checks</span>
+      <span><b className="text-rose-600">{audit.summary.errors}</b> errors</span>
+      <span><b className="text-amber-600">{audit.summary.warnings}</b> warnings</span>
+      <span><b className="text-emerald-600">{audit.summary.passed}</b> passed</span>
+    </div>
+    <div className="flex flex-wrap gap-x-4 gap-y-1 mt-3 pt-3 border-t border-slate-100 text-xs text-slate-500">
+      {audit.categories.map(c => (
+        <span key={c.name}><b className={tone(c.score)}>{c.score}</b> {c.name.replace(' SEO', '')}</span>
+      ))}
+    </div>
   </article>
 );
 
@@ -146,53 +168,47 @@ const expiryStatus = (days: number | null): { text: string; cls: string } => {
   return { text: `${days.toLocaleString()} days remaining`, cls: 'text-emerald-600' };
 };
 
-const DomainOverview: React.FC<{ info: DomainInfo | null; label: string; badge: string }> = ({ info, label, badge }) => {
+const DomainOverview: React.FC<{ info: DomainInfo | null; label: string; accent: string }> = ({ info, label, accent }) => {
   const expiry = expiryStatus(info?.daysToExpiry ?? null);
   const days = info?.daysToExpiry ?? null;
   return (
-    <article className="bg-slate-100 border border-slate-200 rounded-3xl p-5 md:p-6">
-      <div className="flex flex-wrap items-start justify-between gap-3 mb-5">
+    <article className="min-w-0">
+      <div className="flex items-start justify-between gap-3 mb-4">
         <div className="min-w-0">
-          <span className={`inline-flex px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-wide text-white ${badge}`}>{label}</span>
-          <h3 className="font-bold text-slate-900 mt-2">Domain Information</h3>
-          <p className="text-xs text-slate-500 mt-0.5">Registration and expiry data from the public RDAP registry.</p>
+          <p className={`text-[11px] font-bold uppercase tracking-wide ${accent}`}>{label}</p>
+          <p className="text-sm font-bold text-slate-900 font-mono break-all mt-0.5">{info?.domain || 'Unknown domain'}</p>
         </div>
         {info?.live
-          ? <span className="inline-flex items-center gap-1.5 text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-100 rounded-full px-2.5 py-1"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />Registry data</span>
-          : <span className="inline-flex items-center gap-1.5 text-[11px] font-bold bg-amber-50 text-amber-700 border border-amber-100 rounded-full px-2.5 py-1"><span className="w-1.5 h-1.5 rounded-full bg-amber-500" />Registry unavailable</span>}
+          ? <span className="h-fit text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-100 rounded-full px-2 py-0.5">Registry data</span>
+          : <span className="h-fit text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-100 rounded-full px-2 py-0.5">Unavailable</span>}
       </div>
-      <div className="grid grid-cols-2 gap-3">
-        <div className="bg-white rounded-xl border border-slate-200 p-4">
-          <p className="text-xs text-slate-500">Registered domain</p>
-          <p className="text-sm font-bold text-slate-800 font-mono break-all" title={info?.domain}>{info?.domain || 'Unknown domain'}</p>
-          <p className="text-[11px] text-slate-400">{info?.registryId ? `Registry ID ${info.registryId}` : 'Registry ID unavailable'}</p>
+      <dl className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
+        <div>
+          <dt className="text-[11px] text-slate-500">Registration age</dt>
+          <dd className="font-semibold text-slate-900">{info?.ageLabel || 'Unavailable'}</dd>
+          <dd className="text-[11px] text-slate-400">{info?.registered ? `Created ${info.registered}` : 'Date unavailable'}</dd>
         </div>
-        <div className="bg-white rounded-xl border border-slate-200 p-4">
-          <p className="text-xs text-slate-500">Current registration age</p>
-          <p className="text-sm font-bold text-slate-800" title={info?.registeredIso}>{info?.ageLabel || 'Unavailable'}</p>
-          <p className="text-[11px] text-slate-400">{info?.registered ? `Created ${info.registered}` : 'Registration date unavailable'}</p>
+        <div>
+          <dt className="text-[11px] text-slate-500">Registry expiry</dt>
+          <dd className="font-semibold text-slate-900">{info?.expiry || 'Unavailable'}</dd>
+          <dd className={`text-[11px] ${days !== null && days < 30 ? 'text-red-600 font-semibold' : expiry.cls}`}>{expiry.text}</dd>
         </div>
-        <div className="bg-white rounded-xl border border-slate-200 p-4">
-          <p className="text-xs text-slate-500">Registry expiry</p>
-          <p className="text-sm font-bold text-slate-800" title={info?.expiryIso}>{info?.expiry || 'Unavailable'}</p>
-          <p className={`text-[11px] ${days !== null && days < 30 ? 'text-red-600 font-semibold' : expiry.cls}`}>{expiry.text}</p>
+        <div className="col-span-2 sm:col-span-1">
+          <dt className="text-[11px] text-slate-500">Registrar</dt>
+          <dd className="font-semibold text-slate-900 break-words">{info?.registrar || 'Unavailable'}</dd>
+          <dd className="text-[11px] text-slate-400">{info?.dnssec == null ? 'DNSSEC unknown' : info.dnssec ? 'DNSSEC enabled' : 'DNSSEC not signed'}</dd>
         </div>
-        <div className="bg-white rounded-xl border border-slate-200 p-4">
-          <p className="text-xs text-slate-500">Registrar</p>
-          <p className="text-sm font-bold text-slate-800 break-words" title={info?.registrar}>{info?.registrar || 'Unavailable'}</p>
-          <p className="text-[11px] text-slate-400">{info?.dnssec === null || info?.dnssec === undefined ? 'DNSSEC status unknown' : info.dnssec ? 'DNSSEC enabled' : 'DNSSEC not signed'}</p>
+        <div className="col-span-2 sm:col-span-1">
+          <dt className="text-[11px] text-slate-500">Registry ID</dt>
+          <dd className="font-semibold text-slate-900 break-all">{info?.registryId || 'Unavailable'}</dd>
+          <dd className="text-[11px] text-slate-400">Updated {info?.updated || '—'}</dd>
         </div>
-      </div>
-      <div className="flex flex-wrap items-center gap-x-5 gap-y-2 mt-3 text-xs text-slate-500">
-        <span><strong className="text-slate-700">Last registry update:</strong> {info?.updated || 'Unavailable'}</span>
-        <span><strong className="text-slate-700">Source:</strong> {info?.source || 'No live registry response'}</span>
-        {info?.live && <a href={`https://lookup.icann.org/en/lookup?name=${encodeURIComponent(info.domain)}`} target="_blank" rel="noopener noreferrer" className="font-semibold text-indigo-600 hover:underline">Verify at ICANN ↗</a>}
-      </div>
-      <p className="text-[11px] text-slate-400 mt-2 leading-relaxed">Age uses the RDAP creation event. A re-registered expired domain may have an older history that no public registry exposes.</p>
+      </dl>
+      {info?.live && <p className="text-[11px] text-slate-400 mt-3"><a href={`https://lookup.icann.org/en/lookup?name=${encodeURIComponent(info.domain)}`} target="_blank" rel="noopener noreferrer" className="font-semibold text-indigo-600 hover:underline">Verify at ICANN ↗</a></p>}
       {(info?.nameservers.length || info?.statuses.length || info?.error) ? (
-        <div className="flex flex-wrap gap-2 mt-3 text-xs">
-          {info?.nameservers.map(ns => <span key={ns} className="bg-white border border-slate-200 rounded-lg px-2 py-1 font-mono text-slate-600">NS {ns}</span>)}
-          {info?.statuses.map(status => <span key={status} className="bg-slate-200 rounded-lg px-2 py-1 text-slate-600">{status}</span>)}
+        <div className="flex flex-wrap gap-1.5 mt-3 text-[11px]">
+          {info?.nameservers.map(ns => <span key={ns} className="bg-slate-50 border border-slate-200 rounded px-1.5 py-0.5 font-mono text-slate-600">{ns}</span>)}
+          {info?.statuses.map(status => <span key={status} className="bg-slate-100 rounded px-1.5 py-0.5 text-slate-600">{status}</span>)}
           {info && !info.live && info.error && <span className="text-amber-700">{info.error}</span>}
         </div>
       ) : null}
@@ -205,85 +221,86 @@ const AuditDetails: React.FC<{ audit: Audit }> = ({ audit }) => {
   const external = audit.links.filter(link => !link.internal);
   const maxKw = Math.max(...audit.keywords.map(k => k.count), 1);
   const LinkPanel: React.FC<{ title: string; links: Audit['links']; toneClass: string }> = ({ title, links, toneClass }) => (
-    <div className="rounded-xl border border-slate-200 overflow-hidden min-w-0">
-      <div className={`px-4 py-3 border-b border-slate-200 ${toneClass}`}>
-        <h4 className="text-xs font-bold uppercase tracking-wide">{title} · {links.length} shown</h4>
+    <div className="rounded-2xl border border-slate-200 overflow-hidden min-w-0 bg-white">
+      <div className={`px-5 py-3.5 border-b border-slate-200 ${toneClass}`}>
+        <h4 className="text-xs font-bold uppercase tracking-wide">{title}</h4>
+        <p className="text-[11px] mt-0.5 opacity-80">{links.length} URL{links.length === 1 ? '' : 's'}</p>
       </div>
-      <div className="divide-y divide-slate-100 max-h-[32rem] overflow-y-auto">
+      <div className="divide-y divide-slate-100 max-h-[28rem] overflow-y-auto">
         {links.length ? links.map((link, index) => (
-          <a key={`${link.href}-${index}`} href={link.href} target="_blank" rel="noopener noreferrer" className="flex items-start gap-2 px-4 py-2.5 hover:bg-slate-50">
+          <a key={`${link.href}-${index}`} href={link.href} target="_blank" rel="noopener noreferrer" className="flex items-start gap-3 px-5 py-3.5 hover:bg-slate-50">
             <span className="min-w-0 flex-1">
-              <span className="block text-xs font-semibold text-slate-700 break-words">{link.anchor || '(no anchor)'}</span>
-              <span className="block text-[10px] font-mono text-slate-400 break-all">{link.href}</span>
+              <span className="block text-sm font-medium text-slate-800 break-words">{link.anchor || '(no anchor)'}</span>
+              <span className="block text-xs font-mono text-slate-400 break-all mt-1">{link.href}</span>
             </span>
-            {link.nofollow && <span className="text-[9px] font-bold text-amber-700 bg-amber-50 border border-amber-100 rounded px-1.5 py-0.5 flex-shrink-0">nofollow</span>}
+            {link.nofollow && <span className="text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-100 rounded px-1.5 py-0.5 flex-shrink-0">nofollow</span>}
           </a>
-        )) : <p className="p-4 text-xs text-slate-500">No URL samples available.</p>}
+        )) : <p className="px-5 py-6 text-sm text-slate-500">No URLs available.</p>}
       </div>
     </div>
   );
   return (
-    <div className="space-y-4 min-w-0">
-      <section className="bg-white rounded-2xl border border-slate-200 p-4 md:p-5">
-        <h3 className="font-bold text-slate-900 mb-3">Page snapshot</h3>
-        <dl className="space-y-3 text-sm">
+    <div className="space-y-6 min-w-0">
+      <section className="bg-white rounded-2xl border border-slate-200 p-6">
+        <h3 className="text-lg font-bold text-slate-900 mb-4">Page snapshot</h3>
+        <dl className="space-y-4">
           <div>
-            <dt className="text-[11px] font-bold uppercase tracking-wide text-slate-400">Title ({audit.title.length} chars)</dt>
-            <dd className="text-slate-800 break-words bg-slate-50 border border-slate-100 rounded-lg px-3 py-2 mt-1">{audit.title || 'No title tag found'}</dd>
+            <dt className="text-xs font-semibold text-slate-500 mb-1.5">Title · {audit.title.length} characters</dt>
+            <dd className="text-sm text-slate-800 break-words leading-relaxed">{audit.title || 'No title tag found'}</dd>
           </div>
-          <div>
-            <dt className="text-[11px] font-bold uppercase tracking-wide text-slate-400">Meta description ({audit.description.length} chars)</dt>
-            <dd className="text-slate-800 break-words bg-slate-50 border border-slate-100 rounded-lg px-3 py-2 mt-1">{audit.description || 'No meta description found'}</dd>
+          <div className="border-t border-slate-100 pt-4">
+            <dt className="text-xs font-semibold text-slate-500 mb-1.5">Meta description · {audit.description.length} characters</dt>
+            <dd className="text-sm text-slate-800 break-words leading-relaxed">{audit.description || 'No meta description found'}</dd>
           </div>
           {audit.h1s.length > 0 && (
-            <div>
-              <dt className="text-[11px] font-bold uppercase tracking-wide text-slate-400">H1 headings ({audit.h1s.length})</dt>
-              <dd className="mt-1 space-y-1">{audit.h1s.map((h1, i) => <p key={i} className="text-slate-800 break-words bg-slate-50 border border-slate-100 rounded-lg px-3 py-2">{h1}</p>)}</dd>
+            <div className="border-t border-slate-100 pt-4">
+              <dt className="text-xs font-semibold text-slate-500 mb-1.5">H1 headings · {audit.h1s.length}</dt>
+              <dd className="space-y-2">{audit.h1s.map((h1, i) => <p key={i} className="text-sm text-slate-800 break-words leading-relaxed">{h1}</p>)}</dd>
             </div>
           )}
         </dl>
       </section>
       {audit.categories.map(category => (
         <section key={category.name} className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
-          <div className="flex justify-between px-4 py-3 bg-slate-50 border-b border-slate-100">
-            <h3 className="font-bold text-slate-900">{category.name}</h3>
-            <span className={`font-bold ${tone(category.score)}`}>{category.score}/100</span>
+          <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
+            <h3 className="text-lg font-bold text-slate-900">{category.name}</h3>
+            <span className={`text-sm font-bold ${tone(category.score)}`}>{category.score}/100</span>
           </div>
           <div className="divide-y divide-slate-100">
             {category.checks.map(item => (
-              <div key={item.label} className="p-4 flex items-start gap-3">
-                <span className={`text-[10px] font-bold uppercase rounded-full px-2 py-1 border flex-shrink-0 ${checkStyle[item.state]}`}>{item.state}</span>
+              <div key={item.label} className="px-6 py-5 flex items-start gap-4">
+                <span className={`text-[10px] font-bold uppercase rounded-full px-2.5 py-1 border flex-shrink-0 mt-0.5 ${checkStyle[item.state]}`}>{item.state}</span>
                 <div className="min-w-0">
-                  <p className="text-sm font-bold text-slate-800">{item.label}</p>
-                  <p className="text-xs text-slate-500 mt-0.5 break-words">{item.detail}</p>
-                  <p className="text-xs text-slate-700 mt-2"><b>Fix:</b> {item.fix}</p>
+                  <p className="text-sm font-semibold text-slate-900">{item.label}</p>
+                  <p className="text-sm text-slate-600 mt-1 leading-relaxed break-words">{item.detail}</p>
+                  <p className="text-sm text-slate-500 mt-2 leading-relaxed"><span className="font-semibold text-slate-700">Fix:</span> {item.fix}</p>
                 </div>
               </div>
             ))}
           </div>
         </section>
       ))}
-      <section className="bg-white rounded-2xl border border-slate-200 p-4 md:p-5">
-        <div className="flex items-center justify-between gap-3 mb-3">
-          <h3 className="font-bold text-slate-900">Top Keywords</h3>
+      <section className="bg-white rounded-2xl border border-slate-200 p-6">
+        <div className="flex items-end justify-between gap-3 mb-5">
+          <h3 className="text-lg font-bold text-slate-900">Top keywords</h3>
           <span className="text-xs text-slate-500">{audit.keywords.length} terms · {Number(audit.metrics.words).toLocaleString()} words</span>
         </div>
         {audit.keywords.length ? (
-          <div className="space-y-2">
+          <div className="space-y-3">
             {audit.keywords.map(keyword => (
-              <div key={keyword.term} className="flex items-center gap-3">
-                <span className="w-36 text-sm text-slate-700 truncate" title={keyword.term}>{keyword.term}</span>
-                <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden"><div className="h-full bg-indigo-500" style={{ width: `${(keyword.count / maxKw) * 100}%` }} /></div>
+              <div key={keyword.term} className="flex items-center gap-4">
+                <span className="w-40 text-sm text-slate-700 truncate" title={keyword.term}>{keyword.term}</span>
+                <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden"><div className="h-full bg-indigo-500 rounded-full" style={{ width: `${(keyword.count / maxKw) * 100}%` }} /></div>
                 <span className="w-24 text-right text-xs text-slate-500">{keyword.count}× · {keyword.density}%</span>
               </div>
             ))}
           </div>
-        ) : <p className="text-xs text-slate-500">No keyword data available.</p>}
+        ) : <p className="text-sm text-slate-500">No keyword data available.</p>}
       </section>
-      <section className="grid gap-3">
-        <LinkPanel title={`Internal URLs (${audit.metrics.internal})`} links={internal} toneClass="bg-indigo-50 text-indigo-700" />
-        <LinkPanel title={`External URLs (${audit.metrics.external})`} links={external} toneClass="bg-sky-50 text-sky-700" />
-      </section>
+      <div className="grid md:grid-cols-2 gap-6">
+        <LinkPanel title="Internal URLs" links={internal} toneClass="bg-indigo-50 text-indigo-700" />
+        <LinkPanel title="External URLs" links={external} toneClass="bg-sky-50 text-sky-700" />
+      </div>
     </div>
   );
 };
@@ -350,27 +367,160 @@ const CompetitorAnalysis: React.FC = () => {
   const [yourAudit, setYourAudit] = useState<Audit | null>(null), [theirAudit, setTheirAudit] = useState<Audit | null>(null);
   const [yourDomain, setYourDomain] = useState<DomainInfo | null>(null), [theirDomain, setTheirDomain] = useState<DomainInfo | null>(null);
   const [busy, setBusy] = useState(false), [progress, setProgress] = useState(0), [status, setStatus] = useState(''), [error, setError] = useState('');
+  const [auditTab, setAuditTab] = useState<'yours' | 'theirs'>('yours');
   const run = async () => {
     if (!yours.trim() || !theirs.trim()) { setError('Enter both website URLs.'); return; }
-    setBusy(true); setError(''); setProgress(8); setStatus('Auditing both pages and querying domain registries…'); setYourAudit(null); setTheirAudit(null); setYourDomain(null); setTheirDomain(null);
+    setBusy(true); setError(''); setProgress(8); setStatus('Auditing both pages and querying domain registries…');
+    setYourAudit(null); setTheirAudit(null); setYourDomain(null); setTheirDomain(null); setAuditTab('yours');
     const timer = window.setInterval(() => setProgress(v => Math.min(90, v + 4)), 250);
     const [a, b, da, db] = await Promise.all([
       getAudit(yours),
       getAudit(theirs),
-      // RDAP lookups run in parallel with the page audits; they never hold the
-      // report for longer than the audits themselves could take.
       Promise.race([fetchDomainInfo(yours).catch(() => null), timeout(12000)]),
       Promise.race([fetchDomainInfo(theirs).catch(() => null), timeout(12000)]),
     ]);
-    window.clearInterval(timer); setProgress(100); setStatus('Comparison report ready.'); setYourAudit(a); setTheirAudit(b); setYourDomain(da); setTheirDomain(db); setBusy(false);
+    window.clearInterval(timer); setProgress(100); setStatus('Comparison report ready.');
+    setYourAudit(a); setTheirAudit(b); setYourDomain(da); setTheirDomain(db); setBusy(false);
   };
   const rows = useMemo(() => yourAudit && theirAudit ? comparison(yourAudit, theirAudit, yourDomain, theirDomain) : [], [yourAudit, theirAudit, yourDomain, theirDomain]);
   const gaps = yourAudit?.categories.flatMap(c => c.checks.filter(x => x.state !== 'pass').map(x => ({ ...x, category: c.name }))).sort((a, b) => (a.state === 'error' ? 0 : 1) - (b.state === 'error' ? 0 : 1)) || [];
 
-  if (!yourAudit || !theirAudit) return <div className="space-y-6"><section className="text-center bg-gradient-to-br from-indigo-500 to-purple-600 rounded-3xl p-8 md:p-10 text-white"><p className="text-xs font-bold uppercase tracking-[.18em] text-indigo-200 mb-3">Side-by-side SEO audit</p><h1 className="text-3xl md:text-4xl font-extrabold">Website Competitor Analysis</h1><p className="max-w-2xl mx-auto text-indigo-100 mt-3">Run two complete audits with the same on-page, technical, mobile, security and performance checks used by the homepage audit.</p></section><section className="bg-white rounded-2xl border border-slate-200 p-5 md:p-6 shadow-sm"><div className="grid md:grid-cols-2 gap-4"><div><label className="block text-sm font-semibold text-slate-700 mb-1">Your website</label><Input value={yours} onChange={e => setYours(e.target.value)} placeholder="https://yourwebsite.com/page" /></div><div><label className="block text-sm font-semibold text-slate-700 mb-1">Competitor website</label><Input value={theirs} onChange={e => setTheirs(e.target.value)} placeholder="https://competitor.com/page" /></div></div>{busy ? <div className="mt-6"><div className="flex justify-between text-sm text-slate-600 mb-2"><span>{status}</span><span>{progress}%</span></div><div className="h-2 bg-slate-200 rounded-full overflow-hidden"><div className="h-full bg-gradient-to-r from-indigo-500 to-purple-600" style={{ width: `${progress}%` }} /></div></div> : <button onClick={run} className="w-full mt-5 py-4 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold">Compare Both Websites →</button>}{error && <p className="text-sm text-red-600 text-center mt-3">{error}</p>}<p className="text-xs text-slate-400 text-center mt-3">If a site blocks browser access, a clearly labelled URL-based fallback keeps the comparison working.</p></section></div>;
+  if (!yourAudit || !theirAudit) return (
+    <div className="space-y-6">
+      <section className="text-center bg-gradient-to-br from-indigo-500 to-purple-600 rounded-3xl p-8 md:p-10 text-white">
+        <p className="text-xs font-bold uppercase tracking-[.18em] text-indigo-200 mb-3">Side-by-side SEO audit</p>
+        <h1 className="text-3xl md:text-4xl font-extrabold">Website Competitor Analysis</h1>
+        <p className="max-w-2xl mx-auto text-indigo-100 mt-3">Run two complete audits with the same on-page, technical, mobile, security and performance checks used by the homepage audit.</p>
+      </section>
+      <section className="bg-white rounded-2xl border border-slate-200 p-5 md:p-6 shadow-sm">
+        <div className="grid md:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-semibold text-slate-700 mb-1">Your website</label>
+            <Input value={yours} onChange={e => setYours(e.target.value)} placeholder="https://yourwebsite.com/page" />
+          </div>
+          <div>
+            <label className="block text-sm font-semibold text-slate-700 mb-1">Competitor website</label>
+            <Input value={theirs} onChange={e => setTheirs(e.target.value)} placeholder="https://competitor.com/page" />
+          </div>
+        </div>
+        {busy ? (
+          <div className="mt-6">
+            <div className="flex justify-between text-sm text-slate-600 mb-2"><span>{status}</span><span>{progress}%</span></div>
+            <div className="h-2 bg-slate-200 rounded-full overflow-hidden"><div className="h-full bg-gradient-to-r from-indigo-500 to-purple-600" style={{ width: `${progress}%` }} /></div>
+          </div>
+        ) : (
+          <button onClick={run} className="w-full mt-5 py-4 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold">Compare Both Websites →</button>
+        )}
+        {error && <p className="text-sm text-red-600 text-center mt-3">{error}</p>}
+        <p className="text-xs text-slate-400 text-center mt-3">If a site blocks browser access, a clearly labelled URL-based fallback keeps the comparison working.</p>
+      </section>
+    </div>
+  );
 
   const yourWins = rows.filter(r => r.winner === 'yours').length, theirWins = rows.filter(r => r.winner === 'theirs').length;
-  return <div className="space-y-8"><div className="flex flex-wrap justify-between gap-3"><div><h1 className="text-2xl md:text-3xl font-extrabold text-slate-900">SEO Competitor Comparison</h1><p className="text-sm text-slate-500 mt-1">Two full audit reports, side by side.</p></div><button onClick={() => { setYourAudit(null); setTheirAudit(null); setYourDomain(null); setTheirDomain(null); setProgress(0); }} className="px-4 py-2 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-sm font-semibold">Compare different URLs</button></div><div className="grid xl:grid-cols-2 gap-6"><AuditOverview audit={yourAudit} label="Your Website" badge="bg-indigo-600" /><AuditOverview audit={theirAudit} label="Competitor" badge="bg-violet-600" /></div><section className="space-y-4"><div className="flex flex-wrap justify-between gap-3"><div><h2 className="text-xl font-bold text-slate-900">Domain Information</h2><p className="text-sm text-slate-500 mt-0.5">Registration and expiry data from the public RDAP registry.</p></div><span className="h-fit text-[10px] font-bold bg-sky-50 text-sky-700 border border-sky-100 rounded-full px-2 py-1">RDAP · public registry protocol</span></div><div className="grid xl:grid-cols-2 gap-6"><DomainOverview info={yourDomain} label="Your Website" badge="bg-indigo-600" /><DomainOverview info={theirDomain} label="Competitor" badge="bg-violet-600" /></div></section><section className="bg-white rounded-2xl border border-slate-200 overflow-hidden"><div className="flex flex-wrap justify-between gap-3 px-5 py-4 border-b border-slate-100"><div><h2 className="font-bold text-slate-900">Head-to-Head Comparison</h2><p className="text-xs text-slate-500 mt-0.5">Green values show the stronger result.</p></div><div className="flex gap-2 text-xs font-bold"><span className="bg-indigo-50 text-indigo-700 rounded-full px-3 py-1">You win {yourWins}</span><span className="bg-violet-50 text-violet-700 rounded-full px-3 py-1">Competitor wins {theirWins}</span></div></div><div className="overflow-x-auto"><table className="w-full text-sm min-w-[40rem]"><thead><tr className="bg-slate-50 text-left text-xs uppercase text-slate-500"><th className="px-4 py-3">Metric</th><th className="px-4 py-3">Your site</th><th className="px-4 py-3">Competitor</th><th className="px-4 py-3">Result</th></tr></thead><tbody>{rows.map((r, i) => <tr key={r.label} className={i % 2 ? 'bg-slate-50/60' : 'bg-white'}><td className="px-4 py-3 font-semibold text-slate-700 whitespace-nowrap">{r.label}</td><td className={`px-4 py-3 font-mono break-words ${r.winner === 'yours' ? 'text-emerald-600 font-bold' : ''}`}>{r.yours}</td><td className={`px-4 py-3 font-mono break-words ${r.winner === 'theirs' ? 'text-emerald-600 font-bold' : ''}`}>{r.theirs}</td><td className={`px-4 py-3 text-xs font-bold whitespace-nowrap ${r.winner === 'yours' ? 'text-indigo-600' : r.winner === 'theirs' ? 'text-violet-600' : 'text-slate-400'}`}>{r.result ?? (r.winner === 'yours' ? 'Your site leads' : r.winner === 'theirs' ? 'Competitor leads' : 'Tie')}</td></tr>)}</tbody></table></div></section><section className="grid lg:grid-cols-2 gap-6 items-start"><div className="min-w-0"><h2 className="text-xl font-bold text-slate-900 mb-3">Your Full Audit</h2><AuditDetails audit={yourAudit} /></div><div className="min-w-0"><h2 className="text-xl font-bold text-slate-900 mb-3">Competitor Full Audit</h2><AuditDetails audit={theirAudit} /></div></section><section className="bg-white rounded-2xl border border-slate-200 p-5 md:p-6"><h2 className="text-xl font-bold text-slate-900">Your Priority Improvement Plan</h2><p className="text-sm text-slate-500 mt-1 mb-5">Every failed check, errors first, then warnings.</p>{gaps.length ? <div className="grid md:grid-cols-2 gap-3">{gaps.map((g, i) => <article key={`${g.category}-${g.label}`} className="rounded-xl border border-slate-200 p-4 flex gap-3"><span className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 ${g.state === 'error' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'}`}>{i + 1}</span><div><p className="text-[10px] uppercase font-bold text-slate-400">{g.category}</p><h3 className="text-sm font-bold text-slate-800">{g.label}</h3><p className="text-xs text-slate-500 mt-1">{g.fix}</p></div></article>)}</div> : <p className="text-emerald-600 font-semibold">All audited checks passed.</p>}</section></div>;
+  const activeAudit = auditTab === 'yours' ? yourAudit : theirAudit;
+
+  return (
+    <div className="space-y-8">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 className="text-2xl md:text-3xl font-extrabold text-slate-900">SEO Competitor Comparison</h1>
+          <p className="text-sm text-slate-500 mt-1">Two full audit reports, side by side.</p>
+        </div>
+        <button onClick={() => { setYourAudit(null); setTheirAudit(null); setYourDomain(null); setTheirDomain(null); setProgress(0); }} className="px-4 py-2 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-sm font-semibold">Compare different URLs</button>
+      </div>
+
+      <section className="bg-white rounded-2xl border border-slate-200 p-5 md:p-6">
+        <h2 className="text-sm font-bold text-slate-900 mb-5">Overall scores</h2>
+        <div className="grid md:grid-cols-2 gap-6 md:gap-8 md:divide-x md:divide-slate-100">
+          <div className="md:pr-8"><AuditOverview audit={yourAudit} label="Your website" accent="text-indigo-600" /></div>
+          <div className="md:pl-8"><AuditOverview audit={theirAudit} label="Competitor" accent="text-violet-600" /></div>
+        </div>
+      </section>
+
+      <section className="bg-white rounded-2xl border border-slate-200 p-5 md:p-6">
+        <div className="flex flex-wrap items-end justify-between gap-3 mb-5">
+          <div>
+            <h2 className="text-sm font-bold text-slate-900">Domain Information</h2>
+            <p className="text-xs text-slate-500 mt-0.5">Registration and expiry data from the public RDAP registry.</p>
+          </div>
+        </div>
+        <div className="grid md:grid-cols-2 gap-6 md:gap-8 md:divide-x md:divide-slate-100">
+          <div className="md:pr-8"><DomainOverview info={yourDomain} label="Your website" accent="text-indigo-600" /></div>
+          <div className="md:pl-8"><DomainOverview info={theirDomain} label="Competitor" accent="text-violet-600" /></div>
+        </div>
+      </section>
+
+      <section className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+        <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-4 border-b border-slate-100">
+          <div>
+            <h2 className="text-sm font-bold text-slate-900">Head-to-head comparison</h2>
+            <p className="text-xs text-slate-500 mt-0.5">Green values show the stronger result.</p>
+          </div>
+          <div className="flex gap-2 text-xs font-bold">
+            <span className="bg-indigo-50 text-indigo-700 rounded-full px-3 py-1">You win {yourWins}</span>
+            <span className="bg-violet-50 text-violet-700 rounded-full px-3 py-1">Competitor wins {theirWins}</span>
+          </div>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm min-w-[40rem]">
+            <thead>
+              <tr className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
+                <th className="px-5 py-3 font-semibold">Metric</th>
+                <th className="px-5 py-3 font-semibold">Your site</th>
+                <th className="px-5 py-3 font-semibold">Competitor</th>
+                <th className="px-5 py-3 font-semibold">Result</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r, i) => (
+                <tr key={r.label} className={i % 2 ? 'bg-slate-50/50' : 'bg-white'}>
+                  <td className="px-5 py-3 font-medium text-slate-700">{r.label}</td>
+                  <td className={`px-5 py-3 font-mono break-words ${r.winner === 'yours' ? 'text-emerald-600 font-bold' : 'text-slate-800'}`}>{r.yours}</td>
+                  <td className={`px-5 py-3 font-mono break-words ${r.winner === 'theirs' ? 'text-emerald-600 font-bold' : 'text-slate-800'}`}>{r.theirs}</td>
+                  <td className={`px-5 py-3 text-xs font-semibold ${r.winner === 'yours' ? 'text-indigo-600' : r.winner === 'theirs' ? 'text-violet-600' : 'text-slate-400'}`}>{r.result ?? (r.winner === 'yours' ? 'Your site leads' : r.winner === 'theirs' ? 'Competitor leads' : 'Tie')}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section>
+        <div className="flex flex-wrap items-end justify-between gap-3 mb-5">
+          <div>
+            <h2 className="text-xl font-bold text-slate-900">Full audit</h2>
+            <p className="text-sm text-slate-500 mt-0.5">One site at a time, so every check has room to read.</p>
+          </div>
+          <div className="inline-flex rounded-xl border border-slate-200 bg-white p-1">
+            <button type="button" onClick={() => setAuditTab('yours')} className={`px-4 py-2 rounded-lg text-sm font-semibold ${auditTab === 'yours' ? 'bg-indigo-600 text-white' : 'text-slate-600 hover:text-slate-900'}`}>Your website</button>
+            <button type="button" onClick={() => setAuditTab('theirs')} className={`px-4 py-2 rounded-lg text-sm font-semibold ${auditTab === 'theirs' ? 'bg-violet-600 text-white' : 'text-slate-600 hover:text-slate-900'}`}>Competitor</button>
+          </div>
+        </div>
+        <p className="text-xs text-slate-500 mb-4 break-all">{activeAudit.host} · {activeAudit.url}</p>
+        <AuditDetails audit={activeAudit} />
+      </section>
+
+      <section className="bg-white rounded-2xl border border-slate-200 p-6">
+        <h2 className="text-xl font-bold text-slate-900">Your priority improvement plan</h2>
+        <p className="text-sm text-slate-500 mt-1 mb-6">Every failed check, errors first, then warnings.</p>
+        {gaps.length ? (
+          <div className="space-y-3">
+            {gaps.map((g, i) => (
+              <article key={`${g.category}-${g.label}`} className="rounded-xl border border-slate-200 px-5 py-4 flex gap-4">
+                <span className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 ${g.state === 'error' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'}`}>{i + 1}</span>
+                <div className="min-w-0">
+                  <p className="text-[11px] uppercase tracking-wide font-bold text-slate-400">{g.category} · {g.state}</p>
+                  <h3 className="text-sm font-bold text-slate-900 mt-0.5">{g.label}</h3>
+                  <p className="text-sm text-slate-600 mt-1 leading-relaxed">{g.fix}</p>
+                </div>
+              </article>
+            ))}
+          </div>
+        ) : <p className="text-emerald-600 font-semibold">All audited checks passed.</p>}
+      </section>
+    </div>
+  );
 };
 
 export default CompetitorAnalysis;
