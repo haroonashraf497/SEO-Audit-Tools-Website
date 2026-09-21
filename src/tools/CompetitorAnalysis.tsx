@@ -377,7 +377,7 @@ const LinkPanel: React.FC<{ title: string; links: Audit['links']; toneClass: str
       <h3 className={sectionHeading}>{title}</h3>
       <p className="text-sm mt-1 opacity-80">{links.length} URL{links.length === 1 ? '' : 's'}</p>
     </div>
-    <div className="divide-y divide-slate-100 flex-1">
+    <div className="divide-y divide-slate-100 h-80 overflow-y-auto overscroll-contain">
       {links.length ? links.map((link, index) => (
         <a key={`${link.href}-${index}`} href={link.href} target="_blank" rel="noopener noreferrer" className="flex items-start gap-3 px-5 py-3.5 hover:bg-slate-50">
           <span className="min-w-0 flex-1">
