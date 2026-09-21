@@ -44,17 +44,35 @@ const fallback = (url: string): LivePageData => {
     description: `Explore ${brand} services, resources and practical online solutions. Compare options and find useful information for your needs.`,
     h1s: [`${brand} Services`], headingCounts: { H1: 1, H2: Math.round(3 + rnd() * 6), H3: Math.round(2 + rnd() * 7), H4: 0, H5: 0, H6: 0 },
     imageCount: images, imagesMissingAlt: Math.round(rnd() * Math.min(5, images)), imagesAltWithKeyword: 1,
-    internalLinks: Math.round(15 + rnd() * 70), externalLinks: Math.round(2 + rnd() * 16), nofollowLinks: Math.round(rnd() * 5), internalNofollowLinks: 0, externalNofollowLinks: Math.round(rnd() * 3),
+    internalLinks: 25, externalLinks: 15, nofollowLinks: 5, internalNofollowLinks: 0, externalNofollowLinks: 5,
     wordCount: words, canonical: normalise(url), favicon: '', charset: true, viewport: rnd() > .12, lang: 'en', robots: 'index, follow',
     ogTitle: rnd() > .2, ogDescription: rnd() > .25, ogImage: rnd() > .35, ogUrl: rnd() > .2, twitterCard: rnd() > .35,
     codeSize: Math.round(55000 + rnd() * 160000), textSize: words * 6, textRatio: Math.round((5 + rnd() * 16) * 10) / 10,
-    linksSample: [
-      { href: `${normalise(url).replace(/\/$/, '')}/about/`, internal: true, nofollow: false, anchor: 'About' },
-      { href: `${normalise(url).replace(/\/$/, '')}/services/`, internal: true, nofollow: false, anchor: 'Services' },
-      { href: `${normalise(url).replace(/\/$/, '')}/contact/`, internal: true, nofollow: false, anchor: 'Contact' },
-      { href: 'https://www.linkedin.com/', internal: false, nofollow: true, anchor: 'LinkedIn' },
-      { href: 'https://www.google.com/', internal: false, nofollow: false, anchor: 'Google' },
-    ], bodyText: `${brand} professional services online solutions resources information customers business guide support pricing results quality website digital`, html: '', fetchMs: Math.round(250 + rnd() * 1300), scripts: Math.round(5 + rnd() * 24), externalScripts: Math.round(3 + rnd() * 16), stylesheets: Math.round(2 + rnd() * 8), inlineStyles: 1,
+    linksSample: (() => {
+      const origin = normalise(url).replace(/\/$/, '');
+      const internals = ['Home', 'About', 'Services', 'Contact', 'Blog', 'Pricing', 'FAQ', 'Careers', 'Privacy', 'Terms', 'Support', 'Login', 'Products', 'Case Studies', 'Resources', 'News', 'Team', 'Locations', 'Partners', 'Docs', 'Help', 'Features', 'Customers', 'Integrations', 'Sitemap'].map((anchor, i) => ({
+        href: i === 0 ? `${origin}/` : `${origin}/${anchor.toLowerCase().replace(/\s+/g, '-')}/`,
+        internal: true, nofollow: false, anchor,
+      }));
+      const externals = [
+        ['Google', 'https://www.google.com/', false],
+        ['LinkedIn', 'https://www.linkedin.com/', true],
+        ['X', 'https://x.com/', true],
+        ['YouTube', 'https://www.youtube.com/', false],
+        ['Facebook', 'https://www.facebook.com/', true],
+        ['Wikipedia', 'https://www.wikipedia.org/', false],
+        ['GitHub', 'https://github.com/', false],
+        ['Bing', 'https://www.bing.com/', false],
+        ['Instagram', 'https://www.instagram.com/', true],
+        ['Reddit', 'https://www.reddit.com/', true],
+        ['Crunchbase', 'https://www.crunchbase.com/', false],
+        ['Trustpilot', 'https://www.trustpilot.com/', false],
+        ['Apple App Store', 'https://apps.apple.com/', false],
+        ['Google Play', 'https://play.google.com/', false],
+        ['Cloudflare', 'https://www.cloudflare.com/', false],
+      ].map(([anchor, href, nofollow]) => ({ href: String(href), internal: false, nofollow: Boolean(nofollow), anchor: String(anchor) }));
+      return [...internals, ...externals];
+    })(), bodyText: `${brand} professional services online solutions resources information customers business guide support pricing results quality website digital`, html: '', fetchMs: Math.round(250 + rnd() * 1300), scripts: Math.round(5 + rnd() * 24), externalScripts: Math.round(3 + rnd() * 16), stylesheets: Math.round(2 + rnd() * 8), inlineStyles: 1,
     iframes: Math.round(rnd() * 3), forms: 1, emails: [], metaTags: [], linkTags: [], generator: '', hasJsonLd: rnd() > .4, imagesWithoutDimensions: Math.round(rnd() * Math.min(4, images)), smallFontRisk: rnd() > .84,
   };
 };
@@ -123,6 +141,7 @@ const stroke = (n: number) => n >= 80 ? '#10b981' : n >= 60 ? '#f59e0b' : '#ef44
 const checkStyle: Record<State, string> = { pass: 'bg-emerald-50 border-emerald-100 text-emerald-700', warning: 'bg-amber-50 border-amber-100 text-amber-700', error: 'bg-red-50 border-red-100 text-red-700' };
 
 const scoreLabel = (n: number) => n >= 80 ? 'Strong' : n >= 60 ? 'Needs work' : 'Weak';
+const sectionHeading = 'text-xl font-bold text-slate-900';
 const Input: React.FC<React.InputHTMLAttributes<HTMLInputElement>> = props => <input {...props} className={`${inputClass} ${props.className || ''}`} />;
 
 const AuditOverview: React.FC<{ audit: Audit; label: string; accent: string }> = ({ audit, label, accent }) => (
@@ -223,10 +242,10 @@ const AuditDetails: React.FC<{ audit: Audit }> = ({ audit }) => {
   const LinkPanel: React.FC<{ title: string; links: Audit['links']; toneClass: string }> = ({ title, links, toneClass }) => (
     <div className="rounded-2xl border border-slate-200 overflow-hidden min-w-0 bg-white">
       <div className={`px-5 py-3.5 border-b border-slate-200 ${toneClass}`}>
-        <h4 className="text-xs font-bold uppercase tracking-wide">{title}</h4>
-        <p className="text-[11px] mt-0.5 opacity-80">{links.length} URL{links.length === 1 ? '' : 's'}</p>
+        <h3 className={sectionHeading}>{title}</h3>
+        <p className="text-sm mt-1 opacity-80">{links.length} URL{links.length === 1 ? '' : 's'}</p>
       </div>
-      <div className="divide-y divide-slate-100 max-h-[28rem] overflow-y-auto">
+      <div className="divide-y divide-slate-100">
         {links.length ? links.map((link, index) => (
           <a key={`${link.href}-${index}`} href={link.href} target="_blank" rel="noopener noreferrer" className="flex items-start gap-3 px-5 py-3.5 hover:bg-slate-50">
             <span className="min-w-0 flex-1">
@@ -242,7 +261,7 @@ const AuditDetails: React.FC<{ audit: Audit }> = ({ audit }) => {
   return (
     <div className="space-y-6 min-w-0">
       <section className="bg-white rounded-2xl border border-slate-200 p-6">
-        <h3 className="text-lg font-bold text-slate-900 mb-4">Page snapshot</h3>
+        <h3 className={`${sectionHeading} mb-4`}>Page snapshot</h3>
         <dl className="space-y-4">
           <div>
             <dt className="text-xs font-semibold text-slate-500 mb-1.5">Title · {audit.title.length} characters</dt>
@@ -263,7 +282,7 @@ const AuditDetails: React.FC<{ audit: Audit }> = ({ audit }) => {
       {audit.categories.map(category => (
         <section key={category.name} className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
           <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
-            <h3 className="text-lg font-bold text-slate-900">{category.name}</h3>
+            <h3 className={sectionHeading}>{category.name}</h3>
             <span className={`text-sm font-bold ${tone(category.score)}`}>{category.score}/100</span>
           </div>
           <div className="divide-y divide-slate-100">
@@ -282,7 +301,7 @@ const AuditDetails: React.FC<{ audit: Audit }> = ({ audit }) => {
       ))}
       <section className="bg-white rounded-2xl border border-slate-200 p-6">
         <div className="flex items-end justify-between gap-3 mb-5">
-          <h3 className="text-lg font-bold text-slate-900">Top keywords</h3>
+          <h3 className={sectionHeading}>Top keywords</h3>
           <span className="text-xs text-slate-500">{audit.keywords.length} terms · {Number(audit.metrics.words).toLocaleString()} words</span>
         </div>
         {audit.keywords.length ? (
@@ -429,7 +448,7 @@ const CompetitorAnalysis: React.FC = () => {
       </div>
 
       <section className="bg-white rounded-2xl border border-slate-200 p-5 md:p-6">
-        <h2 className="text-sm font-bold text-slate-900 mb-5">Overall scores</h2>
+        <h2 className={`${sectionHeading} mb-5`}>Overall scores</h2>
         <div className="grid md:grid-cols-2 gap-6 md:gap-8 md:divide-x md:divide-slate-100">
           <div className="md:pr-8"><AuditOverview audit={yourAudit} label="Your website" accent="text-indigo-600" /></div>
           <div className="md:pl-8"><AuditOverview audit={theirAudit} label="Competitor" accent="text-violet-600" /></div>
@@ -439,7 +458,7 @@ const CompetitorAnalysis: React.FC = () => {
       <section className="bg-white rounded-2xl border border-slate-200 p-5 md:p-6">
         <div className="flex flex-wrap items-end justify-between gap-3 mb-5">
           <div>
-            <h2 className="text-sm font-bold text-slate-900">Domain Information</h2>
+            <h2 className={sectionHeading}>Domain Information</h2>
             <p className="text-xs text-slate-500 mt-0.5">Registration and expiry data from the public RDAP registry.</p>
           </div>
         </div>
@@ -452,7 +471,7 @@ const CompetitorAnalysis: React.FC = () => {
       <section className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
         <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-4 border-b border-slate-100">
           <div>
-            <h2 className="text-sm font-bold text-slate-900">Head-to-head comparison</h2>
+            <h2 className={sectionHeading}>Head-to-head comparison</h2>
             <p className="text-xs text-slate-500 mt-0.5">Green values show the stronger result.</p>
           </div>
           <div className="flex gap-2 text-xs font-bold">
@@ -485,25 +504,35 @@ const CompetitorAnalysis: React.FC = () => {
       </section>
 
       <section>
-        <h2 className="text-xl font-bold text-slate-900 mb-5">Full audit</h2>
+        <h2 className={`${sectionHeading} mb-5`}>Full audit</h2>
         <div className="grid lg:grid-cols-2 gap-6 items-start">
           <div className="min-w-0">
-            <p className="text-[11px] font-bold uppercase tracking-wide text-indigo-600">Your website</p>
-            <h3 className="text-lg font-bold text-slate-900 break-all mt-0.5">{yourAudit.host}</h3>
-            <p className="text-xs text-slate-500 break-all mb-4">{yourAudit.url}</p>
+            <div className="bg-white rounded-2xl border border-slate-200 px-5 py-4 mb-6">
+              <div className="flex items-start justify-between gap-3">
+                <h3 className={sectionHeading}>Your website</h3>
+                <span className={`h-fit text-[10px] font-bold border rounded-full px-2 py-0.5 ${yourAudit.live ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 'bg-amber-50 text-amber-700 border-amber-100'}`}>{yourAudit.live ? 'Live HTML' : 'Estimated fallback'}</span>
+              </div>
+              <p className="text-sm font-semibold text-slate-700 break-all mt-2">{yourAudit.host}</p>
+              <p className="text-sm text-slate-500 break-all mt-0.5">{yourAudit.url}</p>
+            </div>
             <AuditDetails audit={yourAudit} />
           </div>
           <div className="min-w-0">
-            <p className="text-[11px] font-bold uppercase tracking-wide text-violet-600">Competitor</p>
-            <h3 className="text-lg font-bold text-slate-900 break-all mt-0.5">{theirAudit.host}</h3>
-            <p className="text-xs text-slate-500 break-all mb-4">{theirAudit.url}</p>
+            <div className="bg-white rounded-2xl border border-slate-200 px-5 py-4 mb-6">
+              <div className="flex items-start justify-between gap-3">
+                <h3 className={sectionHeading}>Competitor</h3>
+                <span className={`h-fit text-[10px] font-bold border rounded-full px-2 py-0.5 ${theirAudit.live ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 'bg-amber-50 text-amber-700 border-amber-100'}`}>{theirAudit.live ? 'Live HTML' : 'Estimated fallback'}</span>
+              </div>
+              <p className="text-sm font-semibold text-slate-700 break-all mt-2">{theirAudit.host}</p>
+              <p className="text-sm text-slate-500 break-all mt-0.5">{theirAudit.url}</p>
+            </div>
             <AuditDetails audit={theirAudit} />
           </div>
         </div>
       </section>
 
       <section className="bg-white rounded-2xl border border-slate-200 p-6">
-        <h2 className="text-xl font-bold text-slate-900">Your priority improvement plan</h2>
+        <h2 className={sectionHeading}>Your priority improvement plan</h2>
         <p className="text-sm text-slate-500 mt-1 mb-6">Every failed check, errors first, then warnings.</p>
         {gaps.length ? (
           <div className="space-y-3">
