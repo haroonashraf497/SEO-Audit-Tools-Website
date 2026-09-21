@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { fetchPageData, type LivePageData } from '../utils/pageFetch';
 import { fetchDomainInfo, type DomainInfo } from '../utils/domainLookup';
+import SerpPreview, { SerpCompare } from '../components/SerpPreview';
 
 type State = 'pass' | 'warning' | 'error';
 type Check = { label: string; detail: string; fix: string; state: State };
@@ -260,6 +261,7 @@ const AuditDetails: React.FC<{ audit: Audit }> = ({ audit }) => {
   );
   return (
     <div className="space-y-6 min-w-0">
+      <SerpPreview url={audit.url} title={audit.title} description={audit.description} live={audit.live} />
       <section className="bg-white rounded-2xl border border-slate-200 p-6">
         <h3 className={`${sectionHeading} mb-4`}>Page snapshot</h3>
         <dl className="space-y-4">
@@ -467,6 +469,11 @@ const CompetitorAnalysis: React.FC = () => {
           <div className="md:pl-8"><DomainOverview info={theirDomain} label="Competitor" accent="text-violet-600" /></div>
         </div>
       </section>
+
+      <SerpCompare
+        left={{ url: yourAudit.url, title: yourAudit.title, description: yourAudit.description, live: yourAudit.live, label: 'Your website' }}
+        right={{ url: theirAudit.url, title: theirAudit.title, description: theirAudit.description, live: theirAudit.live, label: 'Competitor' }}
+      />
 
       <section className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
         <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-4 border-b border-slate-100">

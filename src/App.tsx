@@ -8,6 +8,7 @@ import { fetchDomainInfo, type DomainInfo } from './utils/domainLookup';
 import { sanitizeRichHtml } from './utils/sanitize';
 import { CmsProvider, useCms, liveTools, livePosts, findPage } from './cms/store';
 import { AdminApp } from './cms/Admin';
+import SerpPreview from './components/SerpPreview';
 
 // Inline SVG icons for critical UI (no JS overhead)
 const InlineIcons = {
@@ -345,87 +346,6 @@ const MiniCheck: React.FC<{ pass: boolean; label: string }> = ({ pass, label }) 
   </li>
 );
 
-// Side-by-side Google SERP previews using the live page title and description.
-const SerpPreview: React.FC<{ details: OnPageDetails }> = ({ details }) => {
-  const host = details.urlInfo.full.replace(/^https?:\/\//, '').split('/')[0];
-  const pathSegments = details.urlInfo.path.split('/').filter(Boolean);
-  const siteName = host.replace(/^www\./, '').split('.')[0].replace(/[-_]/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
-  const crumbs = [host.replace(/^www\./, ''), ...pathSegments.map(s => decodeURIComponent(s).replace(/-/g, ' '))];
-  const rawTitle = details.titleTag.value;
-  const rawDesc = details.metaDescription.value;
-  const clip = (value: string, limit: number, fallback: string) => !value ? fallback : value.length > limit ? `${value.slice(0, limit - 3)}...` : value;
-  const previews = [
-    { id: 'desktop', label: 'Desktop', titleLimit: 60, descriptionLimit: 160, frame: 'w-full max-w-[620px] px-5 py-5', titleClass: 'line-clamp-1', descriptionClass: 'line-clamp-2', detail: 'Single-line title, wider search result' },
-    { id: 'mobile', label: 'Mobile', titleLimit: 78, descriptionLimit: 124, frame: 'w-full max-w-[360px] rounded-2xl border border-slate-200 shadow-sm px-4 py-5', titleClass: 'line-clamp-2', descriptionClass: 'line-clamp-2', detail: 'Two-line title, compact mobile snippet' },
-  ] as const;
-
-  return (
-    <div className="bg-white rounded-2xl border border-slate-200 p-5 md:p-6 mb-6 shadow-sm">
-      <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
-        <div className="flex flex-wrap items-center gap-3">
-          <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Google Search Preview</p>
-          {details.live ? (
-            <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-100 rounded-full px-2.5 py-0.5"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />Live page data</span>
-          ) : (
-            <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold bg-amber-50 text-amber-700 border border-amber-100 rounded-full px-2.5 py-0.5"><span className="w-1.5 h-1.5 rounded-full bg-amber-500" />Illustrative preview</span>
-          )}
-        </div>
-        <span className="text-xs font-semibold text-slate-500">Compare desktop and mobile side by side</span>
-      </div>
-
-      <div className="grid lg:grid-cols-2 gap-4">
-        {previews.map(preview => {
-          const title = clip(rawTitle, preview.titleLimit, 'No title tag found');
-          const description = clip(rawDesc, preview.descriptionLimit, 'No meta description found. Google may generate a snippet from page content.');
-          const titleFits = rawTitle.length > 0 && rawTitle.length <= preview.titleLimit;
-          const descriptionFits = rawDesc.length > 0 && rawDesc.length <= preview.descriptionLimit;
-          return (
-            <section key={preview.id} className="rounded-xl border border-slate-200 overflow-hidden bg-white">
-              <div className="flex items-center justify-between gap-3 px-4 py-3 bg-slate-50 border-b border-slate-200">
-                <span className="flex items-center gap-2 text-sm font-bold text-slate-800">
-                  {preview.id === 'desktop' ? (
-                    <svg className="w-4 h-4 text-indigo-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="2" y="3" width="20" height="14" rx="2" /><line x1="8" y1="21" x2="16" y2="21" /><line x1="12" y1="17" x2="12" y2="21" /></svg>
-                  ) : (
-                    <svg className="w-4 h-4 text-indigo-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="5" y="2" width="14" height="20" rx="2" /><line x1="12" y1="18" x2="12.01" y2="18" /></svg>
-                  )}
-                  {preview.label}
-                </span>
-                <span className="text-[11px] text-slate-500">{preview.detail}</span>
-              </div>
-
-              <div className="flex justify-center bg-slate-50 p-5 md:p-6">
-                <div className={`bg-white ${preview.frame}`} style={{ fontFamily: 'Arial, sans-serif' }}>
-                  <div className="flex items-center gap-3 mb-1.5">
-                    <div className="w-7 h-7 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center flex-shrink-0 text-white text-[11px] font-bold" aria-hidden="true">{siteName.charAt(0).toUpperCase()}</div>
-                    <div className="min-w-0 leading-tight">
-                      <p className="text-[14px] text-[#202124] truncate">{siteName}</p>
-                      <p className="text-[12px] text-[#5f6368] truncate">{crumbs.join(' > ')}</p>
-                    </div>
-                  </div>
-                  <h5 className={`text-[20px] leading-[1.3] cursor-pointer hover:underline ${preview.titleClass} ${rawTitle ? 'text-[#1a0dab]' : 'text-[#9aa0a6] italic'}`}>{title}</h5>
-                  <p className={`text-[14px] leading-[1.58] mt-1 ${preview.descriptionClass} ${rawDesc ? 'text-[#4d5156]' : 'text-[#9aa0a6] italic'}`}>{description}</p>
-                </div>
-              </div>
-
-              <div className="flex flex-wrap gap-2 px-4 py-3 border-t border-slate-100">
-                <span className={`text-[11px] font-semibold rounded-full px-2 py-0.5 border ${titleFits ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : rawTitle ? 'bg-amber-50 text-amber-700 border-amber-100' : 'bg-red-50 text-red-700 border-red-100'}`}>{rawTitle ? `Title: ${titleFits ? 'fits' : 'truncated'}` : 'Title missing'}</span>
-                <span className={`text-[11px] font-semibold rounded-full px-2 py-0.5 border ${descriptionFits ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : rawDesc ? 'bg-amber-50 text-amber-700 border-amber-100' : 'bg-red-50 text-red-700 border-red-100'}`}>{rawDesc ? `Description: ${descriptionFits ? 'fits' : 'truncated'}` : 'Description missing'}</span>
-              </div>
-            </section>
-          );
-        })}
-      </div>
-
-      <div className="flex flex-wrap gap-2 mt-4">
-        {details.titleTag.length === 0 && <span className="text-[11px] font-semibold bg-red-50 text-red-700 border border-red-100 rounded-full px-2 py-0.5">Title tag is missing</span>}
-        {details.metaDescription.length === 0 && <span className="text-[11px] font-semibold bg-red-50 text-red-700 border border-red-100 rounded-full px-2 py-0.5">Meta description is missing</span>}
-        {details.titleTag.length > 60 && <span className="text-[11px] font-semibold bg-amber-50 text-amber-700 border border-amber-100 rounded-full px-2 py-0.5">Title is {details.titleTag.length - 60} chars over the desktop guideline</span>}
-        {details.metaDescription.length > 160 && <span className="text-[11px] font-semibold bg-amber-50 text-amber-700 border border-amber-100 rounded-full px-2 py-0.5">Description is {details.metaDescription.length - 160} chars over the desktop guideline</span>}
-      </div>
-    </div>
-  );
-};
-
 // On-Page SEO Results - detailed blocks
 const OnPageResults: React.FC<{ details: OnPageDetails }> = ({ details }) => {
   const maxHeading = Math.max(...details.headings.map(h => h.count), 1);
@@ -482,7 +402,9 @@ const OnPageResults: React.FC<{ details: OnPageDetails }> = ({ details }) => {
       </div>
 
       {/* SERP Preview (accurate Google layout, live data when fetchable) */}
-      <SerpPreview details={details} />
+      <div className="mb-6">
+        <SerpPreview url={details.urlInfo.full} title={details.titleTag.value} description={details.metaDescription.value} live={details.live} />
+      </div>
 
       <div className="grid md:grid-cols-2 gap-6">
         {/* Title Tag */}
