@@ -1458,7 +1458,7 @@ const SiteApp: React.FC = () => {
 
       {route === 'home' && (<>
       {/* Hero Section */}
-      <section className={`pt-32 pb-20 px-4 ${cms.state.sections.hero ? '' : 'hidden'}`}>
+      <section className={`pt-32 pb-20 px-4 bg-gradient-to-br from-indigo-100 via-violet-50 to-purple-100 ${cms.state.sections.hero ? '' : 'hidden'}`}>
         <div className="max-w-7xl mx-auto">
           <header className="text-center mb-12">
             <div className="inline-flex items-center gap-2 bg-white/80 backdrop-blur-sm px-4 py-2 rounded-full border border-slate-200 mb-6">
