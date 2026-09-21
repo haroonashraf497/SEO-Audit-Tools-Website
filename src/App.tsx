@@ -1317,8 +1317,8 @@ const SiteBreadcrumbs: React.FC<{ route: string }> = ({ route }) => {
   })();
   if (!crumbs.length) return null;
   return (
-    <div className="border-t border-slate-100 bg-white/90 -mx-4 px-4">
-      <div role="navigation" aria-label="Breadcrumb" className="max-w-7xl mx-auto py-2">
+    <div className="sticky top-16 z-40 border-b border-slate-200 bg-white">
+      <div role="navigation" aria-label="Breadcrumb" className="max-w-7xl mx-auto px-4 py-2.5">
         <ol className="flex items-center gap-2 text-sm font-semibold flex-wrap">
           {crumbs.map((crumb, i) => {
             const last = i === crumbs.length - 1;
@@ -1364,6 +1364,17 @@ const SiteApp: React.FC = () => {
     if (route === 'admin' && !cms.loggedIn) window.location.hash = '#/admin-login';
     else if (route === 'admin-login' && cms.loggedIn) window.location.hash = '#/admin';
   }, [route, cms.loggedIn]);
+
+  useEffect(() => {
+    const raw = window.location.hash.split('?')[0];
+    if (!raw || raw.startsWith('#/')) {
+      window.scrollTo(0, 0);
+      return;
+    }
+    const el = document.getElementById(raw.slice(1));
+    if (el) el.scrollIntoView();
+    else window.scrollTo(0, 0);
+  }, [route]);
 
   const isBlog = route === 'blog' || route.startsWith('blog/');
   const isTools = route === 'tools' || route.startsWith('tool/');
@@ -1441,7 +1452,7 @@ const SiteApp: React.FC = () => {
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-indigo-50 to-purple-50">
       <SeoManager route={route} />
       {/* Navigation */}
-      <nav className="fixed top-0 left-0 right-0 z-50 bg-white/85 backdrop-blur-md border-b border-slate-200 px-4">
+      <nav className="fixed top-0 left-0 right-0 z-50 h-16 bg-white border-b border-slate-200 px-4">
         <div className="max-w-7xl mx-auto">
           <div className="flex items-center justify-between h-16">
             <a href="#/" className="flex items-center gap-2">
@@ -1496,8 +1507,9 @@ const SiteApp: React.FC = () => {
             </div>
           </div>
         )}
-        <SiteBreadcrumbs route={route} />
       </nav>
+      <div className="h-16 shrink-0" aria-hidden="true" />
+      <SiteBreadcrumbs route={route} />
 
       {/* Blog routes */}
       {route === 'blog' && <BlogList />}
@@ -1515,7 +1527,7 @@ const SiteApp: React.FC = () => {
 
       {/* Competitor Analysis */}
       {route === 'competitor-analysis' && (
-        <div className="pt-36 pb-20 px-4">
+        <div className="pt-10 pb-20 px-4">
           <div className="max-w-7xl mx-auto">
             <CompetitorAnalysis />
             <CompetitorToolContent />
@@ -1525,7 +1537,7 @@ const SiteApp: React.FC = () => {
 
       {route === 'home' && (<>
       {/* Hero Section */}
-      <section className={`pt-32 pb-20 px-4 bg-gradient-to-br from-indigo-100 via-violet-50 to-purple-100 ${cms.state.sections.hero ? '' : 'hidden'}`}>
+      <section className={`pt-16 pb-20 px-4 bg-gradient-to-br from-indigo-100 via-violet-50 to-purple-100 ${cms.state.sections.hero ? '' : 'hidden'}`}>
         <div className="max-w-7xl mx-auto">
           <header className="text-center mb-12">
             <div className="inline-flex items-center gap-2 bg-white/80 backdrop-blur-sm px-4 py-2 rounded-full border border-slate-200 mb-6">
@@ -1617,7 +1629,7 @@ const SiteApp: React.FC = () => {
 
       {/* Results Section */}
       {result && categoryCards && (
-        <section id="results" className={`py-20 px-4 bg-white ${cms.state.sections.results ? '' : 'hidden'}`}>
+        <section id="results" className={`scroll-mt-24 py-20 px-4 bg-white ${cms.state.sections.results ? '' : 'hidden'}`}>
           <div className="max-w-7xl mx-auto">
             <div className="flex flex-wrap items-center justify-between gap-4 mb-8">
               <div>
@@ -1702,7 +1714,7 @@ const SiteApp: React.FC = () => {
       )}
 
       {/* Features Section */}
-      <section id="features" className={`py-20 px-4 cv-auto ${cms.state.sections.features ? '' : 'hidden'}`}>
+      <section id="features" className={`scroll-mt-24 py-20 px-4 cv-auto ${cms.state.sections.features ? '' : 'hidden'}`}>
         <div className="max-w-7xl mx-auto">
           <header className="text-center mb-16">
             <h2 className="text-3xl md:text-4xl font-bold text-slate-900 mb-4">
@@ -1730,7 +1742,7 @@ const SiteApp: React.FC = () => {
       </section>
 
       {/* How It Works Section */}
-      <section id="how-it-works" className={`py-20 px-4 bg-white cv-auto ${cms.state.sections.howItWorks ? '' : 'hidden'}`}>
+      <section id="how-it-works" className={`scroll-mt-24 py-20 px-4 bg-white cv-auto ${cms.state.sections.howItWorks ? '' : 'hidden'}`}>
         <div className="max-w-7xl mx-auto">
           <header className="text-center mb-16">
             <h2 className="text-3xl md:text-4xl font-bold text-slate-900 mb-4">
@@ -1793,7 +1805,7 @@ const SiteApp: React.FC = () => {
       </section>
 
       {/* Who Can Benefit Section */}
-      <section id="audiences" className={`py-20 px-4 bg-white cv-auto ${cms.state.sections.whoBenefits ? '' : 'hidden'}`}>
+      <section id="audiences" className={`scroll-mt-24 py-20 px-4 bg-white cv-auto ${cms.state.sections.whoBenefits ? '' : 'hidden'}`}>
         <div className="max-w-7xl mx-auto">
           <header className="text-center mb-16">
             <h2 className="text-3xl md:text-4xl font-bold text-slate-900 mb-4">
@@ -1903,7 +1915,7 @@ const SiteApp: React.FC = () => {
       </section>
 
       {/* CTA Section */}
-      <section id="cta" className={`py-20 px-4 ${cms.state.sections.cta ? '' : 'hidden'}`}>
+      <section id="cta" className={`scroll-mt-24 py-20 px-4 ${cms.state.sections.cta ? '' : 'hidden'}`}>
         <div className="max-w-4xl mx-auto text-center">
           <h2 className="text-3xl md:text-4xl font-bold text-slate-900 mb-6">
             Ready to Improve Your Website's SEO?
@@ -2016,7 +2028,7 @@ const CmsPageView: React.FC<{ slug: string }> = ({ slug }) => {
   }, [page]);
   if (!page || page.status !== 'live') {
     return (
-      <div className="pt-44 pb-24 px-4 text-center min-h-screen">
+      <div className="pt-10 pb-24 px-4 text-center min-h-screen">
         <h1 className="text-3xl font-bold text-slate-900 mb-3">Page not available</h1>
         <p className="text-slate-600 mb-6">This page has not been published yet.</p>
         <Btn href="#/" />
@@ -2024,7 +2036,7 @@ const CmsPageView: React.FC<{ slug: string }> = ({ slug }) => {
     );
   }
   return (
-    <section className="pt-40 pb-20 px-4 bg-white min-h-screen">
+    <section className="pt-10 pb-20 px-4 bg-white min-h-screen">
       <div className="max-w-7xl mx-auto w-full">
         <h1 className="text-3xl md:text-5xl font-extrabold text-slate-900 mb-8">{page.title}</h1>
         {page.featuredImage && (

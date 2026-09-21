@@ -465,7 +465,7 @@ export const ToolsList: React.FC = () => {
   }, [filtered]);
 
   return (
-    <div className="pt-36 pb-20 px-4 min-h-screen">
+    <div className="pt-10 pb-20 px-4 min-h-screen">
       <div className="max-w-7xl mx-auto">
         <header className="text-center mb-10">
           <h1 className="text-4xl md:text-5xl font-bold text-slate-900 mb-4">
@@ -558,7 +558,7 @@ export const ToolPage: React.FC<{ slug: string }> = ({ slug }) => {
 
   if (!tool) {
     return (
-      <div className="pt-40 pb-20 px-4 text-center min-h-screen">
+      <div className="pt-16 pb-20 px-4 text-center min-h-screen">
         <h1 className="text-3xl font-bold text-slate-900 mb-4">Tool not found</h1>
         <a href="#/tools" className="text-indigo-600 font-semibold hover:underline">Browse all tools</a>
       </div>
@@ -667,7 +667,7 @@ export const ToolPage: React.FC<{ slug: string }> = ({ slug }) => {
   const wide = ['plagiarism-checker', 'grammar-checker', 'article-rewriter'].includes(tool.slug) || ['wm-htmleditor', 'wm-screensim', 'wm-snooper', 'wm-mobile', 'wm-htmlviewer'].includes(tool.engine || '') || tool.category === 'pdf';
 
   return (
-    <div className="pt-36 pb-20 px-4 min-h-screen">
+    <div className="pt-10 pb-20 px-4 min-h-screen">
       <div className="max-w-7xl mx-auto grid lg:grid-cols-[minmax(0,1fr)_minmax(0,300px)] gap-8 items-start">
         {/* ---------- Main column ---------- */}
         <div className="min-w-0">

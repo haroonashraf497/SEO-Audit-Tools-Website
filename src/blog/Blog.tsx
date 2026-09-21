@@ -131,7 +131,7 @@ export const BlogList: React.FC = () => {
   const filtered = activeCategory === 'All' ? posts : posts.filter(a => a.category === activeCategory);
 
   return (
-    <div className="pt-36 pb-20 px-4 min-h-screen">
+    <div className="pt-10 pb-20 px-4 min-h-screen">
       <div className="max-w-7xl mx-auto grid lg:grid-cols-[minmax(0,1fr)_minmax(0,300px)] gap-8 items-start">
         <div className="min-w-0">
           <header className="text-center mb-10">
@@ -188,7 +188,7 @@ export const BlogArticlePage: React.FC<{ slug: string }> = ({ slug }) => {
 
   if (!article) {
     return (
-      <div className="pt-40 pb-20 px-4 text-center min-h-screen">
+      <div className="pt-16 pb-20 px-4 text-center min-h-screen">
         <h1 className="text-3xl font-bold text-slate-900 mb-4">Article not found</h1>
         <a href="#/blog" className="text-indigo-600 font-semibold hover:underline">Back to the blog</a>
       </div>
@@ -198,7 +198,7 @@ export const BlogArticlePage: React.FC<{ slug: string }> = ({ slug }) => {
   const related = (livePosts(state) as unknown as BlogArticle[]).filter(a => a.category === article.category && a.slug !== article.slug).slice(0, 2);
 
   return (
-    <div className="pt-36 pb-20 px-4 min-h-screen">
+    <div className="pt-10 pb-20 px-4 min-h-screen">
       <div className="max-w-7xl mx-auto grid lg:grid-cols-[minmax(0,1fr)_minmax(0,300px)] gap-8 items-start">
       <article className="min-w-0 w-full">
         <header className="mb-10">
