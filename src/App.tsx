@@ -1983,8 +1983,8 @@ const CmsPageView: React.FC<{ slug: string }> = ({ slug }) => {
     );
   }
   return (
-    <div className="pt-28 pb-20 px-4 min-h-screen">
-      <div className="max-w-7xl mx-auto">
+    <section className="pt-32 pb-20 px-4 bg-white min-h-screen">
+      <div className="max-w-7xl mx-auto w-full">
         <nav aria-label="Breadcrumb" className="mb-8">
           <ol className="flex items-center gap-2 text-sm font-semibold flex-wrap">
             <li><a href="#/" className="text-slate-800 hover:text-indigo-600">Home</a></li>
@@ -1998,7 +1998,7 @@ const CmsPageView: React.FC<{ slug: string }> = ({ slug }) => {
             <img src={page.featuredImage} alt={page.featuredImageAlt || page.title} width="1200" height="630" loading="lazy" className="w-full h-full object-cover" onError={e => { e.currentTarget.parentElement?.classList.add('hidden'); }} />
           </figure>
         )}
-        <div className="bg-white rounded-2xl border border-slate-200 p-6 md:p-10 shadow-sm">
+        <div className="w-full">
           {page.blocks.map(b => {
             if (b.type === 'heading') return b.level === 2
               ? <h2 key={b.id} className="text-2xl font-bold text-slate-900 mt-8 mb-3 first:mt-0">{b.text}</h2>
@@ -2022,7 +2022,7 @@ const CmsPageView: React.FC<{ slug: string }> = ({ slug }) => {
           })}
         </div>
       </div>
-    </div>
+    </section>
   );
 };
 

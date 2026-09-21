@@ -13,7 +13,7 @@ export default defineConfig({
   plugins: [react(), tailwindcss(), viteSingleFile()],
   // Allow the sandbox preview host during development.
   server: {
-    allowedHosts: ['.e2b.app'],
+    allowedHosts: ['.e2b.app', '.arena.site'],
   },
   resolve: {
     alias: {
