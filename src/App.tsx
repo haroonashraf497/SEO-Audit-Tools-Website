@@ -1402,19 +1402,17 @@ const SiteApp: React.FC = () => {
             </a>
 
             <div className="hidden md:flex items-center gap-7">
+              <a href="#/" className={`transition-colors ${route === 'home' ? 'text-indigo-600 font-semibold' : 'text-slate-600 hover:text-indigo-600'}`}>Home</a>
               {cms.state.nav.filter(n => n.visible && (!(n.href || '').includes('/admin') || cms.loggedIn)).map(n => (
                 <a key={n.id} href={n.href} className={`transition-colors ${(isTools && n.href.includes('tools')) || (isBlog && n.href.includes('blog')) || n.href.includes('competitor') ? 'text-indigo-600 font-semibold' : 'text-slate-600 hover:text-indigo-600'}`}>{n.label}</a>
               ))}
-              <a href="#/competitor-analysis" className="text-slate-600 hover:text-indigo-600 transition-colors">Competitor Analysis</a>
+              <a href="#/competitor-analysis" className={`transition-colors ${route === 'competitor-analysis' ? 'text-indigo-600 font-semibold' : 'text-slate-600 hover:text-indigo-600'}`}>Competitor Analysis</a>
               {cms.loggedIn && (
                 <>
                   <a href="#/admin" className="text-slate-600 hover:text-indigo-600 transition-colors" title="Content manager">Admin</a>
                   <button type="button" onClick={() => { cms.logout(); window.location.hash = '#/'; }} className="text-slate-600 hover:text-indigo-600 transition-colors">Log Out</button>
                 </>
               )}
-              <a href="#/" className="bg-gradient-to-r from-indigo-500 to-purple-600 text-white px-6 py-2.5 rounded-xl font-medium hover:shadow-lg hover:shadow-indigo-500/25 transition-all">
-                Get Started Free
-              </a>
             </div>
 
             <button
@@ -1432,19 +1430,17 @@ const SiteApp: React.FC = () => {
         {mobileMenuOpen && (
           <div className="md:hidden bg-white border-t border-slate-200 py-4 -mx-4 px-4">
             <div className="flex flex-col gap-4">
+              <a href="#/" className={`transition-colors ${route === 'home' ? 'text-indigo-600 font-semibold' : 'text-slate-600 hover:text-indigo-600'}`} onClick={() => setMobileMenuOpen(false)}>Home</a>
               {cms.state.nav.filter(n => n.visible && (!(n.href || '').includes('/admin') || cms.loggedIn)).map(n => (
                 <a key={n.id} href={n.href} className="text-slate-600 hover:text-indigo-600" onClick={() => setMobileMenuOpen(false)}>{n.label}</a>
               ))}
-              <a href="#/competitor-analysis" className="text-slate-600 hover:text-indigo-600" onClick={() => setMobileMenuOpen(false)}>Competitor Analysis</a>
+              <a href="#/competitor-analysis" className={`transition-colors ${route === 'competitor-analysis' ? 'text-indigo-600 font-semibold' : 'text-slate-600 hover:text-indigo-600'}`} onClick={() => setMobileMenuOpen(false)}>Competitor Analysis</a>
               {cms.loggedIn && (
                 <>
                   <a href="#/admin" className="text-slate-600 hover:text-indigo-600" onClick={() => setMobileMenuOpen(false)}>Admin</a>
                   <button type="button" onClick={() => { cms.logout(); setMobileMenuOpen(false); window.location.hash = '#/'; }} className="text-left text-slate-600 hover:text-indigo-600">Log Out</button>
                 </>
               )}
-              <a href="#/" className="bg-gradient-to-r from-indigo-500 to-purple-600 text-white px-6 py-2.5 rounded-xl font-medium text-center" onClick={() => setMobileMenuOpen(false)}>
-                Get Started Free
-              </a>
             </div>
           </div>
         )}
