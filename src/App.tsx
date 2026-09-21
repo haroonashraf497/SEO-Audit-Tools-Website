@@ -1893,6 +1893,7 @@ const SiteApp: React.FC = () => {
             {[
               { title: 'SEO Tools', links: [
                 { label: 'Free SEO Audit', href: '#/' },
+                { label: 'Free SEO Tools', href: '#/tools' },
                 { label: 'Competitor Analysis', href: '#/competitor-analysis' },
               ] },
               { title: 'Resources', links: [

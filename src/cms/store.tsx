@@ -414,7 +414,7 @@ export const defaultState: CmsState = {
   sections: { hero: true, auditTool: true, results: true, features: true, howItWorks: true, whyAudit: true, whoBenefits: true, freeTools: true, fromBlog: true, cta: true, footer: true },
   settings: { name: 'SEO Audit Tools', domain: 'seoaudittools.pk', tagline: 'Free SEO audit + 150 tools', footerNote: 'EKSTRUH LTD provides online SEO, calculator and unit converter tools.' },
   nav: [
-    { id: uid(), label: 'SEO Tools', href: '#/tools', visible: true },
+    { id: uid(), label: 'Free SEO Tools', href: '#/tools', visible: true },
   ],
   passcode: 'admin123',
 };
@@ -453,14 +453,15 @@ const migrateSettings = (stored: Partial<SiteSettings> | undefined): SiteSetting
   return merged;
 };
 
-/** The header nav before it was slimmed down to just "SEO Tools". Browsers
- *  still holding the untouched old default nav are migrated; navs the admin
- *  edited themselves (different labels or links) are preserved as they are. */
-const LEGACY_NAV_SIGNATURE = 'Features|#features;Tools|#/tools;Blog|#/blog;Users|#audiences';
+/** Untouched default navs from earlier builds. Admin-edited menus are kept. */
+const LEGACY_NAV_SIGNATURES = [
+  'Features|#features;Tools|#/tools;Blog|#/blog;Users|#audiences',
+  'SEO Tools|#/tools',
+];
 const migrateNav = (stored: NavItem[] | undefined): NavItem[] => {
   const nav = Array.isArray(stored) && stored.length ? stored : defaultState.nav;
   const signature = nav.map(n => `${n.label}|${n.href}`).join(';');
-  return signature === LEGACY_NAV_SIGNATURE ? defaultState.nav : nav;
+  return LEGACY_NAV_SIGNATURES.includes(signature) ? defaultState.nav : nav;
 };
 
 const load = (): CmsState => {
