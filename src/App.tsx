@@ -1765,32 +1765,32 @@ const SiteApp: React.FC = () => {
             </p>
           </header>
 
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4 mb-10">
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4 mb-10 items-stretch">
             {visibleTools.filter(t => t.custom ? false : ['plagiarism-checker', 'percentage-calculator', 'bmi-calculator', 'what-is-my-ip', 'keyword-density-checker', 'backlink-checker', 'unit-converter', 'website-seo-score-checker'].includes(t.slug)).slice(0, 8).map(t => (
               <a key={t.slug} href={`#/tool/${t.slug}`}
-                className="group bg-white rounded-2xl border border-slate-200 p-5 shadow-sm hover:shadow-lg hover:border-indigo-200 transition-all">
-                <div className="flex items-center gap-3 mb-2">
-                  <span className="text-indigo-600"><ToolIcon category={t.category} className="w-5 h-5" /></span>
-                  <h3 className="font-bold text-slate-900 text-sm group-hover:text-indigo-600 transition-colors">{t.name}</h3>
+                className="group h-full flex flex-col bg-white rounded-2xl border border-slate-200 p-5 shadow-sm hover:shadow-lg hover:border-indigo-200 transition-all">
+                <div className="flex items-center gap-3 mb-2 min-h-[1.25rem]">
+                  <span className="text-indigo-600 flex-shrink-0"><ToolIcon category={t.category} className="w-5 h-5" /></span>
+                  <h3 className="font-bold text-slate-900 text-sm group-hover:text-indigo-600 transition-colors truncate">{t.name}</h3>
                 </div>
-                <p className="text-xs text-slate-500 leading-relaxed">{t.description}</p>
+                <p className="text-xs text-slate-500 leading-relaxed line-clamp-2 h-10">{t.description}</p>
               </a>
             ))}
           </div>
 
-          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 items-stretch">
             {(['text', 'keyword', 'backlink', 'checker', 'domain', 'ip', 'management', 'pdf', 'image', 'calculator', 'converter'] as const).map(cat => {
               const count = visibleTools.filter(t => t.category === cat).length;
               return (
-                <a key={cat} href={`#/tools?cat=${cat}`} className="bg-white/70 rounded-xl border border-slate-200 p-5 hover:bg-white hover:border-indigo-200 transition-all">
-                  <div className="flex items-start justify-between gap-3 mb-2">
+                <a key={cat} href={`#/tools?cat=${cat}`} className="h-full flex flex-col bg-white rounded-2xl border border-slate-200 p-5 shadow-sm hover:shadow-lg hover:border-indigo-200 transition-all">
+                  <div className="flex items-center justify-between gap-3 mb-2 min-h-[1.25rem]">
                     <span className="flex items-center gap-3 min-w-0">
                       <span className="text-indigo-600 flex-shrink-0"><ToolIcon category={cat} className="w-5 h-5" /></span>
-                      <span className="text-sm font-semibold text-slate-800">{categoryLabels[cat]}</span>
+                      <span className="text-sm font-semibold text-slate-800 truncate">{categoryLabels[cat]}</span>
                     </span>
                     <span className="text-xs text-slate-400 font-medium whitespace-nowrap">{count} tools</span>
                   </div>
-                  <p className="text-xs text-slate-500 leading-relaxed">{categoryDescriptions[cat]}</p>
+                  <p className="text-xs text-slate-500 leading-relaxed line-clamp-2 h-10">{categoryDescriptions[cat]}</p>
                 </a>
               );
             })}
