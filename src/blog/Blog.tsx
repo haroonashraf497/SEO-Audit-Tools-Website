@@ -75,50 +75,6 @@ const MarkdownContent: React.FC<{ content: string }> = ({ content }) => {
   return <div>{blocks}</div>;
 };
 
-// ---------- SEO helpers: set document title / meta / JSON-LD per view ----------
-const setMeta = (title: string, description: string) => {
-  document.title = title;
-  let meta = document.querySelector('meta[name="description"]');
-  if (!meta) {
-    meta = document.createElement('meta');
-    meta.setAttribute('name', 'description');
-    document.head.appendChild(meta);
-  }
-  meta.setAttribute('content', description);
-};
-
-const setSocialImage = (image?: string) => {
-  const set = (attribute: 'property' | 'name', key: string) => {
-    let meta = document.querySelector(`meta[${attribute}="${key}"]`) as HTMLMetaElement | null;
-    if (!image) { meta?.remove(); return; }
-    if (!meta) { meta = document.createElement('meta'); meta.setAttribute(attribute, key); document.head.appendChild(meta); }
-    meta.setAttribute('content', image);
-  };
-  set('property', 'og:image');
-  set('name', 'twitter:image');
-};
-
-const setArticleJsonLd = (article: BlogArticle | null) => {
-  const existing = document.getElementById('article-jsonld');
-  if (existing) existing.remove();
-  if (!article) return;
-  const script = document.createElement('script');
-  script.type = 'application/ld+json';
-  script.id = 'article-jsonld';
-  script.textContent = JSON.stringify({
-    '@context': 'https://schema.org',
-    '@type': 'Article',
-    headline: article.title,
-    description: article.metaDescription,
-    datePublished: article.date,
-    author: { '@type': 'Organization', name: article.author },
-    publisher: { '@type': 'Organization', name: 'SEO Audit Tool' },
-    keywords: article.keywords.join(', '),
-    ...(article.featuredImage ? { image: article.featuredImage } : {}),
-  });
-  document.head.appendChild(script);
-};
-
 // ---------- Category badge colors (subtle) ----------
 const categoryColor: Record<string, string> = {
   'Core Web Vitals': 'bg-indigo-50 text-indigo-700 border-indigo-100',
@@ -169,11 +125,6 @@ export const BlogList: React.FC = () => {
   const [activeCategory, setActiveCategory] = useState<string>('All');
 
   useEffect(() => {
-    setMeta(
-      'SEO Blog: Core Web Vitals, PageSpeed & WordPress Guides | SEO Audit Tool',
-      'Practical guides on trending SEO issues: fixing INP, LCP and CLS, real PageSpeed problems, WordPress SEO setup, and Google indexing troubleshooting.'
-    );
-    setArticleJsonLd(null);
     window.scrollTo(0, 0);
   }, []);
 
@@ -232,17 +183,8 @@ export const BlogArticlePage: React.FC<{ slug: string }> = ({ slug }) => {
   const article = useMemo(() => (state.posts.find(p => p.slug === slug && p.status === 'live') || null) as unknown as BlogArticle | null, [state.posts, slug]);
 
   useEffect(() => {
-    if (article) {
-      const seo = state.seo[`post:${article.slug}`];
-      setMeta(seo?.title || article.metaTitle, seo?.description || article.metaDescription);
-      setArticleJsonLd(article);
-      setSocialImage(article.featuredImage);
-      const robots = document.querySelector('meta[name="robots"]') as HTMLMetaElement | null;
-      if (robots) robots.setAttribute('content', seo?.noindex ? 'noindex, nofollow' : 'index, follow');
-    }
     window.scrollTo(0, 0);
-    return () => { setArticleJsonLd(null); setSocialImage(); };
-  }, [article, state.seo]);
+  }, [article]);
 
   if (!article) {
     return (

@@ -401,6 +401,7 @@ export const defaultState: CmsState = {
     home: { title: 'SEO Audit Tool — Free Website SEO Checker | EKSTRUH LTD', description: 'Free SEO audit tool plus 150+ practical SEO, speed, IP, PDF, calculator and converter tools from EKSTRUH LTD.' },
     tools: { title: 'Free SEO Tools (150+) — Audit, Speed, Calculator & Converter Tools', description: 'Browse 150+ free tools from EKSTRUH LTD: website SEO audit, page speed, keyword research, backlinks, IP lookup, PDF tools, calculators and unit converters.' },
     blog: { title: 'SEO Blog: Core Web Vitals, PageSpeed & WordPress Guides', description: 'Practical SEO guides on fixing INP, LCP and CLS, PageSpeed problems, WordPress performance, indexing issues and Google core updates.' },
+    'competitor-analysis': { title: 'SEO Competitor Analysis — Compare Two Websites Free | SEO Audit Tools', description: 'Compare your website with a competitor: overall SEO scores, domain registration, on-page checks, Google-style SERP previews and a two-column full audit. Free, no sign-up.' },
   },
   sidebar: {
     searchBox: true, searchPlaceholder: 'Search from SEO tools',

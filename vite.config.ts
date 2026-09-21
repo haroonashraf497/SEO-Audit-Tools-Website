@@ -20,4 +20,14 @@ export default defineConfig({
       "@": path.resolve(__dirname, "src"),
     },
   },
+  build: {
+    target: "es2020",
+    cssCodeSplit: false,
+    modulePreload: false,
+    reportCompressedSize: false,
+    assetsInlineLimit: 4096,
+  },
+  esbuild: {
+    legalComments: "none",
+  },
 });

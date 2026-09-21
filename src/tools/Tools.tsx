@@ -54,24 +54,6 @@ const PdfSwitch: React.FC<{ engine: string }> = ({ engine }) => {
 };
 import { WorkingEngine, PrimaryBtn, MetaGen, RobotsGen, ImageTool } from './engines';
 
-// ---------- SEO ----------
-const setMeta = (title: string, description: string) => {
-  document.title = title;
-  let meta = document.querySelector('meta[name="description"]');
-  if (!meta) { meta = document.createElement('meta'); meta.setAttribute('name', 'description'); document.head.appendChild(meta); }
-  meta.setAttribute('content', description);
-};
-const setSocialImage = (image?: string) => {
-  const set = (attribute: 'property' | 'name', key: string) => {
-    let meta = document.querySelector(`meta[${attribute}="${key}"]`) as HTMLMetaElement | null;
-    if (!image) { meta?.remove(); return; }
-    if (!meta) { meta = document.createElement('meta'); meta.setAttribute(attribute, key); document.head.appendChild(meta); }
-    meta.setAttribute('content', image);
-  };
-  set('property', 'og:image');
-  set('name', 'twitter:image');
-};
-
 // ---------- Status dot ----------
 const statusStyle: Record<RowStatus, { dot: string; text: string; label: string }> = {
   good: { dot: 'bg-emerald-500', text: 'text-emerald-700', label: 'Passed' },
@@ -465,29 +447,7 @@ export const ToolsList: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    setMeta(`${cmsState.tools.filter(t=>t.status==='live').length}+ Free SEO Tools: Keyword, Backlink, Speed, PDF & Text Tools | SEO Audit Tool`,
-      'A complete suite of free SEO tools: plagiarism and grammar checkers, keyword research, backlink analysis, meta tag and robots.txt generators, minifiers, domain and SSL checkers.');
     window.scrollTo(0, 0);
-    let ld = document.getElementById('tools-jsonld') as HTMLScriptElement | null;
-    if (!ld) {
-      ld = document.createElement('script');
-      ld.id = 'tools-jsonld';
-      ld.type = 'application/ld+json';
-      document.head.appendChild(ld);
-    }
-    ld.textContent = JSON.stringify({
-      '@context': 'https://schema.org',
-      '@type': 'ItemList',
-      name: 'Free SEO Tools',
-      itemListElement: tools.map((t, i) => ({
-        '@type': 'ListItem',
-        position: i + 1,
-        name: t.name,
-        description: t.description,
-        url: `#/tool/${t.slug}`,
-      })),
-    });
-    return () => { document.getElementById('tools-jsonld')?.remove(); };
   }, []);
 
   const filtered = useMemo(() => tools.filter(t =>
@@ -593,33 +553,8 @@ export const ToolPage: React.FC<{ slug: string }> = ({ slug }) => {
   }, [cmsState.tools, slug]);
 
   useEffect(() => {
-    if (tool) {
-      const seo = cmsState.seo[`tool:${tool.slug}`];
-      setMeta(seo?.title || `${tool.name} - Free Online SEO Tool | SEO Audit Tool`, seo?.description || tool.description);
-      setSocialImage(tool.featuredImage);
-      const robots = document.querySelector('meta[name="robots"]') as HTMLMetaElement | null;
-      if (robots) robots.setAttribute('content', seo?.noindex ? 'noindex, nofollow' : 'index, follow');
-      let ld = document.getElementById('tool-jsonld') as HTMLScriptElement | null;
-      if (!ld) {
-        ld = document.createElement('script');
-        ld.id = 'tool-jsonld';
-        ld.type = 'application/ld+json';
-        document.head.appendChild(ld);
-      }
-      ld.textContent = JSON.stringify({
-        '@context': 'https://schema.org',
-        '@type': 'WebApplication',
-        name: tool.name,
-        description: tool.description,
-        applicationCategory: 'SEOApplication',
-        operatingSystem: 'Any',
-        offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
-        ...(tool.featuredImage ? { image: tool.featuredImage } : {}),
-      });
-    }
     window.scrollTo(0, 0);
-    return () => { document.getElementById('tool-jsonld')?.remove(); setSocialImage(); };
-  }, [tool, cmsState.seo]);
+  }, [tool]);
 
   if (!tool) {
     return (

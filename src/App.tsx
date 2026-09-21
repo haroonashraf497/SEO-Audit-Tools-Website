@@ -9,6 +9,7 @@ import { sanitizeRichHtml } from './utils/sanitize';
 import { CmsProvider, useCms, liveTools, livePosts, findPage } from './cms/store';
 import { AdminApp } from './cms/Admin';
 import SerpPreview from './components/SerpPreview';
+import { SeoManager } from './utils/seo';
 
 // Inline SVG icons for critical UI (no JS overhead)
 const InlineIcons = {
@@ -1265,9 +1266,6 @@ const AudienceIcon: React.FC<{ type: string }> = ({ type }) => {
 };
 
 // Main App
-const HOME_TITLE = 'SEO Audit Tool - Free Comprehensive SEO Analysis Tool';
-const HOME_DESC = 'Free SEO Audit Tool - Analyze your website\u2019s SEO performance with comprehensive technical, on-page, mobile, and security audits. Get instant results and downloadable PDF reports.';
-
 const getRoute = (): string => {
   const hash = window.location.hash.split('?')[0]; // ignore query params like #/tools?q=seo
   if (hash.startsWith('#/blog/')) return hash.slice(2); // "blog/slug"
@@ -1308,18 +1306,6 @@ const SiteApp: React.FC = () => {
     window.addEventListener('hashchange', onHashChange);
     return () => window.removeEventListener('hashchange', onHashChange);
   }, []);
-
-  // SEO from the CMS for every route (home, tools, blog, tools/posts use their own)
-  useEffect(() => {
-    if (route === 'home' || route === 'tools' || route === 'blog') {
-      const seo = cms.state.seo[route];
-      document.title = route === 'home' ? (seo?.title || HOME_TITLE) : (seo?.title || document.title);
-      const meta = document.querySelector('meta[name="description"]');
-      if (meta) meta.setAttribute('content', seo?.description || HOME_DESC);
-      const robots = document.querySelector('meta[name="robots"]') as HTMLMetaElement | null;
-      if (robots) robots.setAttribute('content', seo?.noindex ? 'noindex, nofollow' : 'index, follow');
-    }
-  }, [route, cms.state.seo]);
 
   const isBlog = route === 'blog' || route.startsWith('blog/');
   const isTools = route === 'tools' || route.startsWith('tool/');
@@ -1395,6 +1381,7 @@ const SiteApp: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-indigo-50 to-purple-50">
+      <SeoManager route={route} />
       {/* Navigation */}
       <nav className="fixed top-0 left-0 right-0 z-50 bg-white/85 backdrop-blur-md border-b border-slate-200 px-4">
         <div className="max-w-7xl mx-auto">
@@ -1954,25 +1941,8 @@ const CmsPageView: React.FC<{ slug: string }> = ({ slug }) => {
   const { state } = useCms();
   const page = findPage(state, slug);
   useEffect(() => {
-    if (!page) return;
-    const seo = state.seo[`page:${page.slug}`] || { title: page.metaTitle, description: page.metaDescription };
-    document.title = seo.title || page.title;
-    let m = document.querySelector('meta[name="description"]');
-    if (!m) { m = document.createElement('meta'); m.setAttribute('name', 'description'); document.head.appendChild(m); }
-    m.setAttribute('content', seo.description || '');
-    let r = document.querySelector('meta[name="robots"]');
-    if (!r) { r = document.createElement('meta'); r.setAttribute('name', 'robots'); document.head.appendChild(r); }
-    r.setAttribute('content', seo.noindex ? 'noindex, nofollow' : 'index, follow');
-    const setSocialImage = (attribute: 'property' | 'name', key: string) => {
-      let social = document.querySelector(`meta[${attribute}="${key}"]`) as HTMLMetaElement | null;
-      if (!page.featuredImage) { social?.remove(); return; }
-      if (!social) { social = document.createElement('meta'); social.setAttribute(attribute, key); document.head.appendChild(social); }
-      social.setAttribute('content', page.featuredImage);
-    };
-    setSocialImage('property', 'og:image');
-    setSocialImage('name', 'twitter:image');
     window.scrollTo(0, 0);
-  }, [page, state.seo]);
+  }, [page]);
   if (!page || page.status !== 'live') {
     return (
       <div className="pt-36 pb-24 px-4 text-center min-h-screen">
