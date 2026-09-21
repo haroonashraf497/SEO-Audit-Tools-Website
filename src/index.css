@@ -7,14 +7,23 @@
 
 html {
   scroll-behavior: smooth;
+  scroll-padding-top: 6rem;
   text-rendering: optimizeLegibility;
   -webkit-text-size-adjust: 100%;
+  overflow-x: clip;
+}
+
+html, body {
+  background: #f8fafc;
+  min-height: 100%;
 }
 
 body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
+  overflow-x: clip;
+  margin: 0;
 }
 
 /* Line clamp utility for better performance */
@@ -25,22 +34,18 @@ body {
   overflow: hidden;
 }
 
-/* GPU-accelerated smooth transitions */
-.will-animate {
-  transform: translateZ(0);
-  backface-visibility: hidden;
-}
-
 /* Content visibility for performance - off-screen sections skip rendering */
 .cv-auto {
   content-visibility: auto;
-  contain-intrinsic-size: 1px 500px;
+  contain-intrinsic-size: auto 500px;
 }
 
-/* Reduce repaints on hover effects */
-.transition-optimized {
-  transition: transform 0.2s ease, opacity 0.2s ease;
-  will-change: transform;
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.animate-fade-in {
+  animation: fade-in 0.22s ease-out both;
 }
 
 /* Skip rendering heavy effects on slow connections */
@@ -50,11 +55,6 @@ body {
     transition-duration: 0.01ms !important;
   }
   html { scroll-behavior: auto; }
-}
-
-/* Critical above-the-fold styles */
-.hero-bg {
-  background: linear-gradient(135deg, #f8fafc 0%, #eef2ff 50%, #f5f3ff 100%);
 }
 
 /* Optimize SVG rendering */
@@ -72,4 +72,33 @@ svg {
 @media print {
   nav, footer, button { display: none !important; }
   body { background: white !important; }
+}
+
+/* ============================================================
+   Rich-text content (CMS WYSIWYG editor output)
+   Shared by pages, blog posts and tool "About" sections.
+   ============================================================ */
+.rich-text { line-height: 1.75; }
+.rich-text h2 { font-size: 1.5rem; font-weight: 800; color: #0f172a; margin: 2rem 0 0.75rem; line-height: 1.3; }
+.rich-text h3 { font-size: 1.25rem; font-weight: 700; color: #0f172a; margin: 1.5rem 0 0.5rem; line-height: 1.35; }
+.rich-text p { margin: 0.875rem 0; color: #334155; }
+.rich-text ul, .rich-text ol { margin: 0.875rem 0; padding-left: 1.5rem; color: #334155; }
+.rich-text ul { list-style: disc; }
+.rich-text ol { list-style: decimal; }
+.rich-text li { margin: 0.375rem 0; }
+.rich-text li::marker { color: #6366f1; }
+.rich-text a { color: #4f46e5; font-weight: 600; text-decoration: underline; text-underline-offset: 2px; }
+.rich-text a:hover { color: #4338ca; }
+.rich-text strong { font-weight: 700; color: #0f172a; }
+.rich-text blockquote { border-left: 4px solid #6366f1; background: #eef2ff; border-radius: 0 0.5rem 0.5rem 0; padding: 0.75rem 1rem; margin: 1rem 0; color: #3730a3; font-style: italic; }
+.rich-text table { width: 100%; border-collapse: collapse; margin: 1rem 0; font-size: 0.875rem; }
+.rich-text th { background: #f8fafc; text-align: left; font-size: 0.6875rem; text-transform: uppercase; letter-spacing: 0.04em; color: #64748b; padding: 0.625rem 0.75rem; border-bottom: 1px solid #e2e8f0; }
+.rich-text td { padding: 0.625rem 0.75rem; border-bottom: 1px solid #f1f5f9; color: #475569; vertical-align: top; }
+.rich-text img { max-width: 100%; border-radius: 0.75rem; margin: 1rem 0; }
+
+/* WYSIWYG editor empty-state placeholder */
+[contenteditable].rich-text:empty::before {
+  content: attr(data-placeholder);
+  color: #94a3b8;
+  pointer-events: none;
 }

@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { categories, type BlogArticle } from './index';
 import { Sidebar } from '../tools/Sidebar';
 import { useCms, livePosts } from '../cms/store';
+import { sanitizeRichHtml } from '../utils/sanitize';
 
 // ---------- Tiny markdown renderer (headings, bold, lists, paragraphs) ----------
 const renderInline = (text: string): React.ReactNode[] => {
@@ -22,7 +23,12 @@ const renderInline = (text: string): React.ReactNode[] => {
 };
 
 const MarkdownContent: React.FC<{ content: string }> = ({ content }) => {
+  // Content written in the CMS rich-text editor contains HTML tags; render it
+  // as sanitised rich HTML. Legacy posts use the markdown parser below.
+  const isRichHtml = /<[a-z][^>]*>/i.test(content);
+  const html = useMemo(() => (isRichHtml ? sanitizeRichHtml(content) : ''), [content, isRichHtml]);
   const blocks = useMemo(() => {
+    if (isRichHtml) return [];
     const lines = content.split('\n');
     const out: React.ReactNode[] = [];
     let listItems: string[] = [];
@@ -62,53 +68,11 @@ const MarkdownContent: React.FC<{ content: string }> = ({ content }) => {
     }
     flushList();
     return out;
-  }, [content]);
+  }, [content, isRichHtml]);
+
+  if (isRichHtml) return <div className="rich-text text-slate-700" dangerouslySetInnerHTML={{ __html: html }} />;
 
   return <div>{blocks}</div>;
-};
-
-// ---------- SEO helpers: set document title / meta / JSON-LD per view ----------
-const setMeta = (title: string, description: string) => {
-  document.title = title;
-  let meta = document.querySelector('meta[name="description"]');
-  if (!meta) {
-    meta = document.createElement('meta');
-    meta.setAttribute('name', 'description');
-    document.head.appendChild(meta);
-  }
-  meta.setAttribute('content', description);
-};
-
-const setSocialImage = (image?: string) => {
-  const set = (attribute: 'property' | 'name', key: string) => {
-    let meta = document.querySelector(`meta[${attribute}="${key}"]`) as HTMLMetaElement | null;
-    if (!image) { meta?.remove(); return; }
-    if (!meta) { meta = document.createElement('meta'); meta.setAttribute(attribute, key); document.head.appendChild(meta); }
-    meta.setAttribute('content', image);
-  };
-  set('property', 'og:image');
-  set('name', 'twitter:image');
-};
-
-const setArticleJsonLd = (article: BlogArticle | null) => {
-  const existing = document.getElementById('article-jsonld');
-  if (existing) existing.remove();
-  if (!article) return;
-  const script = document.createElement('script');
-  script.type = 'application/ld+json';
-  script.id = 'article-jsonld';
-  script.textContent = JSON.stringify({
-    '@context': 'https://schema.org',
-    '@type': 'Article',
-    headline: article.title,
-    description: article.metaDescription,
-    datePublished: article.date,
-    author: { '@type': 'Organization', name: article.author },
-    publisher: { '@type': 'Organization', name: 'SEO Audit Tool' },
-    keywords: article.keywords.join(', '),
-    ...(article.featuredImage ? { image: article.featuredImage } : {}),
-  });
-  document.head.appendChild(script);
 };
 
 // ---------- Category badge colors (subtle) ----------
@@ -161,18 +125,13 @@ export const BlogList: React.FC = () => {
   const [activeCategory, setActiveCategory] = useState<string>('All');
 
   useEffect(() => {
-    setMeta(
-      'SEO Blog: Core Web Vitals, PageSpeed & WordPress Guides | SEO Audit Tool',
-      'Practical guides on trending SEO issues: fixing INP, LCP and CLS, real PageSpeed problems, WordPress SEO setup, and Google indexing troubleshooting.'
-    );
-    setArticleJsonLd(null);
     window.scrollTo(0, 0);
   }, []);
 
   const filtered = activeCategory === 'All' ? posts : posts.filter(a => a.category === activeCategory);
 
   return (
-    <div className="pt-28 pb-20 px-4 min-h-screen">
+    <div className="pt-10 pb-20 px-4 min-h-screen">
       <div className="max-w-7xl mx-auto grid lg:grid-cols-[minmax(0,1fr)_minmax(0,300px)] gap-8 items-start">
         <div className="min-w-0">
           <header className="text-center mb-10">
@@ -224,21 +183,12 @@ export const BlogArticlePage: React.FC<{ slug: string }> = ({ slug }) => {
   const article = useMemo(() => (state.posts.find(p => p.slug === slug && p.status === 'live') || null) as unknown as BlogArticle | null, [state.posts, slug]);
 
   useEffect(() => {
-    if (article) {
-      const seo = state.seo[`post:${article.slug}`];
-      setMeta(seo?.title || article.metaTitle, seo?.description || article.metaDescription);
-      setArticleJsonLd(article);
-      setSocialImage(article.featuredImage);
-      const robots = document.querySelector('meta[name="robots"]') as HTMLMetaElement | null;
-      if (robots) robots.setAttribute('content', seo?.noindex ? 'noindex, nofollow' : 'index, follow');
-    }
     window.scrollTo(0, 0);
-    return () => { setArticleJsonLd(null); setSocialImage(); };
-  }, [article, state.seo]);
+  }, [article]);
 
   if (!article) {
     return (
-      <div className="pt-32 pb-20 px-4 text-center min-h-screen">
+      <div className="pt-16 pb-20 px-4 text-center min-h-screen">
         <h1 className="text-3xl font-bold text-slate-900 mb-4">Article not found</h1>
         <a href="#/blog" className="text-indigo-600 font-semibold hover:underline">Back to the blog</a>
       </div>
@@ -248,20 +198,9 @@ export const BlogArticlePage: React.FC<{ slug: string }> = ({ slug }) => {
   const related = (livePosts(state) as unknown as BlogArticle[]).filter(a => a.category === article.category && a.slug !== article.slug).slice(0, 2);
 
   return (
-    <div className="pt-28 pb-20 px-4 min-h-screen">
+    <div className="pt-10 pb-20 px-4 min-h-screen">
       <div className="max-w-7xl mx-auto grid lg:grid-cols-[minmax(0,1fr)_minmax(0,300px)] gap-8 items-start">
       <article className="min-w-0 w-full">
-        {/* Breadcrumb */}
-        <nav aria-label="Breadcrumb" className="mb-8">
-          <ol className="flex items-center gap-2 text-sm font-semibold flex-wrap">
-            <li><a href="#/" className="text-slate-800 hover:text-indigo-600">Home</a></li>
-            <li aria-hidden="true" className="text-indigo-600">&gt;&gt;</li>
-            <li><a href="#/blog" className="text-slate-800 hover:text-indigo-600">Blog</a></li>
-            <li aria-hidden="true" className="text-indigo-600">&gt;&gt;</li>
-            <li className="text-indigo-600 truncate max-w-[260px]" aria-current="page">{article.title}</li>
-          </ol>
-        </nav>
-
         <header className="mb-10">
           <div className="flex items-center gap-3 mb-5">
             <span className={`px-2.5 py-1 rounded-full text-xs font-semibold border ${categoryColor[article.category]}`}>

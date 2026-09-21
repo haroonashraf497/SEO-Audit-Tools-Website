@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { useCms, type CmsPage, type CmsPost, type CmsTool, type PageBlock, type SeoEntry, type SidebarLinkSource, type SidebarWidget, type SidebarWidgetType, type Status } from './store';
 import { categoryLabels, categoryOrder, ToolIcon, type ToolCategory } from '../tools/data';
+import { RichTextEditor } from './RichTextEditor';
 
 /* ---------------- shared bits ---------------- */
 const STATUS_META: Record<Status, { label: string; cls: string }> = {
@@ -72,26 +73,6 @@ const Toggle: React.FC<{ on: boolean; onClick: () => void; label: string; hint?:
     <span className={`relative w-11 h-6 rounded-full transition-colors flex-shrink-0 ${on ? 'bg-emerald-500' : 'bg-slate-300'}`}><span className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-all ${on ? 'left-5.5' : 'left-0.5'}`} style={{ left: on ? 22 : 2 }} /></span>
   </button>
 );
-
-/* ---------------- login ---------------- */
-const Login: React.FC<{ onOk: () => void }> = ({ onOk }) => {
-  const { login } = useCms();
-  const [code, setCode] = useState('');
-  const [err, setErr] = useState('');
-  return (
-    <div className="min-h-screen flex items-center justify-center px-4">
-      <form onSubmit={e => { e.preventDefault(); login(code) ? onOk() : setErr('Incorrect passcode.'); }} className="w-full max-w-sm bg-white rounded-2xl border border-slate-200 shadow-lg p-8">
-        <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 mb-5" />
-        <h1 className="text-2xl font-bold text-slate-900 mb-1">Admin login</h1>
-        <p className="text-sm text-slate-500 mb-6">Manage pages, blog posts, tools, SEO and the sidebar.</p>
-        <input type="password" value={code} onChange={e => setCode(e.target.value)} placeholder="Passcode" className={inputCls} autoFocus />
-        {err && <p className="text-sm text-red-600 mt-2">{err}</p>}
-        <Btn type="submit" className="w-full mt-4 py-3">Sign in</Btn>
-        <p className="text-xs text-slate-400 mt-4">Default passcode: <code className="bg-slate-100 px-1.5 py-0.5 rounded">admin123</code> — change it in Settings. This is a front-end gate: because the site is static, content is stored in this browser. Use Export JSON to publish changes.</p>
-      </form>
-    </div>
-  );
-};
 
 /* ---------------- small list row ---------------- */
 const Row: React.FC<{ children: React.ReactNode; actions?: React.ReactNode }> = ({ children, actions }) => (
@@ -303,6 +284,9 @@ const ToolEditor: React.FC<{ tool: CmsTool; onClose: () => void }> = ({ tool, on
         <Field label="URL slug" hint="Becomes #/tool/your-slug"><input className={inputCls} value={f.slug} onChange={e => set('slug')(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '-'))} /></Field>
       </div>
       <Field label="Description (shown under the title and in the directory)"><textarea rows={3} className={inputCls} value={f.description} onChange={e => set('description')(e.target.value)} /></Field>
+      <div id="tool-about-editor">
+        <Field label="About content (optional)" hint={f.slug === 'competitor-analysis' ? 'Added under “What is Website Competitor Analysis?” on the Competitor Analysis page. Leave empty to keep only the default copy.' : "Replaces the 'About the …' text shown on this tool's page. Leave empty to keep the shared default content."}><RichTextEditor value={f.about || ''} onChange={html => set('about')(html)} minHeight={220} placeholder="Write extra about content — headings, paragraphs, lists and links…" /></Field>
+      </div>
       <div className="grid md:grid-cols-3 gap-4">
         <Field label="Category"><select className={inputCls} value={f.category} onChange={e => set('category')(e.target.value)}>{categoryOrder.map(c => <option key={c} value={c}>{categoryLabels[c]}</option>)}</select></Field>
         <Field label="Page state"><select className={inputCls} value={f.status} onChange={e => set('status')(e.target.value)}><option value="live">Live</option><option value="hidden">Hidden</option><option value="draft">Draft</option></select></Field>
@@ -410,7 +394,7 @@ const PostEditor: React.FC<{ post: CmsPost; onClose: () => void }> = ({ post, on
       </div>
       <Field label="Excerpt / summary"><textarea rows={2} className={inputCls} value={f.excerpt} onChange={e => setF({ ...f, excerpt: e.target.value })} /></Field>
       <Field label="Keywords (comma separated)"><input className={inputCls} value={f.keywords.join(', ')} onChange={e => setF({ ...f, keywords: e.target.value.split(',').map(s => s.trim()).filter(Boolean) })} /></Field>
-      <Field label="Body" hint="Markdown-ish: ## Heading, - bullet, **bold**"><textarea rows={14} className={inputCls + ' font-mono text-xs'} value={f.content} onChange={e => setF({ ...f, content: e.target.value })} /></Field>
+      <Field label="Body" hint="Visual editor — use the toolbar for headings, lists, links and formatting"><RichTextEditor value={f.content} onChange={html => setF({ ...f, content: html })} minHeight={320} placeholder="Write your blog post…" /></Field>
       <FeaturedImageEditor image={f.featuredImage} alt={f.featuredImageAlt} onChange={patch => setF({ ...f, ...patch })} />
       <SeoMetaEditor value={seo} onChange={setSeoDraft} fallbackTitle={f.metaTitle || f.title} fallbackDescription={f.metaDescription || f.excerpt} routeHint={`#/blog/${f.slug || post.slug}`} />
       <div className="flex gap-2"><Btn onClick={() => { savePost(post.slug, f); if (f.slug !== post.slug) clearSeo(`post:${post.slug}`); setSeo(`post:${f.slug || post.slug}`, seo); onClose(); }}>Save post</Btn><Btn tone="ghost" onClick={onClose}>Cancel</Btn></div>
@@ -464,7 +448,7 @@ const NewPostForm: React.FC<{ onDone: () => void }> = ({ onDone }) => {
         <Field label="SEO title"><input className={inputCls} value={f.metaTitle} onChange={e => setF({ ...f, metaTitle: e.target.value })} placeholder={f.title} /></Field>
         <Field label="Meta description"><textarea rows={2} className={inputCls} value={f.metaDescription} onChange={e => setF({ ...f, metaDescription: e.target.value })} /></Field>
       </div>
-      <Field label="Body" hint="## Heading · - bullet · **bold**"><textarea rows={10} className={inputCls + ' font-mono text-xs'} value={f.content} onChange={e => setF({ ...f, content: e.target.value })} /></Field>
+      <Field label="Body" hint="Visual editor — use the toolbar for headings, lists, links and formatting"><RichTextEditor value={f.content} onChange={html => setF({ ...f, content: html })} minHeight={280} placeholder="Write your blog post…" /></Field>
       <FeaturedImageEditor image={f.featuredImage} alt={f.featuredImageAlt} onChange={patch => setF({ ...f, ...patch })} />
       <Field label="State"><select className={inputCls} value={f.status} onChange={e => setF({ ...f, status: e.target.value as Status })}><option value="draft">Draft</option><option value="live">Published</option><option value="hidden">Hidden</option></select></Field>
       <div className="flex gap-2"><Btn onClick={() => { addPost({ ...f, slug, metaTitle: f.metaTitle || f.title }); onDone(); }}>Create post</Btn><Btn tone="ghost" onClick={onDone}>Cancel</Btn></div>
@@ -493,8 +477,22 @@ const BlockEditor: React.FC<{ blocks: PageBlock[]; onChange: (b: PageBlock[]) =>
               <input className={inputCls} value={b.text} onChange={e => set(i, { text: e.target.value })} placeholder="Heading text" />
             </div>
           )}
-          {b.type === 'text' && <textarea rows={3} className={inputCls} value={b.text} onChange={e => set(i, { text: e.target.value })} placeholder="Paragraph" />}
+          {b.type === 'text' && <RichTextEditor value={b.text} onChange={html => set(i, { text: html })} minHeight={120} placeholder="Write this paragraph…" />}
           {b.type === 'list' && <textarea rows={3} className={inputCls} value={b.items.join('\n')} onChange={e => set(i, { items: e.target.value.split('\n').filter(Boolean) })} placeholder="One item per line" />}
+          {b.type === 'table' && (
+            <div className="space-y-2">
+              <div className="grid gap-1" style={{ gridTemplateColumns: `repeat(${b.head.length}, 1fr)` }}>
+                {b.head.map((h, ci) => <input key={ci} className={inputCls} value={h} onChange={e => set(i, { head: b.head.map((c, j) => (j === ci ? e.target.value : c)) })} placeholder={`Column ${ci + 1}`} />)}
+              </div>
+              {b.rows.map((row, ri) => (
+                <div key={ri} className="grid gap-1 items-start" style={{ gridTemplateColumns: `repeat(${b.head.length}, 1fr) auto` }}>
+                  {row.map((cell, ci) => <input key={ci} className={inputCls} value={cell} onChange={e => set(i, { rows: b.rows.map((r, j) => (j === ri ? r.map((c, k) => (k === ci ? e.target.value : c)) : r)) })} />)}
+                  <button type="button" onClick={() => set(i, { rows: b.rows.filter((_, j) => j !== ri) })} className="w-9 h-9 rounded bg-red-50 hover:bg-red-100 text-red-600 text-sm">✕</button>
+                </div>
+              ))}
+              <button type="button" onClick={() => set(i, { rows: [...b.rows, b.head.map(() => '')] })} className="text-xs font-bold text-indigo-600 hover:underline">+ add row</button>
+            </div>
+          )}
           {b.type === 'cta' && (
             <div className="space-y-2">
               <textarea rows={2} className={inputCls} value={b.text} onChange={e => set(i, { text: e.target.value })} placeholder="CTA text" />
@@ -504,8 +502,8 @@ const BlockEditor: React.FC<{ blocks: PageBlock[]; onChange: (b: PageBlock[]) =>
         </div>
       ))}
       <div className="flex flex-wrap gap-2">
-        {(['heading', 'text', 'list', 'cta'] as const).map(t => (
-          <Btn key={t} tone="ghost" onClick={() => onChange([...blocks, t === 'heading' ? { id: Math.random().toString(36).slice(2, 9), type: 'heading', text: 'New heading', level: 2 } : t === 'text' ? { id: Math.random().toString(36).slice(2, 9), type: 'text', text: '' } : t === 'list' ? { id: Math.random().toString(36).slice(2, 9), type: 'list', items: ['First item'] } : { id: Math.random().toString(36).slice(2, 9), type: 'cta', text: '', label: 'Learn more', href: '#/' }])}>+ {t}</Btn>
+        {(['heading', 'text', 'list', 'table', 'cta'] as const).map(t => (
+          <Btn key={t} tone="ghost" onClick={() => onChange([...blocks, t === 'heading' ? { id: Math.random().toString(36).slice(2, 9), type: 'heading', text: 'New heading', level: 2 } : t === 'text' ? { id: Math.random().toString(36).slice(2, 9), type: 'text', text: '' } : t === 'list' ? { id: Math.random().toString(36).slice(2, 9), type: 'list', items: ['First item'] } : t === 'table' ? { id: Math.random().toString(36).slice(2, 9), type: 'table', head: ['Column 1', 'Column 2'], rows: [['', '']] } : { id: Math.random().toString(36).slice(2, 9), type: 'cta', text: '', label: 'Learn more', href: '#/' }])}>+ {t}</Btn>
         ))}
       </div>
     </div>
@@ -804,7 +802,7 @@ const SidebarPane: React.FC = () => {
 };
 
 const SettingsPane: React.FC = () => {
-  const { state, setPasscode, exportJson, importJson, reset } = useCms();
+  const { setPasscode, exportJson, importJson, reset } = useCms();
   const [code, setCode] = useState('');
   const [msg, setMsg] = useState('');
   const [json, setJson] = useState('');
@@ -812,10 +810,10 @@ const SettingsPane: React.FC = () => {
   return (
     <div className="grid lg:grid-cols-2 gap-5">
       <div className="bg-white rounded-2xl border border-slate-200 p-5 space-y-4">
-        <h3 className="font-bold text-slate-900">Passcode</h3>
-        <Field label="New passcode" hint="Stored locally. Because this is a static site, this gate protects the UI, not the content files."><input className={inputCls} value={code} onChange={e => setCode(e.target.value)} placeholder={state.passcode} /></Field>
-        <Btn tone="ok" onClick={() => { if (code.trim()) { setPasscode(code.trim()); setMsg('Passcode updated.'); setCode(''); } }}>Update passcode</Btn>
-        {msg && <p className="text-sm text-emerald-600">{msg}</p>}
+        <h3 className="font-bold text-slate-900">Password</h3>
+        <Field label="New password" hint="Stored in this browser. Because this is a static site, this gate protects the admin UI, not the published files."><input type="password" className={inputCls} value={code} onChange={e => setCode(e.target.value)} autoComplete="new-password" /></Field>
+        <Btn tone="ok" onClick={() => { if (code.trim().length >= 8) { void setPasscode(code.trim()); setMsg('Password updated.'); setCode(''); } else setMsg('Use at least 8 characters.'); }}>Update password</Btn>
+        {msg && <p className={`text-sm ${msg.includes('updated') ? 'text-emerald-600' : 'text-red-600'}`}>{msg}</p>}
       </div>
       <div className="bg-white rounded-2xl border border-slate-200 p-5 space-y-4">
         <h3 className="font-bold text-slate-900">Backup &amp; deploy</h3>
@@ -836,11 +834,9 @@ const TABS: [Tab, string][] = [['dashboard', 'Dashboard'], ['pages', 'Pages'], [
 export const AdminApp: React.FC = () => {
   const { loggedIn, logout, state } = useCms();
   const [tab, setTab] = useState<Tab>('dashboard');
-  const [authed, setAuthed] = useState(false);
-  const isIn = loggedIn || authed;
-  if (!isIn) return <Login onOk={() => setAuthed(true)} />;
+  if (!loggedIn) return null;
   return (
-    <div className="pt-24 pb-16 px-4">
+    <div className="pt-8 pb-16 px-4">
       <div className="max-w-7xl mx-auto">
         <header className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden mb-6">
           <div className="flex flex-wrap items-center gap-4 px-5 py-5 md:px-6">
@@ -856,7 +852,7 @@ export const AdminApp: React.FC = () => {
             </div>
             <div className="ml-auto flex flex-wrap gap-2">
               <a href="#/" className="px-3.5 py-2 rounded-lg text-sm font-semibold bg-slate-900 text-white hover:bg-slate-700 transition-colors">View live site ↗</a>
-              <Btn tone="ghost" onClick={logout}>Sign out</Btn>
+              <Btn tone="ghost" onClick={() => { logout(); window.location.hash = '#/'; }}>Log Out</Btn>
             </div>
           </div>
           <nav aria-label="CMS areas" className="border-t border-slate-100 px-3 py-3 md:px-4 flex gap-1.5 overflow-x-auto">

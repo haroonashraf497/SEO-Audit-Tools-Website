@@ -36,15 +36,6 @@ const splitSentences = (text: string): string[] =>
 
 const countWords = (t: string) => (t.trim() ? t.trim().split(/\s+/).length : 0);
 
-const Star: React.FC<{ fill: number }> = ({ fill }) => (
-  <svg className="w-5 h-5" viewBox="0 0 24 24" aria-hidden="true">
-    <defs>
-      <linearGradient id={`g${fill}`}><stop offset={`${fill * 100}%`} stopColor="#f59e0b" /><stop offset={`${fill * 100}%`} stopColor="#e2e8f0" /></linearGradient>
-    </defs>
-    <path fill={`url(#g${fill})`} d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
-  </svg>
-);
-
 const Gauge: React.FC<{ unique: number }> = ({ unique }) => {
   const r = 52;
   const c = 2 * Math.PI * r;
@@ -200,15 +191,16 @@ export const PlagiarismChecker: React.FC = () => {
           <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M3 7l4.5 4L12 4l4.5 7L21 7l-2 12H5L3 7z" /></svg>
           Premium
         </span>
-        <div className="flex flex-wrap items-center gap-3 px-5 pt-6 pb-4">
-          <p className="font-bold text-slate-900 text-lg leading-tight mr-2">Plagiarism<br className="hidden sm:block" /> Checker Offers:</p>
-          {[['Deep Search', 'M21 21l-4.3-4.3M11 19a8 8 0 100-16 8 8 0 000 16z'], ['Accurate Results', 'M12 22a10 10 0 100-20 10 10 0 000 20zm0-18v8l6 3'], ['Check 30K Words', 'M22 11.08V12a10 10 0 11-5.93-9.14M22 4L12 14.01l-3-3']].map(([label, d]) => (
-            <span key={label} className="inline-flex items-center gap-2 bg-slate-100 text-slate-800 font-semibold text-sm px-4 py-2.5 rounded-lg">
-              <svg className="w-4 h-4 text-indigo-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={d} /></svg>
-              {label}
-            </span>
-          ))}
-          <button type="button" className="ml-auto bg-blue-600 hover:bg-blue-700 text-white font-semibold text-sm px-6 py-2.5 rounded-lg transition-colors">Go Pro</button>
+        <div className="flex flex-col lg:flex-row lg:items-center gap-3 lg:gap-5 px-5 pt-6 pb-4">
+          <p className="font-bold text-slate-900 text-lg whitespace-nowrap">Plagiarism Checker Offers:</p>
+          <div className="flex flex-wrap items-center gap-2.5 min-w-0">
+            {[['Deep Search', 'M21 21l-4.3-4.3M11 19a8 8 0 100-16 8 8 0 000 16z'], ['Accurate Results', 'M12 22a10 10 0 100-20 10 10 0 000 20zm0-18v8l6 3'], ['Check 30K Words', 'M22 11.08V12a10 10 0 11-5.93-9.14M22 4L12 14.01l-3-3']].map(([label, d]) => (
+              <span key={label} className="inline-flex items-center gap-2 bg-slate-100 text-slate-800 font-semibold text-sm px-4 py-2.5 rounded-xl whitespace-nowrap">
+                <svg className="w-4 h-4 text-indigo-600 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={d} /></svg>
+                {label}
+              </span>
+            ))}
+          </div>
         </div>
 
         {/* Mode tabs */}
@@ -270,11 +262,6 @@ export const PlagiarismChecker: React.FC = () => {
           <svg className="w-4 h-4 text-blue-500" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M6 2L0 6l6 4-6 4 6 4 6-4-6-4 6-4-6-4zm12 0l-6 4 6 4-6 4 6 4 6-4-6-4 6-4-6-4zM6 19l6 4 6-4-6-4-6 4z" /></svg>
           Choose from Dropbox
         </button>
-        <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-slate-200 bg-white">
-          <div className="flex">{[1, 1, 1, 1, 0.1].map((f, i) => <Star key={i} fill={f} />)}</div>
-          <span className="text-sm font-bold text-slate-800">4.1/5</span>
-          <span className="text-sm font-semibold text-slate-600">54.4k reviews</span>
-        </div>
       </div>
 
       {/* Exclude URLs */}

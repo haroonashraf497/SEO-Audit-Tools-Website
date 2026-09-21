@@ -33,6 +33,20 @@ export const categoryLabels: Record<ToolCategory, string> = {
   converter: 'Unit Converter Tools',
 };
 
+export const categoryDescriptions: Record<ToolCategory, string> = {
+  text: 'Plagiarism, grammar, word count, rewriting and other in-browser text checks.',
+  keyword: 'Density, suggestions, long-tail ideas and competition for your target terms.',
+  backlink: 'Profile, broken-link, reciprocal and link-value checks for any site.',
+  management: 'Meta tags, sitemaps, page speed, QR codes, robots.txt and site utilities.',
+  checker: 'SSL, index, cache, gzip, redirects and other website health checks.',
+  domain: 'Age, authority, DNS, hosting, WHOIS and domain availability lookups.',
+  ip: 'Your public IP, geolocation, reverse IP, Class C and proxy lists.',
+  pdf: 'Merge, split, compress, convert and protect PDFs on your device.',
+  image: 'Compress, resize and extract text from JPG and PNG images.',
+  calculator: 'Percentage, BMI, GST, margin, CPM and other free calculators.',
+  converter: 'Length, weight, temperature, speed, area and other unit conversions.',
+};
+
 export const categoryOrder: ToolCategory[] = ['text', 'keyword', 'backlink', 'management', 'checker', 'domain', 'ip', 'pdf', 'image', 'calculator', 'converter'];
 
 export const categoryStyles: Record<ToolCategory, string> = {

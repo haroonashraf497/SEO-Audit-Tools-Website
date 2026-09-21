@@ -54,24 +54,6 @@ const PdfSwitch: React.FC<{ engine: string }> = ({ engine }) => {
 };
 import { WorkingEngine, PrimaryBtn, MetaGen, RobotsGen, ImageTool } from './engines';
 
-// ---------- SEO ----------
-const setMeta = (title: string, description: string) => {
-  document.title = title;
-  let meta = document.querySelector('meta[name="description"]');
-  if (!meta) { meta = document.createElement('meta'); meta.setAttribute('name', 'description'); document.head.appendChild(meta); }
-  meta.setAttribute('content', description);
-};
-const setSocialImage = (image?: string) => {
-  const set = (attribute: 'property' | 'name', key: string) => {
-    let meta = document.querySelector(`meta[${attribute}="${key}"]`) as HTMLMetaElement | null;
-    if (!image) { meta?.remove(); return; }
-    if (!meta) { meta = document.createElement('meta'); meta.setAttribute(attribute, key); document.head.appendChild(meta); }
-    meta.setAttribute('content', image);
-  };
-  set('property', 'og:image');
-  set('name', 'twitter:image');
-};
-
 // ---------- Status dot ----------
 const statusStyle: Record<RowStatus, { dot: string; text: string; label: string }> = {
   good: { dot: 'bg-emerald-500', text: 'text-emerald-700', label: 'Passed' },
@@ -465,29 +447,7 @@ export const ToolsList: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    setMeta(`${cmsState.tools.filter(t=>t.status==='live').length}+ Free SEO Tools: Keyword, Backlink, Speed, PDF & Text Tools | SEO Audit Tool`,
-      'A complete suite of free SEO tools: plagiarism and grammar checkers, keyword research, backlink analysis, meta tag and robots.txt generators, minifiers, domain and SSL checkers.');
     window.scrollTo(0, 0);
-    let ld = document.getElementById('tools-jsonld') as HTMLScriptElement | null;
-    if (!ld) {
-      ld = document.createElement('script');
-      ld.id = 'tools-jsonld';
-      ld.type = 'application/ld+json';
-      document.head.appendChild(ld);
-    }
-    ld.textContent = JSON.stringify({
-      '@context': 'https://schema.org',
-      '@type': 'ItemList',
-      name: 'Free SEO Tools',
-      itemListElement: tools.map((t, i) => ({
-        '@type': 'ListItem',
-        position: i + 1,
-        name: t.name,
-        description: t.description,
-        url: `#/tool/${t.slug}`,
-      })),
-    });
-    return () => { document.getElementById('tools-jsonld')?.remove(); };
   }, []);
 
   const filtered = useMemo(() => tools.filter(t =>
@@ -505,7 +465,7 @@ export const ToolsList: React.FC = () => {
   }, [filtered]);
 
   return (
-    <div className="pt-28 pb-20 px-4 min-h-screen">
+    <div className="pt-10 pb-20 px-4 min-h-screen">
       <div className="max-w-7xl mx-auto">
         <header className="text-center mb-10">
           <h1 className="text-4xl md:text-5xl font-bold text-slate-900 mb-4">
@@ -593,37 +553,12 @@ export const ToolPage: React.FC<{ slug: string }> = ({ slug }) => {
   }, [cmsState.tools, slug]);
 
   useEffect(() => {
-    if (tool) {
-      const seo = cmsState.seo[`tool:${tool.slug}`];
-      setMeta(seo?.title || `${tool.name} - Free Online SEO Tool | SEO Audit Tool`, seo?.description || tool.description);
-      setSocialImage(tool.featuredImage);
-      const robots = document.querySelector('meta[name="robots"]') as HTMLMetaElement | null;
-      if (robots) robots.setAttribute('content', seo?.noindex ? 'noindex, nofollow' : 'index, follow');
-      let ld = document.getElementById('tool-jsonld') as HTMLScriptElement | null;
-      if (!ld) {
-        ld = document.createElement('script');
-        ld.id = 'tool-jsonld';
-        ld.type = 'application/ld+json';
-        document.head.appendChild(ld);
-      }
-      ld.textContent = JSON.stringify({
-        '@context': 'https://schema.org',
-        '@type': 'WebApplication',
-        name: tool.name,
-        description: tool.description,
-        applicationCategory: 'SEOApplication',
-        operatingSystem: 'Any',
-        offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
-        ...(tool.featuredImage ? { image: tool.featuredImage } : {}),
-      });
-    }
     window.scrollTo(0, 0);
-    return () => { document.getElementById('tool-jsonld')?.remove(); setSocialImage(); };
-  }, [tool, cmsState.seo]);
+  }, [tool]);
 
   if (!tool) {
     return (
-      <div className="pt-32 pb-20 px-4 text-center min-h-screen">
+      <div className="pt-16 pb-20 px-4 text-center min-h-screen">
         <h1 className="text-3xl font-bold text-slate-900 mb-4">Tool not found</h1>
         <a href="#/tools" className="text-indigo-600 font-semibold hover:underline">Browse all tools</a>
       </div>
@@ -732,7 +667,7 @@ export const ToolPage: React.FC<{ slug: string }> = ({ slug }) => {
   const wide = ['plagiarism-checker', 'grammar-checker', 'article-rewriter'].includes(tool.slug) || ['wm-htmleditor', 'wm-screensim', 'wm-snooper', 'wm-mobile', 'wm-htmlviewer'].includes(tool.engine || '') || tool.category === 'pdf';
 
   return (
-    <div className="pt-28 pb-20 px-4 min-h-screen">
+    <div className="pt-10 pb-20 px-4 min-h-screen">
       <div className="max-w-7xl mx-auto grid lg:grid-cols-[minmax(0,1fr)_minmax(0,300px)] gap-8 items-start">
         {/* ---------- Main column ---------- */}
         <div className="min-w-0">
@@ -757,16 +692,6 @@ export const ToolPage: React.FC<{ slug: string }> = ({ slug }) => {
               <img src={tool.featuredImage} alt={tool.featuredImageAlt || tool.name} width="1200" height="630" loading="lazy" className="w-full h-full object-cover" onError={e => { e.currentTarget.parentElement?.classList.add('hidden'); }} />
             </figure>
           )}
-
-          <nav aria-label="Breadcrumb" className="mb-5">
-            <ol className="flex items-center gap-2 text-sm font-semibold flex-wrap">
-              <li><a href="#/" className="text-slate-800 hover:text-indigo-600">Home</a></li>
-              <li aria-hidden="true" className="text-indigo-600">&gt;&gt;</li>
-              <li><a href={`#/tools?cat=${tool.category}`} className="text-slate-800 hover:text-indigo-600">{categoryLabels[tool.category]}</a></li>
-              <li aria-hidden="true" className="text-indigo-600">&gt;&gt;</li>
-              <li className="text-indigo-600" aria-current="page">{tool.name}</li>
-            </ol>
-          </nav>
 
           <div className={`${wide ? 'bg-white p-4 md:p-6 shadow-md' : 'bg-slate-50 p-5 md:p-7'} rounded-2xl border border-slate-200 mb-10`} key={tool.slug}>
             {renderBody()}

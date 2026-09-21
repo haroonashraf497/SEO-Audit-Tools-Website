@@ -1,0 +1,8 @@
+node_modules/
+dist/
+download/
+php-site/
+php-site.zip
+.env
+.DS_Store
+.arena/

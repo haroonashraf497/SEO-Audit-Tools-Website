@@ -2,11 +2,15 @@ import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { BlogList, BlogArticlePage } from './blog/Blog';
 import { ToolsList, ToolPage } from './tools/Tools';
 import CompetitorAnalysis, { CompetitorToolContent } from './tools/CompetitorAnalysis';
-import { categoryLabels, ToolIcon } from './tools/data';
+import { categoryDescriptions, categoryLabels, ToolIcon } from './tools/data';
 import { fetchPageData, type LivePageData } from './utils/pageFetch';
 import { fetchDomainInfo, type DomainInfo } from './utils/domainLookup';
+import { sanitizeRichHtml } from './utils/sanitize';
 import { CmsProvider, useCms, liveTools, livePosts, findPage } from './cms/store';
 import { AdminApp } from './cms/Admin';
+import { AdminLoginPage, AdminResetPage } from './cms/AdminLogin';
+import SerpPreview from './components/SerpPreview';
+import { SeoManager } from './utils/seo';
 
 // Inline SVG icons for critical UI (no JS overhead)
 const InlineIcons = {
@@ -344,87 +348,6 @@ const MiniCheck: React.FC<{ pass: boolean; label: string }> = ({ pass, label }) 
   </li>
 );
 
-// Side-by-side Google SERP previews using the live page title and description.
-const SerpPreview: React.FC<{ details: OnPageDetails }> = ({ details }) => {
-  const host = details.urlInfo.full.replace(/^https?:\/\//, '').split('/')[0];
-  const pathSegments = details.urlInfo.path.split('/').filter(Boolean);
-  const siteName = host.replace(/^www\./, '').split('.')[0].replace(/[-_]/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
-  const crumbs = [host.replace(/^www\./, ''), ...pathSegments.map(s => decodeURIComponent(s).replace(/-/g, ' '))];
-  const rawTitle = details.titleTag.value;
-  const rawDesc = details.metaDescription.value;
-  const clip = (value: string, limit: number, fallback: string) => !value ? fallback : value.length > limit ? `${value.slice(0, limit - 3)}...` : value;
-  const previews = [
-    { id: 'desktop', label: 'Desktop', titleLimit: 60, descriptionLimit: 160, frame: 'w-full max-w-[620px] px-5 py-5', titleClass: 'line-clamp-1', descriptionClass: 'line-clamp-2', detail: 'Single-line title, wider search result' },
-    { id: 'mobile', label: 'Mobile', titleLimit: 78, descriptionLimit: 124, frame: 'w-full max-w-[360px] rounded-2xl border border-slate-200 shadow-sm px-4 py-5', titleClass: 'line-clamp-2', descriptionClass: 'line-clamp-2', detail: 'Two-line title, compact mobile snippet' },
-  ] as const;
-
-  return (
-    <div className="bg-white rounded-2xl border border-slate-200 p-5 md:p-6 mb-6 shadow-sm">
-      <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
-        <div className="flex flex-wrap items-center gap-3">
-          <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Google Search Preview</p>
-          {details.live ? (
-            <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-100 rounded-full px-2.5 py-0.5"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />Live page data</span>
-          ) : (
-            <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold bg-amber-50 text-amber-700 border border-amber-100 rounded-full px-2.5 py-0.5"><span className="w-1.5 h-1.5 rounded-full bg-amber-500" />Illustrative preview</span>
-          )}
-        </div>
-        <span className="text-xs font-semibold text-slate-500">Compare desktop and mobile side by side</span>
-      </div>
-
-      <div className="grid lg:grid-cols-2 gap-4">
-        {previews.map(preview => {
-          const title = clip(rawTitle, preview.titleLimit, 'No title tag found');
-          const description = clip(rawDesc, preview.descriptionLimit, 'No meta description found. Google may generate a snippet from page content.');
-          const titleFits = rawTitle.length > 0 && rawTitle.length <= preview.titleLimit;
-          const descriptionFits = rawDesc.length > 0 && rawDesc.length <= preview.descriptionLimit;
-          return (
-            <section key={preview.id} className="rounded-xl border border-slate-200 overflow-hidden bg-white">
-              <div className="flex items-center justify-between gap-3 px-4 py-3 bg-slate-50 border-b border-slate-200">
-                <span className="flex items-center gap-2 text-sm font-bold text-slate-800">
-                  {preview.id === 'desktop' ? (
-                    <svg className="w-4 h-4 text-indigo-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="2" y="3" width="20" height="14" rx="2" /><line x1="8" y1="21" x2="16" y2="21" /><line x1="12" y1="17" x2="12" y2="21" /></svg>
-                  ) : (
-                    <svg className="w-4 h-4 text-indigo-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="5" y="2" width="14" height="20" rx="2" /><line x1="12" y1="18" x2="12.01" y2="18" /></svg>
-                  )}
-                  {preview.label}
-                </span>
-                <span className="text-[11px] text-slate-500">{preview.detail}</span>
-              </div>
-
-              <div className="flex justify-center bg-slate-50 p-5 md:p-6">
-                <div className={`bg-white ${preview.frame}`} style={{ fontFamily: 'Arial, sans-serif' }}>
-                  <div className="flex items-center gap-3 mb-1.5">
-                    <div className="w-7 h-7 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center flex-shrink-0 text-white text-[11px] font-bold" aria-hidden="true">{siteName.charAt(0).toUpperCase()}</div>
-                    <div className="min-w-0 leading-tight">
-                      <p className="text-[14px] text-[#202124] truncate">{siteName}</p>
-                      <p className="text-[12px] text-[#5f6368] truncate">{crumbs.join(' > ')}</p>
-                    </div>
-                  </div>
-                  <h5 className={`text-[20px] leading-[1.3] cursor-pointer hover:underline ${preview.titleClass} ${rawTitle ? 'text-[#1a0dab]' : 'text-[#9aa0a6] italic'}`}>{title}</h5>
-                  <p className={`text-[14px] leading-[1.58] mt-1 ${preview.descriptionClass} ${rawDesc ? 'text-[#4d5156]' : 'text-[#9aa0a6] italic'}`}>{description}</p>
-                </div>
-              </div>
-
-              <div className="flex flex-wrap gap-2 px-4 py-3 border-t border-slate-100">
-                <span className={`text-[11px] font-semibold rounded-full px-2 py-0.5 border ${titleFits ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : rawTitle ? 'bg-amber-50 text-amber-700 border-amber-100' : 'bg-red-50 text-red-700 border-red-100'}`}>{rawTitle ? `Title: ${titleFits ? 'fits' : 'truncated'}` : 'Title missing'}</span>
-                <span className={`text-[11px] font-semibold rounded-full px-2 py-0.5 border ${descriptionFits ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : rawDesc ? 'bg-amber-50 text-amber-700 border-amber-100' : 'bg-red-50 text-red-700 border-red-100'}`}>{rawDesc ? `Description: ${descriptionFits ? 'fits' : 'truncated'}` : 'Description missing'}</span>
-              </div>
-            </section>
-          );
-        })}
-      </div>
-
-      <div className="flex flex-wrap gap-2 mt-4">
-        {details.titleTag.length === 0 && <span className="text-[11px] font-semibold bg-red-50 text-red-700 border border-red-100 rounded-full px-2 py-0.5">Title tag is missing</span>}
-        {details.metaDescription.length === 0 && <span className="text-[11px] font-semibold bg-red-50 text-red-700 border border-red-100 rounded-full px-2 py-0.5">Meta description is missing</span>}
-        {details.titleTag.length > 60 && <span className="text-[11px] font-semibold bg-amber-50 text-amber-700 border border-amber-100 rounded-full px-2 py-0.5">Title is {details.titleTag.length - 60} chars over the desktop guideline</span>}
-        {details.metaDescription.length > 160 && <span className="text-[11px] font-semibold bg-amber-50 text-amber-700 border border-amber-100 rounded-full px-2 py-0.5">Description is {details.metaDescription.length - 160} chars over the desktop guideline</span>}
-      </div>
-    </div>
-  );
-};
-
 // On-Page SEO Results - detailed blocks
 const OnPageResults: React.FC<{ details: OnPageDetails }> = ({ details }) => {
   const maxHeading = Math.max(...details.headings.map(h => h.count), 1);
@@ -481,7 +404,9 @@ const OnPageResults: React.FC<{ details: OnPageDetails }> = ({ details }) => {
       </div>
 
       {/* SERP Preview (accurate Google layout, live data when fetchable) */}
-      <SerpPreview details={details} />
+      <div className="mb-6">
+        <SerpPreview url={details.urlInfo.full} title={details.titleTag.value} description={details.metaDescription.value} live={details.live} />
+      </div>
 
       <div className="grid md:grid-cols-2 gap-6">
         {/* Title Tag */}
@@ -1342,9 +1267,6 @@ const AudienceIcon: React.FC<{ type: string }> = ({ type }) => {
 };
 
 // Main App
-const HOME_TITLE = 'SEO Audit Tool - Free Comprehensive SEO Analysis Tool';
-const HOME_DESC = 'Free SEO Audit Tool - Analyze your website\u2019s SEO performance with comprehensive technical, on-page, mobile, and security audits. Get instant results and downloadable PDF reports.';
-
 const getRoute = (): string => {
   const hash = window.location.hash.split('?')[0]; // ignore query params like #/tools?q=seo
   if (hash.startsWith('#/blog/')) return hash.slice(2); // "blog/slug"
@@ -1352,9 +1274,69 @@ const getRoute = (): string => {
   if (hash.startsWith('#/tool/')) return hash.slice(2); // "tool/slug"
   if (hash === '#/tools') return 'tools';
   if (hash === '#/admin') return 'admin';
+  if (hash === '#/admin-login') return 'admin-login';
+  if (hash === '#/admin-reset') return 'admin-reset';
   if (hash === '#/competitor-analysis') return 'competitor-analysis';
   if (hash.startsWith('#/p/')) return hash.slice(2); // "p/slug"
   return 'home';
+};
+
+// Footer social links — placeholder platform URLs, replace with real profiles.
+const footerSocials = [
+  { label: 'X (Twitter)', href: 'https://x.com/', icon: () => (<svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zM17.083 19.77h1.833L7.084 4.126H5.117z" /></svg>) },
+  { label: 'Facebook', href: 'https://www.facebook.com/', icon: () => (<svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" /></svg>) },
+];
+
+type Crumb = { label: string; href?: string };
+const SiteBreadcrumbs: React.FC<{ route: string }> = ({ route }) => {
+  const { state } = useCms();
+  const crumbs: Crumb[] = (() => {
+    const home: Crumb = { label: 'Home', href: '#/' };
+    if (route === 'home') return [];
+    if (route === 'tools') return [home, { label: 'Free SEO Tools' }];
+    if (route.startsWith('tool/')) {
+      const tool = state.tools.find(t => t.slug === route.slice(5));
+      const catLabel = tool ? (categoryLabels[tool.category] || 'Free SEO Tools') : 'Free SEO Tools';
+      const catHref = tool ? `#/tools?cat=${tool.category}` : '#/tools';
+      return [home, { label: catLabel, href: catHref }, { label: tool?.name || 'Tool' }];
+    }
+    if (route === 'blog') return [home, { label: 'Blog' }];
+    if (route.startsWith('blog/')) {
+      const post = state.posts.find(p => p.slug === route.slice(5));
+      return [home, { label: 'Blog', href: '#/blog' }, { label: post?.title || 'Article' }];
+    }
+    if (route === 'competitor-analysis') return [home, { label: 'Competitor Analysis' }];
+    if (route.startsWith('p/')) {
+      const page = findPage(state, route.slice(2));
+      return [home, { label: page?.title || 'Page' }];
+    }
+    if (route === 'admin') return [home, { label: 'Admin' }];
+    if (route === 'admin-login') return [home, { label: 'Admin login' }];
+    if (route === 'admin-reset') return [home, { label: 'Reset password' }];
+    return [home];
+  })();
+  if (!crumbs.length) return null;
+  return (
+    <div className="sticky top-16 z-40 border-b border-slate-200 bg-white">
+      <div role="navigation" aria-label="Breadcrumb" className="max-w-7xl mx-auto px-4 py-2.5">
+        <ol className="flex items-center gap-2 text-sm font-semibold flex-wrap">
+          {crumbs.map((crumb, i) => {
+            const last = i === crumbs.length - 1;
+            return (
+              <React.Fragment key={`${crumb.label}-${i}`}>
+                {i > 0 && <li aria-hidden="true" className="text-indigo-600">&gt;&gt;</li>}
+                <li className="min-w-0" {...(last ? { 'aria-current': 'page' as const } : {})}>
+                  {last || !crumb.href
+                    ? <span className="text-indigo-600 truncate max-w-[240px] sm:max-w-md block">{crumb.label}</span>
+                    : <a href={crumb.href} className="text-slate-800 hover:text-indigo-600">{crumb.label}</a>}
+                </li>
+              </React.Fragment>
+            );
+          })}
+        </ol>
+      </div>
+    </div>
+  );
 };
 
 const SiteApp: React.FC = () => {
@@ -1366,6 +1348,7 @@ const SiteApp: React.FC = () => {
   const [analysisProgress, setAnalysisProgress] = useState(0);
   const [result, setResult] = useState<AuditResult | null>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [cookiePrefsOpen, setCookiePrefsOpen] = useState(false);
   const [route, setRoute] = useState<string>(getRoute);
 
   useEffect(() => {
@@ -1377,17 +1360,21 @@ const SiteApp: React.FC = () => {
     return () => window.removeEventListener('hashchange', onHashChange);
   }, []);
 
-  // SEO from the CMS for every route (home, tools, blog, tools/posts use their own)
   useEffect(() => {
-    if (route === 'home' || route === 'tools' || route === 'blog') {
-      const seo = cms.state.seo[route];
-      document.title = route === 'home' ? (seo?.title || HOME_TITLE) : (seo?.title || document.title);
-      const meta = document.querySelector('meta[name="description"]');
-      if (meta) meta.setAttribute('content', seo?.description || HOME_DESC);
-      const robots = document.querySelector('meta[name="robots"]') as HTMLMetaElement | null;
-      if (robots) robots.setAttribute('content', seo?.noindex ? 'noindex, nofollow' : 'index, follow');
+    if (route === 'admin' && !cms.loggedIn) window.location.hash = '#/admin-login';
+    else if (route === 'admin-login' && cms.loggedIn) window.location.hash = '#/admin';
+  }, [route, cms.loggedIn]);
+
+  useEffect(() => {
+    const raw = window.location.hash.split('?')[0];
+    if (!raw || raw.startsWith('#/')) {
+      window.scrollTo(0, 0);
+      return;
     }
-  }, [route, cms.state.seo]);
+    const el = document.getElementById(raw.slice(1));
+    if (el) el.scrollIntoView();
+    else window.scrollTo(0, 0);
+  }, [route]);
 
   const isBlog = route === 'blog' || route.startsWith('blog/');
   const isTools = route === 'tools' || route.startsWith('tool/');
@@ -1463,8 +1450,9 @@ const SiteApp: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-indigo-50 to-purple-50">
+      <SeoManager route={route} />
       {/* Navigation */}
-      <nav className="fixed top-0 left-0 right-0 z-50 bg-white/85 backdrop-blur-md border-b border-slate-200 px-4">
+      <nav className="fixed top-0 left-0 right-0 z-50 h-16 bg-white border-b border-slate-200 px-4">
         <div className="max-w-7xl mx-auto">
           <div className="flex items-center justify-between h-16">
             <a href="#/" className="flex items-center gap-2">
@@ -1477,14 +1465,17 @@ const SiteApp: React.FC = () => {
             </a>
 
             <div className="hidden md:flex items-center gap-7">
-              {cms.state.nav.filter(n => n.visible).map(n => (
+              <a href="#/" className={`transition-colors ${route === 'home' ? 'text-indigo-600 font-semibold' : 'text-slate-600 hover:text-indigo-600'}`}>Home</a>
+              {cms.state.nav.filter(n => n.visible && (!(n.href || '').includes('/admin') || cms.loggedIn)).map(n => (
                 <a key={n.id} href={n.href} className={`transition-colors ${(isTools && n.href.includes('tools')) || (isBlog && n.href.includes('blog')) || n.href.includes('competitor') ? 'text-indigo-600 font-semibold' : 'text-slate-600 hover:text-indigo-600'}`}>{n.label}</a>
               ))}
-              <a href="#/competitor-analysis" className="text-slate-600 hover:text-indigo-600 transition-colors">Competitor</a>
-              <a href="#/admin" className="text-slate-600 hover:text-indigo-600 transition-colors" title="Content manager">Admin</a>
-              <a href="#/" className="bg-gradient-to-r from-indigo-500 to-purple-600 text-white px-6 py-2.5 rounded-xl font-medium hover:shadow-lg hover:shadow-indigo-500/25 transition-all">
-                Get Started Free
-              </a>
+              <a href="#/competitor-analysis" className={`transition-colors ${route === 'competitor-analysis' ? 'text-indigo-600 font-semibold' : 'text-slate-600 hover:text-indigo-600'}`}>Competitor Analysis</a>
+              {cms.loggedIn && (
+                <>
+                  <a href="#/admin" className="text-slate-600 hover:text-indigo-600 transition-colors" title="Content manager">Admin</a>
+                  <button type="button" onClick={() => { cms.logout(); window.location.hash = '#/'; }} className="text-slate-600 hover:text-indigo-600 transition-colors">Log Out</button>
+                </>
+              )}
             </div>
 
             <button
@@ -1502,18 +1493,23 @@ const SiteApp: React.FC = () => {
         {mobileMenuOpen && (
           <div className="md:hidden bg-white border-t border-slate-200 py-4 -mx-4 px-4">
             <div className="flex flex-col gap-4">
-              {cms.state.nav.filter(n => n.visible).map(n => (
+              <a href="#/" className={`transition-colors ${route === 'home' ? 'text-indigo-600 font-semibold' : 'text-slate-600 hover:text-indigo-600'}`} onClick={() => setMobileMenuOpen(false)}>Home</a>
+              {cms.state.nav.filter(n => n.visible && (!(n.href || '').includes('/admin') || cms.loggedIn)).map(n => (
                 <a key={n.id} href={n.href} className="text-slate-600 hover:text-indigo-600" onClick={() => setMobileMenuOpen(false)}>{n.label}</a>
               ))}
-              <a href="#/competitor-analysis" className="text-slate-600 hover:text-indigo-600" onClick={() => setMobileMenuOpen(false)}>Competitor Analysis</a>
-              <a href="#/admin" className="text-slate-600 hover:text-indigo-600" onClick={() => setMobileMenuOpen(false)}>Admin</a>
-              <a href="#/" className="bg-gradient-to-r from-indigo-500 to-purple-600 text-white px-6 py-2.5 rounded-xl font-medium text-center" onClick={() => setMobileMenuOpen(false)}>
-                Get Started Free
-              </a>
+              <a href="#/competitor-analysis" className={`transition-colors ${route === 'competitor-analysis' ? 'text-indigo-600 font-semibold' : 'text-slate-600 hover:text-indigo-600'}`} onClick={() => setMobileMenuOpen(false)}>Competitor Analysis</a>
+              {cms.loggedIn && (
+                <>
+                  <a href="#/admin" className="text-slate-600 hover:text-indigo-600" onClick={() => setMobileMenuOpen(false)}>Admin</a>
+                  <button type="button" onClick={() => { cms.logout(); setMobileMenuOpen(false); window.location.hash = '#/'; }} className="text-left text-slate-600 hover:text-indigo-600">Log Out</button>
+                </>
+              )}
             </div>
           </div>
         )}
       </nav>
+      <div className="h-16 shrink-0" aria-hidden="true" />
+      <SiteBreadcrumbs route={route} />
 
       {/* Blog routes */}
       {route === 'blog' && <BlogList />}
@@ -1524,12 +1520,14 @@ const SiteApp: React.FC = () => {
       {route.startsWith('tool/') && <ToolPage slug={route.slice(5)} />}
 
       {/* Admin (CMS) */}
-      {route === 'admin' && <AdminApp />}
+      {route === 'admin' && cms.loggedIn && <AdminApp />}
+      {route === 'admin-login' && <AdminLoginPage />}
+      {route === 'admin-reset' && <AdminResetPage />}
       {route.startsWith('p/') && <CmsPageView slug={route.slice(2)} />}
 
       {/* Competitor Analysis */}
       {route === 'competitor-analysis' && (
-        <div className="pt-28 pb-20 px-4">
+        <div className="pt-10 pb-20 px-4">
           <div className="max-w-7xl mx-auto">
             <CompetitorAnalysis />
             <CompetitorToolContent />
@@ -1539,7 +1537,7 @@ const SiteApp: React.FC = () => {
 
       {route === 'home' && (<>
       {/* Hero Section */}
-      <section className={`pt-32 pb-20 px-4 ${cms.state.sections.hero ? '' : 'hidden'}`}>
+      <section className={`pt-16 pb-20 px-4 bg-gradient-to-br from-indigo-100 via-violet-50 to-purple-100 ${cms.state.sections.hero ? '' : 'hidden'}`}>
         <div className="max-w-7xl mx-auto">
           <header className="text-center mb-12">
             <div className="inline-flex items-center gap-2 bg-white/80 backdrop-blur-sm px-4 py-2 rounded-full border border-slate-200 mb-6">
@@ -1631,7 +1629,7 @@ const SiteApp: React.FC = () => {
 
       {/* Results Section */}
       {result && categoryCards && (
-        <section id="results" className={`py-20 px-4 bg-white ${cms.state.sections.results ? '' : 'hidden'}`}>
+        <section id="results" className={`scroll-mt-24 py-20 px-4 bg-white ${cms.state.sections.results ? '' : 'hidden'}`}>
           <div className="max-w-7xl mx-auto">
             <div className="flex flex-wrap items-center justify-between gap-4 mb-8">
               <div>
@@ -1716,7 +1714,7 @@ const SiteApp: React.FC = () => {
       )}
 
       {/* Features Section */}
-      <section id="features" className={`py-20 px-4 cv-auto ${cms.state.sections.features ? '' : 'hidden'}`}>
+      <section id="features" className={`scroll-mt-24 py-20 px-4 cv-auto ${cms.state.sections.features ? '' : 'hidden'}`}>
         <div className="max-w-7xl mx-auto">
           <header className="text-center mb-16">
             <h2 className="text-3xl md:text-4xl font-bold text-slate-900 mb-4">
@@ -1744,7 +1742,7 @@ const SiteApp: React.FC = () => {
       </section>
 
       {/* How It Works Section */}
-      <section id="how-it-works" className={`py-20 px-4 bg-white cv-auto ${cms.state.sections.howItWorks ? '' : 'hidden'}`}>
+      <section id="how-it-works" className={`scroll-mt-24 py-20 px-4 bg-white cv-auto ${cms.state.sections.howItWorks ? '' : 'hidden'}`}>
         <div className="max-w-7xl mx-auto">
           <header className="text-center mb-16">
             <h2 className="text-3xl md:text-4xl font-bold text-slate-900 mb-4">
@@ -1807,7 +1805,7 @@ const SiteApp: React.FC = () => {
       </section>
 
       {/* Who Can Benefit Section */}
-      <section id="audiences" className={`py-20 px-4 bg-white cv-auto ${cms.state.sections.whoBenefits ? '' : 'hidden'}`}>
+      <section id="audiences" className={`scroll-mt-24 py-20 px-4 bg-white cv-auto ${cms.state.sections.whoBenefits ? '' : 'hidden'}`}>
         <div className="max-w-7xl mx-auto">
           <header className="text-center mb-16">
             <h2 className="text-3xl md:text-4xl font-bold text-slate-900 mb-4">
@@ -1846,29 +1844,32 @@ const SiteApp: React.FC = () => {
             </p>
           </header>
 
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4 mb-10">
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4 mb-10 items-stretch">
             {visibleTools.filter(t => t.custom ? false : ['plagiarism-checker', 'percentage-calculator', 'bmi-calculator', 'what-is-my-ip', 'keyword-density-checker', 'backlink-checker', 'unit-converter', 'website-seo-score-checker'].includes(t.slug)).slice(0, 8).map(t => (
               <a key={t.slug} href={`#/tool/${t.slug}`}
-                className="group bg-white rounded-2xl border border-slate-200 p-5 shadow-sm hover:shadow-lg hover:border-indigo-200 transition-all">
-                <div className="flex items-center gap-3 mb-2">
-                  <span className="text-indigo-600"><ToolIcon category={t.category} className="w-5 h-5" /></span>
-                  <h3 className="font-bold text-slate-900 text-sm group-hover:text-indigo-600 transition-colors">{t.name}</h3>
+                className="group h-full flex flex-col bg-white rounded-2xl border border-slate-200 p-5 shadow-sm hover:shadow-lg hover:border-indigo-200 transition-all">
+                <div className="flex items-center gap-3 mb-2 min-h-[1.25rem]">
+                  <span className="text-indigo-600 flex-shrink-0"><ToolIcon category={t.category} className="w-5 h-5" /></span>
+                  <h3 className="font-bold text-slate-900 text-sm group-hover:text-indigo-600 transition-colors truncate">{t.name}</h3>
                 </div>
-                <p className="text-xs text-slate-500 leading-relaxed">{t.description}</p>
+                <p className="text-xs text-slate-500 leading-relaxed line-clamp-2 h-10">{t.description}</p>
               </a>
             ))}
           </div>
 
-          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {(['text', 'keyword', 'backlink', 'checker', 'domain', 'ip', 'management', 'pdf', 'calculator', 'converter'] as const).map(cat => {
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 items-stretch">
+            {(['text', 'keyword', 'backlink', 'checker', 'domain', 'ip', 'management', 'pdf', 'image', 'calculator', 'converter'] as const).map(cat => {
               const count = visibleTools.filter(t => t.category === cat).length;
               return (
-                <a key={cat} href="#/tools" className="flex items-center justify-between bg-white/70 rounded-xl border border-slate-200 px-5 py-4 hover:bg-white hover:border-indigo-200 transition-all">
-                  <span className="flex items-center gap-3">
-                    <span className="text-indigo-600"><ToolIcon category={cat} className="w-5 h-5" /></span>
-                    <span className="text-sm font-semibold text-slate-800">{categoryLabels[cat]}</span>
-                  </span>
-                  <span className="text-xs text-slate-400 font-medium">{count} tools</span>
+                <a key={cat} href={`#/tools?cat=${cat}`} className="group h-full flex flex-col bg-white rounded-2xl border border-slate-200 p-5 shadow-sm hover:shadow-lg hover:border-indigo-200 transition-all">
+                  <div className="flex items-center justify-between gap-3 mb-2 min-h-[1.25rem]">
+                    <span className="flex items-center gap-3 min-w-0">
+                      <span className="text-indigo-600 flex-shrink-0"><ToolIcon category={cat} className="w-5 h-5" /></span>
+                      <h3 className="font-bold text-slate-900 text-sm group-hover:text-indigo-600 transition-colors truncate">{categoryLabels[cat]}</h3>
+                    </span>
+                    <span className="text-xs text-slate-400 font-medium whitespace-nowrap">{count} tools</span>
+                  </div>
+                  <p className="text-xs text-slate-500 leading-relaxed line-clamp-2 h-10">{categoryDescriptions[cat]}</p>
                 </a>
               );
             })}
@@ -1914,7 +1915,7 @@ const SiteApp: React.FC = () => {
       </section>
 
       {/* CTA Section */}
-      <section id="cta" className={`py-20 px-4 ${cms.state.sections.cta ? '' : 'hidden'}`}>
+      <section id="cta" className={`scroll-mt-24 py-20 px-4 ${cms.state.sections.cta ? '' : 'hidden'}`}>
         <div className="max-w-4xl mx-auto text-center">
           <h2 className="text-3xl md:text-4xl font-bold text-slate-900 mb-6">
             Ready to Improve Your Website's SEO?
@@ -1944,28 +1945,75 @@ const SiteApp: React.FC = () => {
       </>)}
 
       {/* Footer — simple, lightweight */}
-      <footer className={`bg-slate-900 text-white py-10 px-4 ${cms.state.sections.footer ? '' : 'hidden'}`}>
-        <div className="max-w-5xl mx-auto text-center">
-          <div className="flex items-center justify-center gap-2 mb-3">
-            <div className="w-9 h-9 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-lg flex items-center justify-center text-white">
-              <InlineIcons.BarChart3 />
+      <footer className={`bg-slate-900 text-white pt-10 pb-6 px-4 ${cms.state.sections.footer ? '' : 'hidden'}`}>
+        <div className="max-w-7xl mx-auto">
+          {/* Brand + social icons */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-5 pb-8 border-b border-slate-800">
+            <a href="#/" className="flex items-center gap-2.5">
+              <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center text-white">
+                <InlineIcons.BarChart3 />
+              </div>
+              <span>
+                <span className="block text-lg font-bold leading-tight">{cms.state.settings.name}</span>
+                <span className="block text-xs text-slate-400">{cms.state.settings.tagline}</span>
+              </span>
+            </a>
+            <div className="flex items-center gap-2">
+              {footerSocials.map(s => (
+                <a key={s.label} href={s.href} target="_blank" rel="noopener noreferrer" aria-label={s.label} title={s.label} className="w-9 h-9 rounded-lg bg-slate-800 hover:bg-indigo-600 flex items-center justify-center text-slate-400 hover:text-white transition-colors">
+                  <s.icon />
+                </a>
+              ))}
             </div>
-            <span className="text-lg font-bold">SEO Audit Tool</span>
           </div>
-          <nav className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm text-slate-400 mb-5">
-            <a href="#features" className="hover:text-white transition-colors">Features</a>
-            <a href="#/tools" className="hover:text-white transition-colors">Free SEO Tools</a>
-            <a href="#/blog" className="hover:text-white transition-colors">Blog</a>
-            <a href="#audiences" className="hover:text-white transition-colors">Who It's For</a>
-          </nav>
-          <div className="border-t border-slate-800 pt-5">
-            <p className="text-sm text-slate-300 font-medium">seoaudittool.pk · EKSTRUH LTD</p>
-            <p className="text-xs text-slate-500 mt-1">
-              © {new Date().getFullYear()} EKSTRUH LTD · Free website SEO checker, calculators and unit converters.
-            </p>
+
+          {/* Four link columns */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-8 py-10">
+            {[
+              { title: 'SEO Tools', links: [
+                { label: 'Free SEO Audit', href: '#/' },
+                { label: 'Free SEO Tools', href: '#/tools' },
+                { label: 'Competitor Analysis', href: '#/competitor-analysis' },
+              ] },
+              { title: 'Resources', links: [
+                { label: 'Blog', href: '#/blog' },
+                { label: 'FAQ', href: '#/p/faq' },
+                { label: "Who It's For", href: '#audiences' },
+              ] },
+              { title: 'Company', links: [
+                { label: 'About', href: '#/p/about' },
+                { label: 'Contact', href: '#/p/contact' },
+              ] },
+            ].map(col => (
+              <nav key={col.title} aria-label={col.title}>
+                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-4">{col.title}</h3>
+                <ul className="space-y-2.5">
+                  {col.links.map(l => (
+                    <li key={l.label}><a href={l.href} className="text-sm text-slate-400 hover:text-white transition-colors">{l.label}</a></li>
+                  ))}
+                </ul>
+              </nav>
+            ))}
+            <nav aria-label="Legal">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-4">Legal</h3>
+              <ul className="space-y-2.5">
+                <li><a href="#/p/privacy-policy" className="text-sm text-slate-400 hover:text-white transition-colors">Privacy Policy</a></li>
+                <li><a href="#/p/cookie-policy" className="text-sm text-slate-400 hover:text-white transition-colors">Cookie Policy</a></li>
+                <li><a href="#/p/terms-of-service" className="text-sm text-slate-400 hover:text-white transition-colors">Terms &amp; Conditions</a></li>
+                <li><button type="button" onClick={() => setCookiePrefsOpen(true)} className="text-sm text-slate-400 hover:text-white transition-colors underline decoration-dotted underline-offset-4">Cookie preferences</button></li>
+              </ul>
+            </nav>
+          </div>
+
+          {/* Bottom bar */}
+          <div className="border-t border-slate-800 pt-6 text-xs text-slate-500">
+            <p>© {new Date().getFullYear()} EKSTRUH LTD · Trading as {cms.state.settings.domain}. All rights reserved.</p>
           </div>
         </div>
       </footer>
+
+      {/* Cookie consent (PECR) */}
+      <CookieConsent prefsOpen={cookiePrefsOpen} onPrefsOpen={setCookiePrefsOpen} />
     </div>
   );
 };
@@ -1976,28 +2024,11 @@ const CmsPageView: React.FC<{ slug: string }> = ({ slug }) => {
   const { state } = useCms();
   const page = findPage(state, slug);
   useEffect(() => {
-    if (!page) return;
-    const seo = state.seo[`page:${page.slug}`] || { title: page.metaTitle, description: page.metaDescription };
-    document.title = seo.title || page.title;
-    let m = document.querySelector('meta[name="description"]');
-    if (!m) { m = document.createElement('meta'); m.setAttribute('name', 'description'); document.head.appendChild(m); }
-    m.setAttribute('content', seo.description || '');
-    let r = document.querySelector('meta[name="robots"]');
-    if (!r) { r = document.createElement('meta'); r.setAttribute('name', 'robots'); document.head.appendChild(r); }
-    r.setAttribute('content', seo.noindex ? 'noindex, nofollow' : 'index, follow');
-    const setSocialImage = (attribute: 'property' | 'name', key: string) => {
-      let social = document.querySelector(`meta[${attribute}="${key}"]`) as HTMLMetaElement | null;
-      if (!page.featuredImage) { social?.remove(); return; }
-      if (!social) { social = document.createElement('meta'); social.setAttribute(attribute, key); document.head.appendChild(social); }
-      social.setAttribute('content', page.featuredImage);
-    };
-    setSocialImage('property', 'og:image');
-    setSocialImage('name', 'twitter:image');
     window.scrollTo(0, 0);
-  }, [page, state.seo]);
+  }, [page]);
   if (!page || page.status !== 'live') {
     return (
-      <div className="pt-36 pb-24 px-4 text-center min-h-screen">
+      <div className="pt-10 pb-24 px-4 text-center min-h-screen">
         <h1 className="text-3xl font-bold text-slate-900 mb-3">Page not available</h1>
         <p className="text-slate-600 mb-6">This page has not been published yet.</p>
         <Btn href="#/" />
@@ -2005,28 +2036,29 @@ const CmsPageView: React.FC<{ slug: string }> = ({ slug }) => {
     );
   }
   return (
-    <div className="pt-28 pb-20 px-4 min-h-screen">
-      <div className="max-w-3xl mx-auto">
-        <nav aria-label="Breadcrumb" className="mb-8">
-          <ol className="flex items-center gap-2 text-sm font-semibold flex-wrap">
-            <li><a href="#/" className="text-slate-800 hover:text-indigo-600">Home</a></li>
-            <li aria-hidden="true" className="text-indigo-600">&gt;&gt;</li>
-            <li className="text-indigo-600" aria-current="page">{page.title}</li>
-          </ol>
-        </nav>
+    <section className="pt-10 pb-20 px-4 bg-white min-h-screen">
+      <div className="max-w-7xl mx-auto w-full">
         <h1 className="text-3xl md:text-5xl font-extrabold text-slate-900 mb-8">{page.title}</h1>
         {page.featuredImage && (
           <figure className="mb-8 overflow-hidden rounded-2xl border border-slate-200 bg-slate-100 aspect-[1.91/1]">
             <img src={page.featuredImage} alt={page.featuredImageAlt || page.title} width="1200" height="630" loading="lazy" className="w-full h-full object-cover" onError={e => { e.currentTarget.parentElement?.classList.add('hidden'); }} />
           </figure>
         )}
-        <div className="bg-white rounded-2xl border border-slate-200 p-6 md:p-10 shadow-sm">
+        <div className="w-full">
           {page.blocks.map(b => {
             if (b.type === 'heading') return b.level === 2
               ? <h2 key={b.id} className="text-2xl font-bold text-slate-900 mt-8 mb-3 first:mt-0">{b.text}</h2>
               : <h3 key={b.id} className="text-xl font-bold text-slate-900 mt-6 mb-2">{b.text}</h3>;
-            if (b.type === 'text') return <p key={b.id} className="text-slate-700 leading-relaxed my-4">{b.text}</p>;
+            if (b.type === 'text') return <div key={b.id} className="rich-text text-slate-700 leading-relaxed my-4" dangerouslySetInnerHTML={{ __html: sanitizeRichHtml(b.text) }} />;
             if (b.type === 'list') return <ul key={b.id} className="my-5 space-y-2">{b.items.map((it, i) => <li key={i} className="flex gap-3 text-slate-700"><span className="mt-2.5 w-1.5 h-1.5 rounded-full bg-indigo-500 flex-shrink-0" />{it}</li>)}</ul>;
+            if (b.type === 'table') return (
+              <div key={b.id} className="my-5 overflow-x-auto rounded-xl border border-slate-200">
+                <table className="w-full text-sm">
+                  <thead><tr className="bg-slate-50 text-left text-[11px] uppercase tracking-wide text-slate-500">{b.head.map((h, hi) => <th key={hi} className="px-3 py-2.5 border-b border-slate-200 whitespace-nowrap">{h}</th>)}</tr></thead>
+                  <tbody className="divide-y divide-slate-100">{b.rows.map((row, ri) => <tr key={ri} className={ri % 2 ? 'bg-slate-50/60' : 'bg-white'}>{row.map((cell, ci) => <td key={ci} className={`px-3 py-2.5 align-top ${ci === 0 ? 'font-mono text-xs text-slate-800 whitespace-nowrap' : 'text-slate-600'}`}>{cell}</td>)}</tr>)}</tbody>
+                </table>
+              </div>
+            );
             return (
               <div key={b.id} className="mt-8 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl p-6 text-white">
                 {b.text && <p className="mb-4">{b.text}</p>}
@@ -2036,11 +2068,111 @@ const CmsPageView: React.FC<{ slug: string }> = ({ slug }) => {
           })}
         </div>
       </div>
-    </div>
+    </section>
   );
 };
 
 const Btn: React.FC<{ href: string }> = ({ href }) => <a href={href} className="inline-block bg-gradient-to-r from-indigo-500 to-purple-600 text-white px-6 py-3 rounded-xl font-semibold">Back to the audit tool</a>;
+
+// ---------- Cookie consent (PECR) ----------
+type ConsentRecord = { essential: true; analytics: boolean; advertising: boolean; affiliate: boolean; decided: string };
+const CONSENT_KEY = 'ekstruh:cookie-consent:v1';
+
+const readConsent = (): ConsentRecord | null => {
+  try {
+    const raw = localStorage.getItem(CONSENT_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Partial<ConsentRecord>;
+    if (typeof parsed.analytics !== 'boolean' || typeof parsed.advertising !== 'boolean' || typeof parsed.affiliate !== 'boolean') return null;
+    return { essential: true, analytics: parsed.analytics, advertising: parsed.advertising, affiliate: parsed.affiliate, decided: typeof parsed.decided === 'string' ? parsed.decided : new Date().toISOString() };
+  } catch { return null; }
+};
+
+const CookieToggle: React.FC<{ title: string; description: string; checked: boolean; locked?: boolean; onChange?: (v: boolean) => void }> = ({ title, description, checked, locked, onChange }) => (
+  <div className="flex items-start justify-between gap-4 py-3">
+    <div>
+      <p className="text-sm font-bold text-slate-800">{title}</p>
+      <p className="text-xs text-slate-500 mt-0.5 leading-relaxed">{description}</p>
+    </div>
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      aria-label={`${title} cookies`}
+      disabled={locked}
+      onClick={() => onChange?.(!checked)}
+      className={`relative w-11 h-6 rounded-full flex-shrink-0 transition-colors mt-0.5 ${checked ? 'bg-indigo-600' : 'bg-slate-300'} ${locked ? 'opacity-70 cursor-not-allowed' : 'cursor-pointer'}`}
+    >
+      <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${checked ? 'translate-x-5' : ''}`} />
+    </button>
+  </div>
+);
+
+const CookieConsent: React.FC<{ prefsOpen: boolean; onPrefsOpen: (v: boolean) => void }> = ({ prefsOpen, onPrefsOpen }) => {
+  const [consent, setConsent] = useState<ConsentRecord | null>(() => readConsent());
+  const [draft, setDraft] = useState({ analytics: false, advertising: false, affiliate: false });
+
+  useEffect(() => {
+    if (prefsOpen) setDraft({ analytics: consent?.analytics ?? false, advertising: consent?.advertising ?? false, affiliate: consent?.affiliate ?? false });
+  }, [prefsOpen, consent]);
+
+  useEffect(() => {
+    if (!prefsOpen) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onPrefsOpen(false); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [prefsOpen, onPrefsOpen]);
+
+  const save = (choice: { analytics: boolean; advertising: boolean; affiliate: boolean }) => {
+    const record: ConsentRecord = { essential: true, ...choice, decided: new Date().toISOString() };
+    try { localStorage.setItem(CONSENT_KEY, JSON.stringify(record)); } catch { /* storage blocked — session-only consent */ }
+    setConsent(record);
+    onPrefsOpen(false);
+  };
+
+  return <>
+    {prefsOpen && (
+      <div className="fixed inset-0 z-[70] flex items-end sm:items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm" role="dialog" aria-modal="true" aria-label="Cookie preferences">
+        <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl border border-slate-200 overflow-hidden">
+          <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+            <h2 className="font-bold text-slate-900">Manage cookie preferences</h2>
+            <button type="button" onClick={() => onPrefsOpen(false)} aria-label="Close cookie preferences" className="text-slate-400 hover:text-slate-600 text-xl leading-none">&times;</button>
+          </div>
+          <div className="px-5 py-2 divide-y divide-slate-100">
+            <CookieToggle title="Essential" description="Required for the site to work and to remember your choices. Always on." checked locked />
+            <CookieToggle title="Analytics" description="Google Analytics shows us which tools are used so we can improve them." checked={draft.analytics} onChange={v => setDraft(d => ({ ...d, analytics: v }))} />
+            <CookieToggle title="Advertising" description="Google AdSense serves and measures the ads that keep this site free." checked={draft.advertising} onChange={v => setDraft(d => ({ ...d, advertising: v }))} />
+            <CookieToggle title="Affiliate tracking" description="Credits referrals when you click partner links, at no cost to you." checked={draft.affiliate} onChange={v => setDraft(d => ({ ...d, affiliate: v }))} />
+          </div>
+          <div className="px-5 py-4 border-t border-slate-100 bg-slate-50 flex flex-col sm:flex-row items-center justify-between gap-3">
+            <a href="#/p/cookie-policy" onClick={() => onPrefsOpen(false)} className="text-xs font-semibold text-indigo-600 hover:underline">Read our Cookie Policy</a>
+            <button type="button" autoFocus onClick={() => save(draft)} className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-bold text-sm hover:shadow-lg transition-shadow">Save Preferences</button>
+          </div>
+        </div>
+      </div>
+    )}
+    {!consent && !prefsOpen && (
+      <div className="fixed bottom-0 inset-x-0 z-[60] p-3 sm:p-4" role="region" aria-label="Cookie consent">
+        <div className="max-w-5xl mx-auto bg-white border border-slate-200 rounded-2xl shadow-2xl p-4 sm:p-5">
+          <div className="flex flex-col lg:flex-row lg:items-center gap-4">
+            <div className="flex-1 min-w-0">
+              <h2 className="text-sm font-bold text-slate-900">We use cookies</h2>
+              <p className="text-xs sm:text-[13px] text-slate-600 mt-1 leading-relaxed">
+                We use essential cookies to make our site work. With your consent, we may also use analytics, advertising, and affiliate tracking cookies to improve your experience and understand how visitors use our site.{' '}
+                <a href="#/p/cookie-policy" className="font-semibold text-indigo-600 hover:underline">Read our Cookie Policy</a>.
+              </p>
+            </div>
+            <div className="flex flex-wrap items-center gap-2 flex-shrink-0">
+              <button type="button" onClick={() => onPrefsOpen(true)} className="px-4 py-2.5 rounded-xl border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 font-semibold text-sm">Manage Preferences</button>
+              <button type="button" onClick={() => save({ analytics: false, advertising: false, affiliate: false })} className="px-4 py-2.5 rounded-xl border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 font-semibold text-sm">Decline</button>
+              <button type="button" onClick={() => save({ analytics: true, advertising: true, affiliate: true })} className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-bold text-sm hover:shadow-lg transition-shadow">Accept All</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    )}
+  </>;
+};
 
 const App: React.FC = () => (
   <CmsProvider>

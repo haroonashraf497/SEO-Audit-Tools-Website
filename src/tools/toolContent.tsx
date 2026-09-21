@@ -1,6 +1,8 @@
 import React, { useMemo, useState } from 'react';
 import type { ToolDef, ToolCategory } from './data';
 import { categoryLabels } from './data';
+import { useCms } from '../cms/store';
+import { sanitizeRichHtml } from '../utils/sanitize';
 
 interface CategoryCopy {
   intro: string;
@@ -418,9 +420,20 @@ export const ToolRelatedContent: React.FC<{ tool: ToolDef; related: ToolDef[] }>
     return { q: question, a: answerByIndex[index] };
   }), [base.faqs, name]);
   const [openFaq, setOpenFaq] = useState<number | null>(0);
+  // A custom "About" written in the CMS overrides the category template.
+  const cmsTool = useCms().state.tools.find(t => t.slug === tool.slug);
+  const aboutOverride = cmsTool?.about && cmsTool.about.replace(/<[^>]*>/g, '').trim() ? sanitizeRichHtml(cmsTool.about) : '';
 
   return (
     <div className="mt-10 space-y-8">
+      {aboutOverride ? (
+        <section className="bg-white rounded-2xl border border-slate-200 p-6 md:p-8 shadow-sm">
+          <p className="text-xs font-bold uppercase tracking-wide text-indigo-600 mb-2">{categoryLabels[tool.category]}</p>
+          <h2 className="text-2xl md:text-3xl font-extrabold text-slate-900 mb-4">About the {name}</h2>
+          <div className="rich-text text-slate-600" dangerouslySetInnerHTML={{ __html: aboutOverride }} />
+        </section>
+      ) : (
+      <>
       <section className="bg-white rounded-2xl border border-slate-200 p-6 md:p-8 shadow-sm">
         <p className="text-xs font-bold uppercase tracking-wide text-indigo-600 mb-2">{categoryLabels[tool.category]}</p>
         <h2 className="text-2xl md:text-3xl font-extrabold text-slate-900 mb-4">About the {name}</h2>
@@ -491,6 +504,9 @@ export const ToolRelatedContent: React.FC<{ tool: ToolDef; related: ToolDef[] }>
           })}
         </div>
       </section>
+
+      </>
+      )}
 
       {related.length > 0 && (
         <section className="bg-white rounded-2xl border border-slate-200 p-6 md:p-8 shadow-sm">
