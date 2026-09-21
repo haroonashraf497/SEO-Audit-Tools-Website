@@ -836,7 +836,7 @@ export const AdminApp: React.FC = () => {
   const [tab, setTab] = useState<Tab>('dashboard');
   if (!loggedIn) return null;
   return (
-    <div className="pt-24 pb-16 px-4">
+    <div className="pt-32 pb-16 px-4">
       <div className="max-w-7xl mx-auto">
         <header className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden mb-6">
           <div className="flex flex-wrap items-center gap-4 px-5 py-5 md:px-6">

@@ -131,7 +131,7 @@ export const BlogList: React.FC = () => {
   const filtered = activeCategory === 'All' ? posts : posts.filter(a => a.category === activeCategory);
 
   return (
-    <div className="pt-28 pb-20 px-4 min-h-screen">
+    <div className="pt-36 pb-20 px-4 min-h-screen">
       <div className="max-w-7xl mx-auto grid lg:grid-cols-[minmax(0,1fr)_minmax(0,300px)] gap-8 items-start">
         <div className="min-w-0">
           <header className="text-center mb-10">
@@ -188,7 +188,7 @@ export const BlogArticlePage: React.FC<{ slug: string }> = ({ slug }) => {
 
   if (!article) {
     return (
-      <div className="pt-32 pb-20 px-4 text-center min-h-screen">
+      <div className="pt-40 pb-20 px-4 text-center min-h-screen">
         <h1 className="text-3xl font-bold text-slate-900 mb-4">Article not found</h1>
         <a href="#/blog" className="text-indigo-600 font-semibold hover:underline">Back to the blog</a>
       </div>
@@ -198,20 +198,9 @@ export const BlogArticlePage: React.FC<{ slug: string }> = ({ slug }) => {
   const related = (livePosts(state) as unknown as BlogArticle[]).filter(a => a.category === article.category && a.slug !== article.slug).slice(0, 2);
 
   return (
-    <div className="pt-28 pb-20 px-4 min-h-screen">
+    <div className="pt-36 pb-20 px-4 min-h-screen">
       <div className="max-w-7xl mx-auto grid lg:grid-cols-[minmax(0,1fr)_minmax(0,300px)] gap-8 items-start">
       <article className="min-w-0 w-full">
-        {/* Breadcrumb */}
-        <nav aria-label="Breadcrumb" className="mb-8">
-          <ol className="flex items-center gap-2 text-sm font-semibold flex-wrap">
-            <li><a href="#/" className="text-slate-800 hover:text-indigo-600">Home</a></li>
-            <li aria-hidden="true" className="text-indigo-600">&gt;&gt;</li>
-            <li><a href="#/blog" className="text-slate-800 hover:text-indigo-600">Blog</a></li>
-            <li aria-hidden="true" className="text-indigo-600">&gt;&gt;</li>
-            <li className="text-indigo-600 truncate max-w-[260px]" aria-current="page">{article.title}</li>
-          </ol>
-        </nav>
-
         <header className="mb-10">
           <div className="flex items-center gap-3 mb-5">
             <span className={`px-2.5 py-1 rounded-full text-xs font-semibold border ${categoryColor[article.category]}`}>

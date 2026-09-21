@@ -52,7 +52,7 @@ export const AdminLoginPage: React.FC = () => {
   };
 
   return (
-    <div className="pt-28 pb-20 px-4 min-h-screen flex items-center justify-center">
+    <div className="pt-36 pb-20 px-4 min-h-screen flex items-center justify-center">
       <div className="w-full max-w-md bg-white rounded-2xl border border-slate-200 shadow-lg p-8">
         <BrandMark />
         {view === 'login' && (
@@ -138,7 +138,7 @@ export const AdminResetPage: React.FC = () => {
   };
 
   return (
-    <div className="pt-28 pb-20 px-4 min-h-screen flex items-center justify-center">
+    <div className="pt-36 pb-20 px-4 min-h-screen flex items-center justify-center">
       <div className="w-full max-w-md bg-white rounded-2xl border border-slate-200 shadow-lg p-8">
         <BrandMark />
         {done ? (

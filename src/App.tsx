@@ -1287,6 +1287,57 @@ const footerSocials = [
   { label: 'Facebook', href: 'https://www.facebook.com/', icon: () => (<svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" /></svg>) },
 ];
 
+type Crumb = { label: string; href?: string };
+const SiteBreadcrumbs: React.FC<{ route: string }> = ({ route }) => {
+  const { state } = useCms();
+  const crumbs: Crumb[] = (() => {
+    const home: Crumb = { label: 'Home', href: '#/' };
+    if (route === 'home') return [{ label: 'Home' }];
+    if (route === 'tools') return [home, { label: 'Free SEO Tools' }];
+    if (route.startsWith('tool/')) {
+      const tool = state.tools.find(t => t.slug === route.slice(5));
+      const catLabel = tool ? (categoryLabels[tool.category] || 'Free SEO Tools') : 'Free SEO Tools';
+      const catHref = tool ? `#/tools?cat=${tool.category}` : '#/tools';
+      return [home, { label: catLabel, href: catHref }, { label: tool?.name || 'Tool' }];
+    }
+    if (route === 'blog') return [home, { label: 'Blog' }];
+    if (route.startsWith('blog/')) {
+      const post = state.posts.find(p => p.slug === route.slice(5));
+      return [home, { label: 'Blog', href: '#/blog' }, { label: post?.title || 'Article' }];
+    }
+    if (route === 'competitor-analysis') return [home, { label: 'Competitor Analysis' }];
+    if (route.startsWith('p/')) {
+      const page = findPage(state, route.slice(2));
+      return [home, { label: page?.title || 'Page' }];
+    }
+    if (route === 'admin') return [home, { label: 'Admin' }];
+    if (route === 'admin-login') return [home, { label: 'Admin login' }];
+    if (route === 'admin-reset') return [home, { label: 'Reset password' }];
+    return [home];
+  })();
+  return (
+    <div className="border-t border-slate-100 bg-white/90 -mx-4 px-4">
+      <div role="navigation" aria-label="Breadcrumb" className="max-w-7xl mx-auto py-2">
+        <ol className="flex items-center gap-2 text-sm font-semibold flex-wrap">
+          {crumbs.map((crumb, i) => {
+            const last = i === crumbs.length - 1;
+            return (
+              <React.Fragment key={`${crumb.label}-${i}`}>
+                {i > 0 && <li aria-hidden="true" className="text-indigo-600">&gt;&gt;</li>}
+                <li className="min-w-0" {...(last ? { 'aria-current': 'page' as const } : {})}>
+                  {last || !crumb.href
+                    ? <span className="text-indigo-600 truncate max-w-[240px] sm:max-w-md block">{crumb.label}</span>
+                    : <a href={crumb.href} className="text-slate-800 hover:text-indigo-600">{crumb.label}</a>}
+                </li>
+              </React.Fragment>
+            );
+          })}
+        </ol>
+      </div>
+    </div>
+  );
+};
+
 const SiteApp: React.FC = () => {
   const cms = useCms();
   const visibleTools = useMemo(() => liveTools(cms.state), [cms.state]);
@@ -1444,6 +1495,7 @@ const SiteApp: React.FC = () => {
             </div>
           </div>
         )}
+        <SiteBreadcrumbs route={route} />
       </nav>
 
       {/* Blog routes */}
@@ -1462,7 +1514,7 @@ const SiteApp: React.FC = () => {
 
       {/* Competitor Analysis */}
       {route === 'competitor-analysis' && (
-        <div className="pt-28 pb-20 px-4">
+        <div className="pt-36 pb-20 px-4">
           <div className="max-w-7xl mx-auto">
             <CompetitorAnalysis />
             <CompetitorToolContent />
@@ -1472,7 +1524,7 @@ const SiteApp: React.FC = () => {
 
       {route === 'home' && (<>
       {/* Hero Section */}
-      <section className={`pt-32 pb-20 px-4 bg-gradient-to-br from-indigo-100 via-violet-50 to-purple-100 ${cms.state.sections.hero ? '' : 'hidden'}`}>
+      <section className={`pt-40 pb-20 px-4 bg-gradient-to-br from-indigo-100 via-violet-50 to-purple-100 ${cms.state.sections.hero ? '' : 'hidden'}`}>
         <div className="max-w-7xl mx-auto">
           <header className="text-center mb-12">
             <div className="inline-flex items-center gap-2 bg-white/80 backdrop-blur-sm px-4 py-2 rounded-full border border-slate-200 mb-6">
@@ -1963,7 +2015,7 @@ const CmsPageView: React.FC<{ slug: string }> = ({ slug }) => {
   }, [page]);
   if (!page || page.status !== 'live') {
     return (
-      <div className="pt-36 pb-24 px-4 text-center min-h-screen">
+      <div className="pt-44 pb-24 px-4 text-center min-h-screen">
         <h1 className="text-3xl font-bold text-slate-900 mb-3">Page not available</h1>
         <p className="text-slate-600 mb-6">This page has not been published yet.</p>
         <Btn href="#/" />
@@ -1971,15 +2023,8 @@ const CmsPageView: React.FC<{ slug: string }> = ({ slug }) => {
     );
   }
   return (
-    <section className="pt-32 pb-20 px-4 bg-white min-h-screen">
+    <section className="pt-40 pb-20 px-4 bg-white min-h-screen">
       <div className="max-w-7xl mx-auto w-full">
-        <nav aria-label="Breadcrumb" className="mb-8">
-          <ol className="flex items-center gap-2 text-sm font-semibold flex-wrap">
-            <li><a href="#/" className="text-slate-800 hover:text-indigo-600">Home</a></li>
-            <li aria-hidden="true" className="text-indigo-600">&gt;&gt;</li>
-            <li className="text-indigo-600" aria-current="page">{page.title}</li>
-          </ol>
-        </nav>
         <h1 className="text-3xl md:text-5xl font-extrabold text-slate-900 mb-8">{page.title}</h1>
         {page.featuredImage && (
           <figure className="mb-8 overflow-hidden rounded-2xl border border-slate-200 bg-slate-100 aspect-[1.91/1]">
