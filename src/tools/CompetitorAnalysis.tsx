@@ -7,6 +7,7 @@ type Check = { label: string; detail: string; fix: string; state: State };
 type Category = { name: string; score: number; checks: Check[] };
 type Audit = {
   input: string; url: string; host: string; live: boolean; score: number;
+  title: string; description: string; h1s: string[];
   summary: { total: number; errors: number; warnings: number; passed: number };
   categories: Category[];
   metrics: Record<string, number | string>;
@@ -30,7 +31,7 @@ const extractKeywords = (page: LivePageData) => {
   const counts = new Map<string, number>();
   words.forEach(word => { if (!STOP_WORDS.has(word) && !/^\d+$/.test(word)) counts.set(word, (counts.get(word) || 0) + 1); });
   const total = Math.max(1, words.length);
-  return Array.from(counts.entries()).sort((a, b) => b[1] - a[1]).slice(0, 12).map(([term, count]) => ({ term, count, density: Math.round((count / total) * 1000) / 10 }));
+  return Array.from(counts.entries()).sort((a, b) => b[1] - a[1]).slice(0, 40).map(([term, count]) => ({ term, count, density: Math.round((count / total) * 1000) / 10 }));
 };
 
 const fallback = (url: string): LivePageData => {
@@ -103,15 +104,20 @@ const buildAudit = (input: string, page: LivePageData, live: boolean): Audit => 
   const summary = { total: all.length, errors: all.filter(c => c.state === 'error').length, warnings: all.filter(c => c.state === 'warning').length, passed: all.filter(c => c.state === 'pass').length };
   return {
     input, url: page.finalUrl, host: hostOf(page.finalUrl), live,
+    title: page.title, description: page.description, h1s: page.h1s,
     score: Math.round(categories.reduce((n, c) => n + c.score, 0) / categories.length), summary, categories,
-    metrics: { words: page.wordCount, internal: page.internalLinks, external: page.externalLinks, missingAlt: page.imagesMissingAlt, htmlKb: Math.round(page.codeSize / 1024), response: page.fetchMs },
+    metrics: {
+      words: page.wordCount, internal: page.internalLinks, external: page.externalLinks, missingAlt: page.imagesMissingAlt,
+      htmlKb: Math.round(page.codeSize / 1024), response: page.fetchMs, titleLen: page.title.length, metaLen: page.description.length,
+      h1: page.headingCounts.H1, images: page.imageCount, nofollow: page.nofollowLinks, textRatio: page.textRatio, scripts: page.externalScripts,
+    },
     keywords: extractKeywords(page),
     links: page.linksSample.map(link => ({ href: link.href, anchor: link.anchor, nofollow: link.nofollow, internal: link.internal })),
   };
 };
 
 const timeout = (ms: number) => new Promise<null>(resolve => window.setTimeout(() => resolve(null), ms));
-const getAudit = async (url: string) => { const clean = normalise(url); const live = await Promise.race([fetchPageData(clean).catch(() => null), timeout(8500)]); return buildAudit(url, live || fallback(clean), Boolean(live)); };
+const getAudit = async (url: string) => { const clean = normalise(url); const live = await Promise.race([fetchPageData(clean).catch(() => null), timeout(12000)]); return buildAudit(url, live || fallback(clean), Boolean(live)); };
 const tone = (n: number) => n >= 80 ? 'text-emerald-600' : n >= 60 ? 'text-amber-600' : 'text-red-600';
 const stroke = (n: number) => n >= 80 ? '#10b981' : n >= 60 ? '#f59e0b' : '#ef4444';
 const checkStyle: Record<State, string> = { pass: 'bg-emerald-50 border-emerald-100 text-emerald-700', warning: 'bg-amber-50 border-amber-100 text-amber-700', error: 'bg-red-50 border-red-100 text-red-700' };
@@ -124,10 +130,10 @@ const Gauge: React.FC<{ value: number }> = ({ value }) => {
 const Input: React.FC<React.InputHTMLAttributes<HTMLInputElement>> = props => <input {...props} className={`${inputClass} ${props.className || ''}`} />;
 
 const AuditOverview: React.FC<{ audit: Audit; label: string; badge: string }> = ({ audit, label, badge }) => (
-  <article className="bg-slate-100 border border-slate-200 rounded-3xl p-5 md:p-6">
-    <div className="flex justify-between gap-3 mb-4"><div className="min-w-0"><span className={`inline-flex px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-wide text-white ${badge}`}>{label}</span><h2 className="text-lg font-bold text-slate-900 truncate mt-2">{audit.host}</h2><p className="text-xs text-slate-500 truncate">{audit.url}</p></div><span className={`h-fit text-[10px] font-bold border rounded-full px-2 py-1 ${audit.live ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 'bg-amber-50 text-amber-700 border-amber-100'}`}>{audit.live ? 'Live HTML' : 'Estimated fallback'}</span></div>
+  <article className="bg-slate-100 border border-slate-200 rounded-3xl p-5 md:p-6 min-w-0">
+    <div className="flex justify-between gap-3 mb-4"><div className="min-w-0"><span className={`inline-flex px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-wide text-white ${badge}`}>{label}</span><h2 className="text-lg font-bold text-slate-900 break-all mt-2">{audit.host}</h2><p className="text-xs text-slate-500 break-all">{audit.url}</p></div><span className={`h-fit text-[10px] font-bold border rounded-full px-2 py-1 ${audit.live ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 'bg-amber-50 text-amber-700 border-amber-100'}`}>{audit.live ? 'Live HTML' : 'Estimated fallback'}</span></div>
     <div className="bg-white border border-slate-200 rounded-2xl p-4 flex flex-col sm:flex-row items-center gap-5 mb-4"><Gauge value={audit.score} /><div className="flex-1 w-full"><h3 className="font-bold text-slate-900">Overall SEO Score</h3><p className="text-xs text-slate-500 mb-3">Full page audit</p><div className="grid grid-cols-2 xl:grid-cols-4 gap-2"><div className="bg-sky-50 rounded-lg p-2"><small className="text-sky-700">Checks</small><b className="block text-sky-900">{audit.summary.total}</b></div><div className="bg-rose-50 rounded-lg p-2"><small className="text-rose-700">Errors</small><b className="block text-rose-700">{audit.summary.errors}</b></div><div className="bg-amber-50 rounded-lg p-2"><small className="text-amber-700">Warnings</small><b className="block text-amber-700">{audit.summary.warnings}</b></div><div className="bg-emerald-50 rounded-lg p-2"><small className="text-emerald-700">Passed</small><b className="block text-emerald-700">{audit.summary.passed}</b></div></div></div></div>
-    <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">{audit.categories.map(c => <div key={c.name} className="bg-white border border-slate-200 rounded-xl p-3 text-center"><p className={`text-xl font-bold ${tone(c.score)}`}>{c.score}</p><p className="text-[11px] text-slate-500 mt-1">{c.name}</p></div>)}</div>
+    <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-5 gap-2">{audit.categories.map(c => <div key={c.name} className="bg-white border border-slate-200 rounded-xl p-3 text-center"><p className={`text-xl font-bold ${tone(c.score)}`}>{c.score}</p><p className="text-[11px] text-slate-500 mt-1">{c.name}</p></div>)}</div>
   </article>
 );
 
@@ -142,62 +148,144 @@ const expiryStatus = (days: number | null): { text: string; cls: string } => {
 
 const DomainOverview: React.FC<{ info: DomainInfo | null; label: string; badge: string }> = ({ info, label, badge }) => {
   const expiry = expiryStatus(info?.daysToExpiry ?? null);
+  const days = info?.daysToExpiry ?? null;
   return (
     <article className="bg-slate-100 border border-slate-200 rounded-3xl p-5 md:p-6">
-      <div className="flex justify-between gap-3 mb-4">
+      <div className="flex flex-wrap items-start justify-between gap-3 mb-5">
         <div className="min-w-0">
           <span className={`inline-flex px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-wide text-white ${badge}`}>{label}</span>
-          <h2 className="text-lg font-bold text-slate-900 truncate mt-2">{info?.domain || 'Unknown domain'}</h2>
-          <p className="text-xs text-slate-500 truncate">{info?.live ? 'Public registry data via RDAP' : 'No registry data available'}</p>
+          <h3 className="font-bold text-slate-900 mt-2">Domain Information</h3>
+          <p className="text-xs text-slate-500 mt-0.5">Registration and expiry data from the public RDAP registry.</p>
         </div>
-        <span className={`h-fit text-[10px] font-bold border rounded-full px-2 py-1 ${info?.live ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 'bg-amber-50 text-amber-700 border-amber-100'}`}>{info?.live ? 'RDAP registry' : 'Unavailable'}</span>
+        {info?.live
+          ? <span className="inline-flex items-center gap-1.5 text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-100 rounded-full px-2.5 py-1"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />Registry data</span>
+          : <span className="inline-flex items-center gap-1.5 text-[11px] font-bold bg-amber-50 text-amber-700 border border-amber-100 rounded-full px-2.5 py-1"><span className="w-1.5 h-1.5 rounded-full bg-amber-500" />Registry unavailable</span>}
       </div>
-      <div className="grid grid-cols-2 gap-2">
-        <div className="bg-white border border-slate-200 rounded-xl p-3">
-          <small className="text-slate-500">Registered</small>
-          <b className="block text-slate-900" title={info?.registeredIso || ''}>{info?.registered || '—'}</b>
-          <span className="text-[11px] text-slate-500">Age: {info?.registered ? info.ageLabel : 'Unknown'}</span>
+      <div className="grid grid-cols-2 gap-3">
+        <div className="bg-white rounded-xl border border-slate-200 p-4">
+          <p className="text-xs text-slate-500">Registered domain</p>
+          <p className="text-sm font-bold text-slate-800 font-mono break-all" title={info?.domain}>{info?.domain || 'Unknown domain'}</p>
+          <p className="text-[11px] text-slate-400">{info?.registryId ? `Registry ID ${info.registryId}` : 'Registry ID unavailable'}</p>
         </div>
-        <div className="bg-white border border-slate-200 rounded-xl p-3">
-          <small className="text-slate-500">Expires</small>
-          <b className="block text-slate-900" title={info?.expiryIso || ''}>{info?.expiry || '—'}</b>
-          <span className={`text-[11px] font-semibold ${expiry.cls}`}>{expiry.text}</span>
+        <div className="bg-white rounded-xl border border-slate-200 p-4">
+          <p className="text-xs text-slate-500">Current registration age</p>
+          <p className="text-sm font-bold text-slate-800" title={info?.registeredIso}>{info?.ageLabel || 'Unavailable'}</p>
+          <p className="text-[11px] text-slate-400">{info?.registered ? `Created ${info.registered}` : 'Registration date unavailable'}</p>
         </div>
-        <div className="bg-white border border-slate-200 rounded-xl p-3">
-          <small className="text-slate-500">Registrar</small>
-          <b className="block text-slate-900 truncate" title={info?.registrar || ''}>{info?.registrar || '—'}</b>
+        <div className="bg-white rounded-xl border border-slate-200 p-4">
+          <p className="text-xs text-slate-500">Registry expiry</p>
+          <p className="text-sm font-bold text-slate-800" title={info?.expiryIso}>{info?.expiry || 'Unavailable'}</p>
+          <p className={`text-[11px] ${days !== null && days < 30 ? 'text-red-600 font-semibold' : expiry.cls}`}>{expiry.text}</p>
         </div>
-        <div className="bg-white border border-slate-200 rounded-xl p-3">
-          <small className="text-slate-500">Last registry update</small>
-          <b className="block text-slate-900">{info?.updated || '—'}</b>
+        <div className="bg-white rounded-xl border border-slate-200 p-4">
+          <p className="text-xs text-slate-500">Registrar</p>
+          <p className="text-sm font-bold text-slate-800 break-words" title={info?.registrar}>{info?.registrar || 'Unavailable'}</p>
+          <p className="text-[11px] text-slate-400">{info?.dnssec === null || info?.dnssec === undefined ? 'DNSSEC status unknown' : info.dnssec ? 'DNSSEC enabled' : 'DNSSEC not signed'}</p>
         </div>
       </div>
-      {info?.statuses.length ? <div className="flex flex-wrap gap-1.5 mt-3">{info.statuses.map(status => <span key={status} className="text-[10px] font-mono bg-slate-200 text-slate-600 rounded px-1.5 py-0.5">{status}</span>)}</div> : null}
-      {info && !info.live && info.error && <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2 mt-3">{info.error}</p>}
-      {info?.live && <p className="text-[11px] text-slate-400 mt-3 leading-relaxed">Dates reflect the current registry record. If a domain previously expired and was re-registered, the registry publishes the new registration date, not the original one.<a href={`https://lookup.icann.org/en/lookup?name=${info.domain}`} target="_blank" rel="noopener noreferrer" className="ml-1 font-semibold text-indigo-600 hover:underline">Verify at ICANN ↗</a></p>}
+      <div className="flex flex-wrap items-center gap-x-5 gap-y-2 mt-3 text-xs text-slate-500">
+        <span><strong className="text-slate-700">Last registry update:</strong> {info?.updated || 'Unavailable'}</span>
+        <span><strong className="text-slate-700">Source:</strong> {info?.source || 'No live registry response'}</span>
+        {info?.live && <a href={`https://lookup.icann.org/en/lookup?name=${encodeURIComponent(info.domain)}`} target="_blank" rel="noopener noreferrer" className="font-semibold text-indigo-600 hover:underline">Verify at ICANN ↗</a>}
+      </div>
+      <p className="text-[11px] text-slate-400 mt-2 leading-relaxed">Age uses the RDAP creation event. A re-registered expired domain may have an older history that no public registry exposes.</p>
+      {(info?.nameservers.length || info?.statuses.length || info?.error) ? (
+        <div className="flex flex-wrap gap-2 mt-3 text-xs">
+          {info?.nameservers.map(ns => <span key={ns} className="bg-white border border-slate-200 rounded-lg px-2 py-1 font-mono text-slate-600">NS {ns}</span>)}
+          {info?.statuses.map(status => <span key={status} className="bg-slate-200 rounded-lg px-2 py-1 text-slate-600">{status}</span>)}
+          {info && !info.live && info.error && <span className="text-amber-700">{info.error}</span>}
+        </div>
+      ) : null}
     </article>
   );
 };
 
 const AuditDetails: React.FC<{ audit: Audit }> = ({ audit }) => {
-  const internal = audit.links.filter(link => link.internal).slice(0, 8);
-  const external = audit.links.filter(link => !link.internal).slice(0, 8);
+  const internal = audit.links.filter(link => link.internal);
+  const external = audit.links.filter(link => !link.internal);
+  const maxKw = Math.max(...audit.keywords.map(k => k.count), 1);
   const LinkPanel: React.FC<{ title: string; links: Audit['links']; toneClass: string }> = ({ title, links, toneClass }) => (
-    <div className="rounded-xl border border-slate-200 overflow-hidden">
-      <div className={`px-4 py-3 border-b border-slate-200 ${toneClass}`}><h4 className="text-xs font-bold uppercase tracking-wide">{title}</h4></div>
-      <div className="divide-y divide-slate-100">
-        {links.length ? links.map((link, index) => <a key={`${link.href}-${index}`} href={link.href} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 px-4 py-2.5 hover:bg-slate-50"><span className="min-w-0 flex-1"><span className="block text-xs font-semibold text-slate-700 truncate">{link.anchor || link.href}</span><span className="block text-[10px] font-mono text-slate-400 truncate">{link.href}</span></span>{link.nofollow && <span className="text-[9px] font-bold text-amber-700 bg-amber-50 rounded px-1.5 py-0.5">nofollow</span>}</a>) : <p className="p-4 text-xs text-slate-500">No URL samples available.</p>}
+    <div className="rounded-xl border border-slate-200 overflow-hidden min-w-0">
+      <div className={`px-4 py-3 border-b border-slate-200 ${toneClass}`}>
+        <h4 className="text-xs font-bold uppercase tracking-wide">{title} · {links.length} shown</h4>
+      </div>
+      <div className="divide-y divide-slate-100 max-h-[32rem] overflow-y-auto">
+        {links.length ? links.map((link, index) => (
+          <a key={`${link.href}-${index}`} href={link.href} target="_blank" rel="noopener noreferrer" className="flex items-start gap-2 px-4 py-2.5 hover:bg-slate-50">
+            <span className="min-w-0 flex-1">
+              <span className="block text-xs font-semibold text-slate-700 break-words">{link.anchor || '(no anchor)'}</span>
+              <span className="block text-[10px] font-mono text-slate-400 break-all">{link.href}</span>
+            </span>
+            {link.nofollow && <span className="text-[9px] font-bold text-amber-700 bg-amber-50 border border-amber-100 rounded px-1.5 py-0.5 flex-shrink-0">nofollow</span>}
+          </a>
+        )) : <p className="p-4 text-xs text-slate-500">No URL samples available.</p>}
       </div>
     </div>
   );
-  return <div className="space-y-4">
-    {audit.categories.map(category => <section key={category.name} className="bg-white rounded-2xl border border-slate-200 overflow-hidden"><div className="flex justify-between px-4 py-3 bg-slate-50 border-b border-slate-100"><h3 className="font-bold text-slate-900">{category.name}</h3><span className={`font-bold ${tone(category.score)}`}>{category.score}/100</span></div><div className="divide-y divide-slate-100">{category.checks.map(item => <div key={item.label} className="p-4 flex items-start gap-3"><span className={`text-[10px] font-bold uppercase rounded-full px-2 py-1 border flex-shrink-0 ${checkStyle[item.state]}`}>{item.state}</span><div><p className="text-sm font-bold text-slate-800">{item.label}</p><p className="text-xs text-slate-500 mt-0.5">{item.detail}</p><p className="text-xs text-slate-700 mt-2"><b>Fix:</b> {item.fix}</p></div></div>)}</div></section>)}
-    <section className="bg-white rounded-2xl border border-slate-200 p-4">
-      <h3 className="font-bold text-slate-900 mb-3">Top Keywords</h3>
-      <div className="flex flex-wrap gap-2">{audit.keywords.length ? audit.keywords.map(keyword => <span key={keyword.term} className="inline-flex gap-1.5 rounded-full bg-slate-50 border border-slate-200 px-2.5 py-1 text-[11px]"><strong className="text-slate-700">{keyword.term}</strong><span className="text-slate-400">{keyword.count}× · {keyword.density}%</span></span>) : <p className="text-xs text-slate-500">No keyword data available.</p>}</div>
-    </section>
-    <section className="grid gap-3"><LinkPanel title={`Internal URLs (${audit.metrics.internal})`} links={internal} toneClass="bg-indigo-50 text-indigo-700" /><LinkPanel title={`External URLs (${audit.metrics.external})`} links={external} toneClass="bg-sky-50 text-sky-700" /></section>
-  </div>;
+  return (
+    <div className="space-y-4 min-w-0">
+      <section className="bg-white rounded-2xl border border-slate-200 p-4 md:p-5">
+        <h3 className="font-bold text-slate-900 mb-3">Page snapshot</h3>
+        <dl className="space-y-3 text-sm">
+          <div>
+            <dt className="text-[11px] font-bold uppercase tracking-wide text-slate-400">Title ({audit.title.length} chars)</dt>
+            <dd className="text-slate-800 break-words bg-slate-50 border border-slate-100 rounded-lg px-3 py-2 mt-1">{audit.title || 'No title tag found'}</dd>
+          </div>
+          <div>
+            <dt className="text-[11px] font-bold uppercase tracking-wide text-slate-400">Meta description ({audit.description.length} chars)</dt>
+            <dd className="text-slate-800 break-words bg-slate-50 border border-slate-100 rounded-lg px-3 py-2 mt-1">{audit.description || 'No meta description found'}</dd>
+          </div>
+          {audit.h1s.length > 0 && (
+            <div>
+              <dt className="text-[11px] font-bold uppercase tracking-wide text-slate-400">H1 headings ({audit.h1s.length})</dt>
+              <dd className="mt-1 space-y-1">{audit.h1s.map((h1, i) => <p key={i} className="text-slate-800 break-words bg-slate-50 border border-slate-100 rounded-lg px-3 py-2">{h1}</p>)}</dd>
+            </div>
+          )}
+        </dl>
+      </section>
+      {audit.categories.map(category => (
+        <section key={category.name} className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+          <div className="flex justify-between px-4 py-3 bg-slate-50 border-b border-slate-100">
+            <h3 className="font-bold text-slate-900">{category.name}</h3>
+            <span className={`font-bold ${tone(category.score)}`}>{category.score}/100</span>
+          </div>
+          <div className="divide-y divide-slate-100">
+            {category.checks.map(item => (
+              <div key={item.label} className="p-4 flex items-start gap-3">
+                <span className={`text-[10px] font-bold uppercase rounded-full px-2 py-1 border flex-shrink-0 ${checkStyle[item.state]}`}>{item.state}</span>
+                <div className="min-w-0">
+                  <p className="text-sm font-bold text-slate-800">{item.label}</p>
+                  <p className="text-xs text-slate-500 mt-0.5 break-words">{item.detail}</p>
+                  <p className="text-xs text-slate-700 mt-2"><b>Fix:</b> {item.fix}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      ))}
+      <section className="bg-white rounded-2xl border border-slate-200 p-4 md:p-5">
+        <div className="flex items-center justify-between gap-3 mb-3">
+          <h3 className="font-bold text-slate-900">Top Keywords</h3>
+          <span className="text-xs text-slate-500">{audit.keywords.length} terms · {Number(audit.metrics.words).toLocaleString()} words</span>
+        </div>
+        {audit.keywords.length ? (
+          <div className="space-y-2">
+            {audit.keywords.map(keyword => (
+              <div key={keyword.term} className="flex items-center gap-3">
+                <span className="w-36 text-sm text-slate-700 truncate" title={keyword.term}>{keyword.term}</span>
+                <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden"><div className="h-full bg-indigo-500" style={{ width: `${(keyword.count / maxKw) * 100}%` }} /></div>
+                <span className="w-24 text-right text-xs text-slate-500">{keyword.count}× · {keyword.density}%</span>
+              </div>
+            ))}
+          </div>
+        ) : <p className="text-xs text-slate-500">No keyword data available.</p>}
+      </section>
+      <section className="grid gap-3">
+        <LinkPanel title={`Internal URLs (${audit.metrics.internal})`} links={internal} toneClass="bg-indigo-50 text-indigo-700" />
+        <LinkPanel title={`External URLs (${audit.metrics.external})`} links={external} toneClass="bg-sky-50 text-sky-700" />
+      </section>
+    </div>
+  );
 };
 
 const comparison = (a: Audit, b: Audit, da: DomainInfo | null, db: DomainInfo | null): CompareRow[] => {
@@ -212,9 +300,35 @@ const comparison = (a: Audit, b: Audit, da: DomainInfo | null, db: DomainInfo | 
     const winner: CompareRow['winner'] = !hasBoth || aT === bT ? 'tie' : laterWins === (aT > bT) ? 'yours' : 'theirs';
     return { label, yours: av || '—', theirs: bv || '—', winner, result: !hasBoth ? 'No data' : winner === 'tie' ? 'Same date' : winText };
   };
-  return [row('Overall score', a.score, b.score), ...a.categories.map((c, i) => row(`${c.name} score`, c.score, b.categories[i].score)), row('Word count', +a.metrics.words, +b.metrics.words), row('Internal links', +a.metrics.internal, +b.metrics.internal), row('External links', +a.metrics.external, +b.metrics.external), row('Missing alt text', +a.metrics.missingAlt, +b.metrics.missingAlt, false), row('HTML size', +a.metrics.htmlKb, +b.metrics.htmlKb, false, ' KB'), row('Response time', +a.metrics.response, +b.metrics.response, false, ' ms'),
+  const opt = (label: string, av: number | null | undefined, bv: number | null | undefined, high = true, suffix = ''): CompareRow => {
+    if (av == null || bv == null || Number.isNaN(av) || Number.isNaN(bv)) return { label, yours: av == null ? '—' : `${av.toLocaleString()}${suffix}`, theirs: bv == null ? '—' : `${bv.toLocaleString()}${suffix}`, winner: 'tie', result: 'No data' };
+    return row(label, av, bv, high, suffix);
+  };
+  const textRow = (label: string, av: string, bv: string): CompareRow => ({ label, yours: av || '—', theirs: bv || '—', winner: 'tie', result: !av && !bv ? 'No data' : av === bv ? 'Same' : 'Different' });
+  return [
+    row('Overall score', a.score, b.score),
+    ...a.categories.map((c, i) => row(`${c.name} score`, c.score, b.categories[i].score)),
+    row('Word count', +a.metrics.words, +b.metrics.words),
+    row('Title length', +a.metrics.titleLen, +b.metrics.titleLen),
+    row('Meta description length', +a.metrics.metaLen, +b.metrics.metaLen),
+    row('H1 count', +a.metrics.h1, +b.metrics.h1, false),
+    row('Images', +a.metrics.images, +b.metrics.images),
+    row('Internal links', +a.metrics.internal, +b.metrics.internal),
+    row('External links', +a.metrics.external, +b.metrics.external),
+    row('Nofollow links', +a.metrics.nofollow, +b.metrics.nofollow, false),
+    row('Missing alt text', +a.metrics.missingAlt, +b.metrics.missingAlt, false),
+    row('Text-to-HTML ratio', +a.metrics.textRatio, +b.metrics.textRatio, true, '%'),
+    row('External scripts', +a.metrics.scripts, +b.metrics.scripts, false),
+    row('HTML size', +a.metrics.htmlKb, +b.metrics.htmlKb, false, ' KB'),
+    row('Response time', +a.metrics.response, +b.metrics.response, false, ' ms'),
+    textRow('Current registration age', da?.ageLabel || '', db?.ageLabel || ''),
+    opt('Days remaining until expiry', da?.daysToExpiry ?? null, db?.daysToExpiry ?? null, true, ' days'),
     domainRow('Domain registered', da?.registered || '—', db?.registered || '—', da?.registeredIso || '', db?.registeredIso || '', false, 'Older domain'),
-    domainRow('Domain expires', da?.expiry || '—', db?.expiry || '—', da?.expiryIso || '', db?.expiryIso || '', true, 'Valid longer')];
+    domainRow('Domain expires', da?.expiry || '—', db?.expiry || '—', da?.expiryIso || '', db?.expiryIso || '', true, 'Valid longer'),
+    textRow('Registrar', da?.registrar || '', db?.registrar || ''),
+    textRow('DNSSEC', da?.dnssec == null ? '' : da.dnssec ? 'Enabled' : 'Not signed', db?.dnssec == null ? '' : db.dnssec ? 'Enabled' : 'Not signed'),
+    opt('Nameservers', da?.nameservers.length ?? null, db?.nameservers.length ?? null),
+  ];
 };
 
 export const CompetitorToolContent: React.FC = () => {
@@ -245,18 +359,18 @@ const CompetitorAnalysis: React.FC = () => {
       getAudit(theirs),
       // RDAP lookups run in parallel with the page audits; they never hold the
       // report for longer than the audits themselves could take.
-      Promise.race([fetchDomainInfo(yours).catch(() => null), timeout(9500)]),
-      Promise.race([fetchDomainInfo(theirs).catch(() => null), timeout(9500)]),
+      Promise.race([fetchDomainInfo(yours).catch(() => null), timeout(12000)]),
+      Promise.race([fetchDomainInfo(theirs).catch(() => null), timeout(12000)]),
     ]);
     window.clearInterval(timer); setProgress(100); setStatus('Comparison report ready.'); setYourAudit(a); setTheirAudit(b); setYourDomain(da); setTheirDomain(db); setBusy(false);
   };
   const rows = useMemo(() => yourAudit && theirAudit ? comparison(yourAudit, theirAudit, yourDomain, theirDomain) : [], [yourAudit, theirAudit, yourDomain, theirDomain]);
-  const gaps = yourAudit?.categories.flatMap(c => c.checks.filter(x => x.state !== 'pass').map(x => ({ ...x, category: c.name }))).slice(0, 10) || [];
+  const gaps = yourAudit?.categories.flatMap(c => c.checks.filter(x => x.state !== 'pass').map(x => ({ ...x, category: c.name }))).sort((a, b) => (a.state === 'error' ? 0 : 1) - (b.state === 'error' ? 0 : 1)) || [];
 
   if (!yourAudit || !theirAudit) return <div className="space-y-6"><section className="text-center bg-gradient-to-br from-indigo-500 to-purple-600 rounded-3xl p-8 md:p-10 text-white"><p className="text-xs font-bold uppercase tracking-[.18em] text-indigo-200 mb-3">Side-by-side SEO audit</p><h1 className="text-3xl md:text-4xl font-extrabold">Website Competitor Analysis</h1><p className="max-w-2xl mx-auto text-indigo-100 mt-3">Run two complete audits with the same on-page, technical, mobile, security and performance checks used by the homepage audit.</p></section><section className="bg-white rounded-2xl border border-slate-200 p-5 md:p-6 shadow-sm"><div className="grid md:grid-cols-2 gap-4"><div><label className="block text-sm font-semibold text-slate-700 mb-1">Your website</label><Input value={yours} onChange={e => setYours(e.target.value)} placeholder="https://yourwebsite.com/page" /></div><div><label className="block text-sm font-semibold text-slate-700 mb-1">Competitor website</label><Input value={theirs} onChange={e => setTheirs(e.target.value)} placeholder="https://competitor.com/page" /></div></div>{busy ? <div className="mt-6"><div className="flex justify-between text-sm text-slate-600 mb-2"><span>{status}</span><span>{progress}%</span></div><div className="h-2 bg-slate-200 rounded-full overflow-hidden"><div className="h-full bg-gradient-to-r from-indigo-500 to-purple-600" style={{ width: `${progress}%` }} /></div></div> : <button onClick={run} className="w-full mt-5 py-4 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold">Compare Both Websites →</button>}{error && <p className="text-sm text-red-600 text-center mt-3">{error}</p>}<p className="text-xs text-slate-400 text-center mt-3">If a site blocks browser access, a clearly labelled URL-based fallback keeps the comparison working.</p></section></div>;
 
   const yourWins = rows.filter(r => r.winner === 'yours').length, theirWins = rows.filter(r => r.winner === 'theirs').length;
-  return <div className="space-y-8"><div className="flex flex-wrap justify-between gap-3"><div><h1 className="text-2xl md:text-3xl font-extrabold text-slate-900">SEO Competitor Comparison</h1><p className="text-sm text-slate-500 mt-1">Two full audit reports, side by side.</p></div><button onClick={() => { setYourAudit(null); setTheirAudit(null); setYourDomain(null); setTheirDomain(null); setProgress(0); }} className="px-4 py-2 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-sm font-semibold">Compare different URLs</button></div><div className="grid xl:grid-cols-2 gap-6"><AuditOverview audit={yourAudit} label="Your Website" badge="bg-indigo-600" /><AuditOverview audit={theirAudit} label="Competitor" badge="bg-violet-600" /></div><section className="space-y-4"><div className="flex flex-wrap justify-between gap-3"><div><h2 className="text-xl font-bold text-slate-900">Domain Registration &amp; Expiry</h2><p className="text-sm text-slate-500 mt-0.5">Registration and expiry dates from public RDAP registry data.</p></div><span className="h-fit text-[10px] font-bold bg-sky-50 text-sky-700 border border-sky-100 rounded-full px-2 py-1">RDAP · public registry protocol</span></div><div className="grid xl:grid-cols-2 gap-6"><DomainOverview info={yourDomain} label="Your Website" badge="bg-indigo-600" /><DomainOverview info={theirDomain} label="Competitor" badge="bg-violet-600" /></div></section><section className="bg-white rounded-2xl border border-slate-200 overflow-hidden"><div className="flex flex-wrap justify-between gap-3 px-5 py-4 border-b border-slate-100"><div><h2 className="font-bold text-slate-900">Head-to-Head Comparison</h2><p className="text-xs text-slate-500 mt-0.5">Green values show the stronger result.</p></div><div className="flex gap-2 text-xs font-bold"><span className="bg-indigo-50 text-indigo-700 rounded-full px-3 py-1">You win {yourWins}</span><span className="bg-violet-50 text-violet-700 rounded-full px-3 py-1">Competitor wins {theirWins}</span></div></div><div className="overflow-x-auto"><table className="w-full text-sm"><thead><tr className="bg-slate-50 text-left text-xs uppercase text-slate-500"><th className="px-4 py-3">Metric</th><th className="px-4 py-3">Your site</th><th className="px-4 py-3">Competitor</th><th className="px-4 py-3">Result</th></tr></thead><tbody>{rows.map((r, i) => <tr key={r.label} className={i % 2 ? 'bg-slate-50/60' : 'bg-white'}><td className="px-4 py-3 font-semibold text-slate-700">{r.label}</td><td className={`px-4 py-3 font-mono ${r.winner === 'yours' ? 'text-emerald-600 font-bold' : ''}`}>{r.yours}</td><td className={`px-4 py-3 font-mono ${r.winner === 'theirs' ? 'text-emerald-600 font-bold' : ''}`}>{r.theirs}</td><td className={`px-4 py-3 text-xs font-bold ${r.winner === 'yours' ? 'text-indigo-600' : r.winner === 'theirs' ? 'text-violet-600' : 'text-slate-400'}`}>{r.result ?? (r.winner === 'yours' ? 'Your site leads' : r.winner === 'theirs' ? 'Competitor leads' : 'Tie')}</td></tr>)}</tbody></table></div></section><section className="grid lg:grid-cols-2 gap-6"><div><h2 className="text-xl font-bold text-slate-900 mb-3">Your Full Audit</h2><AuditDetails audit={yourAudit} /></div><div><h2 className="text-xl font-bold text-slate-900 mb-3">Competitor Full Audit</h2><AuditDetails audit={theirAudit} /></div></section><section className="bg-white rounded-2xl border border-slate-200 p-5 md:p-6"><h2 className="text-xl font-bold text-slate-900">Your Priority Improvement Plan</h2><p className="text-sm text-slate-500 mt-1 mb-5">Fix errors first, then warnings.</p>{gaps.length ? <div className="grid md:grid-cols-2 gap-3">{gaps.map((g, i) => <article key={`${g.category}-${g.label}`} className="rounded-xl border border-slate-200 p-4 flex gap-3"><span className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 ${g.state === 'error' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'}`}>{i + 1}</span><div><p className="text-[10px] uppercase font-bold text-slate-400">{g.category}</p><h3 className="text-sm font-bold text-slate-800">{g.label}</h3><p className="text-xs text-slate-500 mt-1">{g.fix}</p></div></article>)}</div> : <p className="text-emerald-600 font-semibold">All audited checks passed.</p>}</section></div>;
+  return <div className="space-y-8"><div className="flex flex-wrap justify-between gap-3"><div><h1 className="text-2xl md:text-3xl font-extrabold text-slate-900">SEO Competitor Comparison</h1><p className="text-sm text-slate-500 mt-1">Two full audit reports, side by side.</p></div><button onClick={() => { setYourAudit(null); setTheirAudit(null); setYourDomain(null); setTheirDomain(null); setProgress(0); }} className="px-4 py-2 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-sm font-semibold">Compare different URLs</button></div><div className="grid xl:grid-cols-2 gap-6"><AuditOverview audit={yourAudit} label="Your Website" badge="bg-indigo-600" /><AuditOverview audit={theirAudit} label="Competitor" badge="bg-violet-600" /></div><section className="space-y-4"><div className="flex flex-wrap justify-between gap-3"><div><h2 className="text-xl font-bold text-slate-900">Domain Information</h2><p className="text-sm text-slate-500 mt-0.5">Registration and expiry data from the public RDAP registry.</p></div><span className="h-fit text-[10px] font-bold bg-sky-50 text-sky-700 border border-sky-100 rounded-full px-2 py-1">RDAP · public registry protocol</span></div><div className="grid xl:grid-cols-2 gap-6"><DomainOverview info={yourDomain} label="Your Website" badge="bg-indigo-600" /><DomainOverview info={theirDomain} label="Competitor" badge="bg-violet-600" /></div></section><section className="bg-white rounded-2xl border border-slate-200 overflow-hidden"><div className="flex flex-wrap justify-between gap-3 px-5 py-4 border-b border-slate-100"><div><h2 className="font-bold text-slate-900">Head-to-Head Comparison</h2><p className="text-xs text-slate-500 mt-0.5">Green values show the stronger result.</p></div><div className="flex gap-2 text-xs font-bold"><span className="bg-indigo-50 text-indigo-700 rounded-full px-3 py-1">You win {yourWins}</span><span className="bg-violet-50 text-violet-700 rounded-full px-3 py-1">Competitor wins {theirWins}</span></div></div><div className="overflow-x-auto"><table className="w-full text-sm min-w-[40rem]"><thead><tr className="bg-slate-50 text-left text-xs uppercase text-slate-500"><th className="px-4 py-3">Metric</th><th className="px-4 py-3">Your site</th><th className="px-4 py-3">Competitor</th><th className="px-4 py-3">Result</th></tr></thead><tbody>{rows.map((r, i) => <tr key={r.label} className={i % 2 ? 'bg-slate-50/60' : 'bg-white'}><td className="px-4 py-3 font-semibold text-slate-700 whitespace-nowrap">{r.label}</td><td className={`px-4 py-3 font-mono break-words ${r.winner === 'yours' ? 'text-emerald-600 font-bold' : ''}`}>{r.yours}</td><td className={`px-4 py-3 font-mono break-words ${r.winner === 'theirs' ? 'text-emerald-600 font-bold' : ''}`}>{r.theirs}</td><td className={`px-4 py-3 text-xs font-bold whitespace-nowrap ${r.winner === 'yours' ? 'text-indigo-600' : r.winner === 'theirs' ? 'text-violet-600' : 'text-slate-400'}`}>{r.result ?? (r.winner === 'yours' ? 'Your site leads' : r.winner === 'theirs' ? 'Competitor leads' : 'Tie')}</td></tr>)}</tbody></table></div></section><section className="grid lg:grid-cols-2 gap-6 items-start"><div className="min-w-0"><h2 className="text-xl font-bold text-slate-900 mb-3">Your Full Audit</h2><AuditDetails audit={yourAudit} /></div><div className="min-w-0"><h2 className="text-xl font-bold text-slate-900 mb-3">Competitor Full Audit</h2><AuditDetails audit={theirAudit} /></div></section><section className="bg-white rounded-2xl border border-slate-200 p-5 md:p-6"><h2 className="text-xl font-bold text-slate-900">Your Priority Improvement Plan</h2><p className="text-sm text-slate-500 mt-1 mb-5">Every failed check, errors first, then warnings.</p>{gaps.length ? <div className="grid md:grid-cols-2 gap-3">{gaps.map((g, i) => <article key={`${g.category}-${g.label}`} className="rounded-xl border border-slate-200 p-4 flex gap-3"><span className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 ${g.state === 'error' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'}`}>{i + 1}</span><div><p className="text-[10px] uppercase font-bold text-slate-400">{g.category}</p><h3 className="text-sm font-bold text-slate-800">{g.label}</h3><p className="text-xs text-slate-500 mt-1">{g.fix}</p></div></article>)}</div> : <p className="text-emerald-600 font-semibold">All audited checks passed.</p>}</section></div>;
 };
 
 export default CompetitorAnalysis;

@@ -136,8 +136,8 @@ export const fetchDomainInfo = async (input: string): Promise<DomainInfo> => {
       updated: formatDate(eventDate(data.events, 'last changed')),
       ageLabel: age(registeredRaw),
       daysToExpiry,
-      statuses: Array.isArray(data.status) ? data.status.slice(0, 4) : [],
-      nameservers: Array.isArray(data.nameservers) ? data.nameservers.map(ns => ns.ldhName || '').filter(Boolean).slice(0, 4) : [],
+      statuses: Array.isArray(data.status) ? data.status : [],
+      nameservers: Array.isArray(data.nameservers) ? data.nameservers.map(ns => ns.ldhName || '').filter(Boolean) : [],
       dnssec: typeof data.secureDNS?.delegationSigned === 'boolean' ? data.secureDNS.delegationSigned : null,
     };
   } catch {

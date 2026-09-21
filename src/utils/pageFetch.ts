@@ -144,7 +144,7 @@ export async function fetchPageData(rawUrl: string, keyword = ''): Promise<LiveP
         headingCounts[tag.toUpperCase()]++;
         if (tag === 'h1') {
           const t = (el.textContent || '').trim().replace(/\s+/g, ' ');
-          if (t) h1s.push(t.slice(0, 120));
+          if (t) h1s.push(t);
         }
       });
     });
@@ -190,8 +190,8 @@ export async function fetchPageData(rawUrl: string, keyword = ''): Promise<LiveP
         if (isNofollow) externalNofollowLinks++;
       }
       // Keep actual URLs, anchor labels and nofollow status for the audit report.
-      if ((internal || /^https?:$/.test(u.protocol)) && linksSample.length < 80) {
-        const anchor = ((a.textContent || '').replace(/\s+/g, ' ').trim() || a.getAttribute('aria-label') || a.getAttribute('title') || u.hostname).slice(0, 120);
+      if (internal || /^https?:$/.test(u.protocol)) {
+        const anchor = ((a.textContent || '').replace(/\s+/g, ' ').trim() || a.getAttribute('aria-label') || a.getAttribute('title') || u.hostname);
         linksSample.push({ href: key, internal, nofollow: isNofollow, anchor });
       }
     });
