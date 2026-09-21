@@ -220,28 +220,28 @@ const DomainOverview: React.FC<{ info: DomainInfo | null; label: string; accent:
           ? <span className="h-fit text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-100 rounded-full px-2 py-0.5">Registry data</span>
           : <span className="h-fit text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-100 rounded-full px-2 py-0.5">Unavailable</span>}
       </div>
-      <dl className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
-        <div>
-          <dt className="text-[11px] text-slate-500">Registration age</dt>
-          <dd className="font-semibold text-slate-900">{info?.ageLabel || 'Unavailable'}</dd>
-          <dd className="text-[11px] text-slate-400">{info?.registered ? `Created ${info.registered}` : 'Date unavailable'}</dd>
+      <div className="grid grid-cols-2 gap-2">
+        <div className="rounded-xl border border-indigo-100 bg-indigo-50 px-3 py-3 min-w-0">
+          <p className="text-[10px] font-semibold text-indigo-700">Registration age</p>
+          <p className="text-sm font-extrabold text-slate-900 mt-1 break-words">{info?.ageLabel || 'Unavailable'}</p>
+          <p className="text-[11px] text-indigo-700/70 mt-0.5">{info?.registered ? `Created ${info.registered}` : 'Date unavailable'}</p>
         </div>
-        <div>
-          <dt className="text-[11px] text-slate-500">Registry expiry</dt>
-          <dd className="font-semibold text-slate-900">{info?.expiry || 'Unavailable'}</dd>
-          <dd className={`text-[11px] ${days !== null && days < 30 ? 'text-red-600 font-semibold' : expiry.cls}`}>{expiry.text}</dd>
+        <div className={`rounded-xl border px-3 py-3 min-w-0 ${days !== null && days < 30 ? 'border-rose-100 bg-rose-50' : days !== null && days < 90 ? 'border-amber-100 bg-amber-50' : 'border-emerald-100 bg-emerald-50'}`}>
+          <p className={`text-[10px] font-semibold ${days !== null && days < 30 ? 'text-rose-700' : days !== null && days < 90 ? 'text-amber-700' : 'text-emerald-700'}`}>Registry expiry</p>
+          <p className="text-sm font-extrabold text-slate-900 mt-1 break-words">{info?.expiry || 'Unavailable'}</p>
+          <p className={`text-[11px] mt-0.5 ${days !== null && days < 30 ? 'text-rose-700 font-semibold' : expiry.cls}`}>{expiry.text}</p>
         </div>
-        <div className="col-span-2 sm:col-span-1">
-          <dt className="text-[11px] text-slate-500">Registrar</dt>
-          <dd className="font-semibold text-slate-900 break-words">{info?.registrar || 'Unavailable'}</dd>
-          <dd className="text-[11px] text-slate-400">{info?.dnssec == null ? 'DNSSEC unknown' : info.dnssec ? 'DNSSEC enabled' : 'DNSSEC not signed'}</dd>
+        <div className="rounded-xl border border-slate-100 bg-slate-50 px-3 py-3 min-w-0">
+          <p className="text-[10px] font-semibold text-slate-500">Registrar</p>
+          <p className="text-sm font-extrabold text-slate-900 mt-1 break-words">{info?.registrar || 'Unavailable'}</p>
+          <p className="text-[11px] text-slate-400 mt-0.5">{info?.dnssec == null ? 'DNSSEC unknown' : info.dnssec ? 'DNSSEC enabled' : 'DNSSEC not signed'}</p>
         </div>
-        <div className="col-span-2 sm:col-span-1">
-          <dt className="text-[11px] text-slate-500">Registry ID</dt>
-          <dd className="font-semibold text-slate-900 break-all">{info?.registryId || 'Unavailable'}</dd>
-          <dd className="text-[11px] text-slate-400">Updated {info?.updated || '—'}</dd>
+        <div className="rounded-xl border border-slate-100 bg-slate-50 px-3 py-3 min-w-0">
+          <p className="text-[10px] font-semibold text-slate-500">Registry ID</p>
+          <p className="text-sm font-extrabold text-slate-900 mt-1 break-all">{info?.registryId || 'Unavailable'}</p>
+          <p className="text-[11px] text-slate-400 mt-0.5">Updated {info?.updated || '—'}</p>
         </div>
-      </dl>
+      </div>
       {info?.live && <p className="text-[11px] text-slate-400 mt-3"><a href={`https://lookup.icann.org/en/lookup?name=${encodeURIComponent(info.domain)}`} target="_blank" rel="noopener noreferrer" className="font-semibold text-indigo-600 hover:underline">Verify at ICANN ↗</a></p>}
       {(info?.nameservers.length || info?.statuses.length || info?.error) ? (
         <div className="flex flex-wrap gap-1.5 mt-3 text-[11px]">
