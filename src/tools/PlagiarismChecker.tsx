@@ -191,14 +191,16 @@ export const PlagiarismChecker: React.FC = () => {
           <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M3 7l4.5 4L12 4l4.5 7L21 7l-2 12H5L3 7z" /></svg>
           Premium
         </span>
-        <div className="flex flex-wrap items-center gap-3 px-5 pt-6 pb-4">
-          <p className="font-bold text-slate-900 text-lg leading-tight mr-2">Plagiarism<br className="hidden sm:block" /> Checker Offers:</p>
-          {[['Deep Search', 'M21 21l-4.3-4.3M11 19a8 8 0 100-16 8 8 0 000 16z'], ['Accurate Results', 'M12 22a10 10 0 100-20 10 10 0 000 20zm0-18v8l6 3'], ['Check 30K Words', 'M22 11.08V12a10 10 0 11-5.93-9.14M22 4L12 14.01l-3-3']].map(([label, d]) => (
-            <span key={label} className="inline-flex items-center gap-2 bg-slate-100 text-slate-800 font-semibold text-sm px-4 py-2.5 rounded-lg">
-              <svg className="w-4 h-4 text-indigo-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={d} /></svg>
-              {label}
-            </span>
-          ))}
+        <div className="flex flex-col lg:flex-row lg:items-center gap-3 lg:gap-5 px-5 pt-6 pb-4">
+          <p className="font-bold text-slate-900 text-lg whitespace-nowrap">Plagiarism Checker Offers:</p>
+          <div className="flex flex-wrap items-center gap-2.5 min-w-0">
+            {[['Deep Search', 'M21 21l-4.3-4.3M11 19a8 8 0 100-16 8 8 0 000 16z'], ['Accurate Results', 'M12 22a10 10 0 100-20 10 10 0 000 20zm0-18v8l6 3'], ['Check 30K Words', 'M22 11.08V12a10 10 0 11-5.93-9.14M22 4L12 14.01l-3-3']].map(([label, d]) => (
+              <span key={label} className="inline-flex items-center gap-2 bg-slate-100 text-slate-800 font-semibold text-sm px-4 py-2.5 rounded-xl whitespace-nowrap">
+                <svg className="w-4 h-4 text-indigo-600 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={d} /></svg>
+                {label}
+              </span>
+            ))}
+          </div>
         </div>
 
         {/* Mode tabs */}
