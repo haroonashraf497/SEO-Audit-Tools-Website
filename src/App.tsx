@@ -1292,7 +1292,7 @@ const SiteBreadcrumbs: React.FC<{ route: string }> = ({ route }) => {
   const { state } = useCms();
   const crumbs: Crumb[] = (() => {
     const home: Crumb = { label: 'Home', href: '#/' };
-    if (route === 'home') return [{ label: 'Home' }];
+    if (route === 'home') return [];
     if (route === 'tools') return [home, { label: 'Free SEO Tools' }];
     if (route.startsWith('tool/')) {
       const tool = state.tools.find(t => t.slug === route.slice(5));
@@ -1315,6 +1315,7 @@ const SiteBreadcrumbs: React.FC<{ route: string }> = ({ route }) => {
     if (route === 'admin-reset') return [home, { label: 'Reset password' }];
     return [home];
   })();
+  if (!crumbs.length) return null;
   return (
     <div className="border-t border-slate-100 bg-white/90 -mx-4 px-4">
       <div role="navigation" aria-label="Breadcrumb" className="max-w-7xl mx-auto py-2">
@@ -1524,7 +1525,7 @@ const SiteApp: React.FC = () => {
 
       {route === 'home' && (<>
       {/* Hero Section */}
-      <section className={`pt-40 pb-20 px-4 bg-gradient-to-br from-indigo-100 via-violet-50 to-purple-100 ${cms.state.sections.hero ? '' : 'hidden'}`}>
+      <section className={`pt-32 pb-20 px-4 bg-gradient-to-br from-indigo-100 via-violet-50 to-purple-100 ${cms.state.sections.hero ? '' : 'hidden'}`}>
         <div className="max-w-7xl mx-auto">
           <header className="text-center mb-12">
             <div className="inline-flex items-center gap-2 bg-white/80 backdrop-blur-sm px-4 py-2 rounded-full border border-slate-200 mb-6">
