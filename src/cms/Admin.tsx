@@ -285,7 +285,7 @@ const ToolEditor: React.FC<{ tool: CmsTool; onClose: () => void }> = ({ tool, on
       </div>
       <Field label="Description (shown under the title and in the directory)"><textarea rows={3} className={inputCls} value={f.description} onChange={e => set('description')(e.target.value)} /></Field>
       <div id="tool-about-editor">
-        <Field label="About content (optional)" hint="Replaces the 'About the …' text shown on this tool's page. Leave empty to keep the shared default content."><RichTextEditor value={f.about || ''} onChange={html => set('about')(html)} minHeight={220} placeholder="Write a custom About section for this tool — what it does, how to use it, tips and FAQs…" /></Field>
+        <Field label="About content (optional)" hint={f.slug === 'competitor-analysis' ? 'Added under “What is Website Competitor Analysis?” on the Competitor Analysis page. Leave empty to keep only the default copy.' : "Replaces the 'About the …' text shown on this tool's page. Leave empty to keep the shared default content."}><RichTextEditor value={f.about || ''} onChange={html => set('about')(html)} minHeight={220} placeholder="Write extra about content — headings, paragraphs, lists and links…" /></Field>
       </div>
       <div className="grid md:grid-cols-3 gap-4">
         <Field label="Category"><select className={inputCls} value={f.category} onChange={e => set('category')(e.target.value)}>{categoryOrder.map(c => <option key={c} value={c}>{categoryLabels[c]}</option>)}</select></Field>

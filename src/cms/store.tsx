@@ -106,7 +106,20 @@ export interface CmsState {
 /* ---------------- defaults (seeded from the built-in content) ---------------- */
 const uid = () => Math.random().toString(36).slice(2, 9);
 
-const defaultTools: CmsTool[] = staticTools.map(t => ({ ...t, status: 'live' as Status, builtin: true }));
+const defaultTools: CmsTool[] = [
+  ...staticTools.map(t => ({ ...t, status: 'live' as Status, builtin: true })),
+  {
+    slug: 'competitor-analysis',
+    name: 'Competitor Analysis',
+    description: 'Compare two websites with matching on-page, technical, mobile, security and performance audits.',
+    category: 'checker',
+    input: 'twotext',
+    placeholder: 'https://yourwebsite.com',
+    placeholder2: 'https://competitor.com',
+    status: 'live',
+    builtin: true,
+  },
+];
 
 const defaultPosts: CmsPost[] = allArticles.map(a => ({
   slug: a.slug, title: a.title, metaTitle: a.metaTitle, metaDescription: a.metaDescription,
@@ -594,7 +607,7 @@ export const useCms = (): Ctx => {
 };
 
 /* ---------------- selectors used by the public site ---------------- */
-export const liveTools = (s: CmsState) => s.tools.filter(t => t.status === 'live');
+export const liveTools = (s: CmsState) => s.tools.filter(t => t.status === 'live' && t.slug !== 'competitor-analysis');
 export const livePosts = (s: CmsState) => s.posts.filter(p => p.status === 'live').sort((a, b) => (a.date < b.date ? 1 : -1));
 export const findTool = (s: CmsState, slug: string) => s.tools.find(t => t.slug === slug);
 export const findPost = (s: CmsState, slug: string) => s.posts.find(p => p.slug === slug);
