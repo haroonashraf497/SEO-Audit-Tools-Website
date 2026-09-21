@@ -74,26 +74,6 @@ const Toggle: React.FC<{ on: boolean; onClick: () => void; label: string; hint?:
   </button>
 );
 
-/* ---------------- login ---------------- */
-const Login: React.FC<{ onOk: () => void }> = ({ onOk }) => {
-  const { login } = useCms();
-  const [code, setCode] = useState('');
-  const [err, setErr] = useState('');
-  return (
-    <div className="min-h-screen flex items-center justify-center px-4">
-      <form onSubmit={e => { e.preventDefault(); login(code) ? onOk() : setErr('Incorrect passcode.'); }} className="w-full max-w-sm bg-white rounded-2xl border border-slate-200 shadow-lg p-8">
-        <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 mb-5" />
-        <h1 className="text-2xl font-bold text-slate-900 mb-1">Admin login</h1>
-        <p className="text-sm text-slate-500 mb-6">Manage pages, blog posts, tools, SEO and the sidebar.</p>
-        <input type="password" value={code} onChange={e => setCode(e.target.value)} placeholder="Passcode" className={inputCls} autoFocus />
-        {err && <p className="text-sm text-red-600 mt-2">{err}</p>}
-        <Btn type="submit" className="w-full mt-4 py-3">Sign in</Btn>
-        <p className="text-xs text-slate-400 mt-4">Default passcode: <code className="bg-slate-100 px-1.5 py-0.5 rounded">admin123</code> — change it in Settings. This is a front-end gate: because the site is static, content is stored in this browser. Use Export JSON to publish changes.</p>
-      </form>
-    </div>
-  );
-};
-
 /* ---------------- small list row ---------------- */
 const Row: React.FC<{ children: React.ReactNode; actions?: React.ReactNode }> = ({ children, actions }) => (
   <div className="flex flex-col sm:flex-row sm:items-center gap-3 px-4 py-3 border-b border-slate-100 last:border-0">
@@ -822,7 +802,7 @@ const SidebarPane: React.FC = () => {
 };
 
 const SettingsPane: React.FC = () => {
-  const { state, setPasscode, exportJson, importJson, reset } = useCms();
+  const { setPasscode, exportJson, importJson, reset } = useCms();
   const [code, setCode] = useState('');
   const [msg, setMsg] = useState('');
   const [json, setJson] = useState('');
@@ -830,10 +810,10 @@ const SettingsPane: React.FC = () => {
   return (
     <div className="grid lg:grid-cols-2 gap-5">
       <div className="bg-white rounded-2xl border border-slate-200 p-5 space-y-4">
-        <h3 className="font-bold text-slate-900">Passcode</h3>
-        <Field label="New passcode" hint="Stored locally. Because this is a static site, this gate protects the UI, not the content files."><input className={inputCls} value={code} onChange={e => setCode(e.target.value)} placeholder={state.passcode} /></Field>
-        <Btn tone="ok" onClick={() => { if (code.trim()) { setPasscode(code.trim()); setMsg('Passcode updated.'); setCode(''); } }}>Update passcode</Btn>
-        {msg && <p className="text-sm text-emerald-600">{msg}</p>}
+        <h3 className="font-bold text-slate-900">Password</h3>
+        <Field label="New password" hint="Stored in this browser. Because this is a static site, this gate protects the admin UI, not the published files."><input type="password" className={inputCls} value={code} onChange={e => setCode(e.target.value)} autoComplete="new-password" /></Field>
+        <Btn tone="ok" onClick={() => { if (code.trim().length >= 8) { void setPasscode(code.trim()); setMsg('Password updated.'); setCode(''); } else setMsg('Use at least 8 characters.'); }}>Update password</Btn>
+        {msg && <p className={`text-sm ${msg.includes('updated') ? 'text-emerald-600' : 'text-red-600'}`}>{msg}</p>}
       </div>
       <div className="bg-white rounded-2xl border border-slate-200 p-5 space-y-4">
         <h3 className="font-bold text-slate-900">Backup &amp; deploy</h3>
@@ -854,9 +834,7 @@ const TABS: [Tab, string][] = [['dashboard', 'Dashboard'], ['pages', 'Pages'], [
 export const AdminApp: React.FC = () => {
   const { loggedIn, logout, state } = useCms();
   const [tab, setTab] = useState<Tab>('dashboard');
-  const [authed, setAuthed] = useState(false);
-  const isIn = loggedIn || authed;
-  if (!isIn) return <Login onOk={() => setAuthed(true)} />;
+  if (!loggedIn) return null;
   return (
     <div className="pt-24 pb-16 px-4">
       <div className="max-w-7xl mx-auto">
@@ -874,7 +852,7 @@ export const AdminApp: React.FC = () => {
             </div>
             <div className="ml-auto flex flex-wrap gap-2">
               <a href="#/" className="px-3.5 py-2 rounded-lg text-sm font-semibold bg-slate-900 text-white hover:bg-slate-700 transition-colors">View live site ↗</a>
-              <Btn tone="ghost" onClick={logout}>Sign out</Btn>
+              <Btn tone="ghost" onClick={() => { logout(); window.location.hash = '#/'; }}>Log Out</Btn>
             </div>
           </div>
           <nav aria-label="CMS areas" className="border-t border-slate-100 px-3 py-3 md:px-4 flex gap-1.5 overflow-x-auto">

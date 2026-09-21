@@ -102,11 +102,12 @@ export const resolvePageSeo = (route: string, cms: CmsState): PageSeo => {
   const origin = originOf(cms);
   const og = defaultOg(origin);
 
-  if (route === 'admin') {
+  if (route === 'admin' || route === 'admin-login' || route === 'admin-reset') {
+    const path = route === 'admin' ? '/admin' : route === 'admin-login' ? '/admin-login' : '/admin-reset';
     return {
       title: `Admin | ${brand}`,
       description: `Private content manager for ${brand}. This area is not indexed.`,
-      path: '/admin',
+      path,
       origin,
       noindex: true,
       image: og,

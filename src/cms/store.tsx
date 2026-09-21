@@ -1,4 +1,5 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { clearAdminSession, readAdminSession, saveAdminPassword, verifyAdminLogin, writeAdminSession } from './auth';
 import { tools as staticTools, type ToolCategory, type InputType } from '../tools/data';
 import { allArticles } from '../blog';
 
@@ -525,16 +526,16 @@ interface Ctx {
   exportJson: () => string;
   /* auth */
   loggedIn: boolean;
-  login: (code: string) => boolean;
+  login: (username: string, password: string, remember?: boolean) => Promise<boolean>;
   logout: () => void;
-  setPasscode: (code: string) => void;
+  setPasscode: (code: string) => Promise<void>;
 }
 
 const CmsContext = createContext<Ctx | null>(null);
 
 export const CmsProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [state, setState] = useState<CmsState>(() => load());
-  const [loggedIn, setLoggedIn] = useState(false);
+  const [loggedIn, setLoggedIn] = useState(() => readAdminSession() !== null);
 
   useEffect(() => { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch { /* quota */ } }, [state]);
 
@@ -569,9 +570,18 @@ export const CmsProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     importJson: (json) => { try { const parsed = JSON.parse(json) as CmsState; if (!parsed.tools || !parsed.posts) return false; const legacyItems = parsed.sidebar?.customItems || []; const widgets = parsed.sidebar?.widgets || (legacyItems.length ? [{ id: uid(), title: 'Featured links', type: 'links' as SidebarWidgetType, visible: true, source: 'manual' as SidebarLinkSource, links: legacyItems }] : []); const parsedVersion = typeof parsed.version === 'number' ? parsed.version : 1; setState({ ...defaultState, ...parsed, version: Math.max(defaultState.version, parsedVersion), pages: parsedVersion < defaultState.version ? migratePages(parsed.pages || []) : (parsed.pages || defaultState.pages), settings: migrateSettings(parsed.settings), nav: migrateNav(parsed.nav), sidebar: { ...defaultState.sidebar, ...parsed.sidebar, widgets } }); return true; } catch { return false; } },
 
     loggedIn,
-    login: (code) => { if (code === state.passcode) { setLoggedIn(true); return true; } return false; },
-    logout: () => setLoggedIn(false),
-    setPasscode: (code) => setState(s => ({ ...s, passcode: code })),
+    login: async (username, password, remember = true) => {
+      const ok = await verifyAdminLogin(username, password, state.passcode);
+      if (!ok) return false;
+      writeAdminSession(username.trim(), remember);
+      setLoggedIn(true);
+      return true;
+    },
+    logout: () => { clearAdminSession(); setLoggedIn(false); },
+    setPasscode: async (code) => {
+      setState(s => ({ ...s, passcode: code }));
+      await saveAdminPassword(code);
+    },
   }), [state, loggedIn, update]);
 
   return <CmsContext.Provider value={ctx}>{children}</CmsContext.Provider>;
