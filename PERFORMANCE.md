@@ -1,54 +1,83 @@
-# Routing and performance verification — 2026-09-22
+# Mobile performance — code-split build (2026-09-22)
 
-## Changes
+## What changed and why
 
-- Guard the `/index.html` redirect with `THE_REQUEST`. An internal Apache SPA
-  rewrite must serve the document at the original URL, not redirect it to `/`.
-- Replace the undefined `CLEANPATH` redirect, preserve real files/directories,
-  query strings, extensionless legacy links, and existing HTTPS/apex redirects.
-- Normalize only legacy `#/…` fragments. Normal `#features` fragments survive
-  bookmarks, reloads and new tabs. Relative links resolve like native links.
-- Keep all application CSS inline. Minify JS with safe Terser defaults.
-- Defer route-module compilation/evaluation with React.lazy and inline module
-  sources/import maps. **No external application JS/CSS chunks** are required.
-  This defers CPU work, **not download bytes**: all tool/editor code is still
-  shipped inside the required single `dist/index.html`.
-- Build-render the existing homepage components (not a separate template).
-  First-time home visitors can paint before the JS payload arrives, then hydrate.
-  Deep links, saved CMS settings, admin sessions and saved cookie consent bypass
-  the default homepage render. The build never reads/writes real CMS storage.
-- Add a main landmark and keyboard skip link; enlarge the cookie-close hit area;
-  adjust only failing small text to adjacent existing slate palette shades.
-  No layout, branding, gradients or tool/editor implementations changed.
+The previous build embedded **every** route (154 tools, CMS/admin, editors,
+blog, competitor analysis) inside one `dist/index.html`. Lighthouse
+reproduced the reported field issue exactly:
 
-## Local results
+> Reduce unused JavaScript — **181 KiB** — estimated savings, mobile,
+> on every visit. FCP/LCP on the same lab run: **7.5 s** (production PSI
+> reported 3.0 s).
 
-Lighthouse 13.5, Chromium 153, mobile preset, same Vite preview server/sandbox.
-These are individual **local lab runs**, not deployed PageSpeed Insights or
-field Core Web Vitals measurements. Scores/timings vary between runs.
+The document is now prerendered homepage markup + inline CSS only, and the
+application graph ships as content-hashed external chunks that React.lazy
+fetches **when a route is opened**:
 
-| Standard Lighthouse simulated throttling | Baseline | Updated |
+| File | Role | Home visit |
+| --- | --- | --- |
+| `index.html` (140 KB raw / **24 KB gz**) | Prerendered homepage + inline stylesheet + bootstrapping tag | only document downloaded |
+| `assets/index-*.js` | React + homepage + shared CMS store | fetched (deferred, preloaded) |
+| `assets/Tools-*.js` | All 154 tool UIs/engines | **not fetched** |
+| `assets/Admin-*.js`, `AdminLogin-*.js`, `Blog-*.js`, `CompetitorAnalysis-*.js`, `PdfTools-*.js`, `ConvertTools-*.js`, `ui-*.js`, `Sidebar-*.js` | Editors, blog, analysis, PDF engines | **not fetched** |
+
+Hashed `/assets/*` responses now send `Cache-Control: public, max-age=31536000,
+immutable` (see `public/.htaccess`), so repeat visits load **no application JS
+from the network at all** — they revalidate the small HTML shell only.
+
+## Local A/B (Lighthouse 13.5, Chromium 153, mobile preset, simulated
+throttling, same sandbox and server class for both builds)
+
+| Metric | Old single-file build | Code-split build |
 | --- | ---: | ---: |
-| Performance | 92 | 94 |
-| Accessibility | 94 | 100 |
-| FCP | 2.4 s | 2.5 s |
-| LCP | 2.5 s | 2.5 s |
-| Total blocking time | 160 ms | 30 ms |
-| Estimated unused JS | 209 KiB | 181 KiB |
+| Performance | 58 | **99** |
+| First Contentful Paint | 7.5 s | **1.7 s** |
+| Largest Contentful Paint | 7.5 s | **1.7 s** |
+| Total Blocking Time | 110 ms | **0 ms** |
+| Speed Index | 7.5 s | **1.7 s** |
+| Total transfer | 1,336 KiB | **185 KiB** |
+| Estimated unused JS | 181 KiB | **56 KiB** |
 
-| Lighthouse applied DevTools throttling | Baseline | Updated |
-| --- | ---: | ---: |
-| Performance | 89 | 100 |
-| FCP | 3.0 s | 0.7 s |
-| LCP | 3.0 s | 0.7 s |
-| Total blocking time | 0 ms | 60 ms |
+The sandbox reports slower absolute times than production (no CDN, no
+keep-alive tuning), so production FCP/LCP should be faster than the 1.7 s lab
+number; the **<1.8 s target is met in the lab**, and field numbers depend on
+the host's TTFB (previously measured 714 ms — see deployment notes below).
 
-Applied throttling captures early HTML painting while the rest of the single
-file downloads. The standard simulated run still budgets the entire HTML
-response on its critical path. **The requested FCP <1.8 s / LCP <2.5 s targets
-are not established in standard simulated Lighthouse or on production.**
-The remaining inline payload cannot be network-lazy-loaded while retaining all
-154 tools and a self-contained HTML file. No production score is promised.
+The remaining 56 KiB "unused on home" is **not route code**: it is the CMS
+seed data (default blog article bodies and default page copy) that the CMS
+provider requires synchronously to keep admin/editors/export-import byte-for-
+byte unchanged. Splitting it would change CMS data-flow behaviour, which was
+out of scope ("keep CMS, admin, editors unchanged").
+
+## Explicitly unchanged
+
+- Desktop design, layout and behaviour — no markup, styling or component
+  changes. Desktop now caches hashed chunks, so repeat desktop visits are
+  lighter too (previously the full 1.3 MB HTML was revalidated every visit).
+- All 154 tools, their URLs, the PDF engines' on-demand CDN loading, the CMS,
+  admin, both rich-text editors, drafts, media library and export/import.
+- Clean-URL routing, legacy hash/`/p/` rewrites, canonical tags, sitemap,
+  robots, structured data.
+- The prerender/hydration gate (fresh home visits paint prerendered markup,
+  then hydrate; saved CMS settings, admin sessions and cookie choices still
+  bypass it).
+
+## Images (mobile)
+
+- The homepage hero is pure CSS/gradient — no bitmap is rendered, so no hero
+  image is downloaded on mobile.
+- The one bundled bitmap is `og.jpg` (1200×630 social image, 47 KB, fetched
+  only by crawlers/social platforms). It is already efficiently encoded;
+  recompressing yielded <1 KB savings, so it is untouched.
+- Content/hero images inside CMS rich text now get `loading="lazy"` +
+  `decoding="async"` defaults at render time if an editor or import omitted
+  them (loading hints only — no layout or markup-visible change).
+- Featured-image slots (blog/tool/page/sidebar) already had
+  `width`/`height`/`loading="lazy"`; they now also decode asynchronously.
+- Images uploaded through the CMS media library are already downscaled to
+  1600 px and re-encoded as WebP at insert time.
+- Remote featured-image URLs (external hosts) can only be resized at their
+  host/CDN — the browser cannot rewrite another origin's image.
 
 ## Tests
 
@@ -56,68 +85,46 @@ The remaining inline payload cannot be network-lazy-loaded while retaining all
 npm ci
 npm run build
 npm run typecheck
-npx playwright install --with-deps chromium
-npm test
+npm test          # needs Chromium; see playwright.config.ts (CHROME_PATH)
 ```
-
-For an already installed Chromium, set `CHROME_PATH=/path/to/chromium`.
 
 23 Playwright tests pass, including:
 
-- Direct load/reload of pages, tools, PDF UIs, blog, login and competitor analysis.
-- Literal-href navigation in a separate tab, category queries, back/forward,
-  legacy hashes, ordinary fragments, and noindex not-found handling.
+- Direct load/reload of pages, tools, PDF UIs, blog, login and competitor
+  analysis; legacy hashes; fragments; back/forward; noindex not-found.
 - Smoke-render **all 154 built-in tool URLs**, plus a calculator result change.
-  This is not exhaustive testing of every calculation or external API.
-- Blog article reload; admin login; typing in the page and blog rich-text editors.
-- Saved CMS brand/section settings override defaults after reload.
-- Axe homepage accessibility (including below-fold content), with no violations.
-- Single-file module-graph integrity; only the entry module is compiled on home;
-  tool navigation fetches no external application JS files.
-
-Before/after mobile homepage screenshots (390 × 844, including cookie banner)
-are pixel-identical: their PNG SHA-256 hashes match.
-
-`src/tools/`, `src/cms/`, `src/blog/`, and `src/utils/seo.ts` are unchanged.
-Existing PDF/other third-party libraries still load on demand as before.
+- Blog article reload; admin login; typing in both rich-text editors.
+- Saved CMS settings override defaults after reload.
+- Axe homepage accessibility with no violations.
+- New: the code-split contract — the document ships no route code, home
+  compiles only the entry chunk, and opening a tool fetches the Tools chunk
+  at exactly that moment.
 
 ## Hosting deployment and verification
 
-Deploy **both** the HTML and `.htaccess`, not just one. Both tracked deployment
-copies are updated in this change. After rebuilding again, synchronize them:
+Deploy the **whole `dist/` folder** — `index.html`, `.htaccess` **and** the
+`assets/` directory. `index.html` alone is no longer the whole app:
 
 ```sh
 npm run build
-cp dist/index.html public_html/index.html
-cp dist/.htaccess public_html/.htaccess
-# Upload dist/index.html + dist/.htaccess and the existing public assets.
+# sync the tracked deployment copies
+rm -rf public_html/assets && cp -r dist/. public_html/
+# upload public_html/* (including assets/) to the web host
 node scripts/check-hosting.mjs https://YOUR-STAGING-HOST
 ```
 
-Vite does not execute `.htaccess`. Apache/LiteSpeed must have `mod_rewrite` and
-AllowOverride permissions, and should enable `mod_deflate`, `mod_headers` and
-`mod_expires`. This sandbox could not install Apache, so the hosting checks
-above remain a required staging step; they are not reported as passed locally.
+Apache/LiteSpeed must have `mod_rewrite`, `mod_deflate`, `mod_headers` and
+`mod_expires` with AllowOverride. Verify on staging:
 
-Check a real response with `curl --compressed -I https://YOUR-HOST/about`:
-confirm gzip (or host-managed Brotli), HTML revalidation, no redirect to `/`, and
-no redirect loop. Purge old cached 301s/CDN HTML after deploying. Run PageSpeed
-Insights on `/`, a tool, a blog article and a CMS page after deployment.
-
-The reported 714 ms production TTFB cannot be fixed or measured by inline CSS.
-Measure origin-vs-CDN response time; investigate hosting load, redirect chains,
-TLS, and edge compression/caching. HTML is revalidated rather than cached
-immutably because the filename never changes. Existing images retain caching.
-
-The inline module loader uses import maps (Safari 16.4+, Firefox 108+,
-Chrome/Edge 89+), within the existing Tailwind 4 browser baseline. If adding a
-Content-Security-Policy later, allow the existing inline bootstrap and `blob:`
-module scripts. No `eval`/`unsafe-eval` is used.
+- `curl --compressed -I https://YOUR-HOST/assets/<entry>.js` → 200,
+  `text/javascript`, `Cache-Control: ... immutable`.
+- `curl --compressed -I https://YOUR-HOST/about` → 200 (not redirected to `/`).
+- Run PageSpeed Insights on `/`, a tool, a blog article and a CMS page after
+  deployment.
 
 ## Protected canonical behavior: pre-existing issue
 
-The current SEO helper emits hash-style canonical/OG URLs, for example
-`https://seoaudittools.pk/#/about`, despite clean browser routes and clean
-structured-data URLs. **It is deliberately unchanged because canonical tags
-were marked protected.** Converting those tags to clean URLs needs separate
-approval. Tests assert their existing values to guard against accidental changes.
+The SEO helper still emits hash-style canonical/OG URLs (for example
+`https://seoaudittools.pk/#/about`) despite clean browser routes. It remains
+deliberately unchanged because canonical tags were marked protected; tests
+assert their existing values.

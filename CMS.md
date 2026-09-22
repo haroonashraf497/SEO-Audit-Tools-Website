@@ -2,7 +2,7 @@
 
 The site ships with a WordPress-style content manager written in React — **no PHP, no database and no
 server-side uploads**. Everything is edited in the browser and stored in `localStorage`, which keeps the
-deployment a single static `index.html`.
+deployed app independent of any backend.
 
 ## Signing in
 
@@ -78,12 +78,14 @@ allowlist sanitiser first:
 ## Publishing
 
 Because content lives in the browser, use **Settings → Export JSON** to version or move content
-(import it back on another device). The build output is a single file:
+(import it back on another device). The build output is a static folder:
 
 ```bash
-npm run build          # → dist/index.html
+npm run build          # → dist/index.html + dist/assets/*.js (hashed chunks)
 ```
 
-Copy `dist/index.html` (and the rest of `public_html/`) to the web host — see `public/.htaccess` for the
-Apache/LiteSpeed rules. Content entered in one browser is not visible in another unless the JSON is
-imported, so export before publishing from a different machine.
+Copy the **whole `dist/` folder** (index.html, assets/, .htaccess and the rest of `public_html/`) to the
+web host — see `public/.htaccess` for the Apache/LiteSpeed rules. The HTML shell loads first; the code
+for tools, blog and the CMS is fetched from `assets/` only when those screens are opened, and browsers
+cache the hashed chunks long-term. Content entered in one browser is not visible in another unless the
+JSON is imported, so export before publishing from a different machine.
