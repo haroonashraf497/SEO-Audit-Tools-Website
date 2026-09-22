@@ -1,8 +1,5 @@
 User-agent: *
 Allow: /
-Disallow: /#/admin
-Disallow: /#/admin-login
-Disallow: /#/admin-reset
 Disallow: /admin
 Disallow: /admin-login
 Disallow: /admin-reset

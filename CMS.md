@@ -8,9 +8,13 @@ deployment a single static `index.html`.
 
 | | |
 |---|---|
-| URL | `#/admin-login` |
+| URL | `https://seoaudittools.pk/admin-login` |
 | Username | `admin` |
 | Password | `admin123` |
+
+The site uses clean URL routing (`/tools`, `/blog/<slug>`, `/about`, …) powered by the History API —
+see `src/router.ts`. Old hash links (`/#/about`) are rewritten in the browser on load, and
+`public/.htaccess` 301-redirects the old `/p/<slug>` paths to `/<slug>`.
 
 The password can be changed under **Settings → Password** (kept in this browser, hashed with SHA-256).
 Override the defaults at build time with `VITE_ADMIN_USERNAME`, `VITE_ADMIN_PASSWORD` and
@@ -23,7 +27,7 @@ Editing surfaces use the same WordPress-style editor:
 | Where | Field |
 |---|---|
 | **Blog posts** | post body — new posts and existing articles |
-| **Pages** | each *text* block in a page |
+| **Pages** | the whole page body — one rich-text document per page (pages saved with the old block editor are converted automatically on load) |
 | **Tools** | the optional "About" copy that replaces the shared template |
 | **Sidebar** | *Text section* widgets (sidebar notes) |
 

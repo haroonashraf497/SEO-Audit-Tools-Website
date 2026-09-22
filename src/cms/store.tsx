@@ -39,7 +39,10 @@ export type PageBlock =
 
 export interface CmsPage {
   id: string; slug: string; title: string; metaTitle: string; metaDescription: string;
-  blocks: PageBlock[]; status: Status;
+  /** Rich-text HTML document — the single source of truth for the page body. */
+  content?: string;
+  /** Legacy block list, kept only so content saved in older builds can migrate. */
+  blocks?: PageBlock[]; status: Status;
   featuredImage?: string; featuredImageAlt?: string;
 }
 
@@ -128,7 +131,7 @@ const defaultPosts: CmsPost[] = allArticles.map(a => ({
 }));
 
 export const defaultState: CmsState = {
-  version: 10,
+  version: 11,
   tools: defaultTools,
   posts: defaultPosts,
   pages: [
@@ -425,15 +428,99 @@ export const defaultState: CmsState = {
     relevantTools: true, relevantCount: 12, relevantTitle: 'Other Relevant Tools',
     popular: true, popularTitle: 'Popular SEO Tools', hiddenPopular: [],
     latest: true, latestTitle: 'Latest Articles', latestCount: 6,
-    cta: true, ctaTitle: 'Free SEO Audit', ctaText: 'Check any website for 100+ on-page, technical and speed issues in 30 seconds.', ctaLabel: 'Run Audit →', ctaHref: '#/',
+    cta: true, ctaTitle: 'Free SEO Audit', ctaText: 'Check any website for 100+ on-page, technical and speed issues in 30 seconds.', ctaLabel: 'Run Audit →', ctaHref: '/',
     widgets: [],
   },
   sections: { hero: true, auditTool: true, results: true, features: true, howItWorks: true, whyAudit: true, whoBenefits: true, freeTools: true, fromBlog: true, cta: true, footer: true },
   settings: { name: 'SEO Audit Tools', domain: 'seoaudittools.pk', tagline: 'Free SEO audit + 150 tools', footerNote: 'EKSTRUH LTD provides online SEO, calculator and unit converter tools.' },
   nav: [
-    { id: uid(), label: 'Free SEO Tools', href: '#/tools', visible: true },
+    { id: uid(), label: 'Free SEO Tools', href: '/tools', visible: true },
   ],
   passcode: 'admin123',
+};
+
+
+/* ---------------- page content migration ---------------- */
+/** Escape a plain-text fragment for generated HTML. */
+const escHtml = (s: string): string =>
+  s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+/** Turn a legacy href into a clean path. Keeps external, mailto, tel and
+ *  in-page fragment links untouched. */
+const cleanStoredHref = (href: string): string => {
+  const value = (href || '').trim();
+  if (!value || value === '#') return '/';
+  if (/^(https?:|mailto:|tel:)/i.test(value)) return value;
+  if (value.startsWith('#')) {
+    const path = value.slice(1);
+    if (!path) return '/';
+    if (!path.startsWith('/')) return value; // in-page fragment — keep as-is
+    const clean = path.replace(/^\/p\//, '/').replace(/^\//, '').replace(/\/+$/, '');
+    return clean === '' ? '/' : `/${clean}`;
+  }
+  return value;
+};
+
+/** Rewrite stored #/… links inside HTML to clean paths. */
+const cleanStoredHtml = (html: string): string =>
+  html
+    .replace(/href=["']#\/p\/([^"']*)["']/gi, 'href=/"$1"')
+    .replace(/href=["']#\/([a-z0-9][^"']*)["']/gi, 'href=/"$1"')
+    .replace(/href=["']#\/?(?=["'])/gi, 'href="/"');
+
+/** Convert a legacy block list into one rich-text HTML document. */
+export const blocksToHtml = (blocks: PageBlock[]): string =>
+  blocks
+    .map(b => {
+      switch (b.type) {
+        case 'heading': {
+          const text = (b.text || '').trim();
+          if (!text) return '';
+          const tag = b.level === 2 ? 'h2' : 'h3';
+          return `<${tag}>${escHtml(text)}</${tag}>`;
+        }
+        case 'list': {
+          const items = (b.items || []).map(it => `<li>${escHtml(it)}</li>`).join('');
+          return items ? `<ul>${items}</ul>` : '';
+        }
+        case 'table': {
+          if (!b.head?.length && !b.rows?.length) return '';
+          const head = b.head?.length
+            ? `<thead><tr>${b.head.map(h => `<th>${escHtml(h)}</th>`).join('')}</tr></thead>`
+            : '';
+          const body = `<tbody>${(b.rows || [])
+            .map(row => `<tr>${row.map(c => `<td>${escHtml(c)}</td>`).join('')}</tr>`)
+            .join('')}</tbody>`;
+          return `<table>${head}${body}</table>`;
+        }
+        case 'cta': {
+          const href = cleanStoredHref(b.href || '#/');
+          const label = (b.label || '').trim();
+          const text = (b.text || '').trim();
+          const link = label ? `<a href="${href}">${escHtml(label)}</a>` : '';
+          if (text && link) return `<p><strong>${escHtml(text)}</strong> ${link}</p>`;
+          if (link) return `<p>${link}</p>`;
+          return text ? `<p><strong>${escHtml(text)}</strong></p>` : '';
+        }
+        case 'text':
+        default: {
+          const text = (b.text || '').replace(/\r\n/g, '\n');
+          if (!text.trim()) return '';
+          // Old text blocks may already contain inline HTML (links, <code>, bold).
+          const body = /<[a-z][^>]*>/i.test(text) ? text : escHtml(text).replace(/\n/g, '<br/>');
+          return `<p>${body}</p>`;
+        }
+      }
+    })
+    .filter(Boolean)
+    .join('\n');
+
+/** Make a page's rich-text `content` the source of truth. Pages saved with
+ *  the old block editor are converted once and their legacy #/… links are
+ *  rewritten to clean paths. */
+export const withPageContent = (page: CmsPage): CmsPage => {
+  const html = page.content?.trim() ? page.content : blocksToHtml(page.blocks || []);
+  return { ...page, content: cleanStoredHtml(html) };
 };
 
 /* ---------------- persistence ---------------- */
@@ -449,8 +536,9 @@ const KEY = 'seoaudittool:cms:v1';
  *  page with the new content; version 7 replaced the Cookie Policy with the
  *  new 8-section policy including cookie tables; version 9 removed the
  *  company-details block from the Contact page; version 10 added Response
- *  Time and Before You Write, and linked the contact email. Pages the admin
- *  created themselves are always preserved. */
+ *  Time and Before You Write, and linked the contact email. Version 11 stores
+ *  each page as a single rich-text document (converted from blocks at load).
+ *  Pages the admin created themselves are always preserved. */
 const migratePages = (pages: CmsPage[]): CmsPage[] => {
   const bySlug = new Map(pages.map(p => [p.slug, p]));
   const known = defaultState.pages.map(d => (bySlug.has(d.slug) ? { ...d, id: bySlug.get(d.slug)!.id } : d));
@@ -478,9 +566,12 @@ const LEGACY_NAV_SIGNATURES = [
   'SEO Tools|#/tools',
 ];
 const migrateNav = (stored: NavItem[] | undefined): NavItem[] => {
-  const nav = Array.isArray(stored) && stored.length ? stored : defaultState.nav;
-  const signature = nav.map(n => `${n.label}|${n.href}`).join(';');
-  return LEGACY_NAV_SIGNATURES.includes(signature) ? defaultState.nav : nav;
+  const storedNav = Array.isArray(stored) && stored.length ? stored : defaultState.nav;
+  const signature = storedNav.map(n => `${n.label}|${n.href}`).join(';');
+  const nav = LEGACY_NAV_SIGNATURES.includes(signature) ? defaultState.nav : storedNav;
+  // Menus saved under the old hash URLs keep pointing at the same pages,
+  // now via clean paths.
+  return nav.map(n => ({ ...n, href: cleanStoredHref(n.href) }));
 };
 
 const load = (): CmsState => {
@@ -502,7 +593,7 @@ const load = (): CmsState => {
       // Append tools introduced by newer builds to an existing browser CMS
       // without overwriting the admin's edits, visibility or custom tools.
       tools: Array.from(new Map([...defaultState.tools, ...(parsed.tools || [])].map(tool => [tool.slug, tool])).values()),
-      pages: parsedVersion < defaultState.version ? migratePages(parsed.pages || []) : (parsed.pages || defaultState.pages),
+      pages: (parsedVersion < defaultState.version ? migratePages(parsed.pages || []) : (parsed.pages || defaultState.pages)).map(withPageContent),
       settings: migrateSettings(parsed.settings),
       nav: migrateNav(parsed.nav),
       sidebar: { ...defaultState.sidebar, ...oldSidebar, widgets: migratedWidgets },
@@ -584,7 +675,7 @@ export const CmsProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setPostStatus: (slug, status) => setState(s => ({ ...s, posts: s.posts.map(p => (p.slug === slug ? { ...p, status } : p)) })),
     deletePost: (slug) => setState(s => ({ ...s, posts: s.posts.filter(p => p.slug !== slug) })),
 
-    addPage: (p) => { const id = uid(); setState(s => ({ ...s, pages: [{ id, slug: p.slug || `page-${id}`, title: p.title || 'New page', metaTitle: p.metaTitle || p.title || 'New page', metaDescription: p.metaDescription || '', blocks: p.blocks || [], featuredImage: p.featuredImage, featuredImageAlt: p.featuredImageAlt, status: p.status || 'draft' }, ...s.pages] })); return id; },
+    addPage: (p) => { const id = uid(); setState(s => ({ ...s, pages: [{ id, slug: p.slug || `page-${id}`, title: p.title || 'New page', metaTitle: p.metaTitle || p.title || 'New page', metaDescription: p.metaDescription || '', content: p.content || '', featuredImage: p.featuredImage, featuredImageAlt: p.featuredImageAlt, status: p.status || 'draft' }, ...s.pages] })); return id; },
     savePage: (id, patch) => setState(s => ({ ...s, pages: s.pages.map(p => (p.id === id ? { ...p, ...patch } : p)) })),
     setPageStatus: (id, status) => setState(s => ({ ...s, pages: s.pages.map(p => (p.id === id ? { ...p, status } : p)) })),
     deletePage: (id) => setState(s => ({ ...s, pages: s.pages.filter(p => p.id !== id) })),
@@ -597,8 +688,8 @@ export const CmsProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setNav: (nav) => setState(s => ({ ...s, nav })),
 
     reset: () => setState({ ...defaultState }),
-    exportJson: () => JSON.stringify(state, null, 2),
-    importJson: (json) => { try { const parsed = JSON.parse(json) as CmsState; if (!parsed.tools || !parsed.posts) return false; const legacyItems = parsed.sidebar?.customItems || []; const widgets = parsed.sidebar?.widgets || (legacyItems.length ? [{ id: uid(), title: 'Featured links', type: 'links' as SidebarWidgetType, visible: true, source: 'manual' as SidebarLinkSource, links: legacyItems }] : []); const parsedVersion = typeof parsed.version === 'number' ? parsed.version : 1; setState({ ...defaultState, ...parsed, version: Math.max(defaultState.version, parsedVersion), pages: parsedVersion < defaultState.version ? migratePages(parsed.pages || []) : (parsed.pages || defaultState.pages), settings: migrateSettings(parsed.settings), nav: migrateNav(parsed.nav), sidebar: { ...defaultState.sidebar, ...parsed.sidebar, widgets } }); return true; } catch { return false; } },
+    exportJson: () => JSON.stringify({ ...state, pages: state.pages.map(pg => { const { blocks: _blocks, ...rest } = pg; return rest; }) }, null, 2),
+    importJson: (json) => { try { const parsed = JSON.parse(json) as CmsState; if (!parsed.tools || !parsed.posts) return false; const legacyItems = parsed.sidebar?.customItems || []; const widgets = parsed.sidebar?.widgets || (legacyItems.length ? [{ id: uid(), title: 'Featured links', type: 'links' as SidebarWidgetType, visible: true, source: 'manual' as SidebarLinkSource, links: legacyItems }] : []); const parsedVersion = typeof parsed.version === 'number' ? parsed.version : 1; setState({ ...defaultState, ...parsed, version: Math.max(defaultState.version, parsedVersion), pages: (parsedVersion < defaultState.version ? migratePages(parsed.pages || []) : (parsed.pages || defaultState.pages)).map(withPageContent), settings: migrateSettings(parsed.settings), nav: migrateNav(parsed.nav), sidebar: { ...defaultState.sidebar, ...parsed.sidebar, widgets } }); return true; } catch { return false; } },
 
     storageWarning,
     loggedIn,

@@ -2,17 +2,16 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import "./index.css";
 import App from "./App";
+import { normalizeLegacyUrl, startRouter } from "./router";
 
-// Fold clean paths (/tools, /p/contact, /blog/…) into the hash router so
-// Apache, GitHub Pages and old PHP-style URLs all land on the SPA.
-(() => {
-  const { pathname, search, hash } = window.location;
-  if (hash && hash !== "#" && hash !== "#/") return;
-  const path = pathname.replace(/\/index\.html$/i, "").replace(/\/+$/, "") || "/";
-  if (path === "/") return;
-  if (/\.(xml|txt|jpg|jpeg|png|svg|ico|html|webmanifest|map)$/i.test(path)) return;
-  window.history.replaceState(null, "", `/#${path}${search}`);
-})();
+// Clean URLs: rewrite legacy address-bar forms before the first render —
+// /#/p/about (old hash link) → /about, /p/about → /about, /index.html → /.
+// The .htaccess serves the same rewrites as 301s for requests that reach
+// the server; hash fragments never reach the server, so this client-side
+// step is what rewrites the old /#/… links (canonical tags always point
+// at the clean URL).
+normalizeLegacyUrl();
+startRouter();
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>

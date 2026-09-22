@@ -3,6 +3,7 @@ import type { ToolDef, ToolCategory } from './data';
 import { categoryLabels } from './data';
 import { useCms } from '../cms/store';
 import { sanitizeRichHtml } from '../utils/sanitize';
+import { rewriteLegacyLinks } from '../router';
 
 interface CategoryCopy {
   intro: string;
@@ -422,7 +423,7 @@ export const ToolRelatedContent: React.FC<{ tool: ToolDef; related: ToolDef[] }>
   const [openFaq, setOpenFaq] = useState<number | null>(0);
   // A custom "About" written in the CMS overrides the category template.
   const cmsTool = useCms().state.tools.find(t => t.slug === tool.slug);
-  const aboutOverride = cmsTool?.about && cmsTool.about.replace(/<[^>]*>/g, '').trim() ? sanitizeRichHtml(cmsTool.about) : '';
+  const aboutOverride = cmsTool?.about && cmsTool.about.replace(/<[^>]*>/g, '').trim() ? rewriteLegacyLinks(sanitizeRichHtml(cmsTool.about)) : '';
 
   return (
     <div className="mt-10 space-y-8">
@@ -514,7 +515,7 @@ export const ToolRelatedContent: React.FC<{ tool: ToolDef; related: ToolDef[] }>
           <p className="text-sm text-slate-500 mb-5">Continue with these related {categoryLabels[tool.category].toLowerCase()}.</p>
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {related.map(t => (
-              <a key={t.slug} href={`#/tool/${t.slug}`} className="group rounded-xl border border-slate-200 p-4 hover:border-indigo-300 hover:shadow-md transition-all">
+              <a key={t.slug} href={`/tool/${t.slug}`} className="group rounded-xl border border-slate-200 p-4 hover:border-indigo-300 hover:shadow-md transition-all">
                 <h3 className="text-sm font-bold text-slate-800 group-hover:text-indigo-600 mb-1">{t.name}</h3>
                 <p className="text-xs text-slate-500 line-clamp-3 leading-relaxed">{strip(t.description)}</p>
               </a>

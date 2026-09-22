@@ -55,7 +55,7 @@ export const LinkDialog: React.FC<{
       </div>
       <label className="block mb-2">
         <span className="text-[11px] font-bold uppercase tracking-wide text-slate-500">URL</span>
-        <input ref={firstField} className={`${fieldCls} mt-1`} value={href} onChange={e => { setHref(e.target.value); setError(''); }} placeholder="https://example.com or #/tool/word-counter" />
+        <input ref={firstField} className={`${fieldCls} mt-1`} value={href} onChange={e => { setHref(e.target.value); setError(''); }} placeholder="https://example.com or /tool/word-counter" />
       </label>
       {!target.existing && (
         <label className="block mb-2">
