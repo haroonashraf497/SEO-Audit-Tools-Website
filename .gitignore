@@ -6,3 +6,7 @@ php-site.zip
 .env
 .DS_Store
 .arena/
+
+.cache/
+playwright-report/
+test-results/
