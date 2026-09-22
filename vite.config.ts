@@ -4,7 +4,7 @@ import { fileURLToPath } from "url";
 import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
 import { defineConfig, type Plugin } from "vite";
-import { viteSingleFile } from "vite-plugin-singlefile";
+import { inlineModules } from "./scripts/inline-modules";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -22,7 +22,7 @@ const hostingFiles = (): Plugin => ({
 });
 
 export default defineConfig({
-  plugins: [react(), tailwindcss(), viteSingleFile(), hostingFiles()],
+  plugins: [react(), tailwindcss(), inlineModules(), hostingFiles()],
   server: {
     host: true,
     allowedHosts: [".e2b.app", ".arena.site"],
@@ -38,11 +38,16 @@ export default defineConfig({
   },
   build: {
     target: "es2020",
+    minify: "terser",
+    terserOptions: {
+      compress: { passes: 2 },
+      format: { comments: false },
+    },
     cssCodeSplit: false,
     modulePreload: false,
     reportCompressedSize: false,
     sourcemap: false,
-    assetsInlineLimit: 4096,
+    assetsInlineLimit: () => true,
   },
   esbuild: {
     legalComments: "none",

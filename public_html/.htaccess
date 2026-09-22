@@ -3,56 +3,68 @@
 
 DirectoryIndex index.html
 Options -Indexes -MultiViews
-RewriteEngine On
-RewriteBase /
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteBase /
 
-# Force HTTPS
-RewriteCond %{HTTPS} !=on
-RewriteCond %{HTTP:X-Forwarded-Proto} !https
-RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+  # Canonical host/scheme (www requests go directly to the HTTPS apex).
+  RewriteCond %{HTTP_HOST} ^www\.seoaudittools\.pk$ [NC]
+  RewriteRule ^ https://seoaudittools.pk%{REQUEST_URI} [R=301,L]
+  RewriteCond %{HTTPS} !=on
+  RewriteCond %{HTTP:X-Forwarded-Proto} !^https$ [NC]
+  RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [R=301,L]
 
-# www → apex (canonical is seoaudittools.pk)
-RewriteCond %{HTTP_HOST} ^www\.seoaudittools\.pk$ [NC]
-RewriteRule ^ https://seoaudittools.pk%{REQUEST_URI} [L,R=301]
+  # Redirect only a browser's explicit index.html request. Never redirect
+  # the internal SPA fallback (the old rule lost deep links on reload).
+  RewriteCond %{THE_REQUEST} \s/+index\.html(?:[?\s]) [NC]
+  RewriteRule ^index\.html$ / [R=301,L]
+  RewriteRule ^index\.html$ - [L]
 
-# ---- Canonicalise legacy URL shapes (301) ----
-# Old block-based pages lived at /p/<slug>; they now live at /<slug>.
-RewriteRule ^p/([a-z0-9-]+)/?$ /$1 [R=301,L]
-# The bare /tool path moved to /tools.
-RewriteRule ^tool$ /tools [R=301,L]
-# /index.html is the same document as the site root.
-RewriteRule ^index\.html$ / [R=301,L]
-# Collapse duplicated slashes (/tools// → /tools).
-RewriteCond %{REQUEST_URI} ^(.+?)//(.+)$
-RewriteRule ^ %{ENV:CLEANPATH} [NE,R=301,L]
-# Drop trailing slashes from route paths (/tools/ → /tools).
-RewriteRule ^(.+)/$ /$1 [R=301,L]
-# Note: old hash URLs (https://seoaudittools.pk/#/about) never reach the
-# server — the app rewrites them to clean paths in the browser on load.
+  # Real files and directories must not be rewritten or canonicalised.
+  RewriteCond %{REQUEST_FILENAME} -f [OR]
+  RewriteCond %{REQUEST_FILENAME} -d
+  RewriteRule ^ - [L]
 
-# Real files (robots.txt, sitemap.xml, og.jpg, favicon, assets)
-RewriteCond %{REQUEST_FILENAME} -f [OR]
-RewriteCond %{REQUEST_FILENAME} -d
-RewriteRule ^ - [L]
+  # Apache merges duplicate slashes when matching RewriteRule. Compare
+  # THE_REQUEST with that normalised path; no undefined CLEANPATH variable.
+  RewriteCond %{THE_REQUEST} \s(?=[^?\s]*//)/
+  RewriteRule ^(.*)$ /$1 [R=301,L]
 
-# All other paths serve the app so /tools, /contact, /blog, /tool/… work.
-RewriteRule ^ index.html [L]
+  # Preserve extensionless aliases from the supplied hosting rules, without
+  # redirecting real HTML assets (already handled above).
+  RewriteCond %{THE_REQUEST} \s/+[^?\s]+\.html(?:[?\s]) [NC]
+  RewriteRule ^(.+)\.html$ /$1 [R=301,L]
+
+  # Legacy page links; keep query strings, tool slugs and blog slugs intact.
+  RewriteRule ^p/?$ / [R=301,L]
+  RewriteRule ^p/(.+?)/?$ /$1 [R=301,L]
+  RewriteRule ^tool/?$ /tools [R=301,L]
+  RewriteRule ^(.+)/$ /$1 [R=301,L]
+
+  # Serve, don't redirect: the address bar retains the requested route.
+  RewriteRule ^ index.html [L]
+</IfModule>
 
 <IfModule mod_headers.c>
   Header set X-Content-Type-Options "nosniff"
   Header set Referrer-Policy "strict-origin-when-cross-origin"
   Header set X-Frame-Options "SAMEORIGIN"
   Header set Permissions-Policy "camera=(), microphone=(), geolocation=()"
-  Header set Strict-Transport-Security "max-age=31536000; includeSubDomains"
+  Header set Strict-Transport-Security "max-age=31536000; includeSubDomains" "expr=%{HTTPS} == 'on'"
+  # The one-file app is not fingerprinted: revalidate it on every visit.
+  # Last-Modified/ETag still allow a cheap 304 without a stale CMS build.
+  <FilesMatch "\.html$">
+    Header set Cache-Control "public, max-age=0, must-revalidate"
+  </FilesMatch>
 </IfModule>
 
 <IfModule mod_deflate.c>
-  AddOutputFilterByType DEFLATE text/html text/plain text/xml text/css application/javascript application/json image/svg+xml
+  AddOutputFilterByType DEFLATE text/html text/plain text/xml text/css application/javascript text/javascript application/json application/xml image/svg+xml
 </IfModule>
 
 <IfModule mod_expires.c>
   ExpiresActive On
-  ExpiresByType text/html "access plus 1 hour"
+  ExpiresByType text/html "access plus 0 seconds"
   ExpiresByType text/plain "access plus 1 day"
   ExpiresByType application/xml "access plus 1 day"
   ExpiresByType image/jpeg "access plus 30 days"
@@ -60,6 +72,4 @@ RewriteRule ^ index.html [L]
   ExpiresByType image/svg+xml "access plus 30 days"
 </IfModule>
 
-# Unknown paths still load the app shell; the router shows its 404 page
-# (with a noindex robots meta) for anything that is not a real route.
-ErrorDocument 404 /index.html
+# Unknown routes use the app’s existing noindex not-found view.

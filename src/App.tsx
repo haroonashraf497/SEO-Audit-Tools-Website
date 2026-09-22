@@ -1,17 +1,24 @@
-import React, { useState, useCallback, useMemo, useEffect } from 'react';
-import { BlogList, BlogArticlePage } from './blog/Blog';
-import { ToolsList, ToolPage } from './tools/Tools';
-import CompetitorAnalysis, { CompetitorToolContent } from './tools/CompetitorAnalysis';
+import React, { lazy, Suspense, useState, useCallback, useMemo, useEffect } from 'react';
 import { categoryDescriptions, categoryLabels, ToolIcon } from './tools/data';
 import { fetchPageData, type LivePageData } from './utils/pageFetch';
 import { fetchDomainInfo, type DomainInfo } from './utils/domainLookup';
 import { sanitizeRichHtml } from './utils/sanitize';
 import { CmsProvider, useCms, liveTools, livePosts, findPage, blocksToHtml } from './cms/store';
-import { AdminApp } from './cms/Admin';
-import { AdminLoginPage, AdminResetPage } from './cms/AdminLogin';
 import SerpPreview from './components/SerpPreview';
 import { SeoManager } from './utils/seo';
 import { cleanHref, getRoute, navigate, rewriteLegacyLinks, subscribe } from './router';
+
+// Route modules are evaluated only when visited. The production build embeds
+// the chunks in index.html, preserving the single-file hosting contract.
+const BlogList = lazy(() => import('./blog/Blog').then(m => ({ default: m.BlogList })));
+const BlogArticlePage = lazy(() => import('./blog/Blog').then(m => ({ default: m.BlogArticlePage })));
+const ToolsList = lazy(() => import('./tools/Tools').then(m => ({ default: m.ToolsList })));
+const ToolPage = lazy(() => import('./tools/Tools').then(m => ({ default: m.ToolPage })));
+const CompetitorAnalysis = lazy(() => import('./tools/CompetitorAnalysis'));
+const CompetitorToolContent = lazy(() => import('./tools/CompetitorAnalysis').then(m => ({ default: m.CompetitorToolContent })));
+const AdminApp = lazy(() => import('./cms/Admin').then(m => ({ default: m.AdminApp })));
+const AdminLoginPage = lazy(() => import('./cms/AdminLogin').then(m => ({ default: m.AdminLoginPage })));
+const AdminResetPage = lazy(() => import('./cms/AdminLogin').then(m => ({ default: m.AdminResetPage })));
 
 // Inline SVG icons for critical UI (no JS overhead)
 const InlineIcons = {
@@ -1443,6 +1450,7 @@ const SiteApp: React.FC = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-indigo-50 to-purple-50">
       <SeoManager route={route} />
+      <a className="skip-link" href="#main-content">Skip to main content</a>
       {/* Navigation */}
       <nav className="fixed top-0 left-0 right-0 z-50 h-16 bg-white border-b border-slate-200 px-4">
         <div className="max-w-7xl mx-auto">
@@ -1504,7 +1512,9 @@ const SiteApp: React.FC = () => {
         )}
       </nav>
       <div className="h-16 shrink-0" aria-hidden="true" />
+      <main id="main-content" tabIndex={-1}>
       <SiteBreadcrumbs route={route} />
+      <Suspense fallback={<div role="status" className="py-16 text-center text-slate-600">Loading page…</div>}>
 
       {/* Blog routes */}
       {route === 'blog' && <BlogList />}
@@ -1863,7 +1873,7 @@ const SiteApp: React.FC = () => {
                       <span className="text-indigo-600 flex-shrink-0"><ToolIcon category={cat} className="w-5 h-5" /></span>
                       <h3 className="font-bold text-slate-900 text-sm group-hover:text-indigo-600 transition-colors truncate">{categoryLabels[cat]}</h3>
                     </span>
-                    <span className="text-xs text-slate-400 font-medium whitespace-nowrap">{count} tools</span>
+                    <span className="text-xs text-slate-500 font-medium whitespace-nowrap">{count} tools</span>
                   </div>
                   <p className="text-xs text-slate-500 leading-relaxed line-clamp-2 h-10">{categoryDescriptions[cat]}</p>
                 </a>
@@ -1940,6 +1950,9 @@ const SiteApp: React.FC = () => {
       </section>
       </>)}
 
+      </Suspense>
+      </main>
+
       {/* Footer — simple, lightweight */}
       <footer className={`bg-slate-900 text-white pt-10 pb-6 px-4 ${cms.state.sections.footer ? '' : 'hidden'}`}>
         <div className="max-w-7xl mx-auto">
@@ -1982,7 +1995,7 @@ const SiteApp: React.FC = () => {
               ] },
             ].map(col => (
               <nav key={col.title} aria-label={col.title}>
-                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-4">{col.title}</h3>
+                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-4">{col.title}</h3>
                 <ul className="space-y-2.5">
                   {col.links.map(l => (
                     <li key={l.label}><a href={l.href} className="text-sm text-slate-400 hover:text-white transition-colors">{l.label}</a></li>
@@ -1991,7 +2004,7 @@ const SiteApp: React.FC = () => {
               </nav>
             ))}
             <nav aria-label="Legal">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-4">Legal</h3>
+              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-4">Legal</h3>
               <ul className="space-y-2.5">
                 <li><a href="/privacy-policy" className="text-sm text-slate-400 hover:text-white transition-colors">Privacy Policy</a></li>
                 <li><a href="/cookie-policy" className="text-sm text-slate-400 hover:text-white transition-colors">Cookie Policy</a></li>
@@ -2002,7 +2015,7 @@ const SiteApp: React.FC = () => {
           </div>
 
           {/* Bottom bar */}
-          <div className="border-t border-slate-800 pt-6 text-xs text-slate-500">
+          <div className="border-t border-slate-800 pt-6 text-xs text-slate-400">
             <p>© {new Date().getFullYear()} EKSTRUH LTD · Trading as {cms.state.settings.domain}. All rights reserved.</p>
           </div>
         </div>
@@ -2129,7 +2142,7 @@ const CookieConsent: React.FC<{ prefsOpen: boolean; onPrefsOpen: (v: boolean) =>
         <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl border border-slate-200 overflow-hidden">
           <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
             <h2 className="font-bold text-slate-900">Manage cookie preferences</h2>
-            <button type="button" onClick={() => onPrefsOpen(false)} aria-label="Close cookie preferences" className="text-slate-400 hover:text-slate-600 text-xl leading-none">&times;</button>
+            <button type="button" onClick={() => onPrefsOpen(false)} aria-label="Close cookie preferences" className="cookie-close text-slate-500 hover:text-slate-600 text-xl leading-none">&times;</button>
           </div>
           <div className="px-5 py-2 divide-y divide-slate-100">
             <CookieToggle title="Essential" description="Required for the site to work and to remember your choices. Always on." checked locked />

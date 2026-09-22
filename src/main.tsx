@@ -1,5 +1,5 @@
 import { StrictMode } from "react";
-import { createRoot } from "react-dom/client";
+import { createRoot, hydrateRoot } from "react-dom/client";
 import "./index.css";
 import App from "./App";
 import { normalizeLegacyUrl, startRouter } from "./router";
@@ -13,8 +13,18 @@ import { normalizeLegacyUrl, startRouter } from "./router";
 normalizeLegacyUrl();
 startRouter();
 
-createRoot(document.getElementById("root")!).render(
+const root = document.getElementById("root")!;
+const app = (
   <StrictMode>
     <App />
   </StrictMode>
 );
+
+if (root.hasAttribute('data-prerender') && document.documentElement.hasAttribute('data-prerender-home')) {
+  hydrateRoot(root, app);
+} else {
+  // Do not display default homepage content on deep links or over a saved CMS.
+  root.replaceChildren();
+  createRoot(root).render(app);
+}
+root.removeAttribute('data-prerender');

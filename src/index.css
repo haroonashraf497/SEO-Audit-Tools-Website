@@ -139,3 +139,21 @@ svg {
   color: #94a3b8;
   pointer-events: none;
 }
+
+/* Keyboard-only affordance: does not alter the normal layout or branding. */
+.skip-link {
+  position: fixed;
+  top: .5rem;
+  left: .5rem;
+  z-index: 100;
+  transform: translateY(-200%);
+  padding: .75rem 1rem;
+  border-radius: .5rem;
+  color: #fff;
+  background: #4338ca;
+}
+.skip-link:focus { transform: translateY(0); }
+
+/* Enlarge the close button's hit area without moving neighbouring content. */
+.cookie-close { position: relative; }
+.cookie-close::after { content: ''; position: absolute; inset: -12px; }

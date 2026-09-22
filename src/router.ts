@@ -26,9 +26,7 @@ const listeners = new Set<RouteListener>();
 
 /** Current URL path, normalised (no /index.html, no trailing slash). */
 export const currentPath = (): string => {
-  let p = window.location.pathname.replace(/\/index\.html$/i, '').replace(/\/{2,}/g, '/');
-  if (p.length > 1 && p.endsWith('/')) p = p.replace(/\/+$/, '');
-  return p || '/';
+  return cleanPath(window.location.pathname);
 };
 
 /** Normalise a path: drops /index.html, the legacy /p/ page prefix,
@@ -67,23 +65,15 @@ export const getRoute = (): string => {
  */
 export const cleanHref = (href: string): string | null => {
   const h = (href ?? '').trim();
-  if (!h) return null;
-  if (/^[a-z][a-z0-9+.-]*:/i.test(h) || h.startsWith('//')) return null; // external
-  if (h.startsWith('#')) {
-    const raw = h.slice(1);
-    if (!raw.startsWith('/')) return null; // in-page anchor → native scroll
-    const qIdx = raw.indexOf('?');
-    const path = qIdx === -1 ? raw : raw.slice(0, qIdx);
-    const query = qIdx === -1 ? '' : raw.slice(qIdx);
-    return cleanPath(path) + query;
-  }
+  if (!h || (h.startsWith('#') && !h.startsWith('#/'))) return null;
   let u: URL;
   try {
-    u = new URL(h, window.location.origin);
+    // Resolve relative links just as the browser does (including nested routes).
+    u = new URL(h.startsWith('#/') ? h.slice(1) : h, window.location.href);
   } catch {
     return null;
   }
-  if (u.origin !== window.location.origin) return null;
+  if (u.origin !== window.location.origin || !/^https?:$/.test(u.protocol)) return null;
   return cleanPath(u.pathname) + u.search + u.hash;
 };
 
@@ -134,17 +124,15 @@ export const navigate = (to: string, opts: { replace?: boolean } = {}): void => 
  */
 export const normalizeLegacyUrl = (): void => {
   const { pathname, search, hash } = window.location;
-  if (hash && hash !== '#' && hash !== '#/') {
-    const raw = hash.slice(1);
-    const qIdx = raw.indexOf('?');
-    const path = qIdx === -1 ? raw : raw.slice(0, qIdx);
-    const query = qIdx === -1 ? search : raw.slice(qIdx);
-    const innerHash = path.includes('#') ? path.slice(path.indexOf('#')) : '';
-    window.history.replaceState(null, '', cleanPath(path) + query + innerHash);
+  // Only #/… is a legacy route. #features and other document fragments
+  // must survive reloads, bookmarks and "Open in new tab" unchanged.
+  if (hash.startsWith('#/')) {
+    const legacy = new URL(hash.slice(1), window.location.origin);
+    window.history.replaceState(null, '', cleanPath(legacy.pathname) + (legacy.search || search) + legacy.hash);
     return;
   }
-  const next = cleanPath(pathname) + search;
-  if (next !== pathname + search) window.history.replaceState(null, '', next);
+  const next = cleanPath(pathname) + search + hash;
+  if (next !== pathname + search + hash) window.history.replaceState(null, '', next);
 };
 
 let started = false;
