@@ -511,7 +511,7 @@ export const PageSpeedTool: React.FC = () => {
             </div>
             <Card title={`Recommendations (${recs.length})`} right={<Live ms={d.fetchMs} />}>
               {recs.length ? <ul className="space-y-2 text-sm text-slate-700">{recs.map(r => <li key={r} className="flex gap-2"><span className="text-indigo-500">▸</span>{r}</li>)}</ul> : <p className="text-sm text-emerald-600 font-semibold">No obvious front-end bottlenecks detected in the HTML.</p>}
-              <p className="text-xs text-slate-400 mt-4">Timing measures the HTML document only (via proxy). For full Core Web Vitals (LCP/INP/CLS) use field data from PageSpeed Insights; read our <a href="#/blog/pagespeed-lab-vs-field-data" className="underline">lab vs field guide</a>.</p>
+              <p className="text-xs text-slate-400 mt-4">Timing measures the HTML document only (via proxy). For full Core Web Vitals (LCP/INP/CLS) use field data from PageSpeed Insights; read our <a href="/blog/pagespeed-lab-vs-field-data" className="underline">lab vs field guide</a>.</p>
             </Card>
           </>
         );

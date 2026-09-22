@@ -15,12 +15,27 @@ RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
 RewriteCond %{HTTP_HOST} ^www\.seoaudittools\.pk$ [NC]
 RewriteRule ^ https://seoaudittools.pk%{REQUEST_URI} [L,R=301]
 
-# Real files (index.html, robots.txt, sitemap.xml, og.jpg, favicon, assets)
+# ---- Canonicalise legacy URL shapes (301) ----
+# Old block-based pages lived at /p/<slug>; they now live at /<slug>.
+RewriteRule ^p/([a-z0-9-]+)/?$ /$1 [R=301,L]
+# The bare /tool path moved to /tools.
+RewriteRule ^tool$ /tools [R=301,L]
+# /index.html is the same document as the site root.
+RewriteRule ^index\.html$ / [R=301,L]
+# Collapse duplicated slashes (/tools// → /tools).
+RewriteCond %{REQUEST_URI} ^(.+?)//(.+)$
+RewriteRule ^ %{ENV:CLEANPATH} [NE,R=301,L]
+# Drop trailing slashes from route paths (/tools/ → /tools).
+RewriteRule ^(.+)/$ /$1 [R=301,L]
+# Note: old hash URLs (https://seoaudittools.pk/#/about) never reach the
+# server — the app rewrites them to clean paths in the browser on load.
+
+# Real files (robots.txt, sitemap.xml, og.jpg, favicon, assets)
 RewriteCond %{REQUEST_FILENAME} -f [OR]
 RewriteCond %{REQUEST_FILENAME} -d
 RewriteRule ^ - [L]
 
-# All other paths serve the app so /tools, /p/contact, /blog, /tool/… still work.
+# All other paths serve the app so /tools, /contact, /blog, /tool/… work.
 RewriteRule ^ index.html [L]
 
 <IfModule mod_headers.c>
@@ -45,4 +60,6 @@ RewriteRule ^ index.html [L]
   ExpiresByType image/svg+xml "access plus 30 days"
 </IfModule>
 
+# Unknown paths still load the app shell; the router shows its 404 page
+# (with a noindex robots meta) for anything that is not a real route.
 ErrorDocument 404 /index.html

@@ -6,11 +6,12 @@ import { categoryDescriptions, categoryLabels, ToolIcon } from './tools/data';
 import { fetchPageData, type LivePageData } from './utils/pageFetch';
 import { fetchDomainInfo, type DomainInfo } from './utils/domainLookup';
 import { sanitizeRichHtml } from './utils/sanitize';
-import { CmsProvider, useCms, liveTools, livePosts, findPage } from './cms/store';
+import { CmsProvider, useCms, liveTools, livePosts, findPage, blocksToHtml } from './cms/store';
 import { AdminApp } from './cms/Admin';
 import { AdminLoginPage, AdminResetPage } from './cms/AdminLogin';
 import SerpPreview from './components/SerpPreview';
 import { SeoManager } from './utils/seo';
+import { cleanHref, getRoute, navigate, rewriteLegacyLinks, subscribe } from './router';
 
 // Inline SVG icons for critical UI (no JS overhead)
 const InlineIcons = {
@@ -1266,20 +1267,9 @@ const AudienceIcon: React.FC<{ type: string }> = ({ type }) => {
   return <>{icons[type] || icons.globe}</>;
 };
 
-// Main App
-const getRoute = (): string => {
-  const hash = window.location.hash.split('?')[0]; // ignore query params like #/tools?q=seo
-  if (hash.startsWith('#/blog/')) return hash.slice(2); // "blog/slug"
-  if (hash === '#/blog') return 'blog';
-  if (hash.startsWith('#/tool/')) return hash.slice(2); // "tool/slug"
-  if (hash === '#/tools') return 'tools';
-  if (hash === '#/admin') return 'admin';
-  if (hash === '#/admin-login') return 'admin-login';
-  if (hash === '#/admin-reset') return 'admin-reset';
-  if (hash === '#/competitor-analysis') return 'competitor-analysis';
-  if (hash.startsWith('#/p/')) return hash.slice(2); // "p/slug"
-  return 'home';
-};
+// Routing lives in src/router.ts — the route is derived from the clean URL
+// pathname (/tools, /blog/slug, /about, …). Legacy #/ hash links are rewritten
+// to it before the first render, and .htaccess 301s the old /p/… paths.
 
 // Footer social links — placeholder platform URLs, replace with real profiles.
 const footerSocials = [
@@ -1291,19 +1281,19 @@ type Crumb = { label: string; href?: string };
 const SiteBreadcrumbs: React.FC<{ route: string }> = ({ route }) => {
   const { state } = useCms();
   const crumbs: Crumb[] = (() => {
-    const home: Crumb = { label: 'Home', href: '#/' };
+    const home: Crumb = { label: 'Home', href: '/' };
     if (route === 'home') return [];
     if (route === 'tools') return [home, { label: 'Free SEO Tools' }];
     if (route.startsWith('tool/')) {
       const tool = state.tools.find(t => t.slug === route.slice(5));
       const catLabel = tool ? (categoryLabels[tool.category] || 'Free SEO Tools') : 'Free SEO Tools';
-      const catHref = tool ? `#/tools?cat=${tool.category}` : '#/tools';
+      const catHref = tool ? `/tools?cat=${tool.category}` : '/tools';
       return [home, { label: catLabel, href: catHref }, { label: tool?.name || 'Tool' }];
     }
     if (route === 'blog') return [home, { label: 'Blog' }];
     if (route.startsWith('blog/')) {
       const post = state.posts.find(p => p.slug === route.slice(5));
-      return [home, { label: 'Blog', href: '#/blog' }, { label: post?.title || 'Article' }];
+      return [home, { label: 'Blog', href: '/blog' }, { label: post?.title || 'Article' }];
     }
     if (route === 'competitor-analysis') return [home, { label: 'Competitor Analysis' }];
     if (route.startsWith('p/')) {
@@ -1352,28 +1342,30 @@ const SiteApp: React.FC = () => {
   const [route, setRoute] = useState<string>(getRoute);
 
   useEffect(() => {
-    const onHashChange = () => {
-      setRoute(getRoute());
+    // Follow clean-URL navigation (intercepted link clicks + back/forward).
+    return subscribe(r => {
+      setRoute(r);
       setMobileMenuOpen(false);
-    };
-    window.addEventListener('hashchange', onHashChange);
-    return () => window.removeEventListener('hashchange', onHashChange);
+    });
   }, []);
 
   useEffect(() => {
-    if (route === 'admin' && !cms.loggedIn) window.location.hash = '#/admin-login';
-    else if (route === 'admin-login' && cms.loggedIn) window.location.hash = '#/admin';
+    if (route === 'admin' && !cms.loggedIn) navigate('/admin-login');
+    else if (route === 'admin-login' && cms.loggedIn) navigate('/admin');
   }, [route, cms.loggedIn]);
 
   useEffect(() => {
-    const raw = window.location.hash.split('?')[0];
-    if (!raw || raw.startsWith('#/')) {
-      window.scrollTo(0, 0);
-      return;
+    // Plain in-page fragments (#features, #audiences) scroll to their section;
+    // every other navigation starts from the top.
+    const frag = window.location.hash.slice(1);
+    if (frag) {
+      const el = document.getElementById(frag);
+      if (el) {
+        el.scrollIntoView();
+        return;
+      }
     }
-    const el = document.getElementById(raw.slice(1));
-    if (el) el.scrollIntoView();
-    else window.scrollTo(0, 0);
+    window.scrollTo(0, 0);
   }, [route]);
 
   const isBlog = route === 'blog' || route.startsWith('blog/');
@@ -1455,7 +1447,7 @@ const SiteApp: React.FC = () => {
       <nav className="fixed top-0 left-0 right-0 z-50 h-16 bg-white border-b border-slate-200 px-4">
         <div className="max-w-7xl mx-auto">
           <div className="flex items-center justify-between h-16">
-            <a href="#/" className="flex items-center gap-2">
+            <a href="/" className="flex items-center gap-2">
               <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center text-white">
                 <InlineIcons.BarChart3 />
               </div>
@@ -1465,15 +1457,18 @@ const SiteApp: React.FC = () => {
             </a>
 
             <div className="hidden md:flex items-center gap-7">
-              <a href="#/" className={`transition-colors ${route === 'home' ? 'text-indigo-600 font-semibold' : 'text-slate-600 hover:text-indigo-600'}`}>Home</a>
-              {cms.state.nav.filter(n => n.visible && (!(n.href || '').includes('/admin') || cms.loggedIn)).map(n => (
-                <a key={n.id} href={n.href} className={`transition-colors ${(isTools && n.href.includes('tools')) || (isBlog && n.href.includes('blog')) || n.href.includes('competitor') ? 'text-indigo-600 font-semibold' : 'text-slate-600 hover:text-indigo-600'}`}>{n.label}</a>
-              ))}
-              <a href="#/competitor-analysis" className={`transition-colors ${route === 'competitor-analysis' ? 'text-indigo-600 font-semibold' : 'text-slate-600 hover:text-indigo-600'}`}>Competitor Analysis</a>
+              <a href="/" className={`transition-colors ${route === 'home' ? 'text-indigo-600 font-semibold' : 'text-slate-600 hover:text-indigo-600'}`}>Home</a>
+              {cms.state.nav.filter(n => n.visible && (!(n.href || '').includes('/admin') || cms.loggedIn)).map(n => {
+                const href = cleanHref(n.href) || n.href;
+                return (
+                  <a key={n.id} href={href} className={`transition-colors ${(isTools && href.includes('tools')) || (isBlog && href.includes('blog')) || href.includes('competitor') ? 'text-indigo-600 font-semibold' : 'text-slate-600 hover:text-indigo-600'}`}>{n.label}</a>
+                );
+              })}
+              <a href="/competitor-analysis" className={`transition-colors ${route === 'competitor-analysis' ? 'text-indigo-600 font-semibold' : 'text-slate-600 hover:text-indigo-600'}`}>Competitor Analysis</a>
               {cms.loggedIn && (
                 <>
-                  <a href="#/admin" className="text-slate-600 hover:text-indigo-600 transition-colors" title="Content manager">Admin</a>
-                  <button type="button" onClick={() => { cms.logout(); window.location.hash = '#/'; }} className="text-slate-600 hover:text-indigo-600 transition-colors">Log Out</button>
+                  <a href="/admin" className="text-slate-600 hover:text-indigo-600 transition-colors" title="Content manager">Admin</a>
+                  <button type="button" onClick={() => { cms.logout(); navigate('/'); }} className="text-slate-600 hover:text-indigo-600 transition-colors">Log Out</button>
                 </>
               )}
             </div>
@@ -1493,15 +1488,15 @@ const SiteApp: React.FC = () => {
         {mobileMenuOpen && (
           <div className="md:hidden bg-white border-t border-slate-200 py-4 -mx-4 px-4">
             <div className="flex flex-col gap-4">
-              <a href="#/" className={`transition-colors ${route === 'home' ? 'text-indigo-600 font-semibold' : 'text-slate-600 hover:text-indigo-600'}`} onClick={() => setMobileMenuOpen(false)}>Home</a>
+              <a href="/" className={`transition-colors ${route === 'home' ? 'text-indigo-600 font-semibold' : 'text-slate-600 hover:text-indigo-600'}`} onClick={() => setMobileMenuOpen(false)}>Home</a>
               {cms.state.nav.filter(n => n.visible && (!(n.href || '').includes('/admin') || cms.loggedIn)).map(n => (
-                <a key={n.id} href={n.href} className="text-slate-600 hover:text-indigo-600" onClick={() => setMobileMenuOpen(false)}>{n.label}</a>
+                <a key={n.id} href={cleanHref(n.href) || n.href} className="text-slate-600 hover:text-indigo-600" onClick={() => setMobileMenuOpen(false)}>{n.label}</a>
               ))}
-              <a href="#/competitor-analysis" className={`transition-colors ${route === 'competitor-analysis' ? 'text-indigo-600 font-semibold' : 'text-slate-600 hover:text-indigo-600'}`} onClick={() => setMobileMenuOpen(false)}>Competitor Analysis</a>
+              <a href="/competitor-analysis" className={`transition-colors ${route === 'competitor-analysis' ? 'text-indigo-600 font-semibold' : 'text-slate-600 hover:text-indigo-600'}`} onClick={() => setMobileMenuOpen(false)}>Competitor Analysis</a>
               {cms.loggedIn && (
                 <>
-                  <a href="#/admin" className="text-slate-600 hover:text-indigo-600" onClick={() => setMobileMenuOpen(false)}>Admin</a>
-                  <button type="button" onClick={() => { cms.logout(); setMobileMenuOpen(false); window.location.hash = '#/'; }} className="text-left text-slate-600 hover:text-indigo-600">Log Out</button>
+                  <a href="/admin" className="text-slate-600 hover:text-indigo-600" onClick={() => setMobileMenuOpen(false)}>Admin</a>
+                  <button type="button" onClick={() => { cms.logout(); setMobileMenuOpen(false); navigate('/'); }} className="text-left text-slate-600 hover:text-indigo-600">Log Out</button>
                 </>
               )}
             </div>
@@ -1524,6 +1519,7 @@ const SiteApp: React.FC = () => {
       {route === 'admin-login' && <AdminLoginPage />}
       {route === 'admin-reset' && <AdminResetPage />}
       {route.startsWith('p/') && <CmsPageView slug={route.slice(2)} />}
+      {route === 'notfound' && <NotFoundView />}
 
       {/* Competitor Analysis */}
       {route === 'competitor-analysis' && (
@@ -1846,7 +1842,7 @@ const SiteApp: React.FC = () => {
 
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4 mb-10 items-stretch">
             {visibleTools.filter(t => t.custom ? false : ['plagiarism-checker', 'percentage-calculator', 'bmi-calculator', 'what-is-my-ip', 'keyword-density-checker', 'backlink-checker', 'unit-converter', 'website-seo-score-checker'].includes(t.slug)).slice(0, 8).map(t => (
-              <a key={t.slug} href={`#/tool/${t.slug}`}
+              <a key={t.slug} href={`/tool/${t.slug}`}
                 className="group h-full flex flex-col bg-white rounded-2xl border border-slate-200 p-5 shadow-sm hover:shadow-lg hover:border-indigo-200 transition-all">
                 <div className="flex items-center gap-3 mb-2 min-h-[1.25rem]">
                   <span className="text-indigo-600 flex-shrink-0"><ToolIcon category={t.category} className="w-5 h-5" /></span>
@@ -1861,7 +1857,7 @@ const SiteApp: React.FC = () => {
             {(['text', 'keyword', 'backlink', 'checker', 'domain', 'ip', 'management', 'pdf', 'image', 'calculator', 'converter'] as const).map(cat => {
               const count = visibleTools.filter(t => t.category === cat).length;
               return (
-                <a key={cat} href={`#/tools?cat=${cat}`} className="group h-full flex flex-col bg-white rounded-2xl border border-slate-200 p-5 shadow-sm hover:shadow-lg hover:border-indigo-200 transition-all">
+                <a key={cat} href={`/tools?cat=${cat}`} className="group h-full flex flex-col bg-white rounded-2xl border border-slate-200 p-5 shadow-sm hover:shadow-lg hover:border-indigo-200 transition-all">
                   <div className="flex items-center justify-between gap-3 mb-2 min-h-[1.25rem]">
                     <span className="flex items-center gap-3 min-w-0">
                       <span className="text-indigo-600 flex-shrink-0"><ToolIcon category={cat} className="w-5 h-5" /></span>
@@ -1876,7 +1872,7 @@ const SiteApp: React.FC = () => {
           </div>
 
           <div className="text-center mt-10">
-            <a href="#/tools" className="inline-block bg-gradient-to-r from-indigo-500 to-purple-600 text-white px-8 py-3.5 rounded-xl font-semibold hover:shadow-lg hover:shadow-indigo-500/25 transition-all">
+            <a href="/tools" className="inline-block bg-gradient-to-r from-indigo-500 to-purple-600 text-white px-8 py-3.5 rounded-xl font-semibold hover:shadow-lg hover:shadow-indigo-500/25 transition-all">
               Explore All {visibleTools.length} Free Tools
             </a>
           </div>
@@ -1897,17 +1893,17 @@ const SiteApp: React.FC = () => {
               <article key={article.slug} className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm hover:shadow-lg hover:border-indigo-200 transition-all flex flex-col">
                 <span className="text-xs font-semibold text-indigo-600 mb-3">{article.category}</span>
                 <h3 className="text-lg font-bold text-slate-900 leading-snug mb-3">
-                  <a href={`#/blog/${article.slug}`} className="hover:text-indigo-600 transition-colors">{article.title}</a>
+                  <a href={`/blog/${article.slug}`} className="hover:text-indigo-600 transition-colors">{article.title}</a>
                 </h3>
                 <p className="text-sm text-slate-600 leading-relaxed mb-4 flex-1">{article.excerpt}</p>
-                <a href={`#/blog/${article.slug}`} className="text-sm font-semibold text-indigo-600 hover:text-indigo-700">
+                <a href={`/blog/${article.slug}`} className="text-sm font-semibold text-indigo-600 hover:text-indigo-700">
                   Read article →
                 </a>
               </article>
             ))}
           </div>
           <div className="text-center mt-10">
-            <a href="#/blog" className="inline-block bg-white text-slate-700 px-8 py-3 rounded-xl font-semibold border border-slate-300 hover:bg-slate-50 hover:border-indigo-300 transition-colors">
+            <a href="/blog" className="inline-block bg-white text-slate-700 px-8 py-3 rounded-xl font-semibold border border-slate-300 hover:bg-slate-50 hover:border-indigo-300 transition-colors">
               View all articles
             </a>
           </div>
@@ -1949,7 +1945,7 @@ const SiteApp: React.FC = () => {
         <div className="max-w-7xl mx-auto">
           {/* Brand + social icons */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-5 pb-8 border-b border-slate-800">
-            <a href="#/" className="flex items-center gap-2.5">
+            <a href="/" className="flex items-center gap-2.5">
               <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center text-white">
                 <InlineIcons.BarChart3 />
               </div>
@@ -1971,18 +1967,18 @@ const SiteApp: React.FC = () => {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8 py-10">
             {[
               { title: 'SEO Tools', links: [
-                { label: 'Free SEO Audit', href: '#/' },
-                { label: 'Free SEO Tools', href: '#/tools' },
-                { label: 'Competitor Analysis', href: '#/competitor-analysis' },
+                { label: 'Free SEO Audit', href: '/' },
+                { label: 'Free SEO Tools', href: '/tools' },
+                { label: 'Competitor Analysis', href: '/competitor-analysis' },
               ] },
               { title: 'Resources', links: [
-                { label: 'Blog', href: '#/blog' },
-                { label: 'FAQ', href: '#/p/faq' },
-                { label: "Who It's For", href: '#audiences' },
+                { label: 'Blog', href: '/blog' },
+                { label: 'FAQ', href: '/faq' },
+                { label: "Who It's For", href: '/#audiences' },
               ] },
               { title: 'Company', links: [
-                { label: 'About', href: '#/p/about' },
-                { label: 'Contact', href: '#/p/contact' },
+                { label: 'About', href: '/about' },
+                { label: 'Contact', href: '/contact' },
               ] },
             ].map(col => (
               <nav key={col.title} aria-label={col.title}>
@@ -1997,9 +1993,9 @@ const SiteApp: React.FC = () => {
             <nav aria-label="Legal">
               <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-4">Legal</h3>
               <ul className="space-y-2.5">
-                <li><a href="#/p/privacy-policy" className="text-sm text-slate-400 hover:text-white transition-colors">Privacy Policy</a></li>
-                <li><a href="#/p/cookie-policy" className="text-sm text-slate-400 hover:text-white transition-colors">Cookie Policy</a></li>
-                <li><a href="#/p/terms-of-service" className="text-sm text-slate-400 hover:text-white transition-colors">Terms &amp; Conditions</a></li>
+                <li><a href="/privacy-policy" className="text-sm text-slate-400 hover:text-white transition-colors">Privacy Policy</a></li>
+                <li><a href="/cookie-policy" className="text-sm text-slate-400 hover:text-white transition-colors">Cookie Policy</a></li>
+                <li><a href="/terms-of-service" className="text-sm text-slate-400 hover:text-white transition-colors">Terms &amp; Conditions</a></li>
                 <li><button type="button" onClick={() => setCookiePrefsOpen(true)} className="text-sm text-slate-400 hover:text-white transition-colors underline decoration-dotted underline-offset-4">Cookie preferences</button></li>
               </ul>
             </nav>
@@ -2020,6 +2016,9 @@ const SiteApp: React.FC = () => {
 
 
 // ---------- Custom CMS page renderer ----------
+// Pages are edited as a single rich-text document. Legacy block-based pages
+// are converted once at load time (withPageContent), and any stored
+// #/… links are rewritten to clean paths at render time.
 const CmsPageView: React.FC<{ slug: string }> = ({ slug }) => {
   const { state } = useCms();
   const page = findPage(state, slug);
@@ -2031,10 +2030,11 @@ const CmsPageView: React.FC<{ slug: string }> = ({ slug }) => {
       <div className="pt-10 pb-24 px-4 text-center min-h-screen">
         <h1 className="text-3xl font-bold text-slate-900 mb-3">Page not available</h1>
         <p className="text-slate-600 mb-6">This page has not been published yet.</p>
-        <Btn href="#/" />
+        <Btn href="/" />
       </div>
     );
   }
+  const html = rewriteLegacyLinks(sanitizeRichHtml(page.content || blocksToHtml(page.blocks || [])));
   return (
     <section className="pt-10 pb-20 px-4 bg-white min-h-screen">
       <div className="max-w-7xl mx-auto w-full">
@@ -2045,32 +2045,25 @@ const CmsPageView: React.FC<{ slug: string }> = ({ slug }) => {
           </figure>
         )}
         <div className="w-full">
-          {page.blocks.map(b => {
-            if (b.type === 'heading') return b.level === 2
-              ? <h2 key={b.id} className="text-2xl font-bold text-slate-900 mt-8 mb-3 first:mt-0">{b.text}</h2>
-              : <h3 key={b.id} className="text-xl font-bold text-slate-900 mt-6 mb-2">{b.text}</h3>;
-            if (b.type === 'text') return <div key={b.id} className="rich-text text-slate-700 leading-relaxed my-4" dangerouslySetInnerHTML={{ __html: sanitizeRichHtml(b.text) }} />;
-            if (b.type === 'list') return <ul key={b.id} className="my-5 space-y-2">{b.items.map((it, i) => <li key={i} className="flex gap-3 text-slate-700"><span className="mt-2.5 w-1.5 h-1.5 rounded-full bg-indigo-500 flex-shrink-0" />{it}</li>)}</ul>;
-            if (b.type === 'table') return (
-              <div key={b.id} className="my-5 overflow-x-auto rounded-xl border border-slate-200">
-                <table className="w-full text-sm">
-                  <thead><tr className="bg-slate-50 text-left text-[11px] uppercase tracking-wide text-slate-500">{b.head.map((h, hi) => <th key={hi} className="px-3 py-2.5 border-b border-slate-200 whitespace-nowrap">{h}</th>)}</tr></thead>
-                  <tbody className="divide-y divide-slate-100">{b.rows.map((row, ri) => <tr key={ri} className={ri % 2 ? 'bg-slate-50/60' : 'bg-white'}>{row.map((cell, ci) => <td key={ci} className={`px-3 py-2.5 align-top ${ci === 0 ? 'font-mono text-xs text-slate-800 whitespace-nowrap' : 'text-slate-600'}`}>{cell}</td>)}</tr>)}</tbody>
-                </table>
-              </div>
-            );
-            return (
-              <div key={b.id} className="mt-8 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl p-6 text-white">
-                {b.text && <p className="mb-4">{b.text}</p>}
-                <a href={b.href} className="inline-block bg-white text-indigo-600 px-6 py-3 rounded-xl font-bold text-sm hover:shadow-lg transition-shadow">{b.label}</a>
-              </div>
-            );
-          })}
+          <div className="rich-text text-slate-700 leading-relaxed" dangerouslySetInnerHTML={{ __html: html }} />
         </div>
       </div>
     </section>
   );
 };
+
+// ---------- 404 for unknown paths ----------
+const NotFoundView: React.FC = () => (
+  <div className="pt-10 pb-24 px-4 text-center min-h-screen bg-white">
+    <p className="text-6xl font-extrabold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent mb-4">404</p>
+    <h1 className="text-3xl font-bold text-slate-900 mb-3">Page not found</h1>
+    <p className="text-slate-600 mb-8 max-w-md mx-auto">The page you are looking for does not exist or has been moved. Head back to the free SEO audit tool.</p>
+    <div className="flex items-center justify-center gap-3">
+      <Btn href="/" />
+      <a href="/tools" className="inline-block bg-white text-slate-700 px-6 py-3 rounded-xl font-semibold border border-slate-300 hover:bg-slate-50 transition-colors">Browse tools</a>
+    </div>
+  </div>
+);
 
 const Btn: React.FC<{ href: string }> = ({ href }) => <a href={href} className="inline-block bg-gradient-to-r from-indigo-500 to-purple-600 text-white px-6 py-3 rounded-xl font-semibold">Back to the audit tool</a>;
 
@@ -2145,7 +2138,7 @@ const CookieConsent: React.FC<{ prefsOpen: boolean; onPrefsOpen: (v: boolean) =>
             <CookieToggle title="Affiliate tracking" description="Credits referrals when you click partner links, at no cost to you." checked={draft.affiliate} onChange={v => setDraft(d => ({ ...d, affiliate: v }))} />
           </div>
           <div className="px-5 py-4 border-t border-slate-100 bg-slate-50 flex flex-col sm:flex-row items-center justify-between gap-3">
-            <a href="#/p/cookie-policy" onClick={() => onPrefsOpen(false)} className="text-xs font-semibold text-indigo-600 hover:underline">Read our Cookie Policy</a>
+            <a href="/cookie-policy" onClick={() => onPrefsOpen(false)} className="text-xs font-semibold text-indigo-600 hover:underline">Read our Cookie Policy</a>
             <button type="button" autoFocus onClick={() => save(draft)} className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-bold text-sm hover:shadow-lg transition-shadow">Save Preferences</button>
           </div>
         </div>
@@ -2159,7 +2152,7 @@ const CookieConsent: React.FC<{ prefsOpen: boolean; onPrefsOpen: (v: boolean) =>
               <h2 className="text-sm font-bold text-slate-900">We use cookies</h2>
               <p className="text-xs sm:text-[13px] text-slate-600 mt-1 leading-relaxed">
                 We use essential cookies to make our site work. With your consent, we may also use analytics, advertising, and affiliate tracking cookies to improve your experience and understand how visitors use our site.{' '}
-                <a href="#/p/cookie-policy" className="font-semibold text-indigo-600 hover:underline">Read our Cookie Policy</a>.
+                <a href="/cookie-policy" className="font-semibold text-indigo-600 hover:underline">Read our Cookie Policy</a>.
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-2 flex-shrink-0">

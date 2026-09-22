@@ -159,7 +159,7 @@ export const resolvePageSeo = (route: string, cms: CmsState): PageSeo => {
           '@type': 'ListItem',
           position: i + 1,
           name: t.name,
-          url: `${origin}/#/tool/${t.slug}`,
+          url: `${origin}/tool/${t.slug}`,
         })),
       },
     };
@@ -181,7 +181,7 @@ export const resolvePageSeo = (route: string, cms: CmsState): PageSeo => {
     const seo = cms.seo[`tool:${tool.slug}`];
     const title = seo?.title || `${tool.name} — Free Online Tool | ${brand}`;
     const description = seo?.description || tool.description;
-    const url = `${origin}/#/tool/${tool.slug}`;
+    const url = `${origin}/tool/${tool.slug}`;
     return {
       title,
       description,
@@ -212,7 +212,7 @@ export const resolvePageSeo = (route: string, cms: CmsState): PageSeo => {
         '@type': 'Blog',
         name: `${brand} Blog`,
         description,
-        url: `${origin}/#/blog`,
+        url: `${origin}/blog`,
         publisher: { '@id': `${origin}/#organization` },
       },
     };
@@ -252,7 +252,7 @@ export const resolvePageSeo = (route: string, cms: CmsState): PageSeo => {
         datePublished: post.date,
         author: { '@type': 'Organization', name: post.author || brand },
         publisher: { '@id': `${origin}/#organization` },
-        mainEntityOfPage: `${origin}/#/blog/${post.slug}`,
+        mainEntityOfPage: `${origin}/blog/${post.slug}`,
         keywords: (post.keywords || []).join(', '),
         ...(post.featuredImage ? { image: post.featuredImage } : {}),
       },
@@ -266,7 +266,7 @@ export const resolvePageSeo = (route: string, cms: CmsState): PageSeo => {
       return {
         title: `Page not available | ${brand}`,
         description: 'This page has not been published yet.',
-        path: `/p/${slug}`,
+        path: `/${slug}`,
         origin,
         noindex: true,
         image: og,
@@ -278,7 +278,7 @@ export const resolvePageSeo = (route: string, cms: CmsState): PageSeo => {
     return {
       title,
       description,
-      path: `/p/${page.slug}`,
+      path: `/${page.slug}`,
       origin,
       noindex: seo?.noindex,
       canonicalOverride: seo?.slug,
@@ -289,7 +289,7 @@ export const resolvePageSeo = (route: string, cms: CmsState): PageSeo => {
         '@type': 'WebPage',
         name: page.title,
         description,
-        url: `${origin}/#/p/${page.slug}`,
+        url: `${origin}/${page.slug}`,
         isPartOf: { '@id': `${origin}/#website` },
         publisher: { '@id': `${origin}/#organization` },
       },
@@ -308,7 +308,19 @@ export const resolvePageSeo = (route: string, cms: CmsState): PageSeo => {
       noindex: seo?.noindex,
       canonicalOverride: seo?.slug,
       image: og,
-      jsonLd: webAppNode(origin, 'SEO Competitor Analysis', description, `${origin}/#/competitor-analysis`),
+      jsonLd: webAppNode(origin, 'SEO Competitor Analysis', description, `${origin}/competitor-analysis`),
+    };
+  }
+
+  if (route === 'notfound') {
+    return {
+      title: `Page not found | ${brand}`,
+      description: 'The page you are looking for does not exist or has been moved. Head back to the free SEO audit tool.',
+      path: '/',
+      origin,
+      noindex: true,
+      canonicalOverride: '/',
+      image: og,
     };
   }
 

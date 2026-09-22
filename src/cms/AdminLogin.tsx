@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useCms } from './store';
 import { getAdminCreds, issuePasswordReset, peekPasswordReset, consumePasswordReset } from './auth';
+import { navigate } from '../router';
 
 const fieldCls = 'w-full px-3.5 py-3 rounded-xl border border-slate-300 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 bg-white';
 
@@ -14,7 +15,7 @@ const BrandMark: React.FC = () => (
 );
 
 export const AdminLoginPage: React.FC = () => {
-  const { login, loggedIn, state } = useCms();
+  const { login, state } = useCms();
   const [view, setView] = useState<'login' | 'forgot' | 'sent'>('login');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -25,20 +26,13 @@ export const AdminLoginPage: React.FC = () => {
   const [resetLink, setResetLink] = useState('');
   const [busy, setBusy] = useState(false);
 
-  useEffect(() => {
-    if (loggedIn) window.location.hash = '#/admin';
-  }, [loggedIn]);
-
   const onLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setErr('');
     setBusy(true);
     const ok = await login(username.trim(), password, remember);
     setBusy(false);
-    if (ok) {
-      window.location.hash = '#/admin';
-      return;
-    }
+    if (ok) return; // the app shell redirects to /admin
     setErr('Incorrect username or password.');
   };
 
@@ -47,7 +41,7 @@ export const AdminLoginPage: React.FC = () => {
     setErr('');
     const token = issuePasswordReset(email, state.passcode);
     setInfo('If that email is registered, a reset link has been issued.');
-    setResetLink(token ? `#/admin-reset?token=${token}` : '');
+    setResetLink(token ? `/admin-reset?token=${token}` : '');
     setView('sent');
   };
 
@@ -116,7 +110,7 @@ export const AdminLoginPage: React.FC = () => {
 
 export const AdminResetPage: React.FC = () => {
   const { setPasscode, loggedIn } = useCms();
-  const token = new URLSearchParams(window.location.hash.includes('?') ? window.location.hash.slice(window.location.hash.indexOf('?') + 1) : '').get('token') || '';
+  const token = new URLSearchParams(window.location.search).get('token') || '';
   const valid = !!token && peekPasswordReset(token);
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
@@ -124,7 +118,7 @@ export const AdminResetPage: React.FC = () => {
   const [done, setDone] = useState(false);
 
   useEffect(() => {
-    if (loggedIn && !valid) window.location.hash = '#/admin';
+    if (loggedIn && !valid) navigate('/admin');
   }, [loggedIn, valid]);
 
   const onSubmit = async (e: React.FormEvent) => {
@@ -145,13 +139,13 @@ export const AdminResetPage: React.FC = () => {
           <>
             <h1 className="text-2xl font-bold text-slate-900 mb-2">Password updated</h1>
             <p className="text-sm text-slate-600 mb-6">You can now sign in with your new password.</p>
-            <a href="#/admin-login" className="inline-flex w-full justify-center py-3 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-bold text-sm">Sign In</a>
+            <a href="/admin-login" className="inline-flex w-full justify-center py-3 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-bold text-sm">Sign In</a>
           </>
         ) : !valid ? (
           <>
             <h1 className="text-2xl font-bold text-slate-900 mb-2">Reset link expired</h1>
             <p className="text-sm text-slate-600 mb-6">That link is invalid or has expired. Request a new one from the login page.</p>
-            <a href="#/admin-login" className="text-sm font-semibold text-indigo-600 hover:underline">Back to sign in</a>
+            <a href="/admin-login" className="text-sm font-semibold text-indigo-600 hover:underline">Back to sign in</a>
           </>
         ) : (
           <form onSubmit={onSubmit}>

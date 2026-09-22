@@ -4,6 +4,7 @@ import {
   type ToolDef, type ToolCategory,
 } from './data';
 import { useCms } from '../cms/store';
+import { subscribe } from '../router';
 import { buildReport, type SimReport, type RowStatus, Seeded } from './simulator';
 import { fetchPageData } from '../utils/pageFetch';
 import { WhatIsMyIp, IpLocationTool, ReverseIpTool, ProxyListTool, ClassCTool } from './IpTools';
@@ -426,24 +427,22 @@ const DomainAvail: React.FC<{ tool: ToolDef }> = ({ tool }) => {
 };
 
 // ---------- Tools listing page ----------
-const readHashParams = () => {
-  const qs = window.location.hash.split('?')[1] || '';
-  const p = new URLSearchParams(qs);
+const readSearchParams = () => {
+  const p = new URLSearchParams(window.location.search);
   return { q: p.get('q') || '', cat: (p.get('cat') || 'all') as 'all' | ToolCategory };
 };
 
 export const ToolsList: React.FC = () => {
   const { state: cmsState } = useCms();
   const tools = useMemo<ToolDef[]>(() => cmsState.tools.filter(t => t.status === 'live') as unknown as ToolDef[], [cmsState.tools]);
-  const initial = readHashParams();
+  const initial = readSearchParams();
   const [query, setQuery] = useState(initial.q);
   const [activeCat, setActiveCat] = useState<'all' | ToolCategory>(initial.cat);
 
   // React to sidebar searches / breadcrumb category links while already on the index
   useEffect(() => {
-    const onHash = () => { if (window.location.hash.startsWith('#/tools')) { const p = readHashParams(); setQuery(p.q); setActiveCat(p.cat); } };
-    window.addEventListener('hashchange', onHash);
-    return () => window.removeEventListener('hashchange', onHash);
+    const onRoute = () => { const p = readSearchParams(); setQuery(p.q); setActiveCat(p.cat); };
+    return subscribe(onRoute);
   }, []);
 
   useEffect(() => {
@@ -515,7 +514,7 @@ export const ToolsList: React.FC = () => {
               </div>
               <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {list.map(t => (
-                  <a key={t.slug} href={`#/tool/${t.slug}`}
+                  <a key={t.slug} href={`/tool/${t.slug}`}
                     className="group bg-white rounded-2xl border border-slate-200 p-5 shadow-sm hover:shadow-lg hover:border-indigo-200 transition-all flex flex-col">
                     <div className="flex items-center justify-between mb-3">
                       <span className={`w-9 h-9 rounded-lg flex items-center justify-center border ${categoryStyles[t.category]}`}>
@@ -560,7 +559,7 @@ export const ToolPage: React.FC<{ slug: string }> = ({ slug }) => {
     return (
       <div className="pt-16 pb-20 px-4 text-center min-h-screen">
         <h1 className="text-3xl font-bold text-slate-900 mb-4">Tool not found</h1>
-        <a href="#/tools" className="text-indigo-600 font-semibold hover:underline">Browse all tools</a>
+        <a href="/tools" className="text-indigo-600 font-semibold hover:underline">Browse all tools</a>
       </div>
     );
   }
@@ -656,7 +655,7 @@ export const ToolPage: React.FC<{ slug: string }> = ({ slug }) => {
           <div className="bg-white rounded-2xl border border-slate-200 p-6">
             <p className="text-slate-700 leading-relaxed">{tool.description}</p>
           </div>
-          <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-4 text-sm text-indigo-900">This tool was added from the content manager. Edit its title, description, category and visibility at any time in <a href="#/admin" className="underline font-semibold">the CMS</a>.</div>
+          <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-4 text-sm text-indigo-900">This tool was added from the content manager. Edit its title, description, category and visibility at any time in <a href="/admin" className="underline font-semibold">the CMS</a>.</div>
         </div>
       );
     }

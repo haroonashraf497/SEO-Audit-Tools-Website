@@ -3,14 +3,13 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>SEO Audit Tools</title>
+    <meta name="robots" content="noindex" />
+    <title>Page not found — SEO Audit Tools</title>
     <script>
-      (function () {
-        var path = location.pathname.replace(/\/index\.html$/i, '').replace(/\/+$/, '') || '/';
-        if (path === '/404.html' || path === '/404') path = '/';
-        var hash = path === '/' ? '#/' : '#' + path;
-        location.replace('/' + hash + location.search);
-      })();
+      // Unknown path on a host that serves this file as its 404 page:
+      // go straight to the site root. Re-routing the unknown path would
+      // loop on hosts that serve 404.html for every missing URL.
+      location.replace('/');
     </script>
     <meta http-equiv="refresh" content="0; url=/" />
   </head>

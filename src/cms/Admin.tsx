@@ -1,8 +1,9 @@
 import React, { useMemo, useState } from 'react';
-import { useCms, type CmsPage, type CmsPost, type CmsTool, type PageBlock, type SeoEntry, type SidebarLinkSource, type SidebarWidget, type SidebarWidgetType, type Status } from './store';
+import { useCms, type CmsPage, type CmsPost, type CmsTool, type SeoEntry, type SidebarLinkSource, type SidebarWidget, type SidebarWidgetType, type Status } from './store';
 import { categoryLabels, categoryOrder, ToolIcon, type ToolCategory } from '../tools/data';
 import { RichTextEditor } from './RichTextEditor';
-import { clearDraft, draftId, formatDraftTime, listDrafts, clearAllDrafts, clearDrafts } from './drafts';
+import { clearDraft, draftId, formatDraftTime, listDrafts, clearAllDrafts } from './drafts';
+import { navigate } from '../router';
 import { estimateLocalStorageBytes, formatBytes, BROWSER_QUOTA_BYTES } from './media';
 
 /* ---------------- shared bits ---------------- */
@@ -158,7 +159,7 @@ const Dashboard: React.FC<{ go: (t: Tab) => void }> = ({ go }) => {
             <p className="text-sm md:text-base text-slate-300 max-w-2xl mt-2 leading-relaxed">Manage {state.settings.name}, publish content, tune SEO and control every public-facing section from this workspace.</p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <a href="#/" className="px-4 py-2.5 rounded-xl bg-white text-slate-900 text-sm font-bold hover:bg-slate-100 transition-colors">View live site ↗</a>
+            <a href="/" className="px-4 py-2.5 rounded-xl bg-white text-slate-900 text-sm font-bold hover:bg-slate-100 transition-colors">View live site ↗</a>
             <button type="button" onClick={() => go('sections')} className="px-4 py-2.5 rounded-xl bg-white/10 border border-white/15 text-white text-sm font-bold hover:bg-white/15 transition-colors">Manage visibility</button>
           </div>
         </div>
@@ -298,7 +299,7 @@ const ToolEditor: React.FC<{ tool: CmsTool; onClose: () => void }> = ({ tool, on
     <div className="bg-slate-50 rounded-2xl border border-slate-200 p-5 space-y-4">
       <div className="grid md:grid-cols-2 gap-4">
         <Field label="Tool name"><input className={inputCls} value={f.name} onChange={e => set('name')(e.target.value)} /></Field>
-        <Field label="URL slug" hint="Becomes #/tool/your-slug"><input className={inputCls} value={f.slug} onChange={e => set('slug')(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '-'))} /></Field>
+        <Field label="URL slug" hint="Becomes /tool/your-slug"><input className={inputCls} value={f.slug} onChange={e => set('slug')(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '-'))} /></Field>
       </div>
       <Field label="Description (shown under the title and in the directory)" hint="Plain text — one or two sentences, no HTML."><textarea rows={3} className={inputCls} value={f.description} onChange={e => set('description')(e.target.value)} /></Field>
       <div id="tool-about-editor">
@@ -316,7 +317,7 @@ const ToolEditor: React.FC<{ tool: CmsTool; onClose: () => void }> = ({ tool, on
         </div>
       )}
       <FeaturedImageEditor image={f.featuredImage} alt={f.featuredImageAlt} onChange={patch => setF({ ...f, ...patch })} />
-      <SeoMetaEditor value={seo} onChange={setSeoDraft} fallbackTitle={`${f.name} - Free Online SEO Tool | ${state.settings.name}`} fallbackDescription={f.description} routeHint={`# /tool/${f.slug || tool.slug}`} />
+      <SeoMetaEditor value={seo} onChange={setSeoDraft} fallbackTitle={`${f.name} - Free Online SEO Tool | ${state.settings.name}`} fallbackDescription={f.description} routeHint={`/tool/${f.slug || tool.slug}`} />
       <div className="flex flex-wrap items-center gap-2"><Btn onClick={() => { saveTool(tool.slug, f); if (f.slug !== tool.slug) clearSeo(`tool:${tool.slug}`); setSeo(`tool:${f.slug || tool.slug}`, seo); clearDraft(draftId('tool-about', tool.slug)); onClose(); }}>Save tool</Btn><Btn tone="ghost" onClick={onClose}>Cancel</Btn><span className="text-xs text-slate-400">About copy drafts autosave in this browser.</span></div>
     </div>
   );
@@ -380,7 +381,7 @@ const NewToolForm: React.FC<{ onDone: () => void }> = ({ onDone }) => {
     <div className="space-y-4">
       <div className="grid md:grid-cols-2 gap-4">
         <Field label="Tool name"><input className={inputCls} value={f.name} onChange={e => setF({ ...f, name: e.target.value })} /></Field>
-        <Field label="URL slug" hint={autoSlug ? `#/tool/${autoSlug}` : ''}><input className={inputCls} value={f.slug} onChange={e => setF({ ...f, slug: e.target.value })} placeholder={autoSlug} /></Field>
+        <Field label="URL slug" hint={autoSlug ? `/tool/${autoSlug}` : ''}><input className={inputCls} value={f.slug} onChange={e => setF({ ...f, slug: e.target.value })} placeholder={autoSlug} /></Field>
       </div>
       <Field label="Description"><textarea rows={3} className={inputCls} value={f.description} onChange={e => setF({ ...f, description: e.target.value })} /></Field>
       <div className="grid md:grid-cols-3 gap-4">
@@ -402,7 +403,7 @@ const PostEditor: React.FC<{ post: CmsPost; onClose: () => void }> = ({ post, on
     <div className="bg-slate-50 rounded-2xl border border-slate-200 p-5 space-y-4">
       <div className="grid md:grid-cols-2 gap-4">
         <Field label="Title"><input className={inputCls} value={f.title} onChange={e => setF({ ...f, title: e.target.value })} /></Field>
-        <Field label="URL slug" hint={`#/blog/${f.slug}`}><input className={inputCls} value={f.slug} onChange={e => setF({ ...f, slug: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '-') })} /></Field>
+        <Field label="URL slug" hint={`/blog/${f.slug}`}><input className={inputCls} value={f.slug} onChange={e => setF({ ...f, slug: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '-') })} /></Field>
       </div>
       <div className="grid md:grid-cols-3 gap-4">
         <Field label="Category"><input className={inputCls} value={f.category} onChange={e => setF({ ...f, category: e.target.value })} /></Field>
@@ -413,7 +414,7 @@ const PostEditor: React.FC<{ post: CmsPost; onClose: () => void }> = ({ post, on
       <Field label="Keywords (comma separated)" hint="Plain text — one comma-separated list."><input className={inputCls} value={f.keywords.join(', ')} onChange={e => setF({ ...f, keywords: e.target.value.split(',').map(s => s.trim()).filter(Boolean) })} /></Field>
       <Field label="Body" hint="Visual editor — headings, lists, links, images, colour and alignment. Switch to the Code tab for raw HTML."><RichTextEditor value={f.content} onChange={html => setF({ ...f, content: html })} minHeight={320} placeholder="Write your blog post…" draftKey={draftId('blog', post.slug)} ariaLabel="Blog post body" /></Field>
       <FeaturedImageEditor image={f.featuredImage} alt={f.featuredImageAlt} onChange={patch => setF({ ...f, ...patch })} />
-      <SeoMetaEditor value={seo} onChange={setSeoDraft} fallbackTitle={f.metaTitle || f.title} fallbackDescription={f.metaDescription || f.excerpt} routeHint={`#/blog/${f.slug || post.slug}`} />
+      <SeoMetaEditor value={seo} onChange={setSeoDraft} fallbackTitle={f.metaTitle || f.title} fallbackDescription={f.metaDescription || f.excerpt} routeHint={`/blog/${f.slug || post.slug}`} />
       <div className="flex flex-wrap items-center gap-2"><Btn onClick={() => { savePost(post.slug, f); if (f.slug !== post.slug) { clearSeo(`post:${post.slug}`); clearDraft(draftId('blog', post.slug)); } setSeo(`post:${f.slug || post.slug}`, seo); clearDraft(draftId('blog', post.slug)); onClose(); }}>Save post</Btn><Btn tone="ghost" onClick={onClose}>Cancel</Btn><span className="text-xs text-slate-400">Drafts save in this browser while you type.</span></div>
     </div>
   );
@@ -458,7 +459,7 @@ const NewPostForm: React.FC<{ onDone: () => void }> = ({ onDone }) => {
       <p className="font-bold text-slate-900">New blog post</p>
       <div className="grid md:grid-cols-2 gap-4">
         <Field label="Title"><input className={inputCls} value={f.title} onChange={e => setF({ ...f, title: e.target.value })} /></Field>
-        <Field label="Slug" hint={slug ? `#/blog/${slug}` : ''}><input className={inputCls} value={f.slug} onChange={e => setF({ ...f, slug: e.target.value })} placeholder={slug} /></Field>
+        <Field label="Slug" hint={slug ? `/blog/${slug}` : ''}><input className={inputCls} value={f.slug} onChange={e => setF({ ...f, slug: e.target.value })} placeholder={slug} /></Field>
       </div>
       <Field label="Excerpt" hint="Plain text — shown on blog cards."><textarea rows={2} className={inputCls} value={f.excerpt} onChange={e => setF({ ...f, excerpt: e.target.value })} /></Field>
       <div className="grid md:grid-cols-2 gap-4">
@@ -473,60 +474,6 @@ const NewPostForm: React.FC<{ onDone: () => void }> = ({ onDone }) => {
   );
 };
 
-const BlockEditor: React.FC<{ blocks: PageBlock[]; onChange: (b: PageBlock[]) => void; scope?: string }> = ({ blocks, onChange, scope }) => {
-  const set = (i: number, patch: Partial<PageBlock>) => onChange(blocks.map((b, j) => (j === i ? { ...b, ...patch } as PageBlock : b)));
-  const move = (i: number, d: -1 | 1) => { const n = [...blocks]; const j = i + d; if (j < 0 || j >= n.length) return; [n[i], n[j]] = [n[j], n[i]]; onChange(n); };
-  return (
-    <div className="space-y-3">
-      {blocks.map((b, i) => (
-        <div key={b.id} className="bg-white rounded-xl border border-slate-200 p-3">
-          <div className="flex items-center gap-2 mb-2">
-            <span className="text-[11px] font-bold uppercase text-slate-400">{b.type}</span>
-            <div className="ml-auto flex gap-1">
-              <button onClick={() => move(i, -1)} className="w-7 h-7 rounded bg-slate-100 hover:bg-slate-200 text-slate-600 text-sm">↑</button>
-              <button onClick={() => move(i, 1)} className="w-7 h-7 rounded bg-slate-100 hover:bg-slate-200 text-slate-600 text-sm">↓</button>
-              <button onClick={() => onChange(blocks.filter((_, j) => j !== i))} className="w-7 h-7 rounded bg-red-50 hover:bg-red-100 text-red-600 text-sm">✕</button>
-            </div>
-          </div>
-          {b.type === 'heading' && (
-            <div className="grid grid-cols-[80px_1fr] gap-2">
-              <select className={inputCls} value={b.level} onChange={e => set(i, { level: Number(e.target.value) as 2 | 3 })}><option value={2}>H2</option><option value={3}>H3</option></select>
-              <input className={inputCls} value={b.text} onChange={e => set(i, { text: e.target.value })} placeholder="Heading text" />
-            </div>
-          )}
-          {b.type === 'text' && <RichTextEditor value={b.text} onChange={html => set(i, { text: html })} minHeight={140} placeholder="Write this text block…" draftKey={scope ? draftId('page-block', `${scope}:${b.id}`) : undefined} ariaLabel="Page text block" />}
-          {b.type === 'list' && <textarea rows={3} className={inputCls} value={b.items.join('\n')} onChange={e => set(i, { items: e.target.value.split('\n').filter(Boolean) })} placeholder="One item per line" />}
-          {b.type === 'table' && (
-            <div className="space-y-2">
-              <div className="grid gap-1" style={{ gridTemplateColumns: `repeat(${b.head.length}, 1fr)` }}>
-                {b.head.map((h, ci) => <input key={ci} className={inputCls} value={h} onChange={e => set(i, { head: b.head.map((c, j) => (j === ci ? e.target.value : c)) })} placeholder={`Column ${ci + 1}`} />)}
-              </div>
-              {b.rows.map((row, ri) => (
-                <div key={ri} className="grid gap-1 items-start" style={{ gridTemplateColumns: `repeat(${b.head.length}, 1fr) auto` }}>
-                  {row.map((cell, ci) => <input key={ci} className={inputCls} value={cell} onChange={e => set(i, { rows: b.rows.map((r, j) => (j === ri ? r.map((c, k) => (k === ci ? e.target.value : c)) : r)) })} />)}
-                  <button type="button" onClick={() => set(i, { rows: b.rows.filter((_, j) => j !== ri) })} className="w-9 h-9 rounded bg-red-50 hover:bg-red-100 text-red-600 text-sm">✕</button>
-                </div>
-              ))}
-              <button type="button" onClick={() => set(i, { rows: [...b.rows, b.head.map(() => '')] })} className="text-xs font-bold text-indigo-600 hover:underline">+ add row</button>
-            </div>
-          )}
-          {b.type === 'cta' && (
-            <div className="space-y-2">
-              <textarea rows={2} className={inputCls} value={b.text} onChange={e => set(i, { text: e.target.value })} placeholder="CTA text" />
-              <div className="grid grid-cols-2 gap-2"><input className={inputCls} value={b.label} onChange={e => set(i, { label: e.target.value })} placeholder="Button label" /><input className={inputCls} value={b.href} onChange={e => set(i, { href: e.target.value })} placeholder="#/" /></div>
-            </div>
-          )}
-        </div>
-      ))}
-      <div className="flex flex-wrap gap-2">
-        {(['heading', 'text', 'list', 'table', 'cta'] as const).map(t => (
-          <Btn key={t} tone="ghost" onClick={() => onChange([...blocks, t === 'heading' ? { id: Math.random().toString(36).slice(2, 9), type: 'heading', text: 'New heading', level: 2 } : t === 'text' ? { id: Math.random().toString(36).slice(2, 9), type: 'text', text: '' } : t === 'list' ? { id: Math.random().toString(36).slice(2, 9), type: 'list', items: ['First item'] } : t === 'table' ? { id: Math.random().toString(36).slice(2, 9), type: 'table', head: ['Column 1', 'Column 2'], rows: [['', '']] } : { id: Math.random().toString(36).slice(2, 9), type: 'cta', text: '', label: 'Learn more', href: '#/' }])}>+ {t}</Btn>
-        ))}
-      </div>
-    </div>
-  );
-};
-
 const PageEditor: React.FC<{ page: CmsPage; onClose: () => void }> = ({ page, onClose }) => {
   const { state, savePage, setSeo, clearSeo } = useCms();
   const [f, setF] = useState(page);
@@ -535,16 +482,21 @@ const PageEditor: React.FC<{ page: CmsPage; onClose: () => void }> = ({ page, on
     <div className="bg-slate-50 rounded-2xl border border-slate-200 p-5 space-y-4">
       <div className="grid md:grid-cols-2 gap-4">
         <Field label="Page title"><input className={inputCls} value={f.title} onChange={e => setF({ ...f, title: e.target.value })} /></Field>
-        <Field label="URL slug" hint={`#/p/${f.slug}`}><input className={inputCls} value={f.slug} onChange={e => setF({ ...f, slug: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '-') })} /></Field>
+        <Field label="URL slug" hint={`/${f.slug}`}><input className={inputCls} value={f.slug} onChange={e => setF({ ...f, slug: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '-') })} /></Field>
       </div>
       <Field label="State"><select className={inputCls} value={f.status} onChange={e => setF({ ...f, status: e.target.value as Status })}><option value="live">Live</option><option value="hidden">Hidden</option><option value="draft">Draft</option></select></Field>
-      <div><p className="text-xs font-bold uppercase tracking-wide text-slate-500 mb-2">Content blocks</p><p className="text-xs text-slate-400 mb-2">Text blocks use the visual editor; headings, lists and tables stay as structured fields so the page markup is always clean.</p><BlockEditor blocks={f.blocks} onChange={b => setF({ ...f, blocks: b })} scope={page.id} /></div>
+      <Field label="Page content" hint="Visual editor — headings, paragraphs, lists, tables, links, images, colour and alignment. Switch to the Code tab for raw HTML.">
+        <RichTextEditor value={f.content || ''} onChange={html => setF({ ...f, content: html })} minHeight={360} placeholder="Write this page…" draftKey={draftId('page', page.id)} ariaLabel="Page content" />
+      </Field>
       <FeaturedImageEditor image={f.featuredImage} alt={f.featuredImageAlt} onChange={patch => setF({ ...f, ...patch })} />
-      <SeoMetaEditor value={seo} onChange={setSeoDraft} fallbackTitle={f.metaTitle || f.title} fallbackDescription={f.metaDescription} routeHint={`#/p/${f.slug || page.slug}`} />
-      <div className="flex flex-wrap items-center gap-2"><Btn onClick={() => { savePage(page.id, f); if (f.slug !== page.slug) clearSeo(`page:${page.slug}`); setSeo(`page:${f.slug || page.slug}`, seo); clearDrafts(page.blocks.map(b => draftId('page-block', `${page.id}:${b.id}`))); onClose(); }}>Save page</Btn><Btn tone="ghost" onClick={onClose}>Cancel</Btn><span className="text-xs text-slate-400">Text drafts autosave in this browser.</span></div>
+      <SeoMetaEditor value={seo} onChange={setSeoDraft} fallbackTitle={f.metaTitle || f.title} fallbackDescription={f.metaDescription} routeHint={`/${f.slug || page.slug}`} />
+      <div className="flex flex-wrap items-center gap-2"><Btn onClick={() => { savePage(page.id, f); if (f.slug !== page.slug) clearSeo(`page:${page.slug}`); setSeo(`page:${f.slug || page.slug}`, seo); clearDraft(draftId('page', page.id)); onClose(); }}>Save page</Btn><Btn tone="ghost" onClick={onClose}>Cancel</Btn><span className="text-xs text-slate-400">Text drafts autosave in this browser.</span></div>
     </div>
   );
 };
+
+const pageWords = (p: CmsPage): number =>
+  (p.content || '').replace(/<[^>]*>/g, ' ').replace(/&[a-z#0-9]+;/gi, ' ').trim().split(/\s+/).filter(Boolean).length;
 
 const PagesPane: React.FC = () => {
   const { state, setPageStatus, deletePage } = useCms();
@@ -573,34 +525,35 @@ const PagesPane: React.FC = () => {
                 <Btn tone="ghost" onClick={() => { if (window.confirm(`Delete the page “${p.title}”? This removes it from the public site and CMS. This action cannot be undone.`)) deletePage(p.id); }}>Delete</Btn>
               </>
             }>
-              <div><p className="font-semibold text-slate-800">{p.title}</p><p className="text-xs text-slate-500 font-mono">/p/{p.slug} · {p.blocks.length} blocks</p></div>
+              <div><p className="font-semibold text-slate-800">{p.title}</p><p className="text-xs text-slate-500 font-mono">/{p.slug} · {pageWords(p)} words</p></div>
             </Row>
             {edit === p.id && <div className="p-4 bg-slate-50 border-b border-slate-100"><PageEditor page={p} onClose={() => setEdit(null)} /></div>}
           </React.Fragment>
         ))}
         {state.pages.length === 0 && <p className="p-6 text-sm text-slate-500">No pages yet.</p>}
       </div>
-      <p className="text-xs text-slate-400">Pages render at <code>#/p/your-slug</code> with their own SEO title, meta description and robots directive. Add them to your navigation from the Sections &amp; Nav tab.</p>
+      <p className="text-xs text-slate-400">Pages render at <code>/your-slug</code> with their own SEO title, meta description and robots directive. Add them to your navigation from the Sections &amp; Nav tab.</p>
     </div>
   );
 };
 
 const NewPageForm: React.FC<{ onDone: () => void }> = ({ onDone }) => {
   const { addPage } = useCms();
-  const [f, setF] = useState({ title: '', slug: '', metaTitle: '', metaDescription: '', status: 'draft' as Status, featuredImage: '', featuredImageAlt: '' });
+  const [f, setF] = useState({ title: '', slug: '', metaTitle: '', metaDescription: '', content: '', status: 'draft' as Status, featuredImage: '', featuredImageAlt: '' });
   const slug = f.slug || f.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
   return (
     <div className="space-y-4">
       <div className="grid md:grid-cols-2 gap-4">
         <Field label="Title"><input className={inputCls} value={f.title} onChange={e => setF({ ...f, title: e.target.value })} /></Field>
-        <Field label="Slug" hint={slug ? `#/p/${slug}` : ''}><input className={inputCls} value={f.slug} onChange={e => setF({ ...f, slug: e.target.value })} placeholder={slug} /></Field>
+        <Field label="Slug" hint={slug ? `/${slug}` : ''}><input className={inputCls} value={f.slug} onChange={e => setF({ ...f, slug: e.target.value })} placeholder={slug} /></Field>
       </div>
       <div className="grid md:grid-cols-2 gap-4">
         <Field label="SEO title" hint="Plain text — 50–60 characters."><input className={inputCls} value={f.metaTitle} onChange={e => setF({ ...f, metaTitle: e.target.value })} placeholder={f.title} /></Field>
         <Field label="Meta description"><textarea rows={2} className={inputCls} value={f.metaDescription} onChange={e => setF({ ...f, metaDescription: e.target.value })} /></Field>
       </div>
+      <Field label="Page content" hint="Visual editor — headings, paragraphs, lists, links, images and more. Your typing is auto-saved as a browser draft."><RichTextEditor value={f.content} onChange={html => setF({ ...f, content: html })} minHeight={240} placeholder="Write this page…" draftKey={draftId('page', 'new-page')} ariaLabel="New page content" /></Field>
       <FeaturedImageEditor image={f.featuredImage} alt={f.featuredImageAlt} onChange={patch => setF({ ...f, ...patch })} />
-      <div className="flex gap-2"><Btn onClick={() => { addPage({ ...f, slug, metaTitle: f.metaTitle || f.title }); onDone(); }}>Create page</Btn><Btn tone="ghost" onClick={onDone}>Cancel</Btn></div>
+      <div className="flex gap-2"><Btn onClick={() => { addPage({ ...f, slug, metaTitle: f.metaTitle || f.title }); clearDraft(draftId('page', 'new-page')); onDone(); }}>Create page</Btn><Btn tone="ghost" onClick={onDone}>Cancel</Btn><span className="text-xs text-slate-400">Unsaved work is kept as a browser draft.</span></div>
     </div>
   );
 };
@@ -625,7 +578,7 @@ const SectionsPane: React.FC = () => {
       <section className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
         <div className="flex flex-wrap items-center justify-between gap-4 px-5 py-5 md:px-6 border-b border-slate-100">
           <div><h3 className="font-bold text-slate-900">Site visibility</h3><p className="text-sm text-slate-500 mt-0.5">Choose exactly which homepage sections visitors can see.</p></div>
-          <div className="flex items-center gap-3"><span className="text-sm text-slate-500"><strong className="text-emerald-600">{Object.values(state.sections).filter(Boolean).length}</strong> / {Object.keys(state.sections).length} live</span><a href="#/" className="px-3.5 py-2 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-sm font-semibold text-slate-700">View site ↗</a></div>
+          <div className="flex items-center gap-3"><span className="text-sm text-slate-500"><strong className="text-emerald-600">{Object.values(state.sections).filter(Boolean).length}</strong> / {Object.keys(state.sections).length} live</span><a href="/" className="px-3.5 py-2 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-sm font-semibold text-slate-700">View site ↗</a></div>
         </div>
         <div className="grid lg:grid-cols-2">
           {Object.entries(labels).map(([k, [l, h]]) => {
@@ -656,7 +609,7 @@ const SectionsPane: React.FC = () => {
             </div>
           ))}
         </div>
-        <Btn tone="ghost" className="mt-3" onClick={() => setNav([...state.nav, { id: Math.random().toString(36).slice(2, 9), label: 'New link', href: '#/', visible: true }])}>+ Add nav link</Btn>
+        <Btn tone="ghost" className="mt-3" onClick={() => setNav([...state.nav, { id: Math.random().toString(36).slice(2, 9), label: 'New link', href: '/', visible: true }])}>+ Add nav link</Btn>
       </div>
       <div className="bg-white rounded-2xl border border-slate-200 p-5 space-y-4">
         <h3 className="font-bold text-slate-900">Brand &amp; footer</h3>
@@ -691,9 +644,9 @@ const SidebarPane: React.FC = () => {
     { value: 'manual', label: 'Manual links', detail: 'Add any label, URL and optional badge.' },
   ];
   const sourceItems = (source: SidebarLinkSource) => {
-    if (source === 'tools') return state.tools.filter(item => item.status === 'live').map(item => ({ id: item.slug, label: item.name, detail: `#/tool/${item.slug}` }));
-    if (source === 'pages') return state.pages.filter(item => item.status === 'live').map(item => ({ id: item.slug, label: item.title, detail: `#/p/${item.slug}` }));
-    if (source === 'posts') return state.posts.filter(item => item.status === 'live').map(item => ({ id: item.slug, label: item.title, detail: `#/blog/${item.slug}` }));
+    if (source === 'tools') return state.tools.filter(item => item.status === 'live').map(item => ({ id: item.slug, label: item.name, detail: `/tool/${item.slug}` }));
+    if (source === 'pages') return state.pages.filter(item => item.status === 'live').map(item => ({ id: item.slug, label: item.title, detail: `/${item.slug}` }));
+    if (source === 'posts') return state.posts.filter(item => item.status === 'live').map(item => ({ id: item.slug, label: item.title, detail: `/blog/${item.slug}` }));
     return [];
   };
   const createWidget = (type: SidebarWidgetType, source: SidebarLinkSource = 'manual') => {
@@ -801,10 +754,10 @@ const SidebarPane: React.FC = () => {
                   </div>
                   {widget.type === 'links' && <>
                     <div><p className="text-xs font-bold uppercase tracking-wide text-slate-500 mb-2">What should this section link to?</p><div className="grid sm:grid-cols-4 gap-2">{sourceOptions.map(option => <button key={option.value} type="button" onClick={() => updateWidget(widget.id, { source: option.value, linkRefs: [], links: option.value === 'manual' ? (widget.links || []) : [] })} className={`text-left rounded-lg border p-3 ${source === option.value ? 'border-indigo-500 bg-indigo-50' : 'border-slate-200 bg-white hover:border-indigo-300'}`}><span className="block text-sm font-semibold text-slate-800">{option.label}</span><span className="block text-xs text-slate-500 mt-0.5">{option.detail}</span></button>)}</div></div>
-                    {source !== 'manual' ? <div className="bg-white rounded-xl border border-slate-200 p-4"><p className="text-sm font-semibold text-slate-800 mb-3">Choose items to show</p><div className="grid sm:grid-cols-2 gap-2 max-h-64 overflow-y-auto">{selectable.map(item => { const chosen = (widget.linkRefs || []).includes(item.id); return <button key={item.id} type="button" onClick={() => updateWidget(widget.id, { linkRefs: chosen ? (widget.linkRefs || []).filter(ref => ref !== item.id) : [...(widget.linkRefs || []), item.id] })} className={`flex items-center gap-3 text-left p-3 rounded-lg border ${chosen ? 'border-indigo-500 bg-indigo-50' : 'border-slate-200 hover:bg-slate-50'}`}><span className={`w-5 h-5 rounded flex items-center justify-center text-xs font-bold ${chosen ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-400'}`}>{chosen ? '✓' : '+'}</span><span className="min-w-0"><span className="block text-sm font-semibold text-slate-800 truncate">{item.label}</span><span className="block text-[11px] font-mono text-slate-400 truncate">{item.detail}</span></span></button>; })}{selectable.length === 0 && <p className="text-sm text-slate-500">There are no live {source} available to add.</p>}</div></div> : <div className="space-y-3"><p className="text-sm text-slate-600">Add any external or internal links manually.</p>{(widget.links || []).map((link, linkIndex) => <div key={link.id} className="grid lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_120px_auto] gap-2"><input className={inputCls} value={link.label} placeholder="Link label" onChange={e => updateWidget(widget.id, { links: (widget.links || []).map((x, i) => i === linkIndex ? { ...x, label: e.target.value } : x) })} /><input className={inputCls} value={link.href} placeholder="#/tool/example or https://..." onChange={e => updateWidget(widget.id, { links: (widget.links || []).map((x, i) => i === linkIndex ? { ...x, href: e.target.value } : x) })} /><input className={inputCls} value={link.badge || ''} placeholder="Badge" onChange={e => updateWidget(widget.id, { links: (widget.links || []).map((x, i) => i === linkIndex ? { ...x, badge: e.target.value } : x) })} /><button type="button" onClick={() => updateWidget(widget.id, { links: (widget.links || []).filter((_, i) => i !== linkIndex) })} className="px-3 rounded-lg bg-red-50 text-red-600 border border-red-100">×</button></div>)}<Btn tone="ghost" onClick={() => updateWidget(widget.id, { links: [...(widget.links || []), { id: Math.random().toString(36).slice(2, 9), label: 'New link', href: '#/', visible: true }] })}>+ Add manual link</Btn></div>}
+                    {source !== 'manual' ? <div className="bg-white rounded-xl border border-slate-200 p-4"><p className="text-sm font-semibold text-slate-800 mb-3">Choose items to show</p><div className="grid sm:grid-cols-2 gap-2 max-h-64 overflow-y-auto">{selectable.map(item => { const chosen = (widget.linkRefs || []).includes(item.id); return <button key={item.id} type="button" onClick={() => updateWidget(widget.id, { linkRefs: chosen ? (widget.linkRefs || []).filter(ref => ref !== item.id) : [...(widget.linkRefs || []), item.id] })} className={`flex items-center gap-3 text-left p-3 rounded-lg border ${chosen ? 'border-indigo-500 bg-indigo-50' : 'border-slate-200 hover:bg-slate-50'}`}><span className={`w-5 h-5 rounded flex items-center justify-center text-xs font-bold ${chosen ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-400'}`}>{chosen ? '✓' : '+'}</span><span className="min-w-0"><span className="block text-sm font-semibold text-slate-800 truncate">{item.label}</span><span className="block text-[11px] font-mono text-slate-400 truncate">{item.detail}</span></span></button>; })}{selectable.length === 0 && <p className="text-sm text-slate-500">There are no live {source} available to add.</p>}</div></div> : <div className="space-y-3"><p className="text-sm text-slate-600">Add any external or internal links manually.</p>{(widget.links || []).map((link, linkIndex) => <div key={link.id} className="grid lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_120px_auto] gap-2"><input className={inputCls} value={link.label} placeholder="Link label" onChange={e => updateWidget(widget.id, { links: (widget.links || []).map((x, i) => i === linkIndex ? { ...x, label: e.target.value } : x) })} /><input className={inputCls} value={link.href} placeholder="/tool/example or https://..." onChange={e => updateWidget(widget.id, { links: (widget.links || []).map((x, i) => i === linkIndex ? { ...x, href: e.target.value } : x) })} /><input className={inputCls} value={link.badge || ''} placeholder="Badge" onChange={e => updateWidget(widget.id, { links: (widget.links || []).map((x, i) => i === linkIndex ? { ...x, badge: e.target.value } : x) })} /><button type="button" onClick={() => updateWidget(widget.id, { links: (widget.links || []).filter((_, i) => i !== linkIndex) })} className="px-3 rounded-lg bg-red-50 text-red-600 border border-red-100">×</button></div>)}<Btn tone="ghost" onClick={() => updateWidget(widget.id, { links: [...(widget.links || []), { id: Math.random().toString(36).slice(2, 9), label: 'New link', href: '/', visible: true }] })}>+ Add manual link</Btn></div>}
                   </>}
                   {widget.type === 'text' && <Field label="Sidebar note" hint="Visual editor — headings, bold, lists, quotes, links, images and colours. Short fields elsewhere stay plain text."><RichTextEditor value={widget.content || ''} onChange={html => updateWidget(widget.id, { content: html })} minHeight={180} placeholder="Write your announcement, promotion or sidebar note…" ariaLabel="Sidebar note" /></Field>}
-                  {widget.type === 'image' && <div className="grid md:grid-cols-[minmax(0,1fr)_200px] gap-4"><div className="space-y-3"><Field label="Image URL"><input className={inputCls} value={widget.imageUrl || ''} onChange={e => updateWidget(widget.id, { imageUrl: e.target.value })} placeholder="https://example.com/banner.webp" /></Field><Field label="Alt text"><input className={inputCls} value={widget.imageAlt || ''} onChange={e => updateWidget(widget.id, { imageAlt: e.target.value })} /></Field><Field label="Click-through link (optional)"><input className={inputCls} value={widget.imageHref || ''} onChange={e => updateWidget(widget.id, { imageHref: e.target.value })} placeholder="#/tools" /></Field></div><div className="aspect-[1.91/1] rounded-xl border border-dashed border-slate-300 bg-white overflow-hidden flex items-center justify-center text-center text-xs text-slate-400">{widget.imageUrl ? <img src={widget.imageUrl} alt={widget.imageAlt || ''} className="w-full h-full object-cover" onError={e => { e.currentTarget.style.display = 'none'; }} /> : 'Image preview'}</div></div>}
+                  {widget.type === 'image' && <div className="grid md:grid-cols-[minmax(0,1fr)_200px] gap-4"><div className="space-y-3"><Field label="Image URL"><input className={inputCls} value={widget.imageUrl || ''} onChange={e => updateWidget(widget.id, { imageUrl: e.target.value })} placeholder="https://example.com/banner.webp" /></Field><Field label="Alt text"><input className={inputCls} value={widget.imageAlt || ''} onChange={e => updateWidget(widget.id, { imageAlt: e.target.value })} /></Field><Field label="Click-through link (optional)"><input className={inputCls} value={widget.imageHref || ''} onChange={e => updateWidget(widget.id, { imageHref: e.target.value })} placeholder="/tools" /></Field></div><div className="aspect-[1.91/1] rounded-xl border border-dashed border-slate-300 bg-white overflow-hidden flex items-center justify-center text-center text-xs text-slate-400">{widget.imageUrl ? <img src={widget.imageUrl} alt={widget.imageAlt || ''} className="w-full h-full object-cover" onError={e => { e.currentTarget.style.display = 'none'; }} /> : 'Image preview'}</div></div>}
                   {widget.type === 'code' && <Field label="HTML / embed code" hint="Rendered in a sandboxed iframe. Scripts and inline event handlers are disabled for safety."><textarea rows={8} className={inputCls + ' font-mono text-xs'} value={widget.content || ''} onChange={e => updateWidget(widget.id, { content: e.target.value })} placeholder="<div>Your safe HTML snippet</div>" /></Field>}
                   <p className="text-xs text-emerald-700">Saved automatically. This section is {widget.visible ? 'live in the sidebar' : 'currently hidden'}.</p>
                 </div>}
@@ -903,8 +856,8 @@ export const AdminApp: React.FC = () => {
               <p className="text-sm text-slate-500 truncate">{state.settings.name} · {state.settings.domain} · changes save automatically in this browser</p>
             </div>
             <div className="ml-auto flex flex-wrap gap-2">
-              <a href="#/" className="px-3.5 py-2 rounded-lg text-sm font-semibold bg-slate-900 text-white hover:bg-slate-700 transition-colors">View live site ↗</a>
-              <Btn tone="ghost" onClick={() => { logout(); window.location.hash = '#/'; }}>Log Out</Btn>
+              <a href="/" className="px-3.5 py-2 rounded-lg text-sm font-semibold bg-slate-900 text-white hover:bg-slate-700 transition-colors">View live site ↗</a>
+              <Btn tone="ghost" onClick={() => { logout(); navigate('/'); }}>Log Out</Btn>
             </div>
           </div>
           <nav aria-label="CMS areas" className="border-t border-slate-100 px-3 py-3 md:px-4 flex gap-1.5 overflow-x-auto">
