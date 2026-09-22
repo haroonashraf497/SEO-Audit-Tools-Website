@@ -94,7 +94,7 @@ const ArticleCard: React.FC<{ article: BlogArticle }> = ({ article }) => (
   <article className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm hover:shadow-lg hover:border-indigo-200 transition-all flex flex-col">
     {article.featuredImage && (
       <a href={`/blog/${article.slug}`} className="block -mx-1 -mt-1 mb-5 overflow-hidden rounded-xl bg-slate-100 aspect-[1.91/1]">
-        <img src={article.featuredImage} alt={article.featuredImageAlt || article.title} width="1200" height="630" loading="lazy" className="w-full h-full object-cover hover:scale-[1.02] transition-transform duration-300" onError={e => { e.currentTarget.parentElement?.classList.add('hidden'); }} />
+        <img src={article.featuredImage} alt={article.featuredImageAlt || article.title} width="1200" height="630" loading="lazy" decoding="async" className="w-full h-full object-cover hover:scale-[1.02] transition-transform duration-300" onError={e => { e.currentTarget.parentElement?.classList.add('hidden'); }} />
       </a>
     )}
     <div className="flex items-center gap-3 mb-4">
@@ -226,7 +226,7 @@ export const BlogArticlePage: React.FC<{ slug: string }> = ({ slug }) => {
 
         {article.featuredImage && (
           <figure className="mb-8 overflow-hidden rounded-2xl border border-slate-200 bg-slate-100 aspect-[1.91/1]">
-            <img src={article.featuredImage} alt={article.featuredImageAlt || article.title} width="1200" height="630" className="w-full h-full object-cover" onError={e => { e.currentTarget.parentElement?.classList.add('hidden'); }} />
+            <img src={article.featuredImage} alt={article.featuredImageAlt || article.title} width="1200" height="630" loading="lazy" decoding="async" className="w-full h-full object-cover" onError={e => { e.currentTarget.parentElement?.classList.add('hidden'); }} />
           </figure>
         )}
 

@@ -2054,7 +2054,7 @@ const CmsPageView: React.FC<{ slug: string }> = ({ slug }) => {
         <h1 className="text-3xl md:text-5xl font-extrabold text-slate-900 mb-8">{page.title}</h1>
         {page.featuredImage && (
           <figure className="mb-8 overflow-hidden rounded-2xl border border-slate-200 bg-slate-100 aspect-[1.91/1]">
-            <img src={page.featuredImage} alt={page.featuredImageAlt || page.title} width="1200" height="630" loading="lazy" className="w-full h-full object-cover" onError={e => { e.currentTarget.parentElement?.classList.add('hidden'); }} />
+            <img src={page.featuredImage} alt={page.featuredImageAlt || page.title} width="1200" height="630" loading="lazy" decoding="async" className="w-full h-full object-cover" onError={e => { e.currentTarget.parentElement?.classList.add('hidden'); }} />
           </figure>
         )}
         <div className="w-full">

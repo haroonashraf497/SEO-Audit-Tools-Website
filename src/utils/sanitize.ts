@@ -161,6 +161,15 @@ const sanitizeElement = (el: Element): void => {
     for (const token of ['noopener', 'noreferrer']) if (!rel.includes(token)) rel.push(token);
     el.setAttribute('rel', rel.join(' '));
   }
+
+  // Mobile-friendliness defaults for content images: keep off-screen/hero
+  // images from competing with the first paint. Editors already emit these
+  // attributes; this normalises pasted/imported markup. Purely a loading
+  // hint — layout, dimensions and sources are untouched.
+  if (tag === 'img') {
+    if (!el.hasAttribute('loading')) el.setAttribute('loading', 'lazy');
+    if (!el.hasAttribute('decoding')) el.setAttribute('decoding', 'async');
+  }
 };
 
 const walk = (node: Node): void => {

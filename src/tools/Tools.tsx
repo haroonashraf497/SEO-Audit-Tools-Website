@@ -688,7 +688,7 @@ export const ToolPage: React.FC<{ slug: string }> = ({ slug }) => {
 
           {tool.featuredImage && (
             <figure className="mb-6 overflow-hidden rounded-2xl border border-slate-200 bg-slate-100 aspect-[1.91/1]">
-              <img src={tool.featuredImage} alt={tool.featuredImageAlt || tool.name} width="1200" height="630" loading="lazy" className="w-full h-full object-cover" onError={e => { e.currentTarget.parentElement?.classList.add('hidden'); }} />
+              <img src={tool.featuredImage} alt={tool.featuredImageAlt || tool.name} width="1200" height="630" loading="lazy" decoding="async" className="w-full h-full object-cover" onError={e => { e.currentTarget.parentElement?.classList.add('hidden'); }} />
             </figure>
           )}
 
