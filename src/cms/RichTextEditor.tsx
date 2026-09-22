@@ -219,10 +219,12 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
     const sel = window.getSelection();
     const savedRange = sel && sel.rangeCount ? sel.getRangeAt(0).cloneRange() : null;
 
-    el.querySelectorAll('p > ul, p > ol, p > blockquote, p > pre, p > table, p > figure, p > hr').forEach(node => {
+    el.querySelectorAll('ul, ol, blockquote, pre, table, figure, hr').forEach(node => {
       const paragraph = node.parentElement;
-      const parent = paragraph?.parentNode;
-      if (!paragraph || !parent) return;
+      // Only lift blocks the browser wrongly parked inside a paragraph or heading.
+      if (!paragraph || !/^(?:p|h[1-6])$/i.test(paragraph.tagName)) return;
+      const parent = paragraph.parentNode;
+      if (!parent) return;
       parent.insertBefore(node, paragraph.nextSibling);
       if (!paragraph.textContent?.trim() && !paragraph.querySelector('img, br')) paragraph.remove();
     });
