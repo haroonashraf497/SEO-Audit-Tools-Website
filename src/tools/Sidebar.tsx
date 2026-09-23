@@ -64,7 +64,7 @@ export const ToolSearch: React.FC<{ autoFocus?: boolean; placeholder?: string }>
             else if (e.key === 'Enter') { e.preventDefault(); submit(); }
             else if (e.key === 'Escape') setOpen(false);
           }}
-          placeholder={placeholder || 'Search from SEO tools'}
+          placeholder={placeholder || 'Search SEO tools…'}
           aria-label="Search tools"
           className="flex-1 px-4 py-3.5 text-[15px] text-slate-800 outline-none bg-transparent placeholder:text-slate-500"
         />

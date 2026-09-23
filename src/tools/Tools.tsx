@@ -1,10 +1,10 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   categoryLabels, categoryOrder, categoryStyles, ToolIcon,
   type ToolDef, type ToolCategory,
 } from './data';
 import { useCms } from '../cms/store';
-import { subscribe } from '../router';
+import { navigate, subscribe } from '../router';
 import { buildReport, type SimReport, type RowStatus, Seeded } from './simulator';
 import { fetchPageData } from '../utils/pageFetch';
 import { WhatIsMyIp, IpLocationTool, ReverseIpTool, ProxyListTool, ClassCTool } from './IpTools';
@@ -463,6 +463,30 @@ export const ToolsList: React.FC = () => {
     return map;
   }, [filtered]);
 
+  // Per-category totals for the filter pills (stable while browsing).
+  const countByCat = useMemo(() => {
+    const map = new Map<ToolCategory, number>();
+    tools.forEach(t => map.set(t.category, (map.get(t.category) || 0) + 1));
+    return map;
+  }, [tools]);
+
+  // Keep the URL in step with the active filters so filtered views are
+  // shareable and survive reload. replaceState: filtering is not navigation.
+  const syncUrl = useCallback((q: string, cat: 'all' | ToolCategory) => {
+    const params = new URLSearchParams();
+    if (q.trim()) params.set('q', q.trim());
+    if (cat !== 'all') params.set('cat', cat);
+    const qs = params.toString();
+    navigate(qs ? `/tools?${qs}` : '/tools', { replace: true });
+  }, []);
+
+  const onQueryChange = useCallback((q: string) => { setQuery(q); syncUrl(q, activeCat); }, [activeCat, syncUrl]);
+  const onCatChange = useCallback((cat: 'all' | ToolCategory) => { setActiveCat(cat); syncUrl(query, cat); }, [query, syncUrl]);
+  const clearFilters = useCallback(() => { setQuery(''); setActiveCat('all'); syncUrl('', 'all'); }, [syncUrl]);
+
+  const pillCls = (active: boolean) =>
+    `px-4 py-2 rounded-full text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 ${active ? 'bg-indigo-600 text-white shadow-md' : 'bg-white border border-slate-200 text-slate-600 hover:border-indigo-300'}`;
+
   return (
     <div className="pt-10 pb-20 px-4 min-h-screen">
       <div className="max-w-7xl mx-auto">
@@ -479,25 +503,47 @@ export const ToolsList: React.FC = () => {
 
         <div className="max-w-xl mx-auto mb-8">
           <div className="relative">
-            <svg className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" /></svg>
+            <svg className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" /></svg>
             <input
               value={query}
-              onChange={e => setQuery(e.target.value)}
+              onChange={e => onQueryChange(e.target.value)}
+              type="search"
+              aria-label="Search tools"
               placeholder="Search tools… e.g. plagiarism, sitemap, SSL"
-              className="w-full pl-12 pr-4 py-3.5 rounded-xl border border-slate-300 bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 outline-none text-sm"
+              className="w-full pl-12 pr-11 py-3.5 rounded-xl border border-slate-300 bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 outline-none text-sm"
             />
+            {query && (
+              <button
+                type="button"
+                onClick={() => onQueryChange('')}
+                aria-label="Clear search"
+                className="absolute right-3 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 flex items-center justify-center transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+              >
+                <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12" /></svg>
+              </button>
+            )}
           </div>
         </div>
 
-        <div className="flex flex-wrap justify-center gap-2 mb-12">
-          <button onClick={() => setActiveCat('all')} className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${activeCat === 'all' ? 'bg-indigo-600 text-white shadow-md' : 'bg-white border border-slate-200 text-slate-600 hover:border-indigo-300'}`}>
+        <div className="flex flex-wrap justify-center gap-2 mb-6">
+          <button onClick={() => onCatChange('all')} aria-pressed={activeCat === 'all'} className={pillCls(activeCat === 'all')}>
             All Tools ({tools.length})
           </button>
           {categoryOrder.map(cat => (
-            <button key={cat} onClick={() => setActiveCat(cat)} className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${activeCat === cat ? 'bg-indigo-600 text-white shadow-md' : 'bg-white border border-slate-200 text-slate-600 hover:border-indigo-300'}`}>
-              {categoryLabels[cat].replace(' Tools', '')}
+            <button key={cat} onClick={() => onCatChange(cat)} aria-pressed={activeCat === cat} className={pillCls(activeCat === cat)}>
+              {categoryLabels[cat].replace(' Tools', '')} ({countByCat.get(cat) || 0})
             </button>
           ))}
+        </div>
+
+        <div className="min-h-[1.5rem] mb-6 text-center" aria-live="polite">
+          {(query.trim() || activeCat !== 'all') && (
+            <p className="text-sm text-slate-500">
+              Showing <strong className="text-slate-700">{filtered.length}</strong> of {tools.length} tools
+              {activeCat !== 'all' && <> in {categoryLabels[activeCat]}</>}
+              {query.trim() && <> matching “{query.trim()}”</>}
+            </p>
+          )}
         </div>
 
         {categoryOrder.map(cat => {
@@ -535,7 +581,14 @@ export const ToolsList: React.FC = () => {
         {filtered.length === 0 && (
           <div className="text-center py-16 text-slate-500">
             <p className="text-lg font-semibold mb-1">No tools found</p>
-            <p className="text-sm">Try a different search term or category.</p>
+            <p className="text-sm mb-5">Try a different search term or category.</p>
+            <button
+              type="button"
+              onClick={clearFilters}
+              className="inline-block px-5 py-2.5 rounded-full bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-700 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2"
+            >
+              Clear search &amp; filters
+            </button>
           </div>
         )}
       </div>
