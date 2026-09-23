@@ -131,7 +131,7 @@ const defaultPosts: CmsPost[] = allArticles.map(a => ({
 }));
 
 export const defaultState: CmsState = {
-  version: 11,
+  version: 12,
   tools: defaultTools,
   posts: defaultPosts,
   pages: [
@@ -142,7 +142,7 @@ export const defaultState: CmsState = {
         { id: uid(), type: 'text', text: 'SEO Audit Tools is a free online platform built to help website owners, business owners, bloggers, digital marketers, and web developers understand and improve their website\'s performance in search engines. We built this tool to make professional SEO analysis accessible to everyone, without the need for expensive software or technical expertise.' },
         { id: uid(), type: 'text', text: 'Our platform is built to serve website owners in Pakistan and around the world, backed by fast, reliable hosting infrastructure. Every report we generate reflects real data from your website, presented in plain English with clear, prioritised recommendations you can act on immediately.' },
         { id: uid(), type: 'heading', text: 'Who We Are', level: 2 },
-        { id: uid(), type: 'text', text: 'SEO Audit Tools is operated by EKSTRUH LTD, a company registered in England and Wales and based in Bolton, England. We specialise in building practical web tools that help businesses grow their online presence through better search engine optimisation.' },
+        { id: uid(), type: 'text', text: 'SEO Audit Tools is operated by EKSTRUH LTD, a company registered in England and Wales and based in Bolton, England. Our team serves website owners across Pakistan — Karachi, Lahore, Islamabad, Peshawar and beyond — as well as users around the world, and we specialise in building practical web tools that help businesses grow their online presence through better search engine optimisation.' },
         { id: uid(), type: 'text', text: 'We built this platform because most SEO tools are either too expensive, too complicated, or designed for large agencies rather than everyday website owners. Our goal is to change that by giving every website owner access to the same quality of SEO analysis that professionals use.' },
         { id: uid(), type: 'heading', text: 'What We Offer', level: 2 },
         { id: uid(), type: 'text', text: 'Our tools give you strong analysis features to help you:' },
@@ -161,14 +161,15 @@ export const defaultState: CmsState = {
       id: uid(), slug: 'privacy-policy', title: 'Privacy Policy', status: 'live',
       metaTitle: 'Privacy Policy | SEO Audit Tools — EKSTRUH LTD', metaDescription: 'Privacy Policy for SEO Audit Tools (seoaudittools.pk), operated by EKSTRUH LTD: the data we collect, our lawful bases under the UK GDPR and Data Protection Act 2018, Google AdSense and affiliate cookies, and your legal rights.',
       blocks: [
-        { id: uid(), type: 'text', text: 'Last Updated: 21 SEP 2026' },
+        { id: uid(), type: 'text', text: 'Last Updated: 23 SEP 2026' },
         { id: uid(), type: 'heading', text: '1. Introduction', level: 2 },
-        { id: uid(), type: 'text', text: 'Welcome to SEO Audit Tools. We respect your privacy and are committed to protecting your personal data. This privacy policy will inform you about how we handle data when you visit our website, use our free PHP-based SEO Audit Tools, and interact with our advertisements or affiliate links. Our services are entirely free to use and do not require you to create an account, register, or provide any login credentials to access any report features.' },
+        { id: uid(), type: 'text', text: 'Welcome to SEO Audit Tools. We respect your privacy and are committed to protecting your personal data. This privacy policy will inform you about how we handle data when you visit our website, use our free online SEO Audit Tools, and interact with our advertisements or affiliate links. Our services are entirely free to use and do not require you to create an account, register, or provide any login credentials to access any report features.' },
         { id: uid(), type: 'heading', text: '2. Who We Are (Data Controller)', level: 2 },
         { id: uid(), type: 'text', text: 'The website and SEO Audit Tools are operated by EKSTRUH LTD, a company registered in England and Wales.' },
         { id: uid(), type: 'list', items: ['Company Name: EKSTRUH LTD', 'Company Registration Number: 16905290', 'Registered Office Address: Victoria Grove, Bolton, United Kingdom, BL1 4JW', 'Contact Email: help@seoaudittools.pk'] },
         { id: uid(), type: 'text', text: 'Because we operate in the United Kingdom, we handle data in accordance with the UK General Data Protection Regulation (UK GDPR) and the Data Protection Act 2018. If you have concerns, you have the right to lodge a complaint with the UK Information Commissioner\'s Office (ICO) at https://ico.org.uk.' },
         { id: uid(), type: 'text', text: 'EKSTRUH LTD has not appointed a Data Protection Officer as we do not meet the threshold requiring one under UK GDPR Article 37.' },
+        { id: uid(), type: 'text', text: 'Although our registered office is in the United Kingdom, seoaudittools.pk is built for website owners in Pakistan and worldwide. This policy, and the UK data-protection standards it describes, apply equally to every visitor regardless of where you live.' },
         { id: uid(), type: 'heading', text: '3. The Data We Collect and Process', level: 2 },
         { id: uid(), type: 'text', text: 'Because our platform requires no user registration, we do not collect identity information like your name, home address, or phone number. However, to run our tool and display ads, we automatically process the following information:' },
         { id: uid(), type: 'list', items: ['Technical Data: This includes your Internet Protocol (IP) address, your browser type and version, operating system, and the time/date of your visit.', 'Audit Query Data: This includes the third-party website URLs you paste into our search bar to run an SEO analysis. Our backend script must temporarily process this parameter to deliver your score and PDF report.', 'Tracking & Interaction Data: Data regarding how you navigate our pages, click on affiliate links, or interact with displayed advertisements.'] },
@@ -216,12 +217,12 @@ export const defaultState: CmsState = {
     },
     {
       id: uid(), slug: 'contact', title: 'Contact', status: 'live',
-      metaTitle: 'Contact SEO Audit Tool | EKSTRUH LTD Support', metaDescription: 'Get in touch with EKSTRUH LTD about SEO Audit Tool: support, bug reports, data protection queries, partnerships and feedback. We usually reply within one business day.',
+      metaTitle: 'Contact SEO Audit Tools | EKSTRUH LTD Support', metaDescription: 'Get in touch with EKSTRUH LTD about SEO Audit Tools: support, bug reports, data protection queries, partnerships and feedback. We usually reply within one business day.',
       blocks: [
         { id: uid(), type: 'heading', text: 'Talk to us', level: 2 },
         { id: uid(), type: 'text', text: 'Found a bug, need a tool we do not have yet, or want to work with us? Email <a href="mailto:help@seoaudittools.pk">help@seoaudittools.pk</a> and we will get back to you, usually within one business day. There is no ticket system and no phone menu — your email goes straight to the people who build the site.' },
         { id: uid(), type: 'heading', text: 'Response Time', level: 2 },
-        { id: uid(), type: 'text', text: 'Usually within 1–2 business days' },
+        { id: uid(), type: 'text', text: 'Within one business day (Monday to Friday, Pakistan Standard Time). Urgent data-protection requests are prioritised.' },
         { id: uid(), type: 'heading', text: 'Before You Write', level: 2 },
         { id: uid(), type: 'text', text: 'Check our <a href="#/p/privacy-policy">Privacy Policy</a> and <a href="#/p/cookie-policy">Cookie Policy</a> for data-related questions.' },
         { id: uid(), type: 'text', text: 'For tool issues, describe the IP or domain you tried and the error you saw — it helps us fix things faster.' },
@@ -234,7 +235,7 @@ export const defaultState: CmsState = {
     },
     {
       id: uid(), slug: 'faq', title: 'FAQ', status: 'live',
-      metaTitle: 'FAQ | SEO Audit Tool — EKSTRUH LTD', metaDescription: 'Answers to common questions about SEO Audit Tool: free tools, browser-side processing, where domain data comes from, cookies and who runs the site.',
+      metaTitle: 'FAQ | SEO Audit Tools — EKSTRUH LTD', metaDescription: 'Answers to common questions about SEO Audit Tools: free tools, browser-side processing, where domain data comes from, cookies and who runs the site.',
       blocks: [
         { id: uid(), type: 'heading', text: 'Your questions, answered', level: 2 },
         { id: uid(), type: 'heading', text: 'Are the tools really free?', level: 3 },
@@ -418,8 +419,8 @@ export const defaultState: CmsState = {
     },
   ],
   seo: {
-    home: { title: 'SEO Audit Tool — Free Website SEO Checker | EKSTRUH LTD', description: 'Free SEO audit tool plus 150+ practical SEO, speed, IP, PDF, calculator and converter tools from EKSTRUH LTD.' },
-    tools: { title: 'Free SEO Tools (150+) — Audit, Speed, Calculator & Converter Tools', description: 'Browse 150+ free tools from EKSTRUH LTD: website SEO audit, page speed, keyword research, backlinks, IP lookup, PDF tools, calculators and unit converters.' },
+    home: { title: 'SEO Audit Tools — Free Website SEO Checker | EKSTRUH LTD', description: 'Free SEO audit tool plus 150+ practical SEO, speed, IP, PDF, calculator and converter tools from EKSTRUH LTD — built for website owners in Pakistan and worldwide.' },
+    tools: { title: 'Free SEO Tools (150+) — Audit, Speed, Calculator & Converter Tools', description: 'Browse 150+ free tools from EKSTRUH LTD for Pakistan and worldwide: website SEO audit, page speed, keyword research, backlinks, IP lookup, PDF tools, calculators and unit converters.' },
     blog: { title: 'SEO Blog: Core Web Vitals, PageSpeed & WordPress Guides', description: 'Practical SEO guides on fixing INP, LCP and CLS, PageSpeed problems, WordPress performance, indexing issues and Google core updates.' },
     'competitor-analysis': { title: 'SEO Competitor Analysis — Compare Two Websites Free | SEO Audit Tools', description: 'Compare your website with a competitor: overall SEO scores, domain registration, on-page checks, Google-style SERP previews and a two-column full audit. Free, no sign-up.' },
   },
@@ -432,7 +433,7 @@ export const defaultState: CmsState = {
     widgets: [],
   },
   sections: { hero: true, auditTool: true, results: true, features: true, howItWorks: true, whyAudit: true, whoBenefits: true, freeTools: true, fromBlog: true, cta: true, footer: true },
-  settings: { name: 'SEO Audit Tools', domain: 'seoaudittools.pk', tagline: 'Free SEO audit + 150 tools', footerNote: 'EKSTRUH LTD provides online SEO, calculator and unit converter tools.' },
+  settings: { name: 'SEO Audit Tools', domain: 'seoaudittools.pk', tagline: 'Pakistan’s free SEO audit + 150 tools', footerNote: 'SEO Audit Tools — free online SEO, calculator and unit converter tools for website owners in Pakistan and worldwide, provided by EKSTRUH LTD.' },
   nav: [
     { id: uid(), label: 'Free SEO Tools', href: '/tools', visible: true },
   ],
@@ -538,6 +539,10 @@ const KEY = 'seoaudittool:cms:v1';
  *  company-details block from the Contact page; version 10 added Response
  *  Time and Before You Write, and linked the contact email. Version 11 stores
  *  each page as a single rich-text document (converted from blocks at load).
+ *  Version 12 completes the Pakistan rebrand: fixed the remaining singular
+ *  "SEO Audit Tool" brand strings in Contact/FAQ/home metadata, unified the
+ *  Contact response time, corrected the Privacy Policy's stale "PHP-based"
+ *  tool description, and refreshed the Pakistan-focused About/footer copy.
  *  Pages the admin created themselves are always preserved. */
 const migratePages = (pages: CmsPage[]): CmsPage[] => {
   const bySlug = new Map(pages.map(p => [p.slug, p]));
@@ -557,6 +562,24 @@ const migrateSettings = (stored: Partial<SiteSettings> | undefined): SiteSetting
   const merged = { ...defaultState.settings, ...(stored || {}) };
   if (merged.name === LEGACY_BRAND_NAME) merged.name = defaultState.settings.name;
   if (LEGACY_DOMAINS.includes(merged.domain)) merged.domain = defaultState.settings.domain;
+  return merged;
+};
+
+/** SEO entries still carrying the pre-rebrand home title (singular brand)
+ *  are upgraded to the new defaults; admin-edited entries are preserved. */
+const LEGACY_SEO_HOME_TITLE = 'SEO Audit Tool — Free Website SEO Checker | EKSTRUH LTD';
+const migrateSeo = (stored: Record<string, SeoEntry> | undefined): Record<string, SeoEntry> => {
+  const merged = { ...defaultState.seo, ...(stored || {}) };
+  if (merged.home?.title === LEGACY_SEO_HOME_TITLE) merged.home = defaultState.seo.home;
+  return merged;
+};
+
+/** The old sidebar search placeholder ("Search from SEO tools") reads badly;
+ *  browsers that never customised it are moved to the polished wording. */
+const LEGACY_SEARCH_PLACEHOLDER = 'Search from SEO tools';
+const migrateSidebar = (stored: Partial<SidebarConfig> | undefined): SidebarConfig => {
+  const merged = { ...defaultState.sidebar, ...(stored || {}) };
+  if (!merged.searchPlaceholder || merged.searchPlaceholder === LEGACY_SEARCH_PLACEHOLDER) merged.searchPlaceholder = defaultState.sidebar.searchPlaceholder;
   return merged;
 };
 
@@ -596,9 +619,9 @@ const load = (): CmsState => {
       pages: (parsedVersion < defaultState.version ? migratePages(parsed.pages || []) : (parsed.pages || defaultState.pages)).map(withPageContent),
       settings: migrateSettings(parsed.settings),
       nav: migrateNav(parsed.nav),
-      sidebar: { ...defaultState.sidebar, ...oldSidebar, widgets: migratedWidgets },
+      sidebar: { ...migrateSidebar(oldSidebar), widgets: migratedWidgets },
       sections: { ...defaultState.sections, ...(parsed.sections || {}) },
-      seo: { ...defaultState.seo, ...(parsed.seo || {}) },
+      seo: migrateSeo(parsed.seo),
     };
   } catch { return defaultState; }
 };
@@ -670,7 +693,7 @@ export const CmsProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setToolStatus: (slug, status) => setState(s => ({ ...s, tools: s.tools.map(t => (t.slug === slug ? { ...t, status } : t)) })),
     deleteTool: (slug) => setState(s => ({ ...s, tools: s.tools.filter(t => t.slug !== slug) })),
 
-    addPost: (p) => { const slug = p.slug || `post-${uid()}`; setState(s => ({ ...s, posts: [{ slug, title: p.title || 'Untitled post', metaTitle: p.metaTitle || p.title || 'Untitled post', metaDescription: p.metaDescription || '', excerpt: p.excerpt || '', content: p.content || '', category: p.category || 'Google & Indexing', date: p.date || new Date().toISOString().slice(0, 10), readTime: p.readTime || '6 min read', author: p.author || 'SEO Audit Tool Team', keywords: p.keywords || [], featuredImage: p.featuredImage, featuredImageAlt: p.featuredImageAlt, status: p.status || 'draft', builtin: false }, ...s.posts] })); return slug; },
+    addPost: (p) => { const slug = p.slug || `post-${uid()}`; setState(s => ({ ...s, posts: [{ slug, title: p.title || 'Untitled post', metaTitle: p.metaTitle || p.title || 'Untitled post', metaDescription: p.metaDescription || '', excerpt: p.excerpt || '', content: p.content || '', category: p.category || 'Google & Indexing', date: p.date || new Date().toISOString().slice(0, 10), readTime: p.readTime || '6 min read', author: p.author || 'SEO Audit Tools Team', keywords: p.keywords || [], featuredImage: p.featuredImage, featuredImageAlt: p.featuredImageAlt, status: p.status || 'draft', builtin: false }, ...s.posts] })); return slug; },
     savePost: (slug, patch) => setState(s => ({ ...s, posts: s.posts.map(p => (p.slug === slug ? { ...p, ...patch } : p)) })),
     setPostStatus: (slug, status) => setState(s => ({ ...s, posts: s.posts.map(p => (p.slug === slug ? { ...p, status } : p)) })),
     deletePost: (slug) => setState(s => ({ ...s, posts: s.posts.filter(p => p.slug !== slug) })),

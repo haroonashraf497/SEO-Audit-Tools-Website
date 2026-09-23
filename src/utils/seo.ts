@@ -68,6 +68,7 @@ const orgNode = (origin: string, brand: string) => ({
   alternateName: brand,
   url: `${origin}/`,
   email: 'help@seoaudittools.pk',
+  areaServed: 'Pakistan',
   address: {
     '@type': 'PostalAddress',
     streetAddress: 'Victoria Grove',
@@ -117,7 +118,7 @@ export const resolvePageSeo = (route: string, cms: CmsState): PageSeo => {
   if (route === 'home') {
     const seo = cms.seo.home;
     const title = seo?.title || `SEO Audit Tools — Free Website SEO Checker | EKSTRUH LTD`;
-    const description = seo?.description || 'Free SEO audit tool plus 150+ practical SEO, speed, IP, PDF, calculator and converter tools from EKSTRUH LTD.';
+    const description = seo?.description || 'Free SEO audit tool plus 150+ practical SEO, speed, IP, PDF, calculator and converter tools from EKSTRUH LTD — built for website owners in Pakistan and worldwide.';
     return {
       title,
       description,
@@ -141,7 +142,7 @@ export const resolvePageSeo = (route: string, cms: CmsState): PageSeo => {
     const live = cms.tools.filter(t => t.status === 'live');
     const seo = cms.seo.tools;
     const title = seo?.title || `${live.length}+ Free SEO Tools — Audit, Speed, Calculator & Converter Tools`;
-    const description = seo?.description || `Browse ${live.length}+ free tools from EKSTRUH LTD: website SEO audit, page speed, keyword research, backlinks, IP lookup, PDF tools, calculators and unit converters.`;
+    const description = seo?.description || `Browse ${live.length}+ free tools from EKSTRUH LTD for Pakistan and worldwide: website SEO audit, page speed, keyword research, backlinks, IP lookup, PDF tools, calculators and unit converters.`;
     return {
       title,
       description,

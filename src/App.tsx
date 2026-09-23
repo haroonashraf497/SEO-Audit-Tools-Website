@@ -1362,6 +1362,14 @@ const SiteApp: React.FC = () => {
   }, [route, cms.loggedIn]);
 
   useEffect(() => {
+    // Escape closes the mobile menu (keyboard users are left where they were).
+    if (!mobileMenuOpen) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setMobileMenuOpen(false); };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [mobileMenuOpen]);
+
+  useEffect(() => {
     // Plain in-page fragments (#features, #audiences) scroll to their section;
     // every other navigation starts from the top.
     const frag = window.location.hash.slice(1);
@@ -1465,14 +1473,15 @@ const SiteApp: React.FC = () => {
             </a>
 
             <div className="hidden md:flex items-center gap-7">
-              <a href="/" className={`transition-colors ${route === 'home' ? 'text-indigo-600 font-semibold' : 'text-slate-600 hover:text-indigo-600'}`}>Home</a>
+              <a href="/" aria-current={route === 'home' ? 'page' : undefined} className={`rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 ${route === 'home' ? 'text-indigo-600 font-semibold' : 'text-slate-600 hover:text-indigo-600'}`}>Home</a>
               {cms.state.nav.filter(n => n.visible && (!(n.href || '').includes('/admin') || cms.loggedIn)).map(n => {
                 const href = cleanHref(n.href) || n.href;
+                const active = (isTools && href.includes('tools')) || (isBlog && href.includes('blog')) || href.includes('competitor');
                 return (
-                  <a key={n.id} href={href} className={`transition-colors ${(isTools && href.includes('tools')) || (isBlog && href.includes('blog')) || href.includes('competitor') ? 'text-indigo-600 font-semibold' : 'text-slate-600 hover:text-indigo-600'}`}>{n.label}</a>
+                  <a key={n.id} href={href} aria-current={active ? 'page' : undefined} className={`rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 ${active ? 'text-indigo-600 font-semibold' : 'text-slate-600 hover:text-indigo-600'}`}>{n.label}</a>
                 );
               })}
-              <a href="/competitor-analysis" className={`transition-colors ${route === 'competitor-analysis' ? 'text-indigo-600 font-semibold' : 'text-slate-600 hover:text-indigo-600'}`}>Competitor Analysis</a>
+              <a href="/competitor-analysis" aria-current={route === 'competitor-analysis' ? 'page' : undefined} className={`rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 ${route === 'competitor-analysis' ? 'text-indigo-600 font-semibold' : 'text-slate-600 hover:text-indigo-600'}`}>Competitor Analysis</a>
               {cms.loggedIn && (
                 <>
                   <a href="/admin" className="text-slate-600 hover:text-indigo-600 transition-colors" title="Content manager">Admin</a>
@@ -1483,10 +1492,11 @@ const SiteApp: React.FC = () => {
 
             <button
               type="button"
-              className="md:hidden p-2"
+              className="md:hidden p-2 rounded-md text-slate-600 hover:text-indigo-600 hover:bg-slate-100 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              aria-label="Toggle menu"
+              aria-label={mobileMenuOpen ? 'Close menu' : 'Open menu'}
               aria-expanded={mobileMenuOpen}
+              aria-controls={mobileMenuOpen ? 'site-mobile-menu' : undefined}
             >
               {mobileMenuOpen ? <InlineIcons.X /> : <InlineIcons.Menu />}
             </button>
@@ -1494,17 +1504,21 @@ const SiteApp: React.FC = () => {
         </div>
 
         {mobileMenuOpen && (
-          <div className="md:hidden bg-white border-t border-slate-200 py-4 -mx-4 px-4">
+          <div id="site-mobile-menu" className="md:hidden bg-white border-t border-slate-200 py-4 -mx-4 px-4">
             <div className="flex flex-col gap-4">
-              <a href="/" className={`transition-colors ${route === 'home' ? 'text-indigo-600 font-semibold' : 'text-slate-600 hover:text-indigo-600'}`} onClick={() => setMobileMenuOpen(false)}>Home</a>
-              {cms.state.nav.filter(n => n.visible && (!(n.href || '').includes('/admin') || cms.loggedIn)).map(n => (
-                <a key={n.id} href={cleanHref(n.href) || n.href} className="text-slate-600 hover:text-indigo-600" onClick={() => setMobileMenuOpen(false)}>{n.label}</a>
-              ))}
-              <a href="/competitor-analysis" className={`transition-colors ${route === 'competitor-analysis' ? 'text-indigo-600 font-semibold' : 'text-slate-600 hover:text-indigo-600'}`} onClick={() => setMobileMenuOpen(false)}>Competitor Analysis</a>
+              <a href="/" aria-current={route === 'home' ? 'page' : undefined} className={`rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 ${route === 'home' ? 'text-indigo-600 font-semibold' : 'text-slate-600 hover:text-indigo-600'}`} onClick={() => setMobileMenuOpen(false)}>Home</a>
+              {cms.state.nav.filter(n => n.visible && (!(n.href || '').includes('/admin') || cms.loggedIn)).map(n => {
+                const href = cleanHref(n.href) || n.href;
+                const active = (isTools && href.includes('tools')) || (isBlog && href.includes('blog')) || href.includes('competitor');
+                return (
+                  <a key={n.id} href={href} aria-current={active ? 'page' : undefined} className={`rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 ${active ? 'text-indigo-600 font-semibold' : 'text-slate-600 hover:text-indigo-600'}`} onClick={() => setMobileMenuOpen(false)}>{n.label}</a>
+                );
+              })}
+              <a href="/competitor-analysis" aria-current={route === 'competitor-analysis' ? 'page' : undefined} className={`rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 ${route === 'competitor-analysis' ? 'text-indigo-600 font-semibold' : 'text-slate-600 hover:text-indigo-600'}`} onClick={() => setMobileMenuOpen(false)}>Competitor Analysis</a>
               {cms.loggedIn && (
                 <>
-                  <a href="/admin" className="text-slate-600 hover:text-indigo-600" onClick={() => setMobileMenuOpen(false)}>Admin</a>
-                  <button type="button" onClick={() => { cms.logout(); setMobileMenuOpen(false); navigate('/'); }} className="text-left text-slate-600 hover:text-indigo-600">Log Out</button>
+                  <a href="/admin" className="rounded-md text-slate-600 hover:text-indigo-600 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500" onClick={() => setMobileMenuOpen(false)}>Admin</a>
+                  <button type="button" onClick={() => { cms.logout(); setMobileMenuOpen(false); navigate('/'); }} className="text-left rounded-md text-slate-600 hover:text-indigo-600 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500">Log Out</button>
                 </>
               )}
             </div>
@@ -1548,7 +1562,7 @@ const SiteApp: React.FC = () => {
           <header className="text-center mb-12">
             <div className="inline-flex items-center gap-2 bg-white/80 backdrop-blur-sm px-4 py-2 rounded-full border border-slate-200 mb-6">
               <span className="text-indigo-500"><InlineIcons.Award /></span>
-              <span className="text-sm font-medium text-slate-600">Trusted by 10,000+ websites</span>
+              <span className="text-sm font-medium text-slate-600">Trusted by 10,000+ websites across Pakistan &amp; beyond</span>
             </div>
             <h1 className="text-4xl md:text-6xl font-bold text-slate-900 mb-6 leading-tight">
               Free{' '}
@@ -1558,7 +1572,8 @@ const SiteApp: React.FC = () => {
             </h1>
             <p className="text-lg md:text-xl text-slate-600 max-w-3xl mx-auto mb-8">
               Analyze your website's SEO performance with our comprehensive audit tool.
-              Get instant insights, actionable recommendations, and downloadable reports.
+              Get instant insights, actionable recommendations, and downloadable reports —
+              built for website owners in Pakistan and worldwide.
             </p>
 
             {/* URL Input Form */}
@@ -2016,7 +2031,7 @@ const SiteApp: React.FC = () => {
 
           {/* Bottom bar */}
           <div className="border-t border-slate-800 pt-6 text-xs text-slate-400">
-            <p>© {new Date().getFullYear()} EKSTRUH LTD · Trading as {cms.state.settings.domain}. All rights reserved.</p>
+            <p>© {new Date().getFullYear()} EKSTRUH LTD · Trading as {cms.state.settings.name} ({cms.state.settings.domain}) · Free SEO tools for Pakistan &amp; worldwide. All rights reserved.</p>
           </div>
         </div>
       </footer>
