@@ -5,6 +5,7 @@ import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
 import { defineConfig, type Plugin } from "vite";
 import { inlineCriticalCss } from "./scripts/inline-css";
+import { routeChunkUrls } from "./scripts/route-chunks";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -22,7 +23,7 @@ const hostingFiles = (): Plugin => ({
 });
 
 export default defineConfig({
-  plugins: [react(), tailwindcss(), inlineCriticalCss(), hostingFiles()],
+  plugins: [react(), tailwindcss(), inlineCriticalCss(), routeChunkUrls(), hostingFiles()],
   server: {
     host: true,
     allowedHosts: [".e2b.app", ".arena.site"],

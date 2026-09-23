@@ -10,9 +10,9 @@ import { RouteRetryContext, useRouteRetry, ChunkLoadError, type RouteRetry } fro
  *  - `RouteBoundary` catches anything thrown below it and replaces the subtree
  *    with an actionable message. "Try again" clears the error and bumps the
  *    retry token, which makes every `lazyRoute` child re-issue its import.
- *  - `LoadingFallback` is the Suspense fallback. It shows the normal loading
- *    notice first, but if the chunk still has not arrived after
- *    `LOAD_TIMEOUT_MS` it stops pretending and offers the same two actions.
+ *  - `LoadingFallback` is the Suspense fallback: a subtle spinner while the
+ *    chunk is still plausibly on its way and, if it has not arrived after
+ *    `LOAD_TIMEOUT_MS`, the same two actions instead of an endless spinner.
  */
 
 /** How long the fallback waits before declaring the load stalled. */
@@ -42,9 +42,13 @@ const Panel: React.FC<{ title: string; detail: string; actions: PanelAction[] }>
 const reload = () => { window.location.reload(); };
 
 /**
- * Suspense fallback with a hard deadline. The `role="status"` notice and its
- * wording are unchanged while the load is still plausible, so crawlers, screen
- * readers and the existing tests keep seeing exactly what they saw before.
+ * Suspense fallback with a hard deadline. The `role="status"` notice keeps the
+ * same wording for crawlers, screen readers and the existing tests, but it is
+ * no longer painted across the content area: a route change shows a small
+ * spinner, and the text is left to assistive technology. A caller-supplied
+ * label (the PDF engine notice) is a designed spinner + caption of its own, so
+ * that one still renders exactly as before. If the chunk has not arrived after
+ * `LOAD_TIMEOUT_MS` the fallback stops pretending and offers two actions.
  */
 export const LoadingFallback: React.FC<{ label?: React.ReactNode; timeoutMs?: number }> = ({
   label = 'Loading page…',
@@ -60,7 +64,15 @@ export const LoadingFallback: React.FC<{ label?: React.ReactNode; timeoutMs?: nu
   }, [token, timeoutMs]);
 
   if (!stalled) {
-    return <div role="status" className="py-16 text-center text-slate-600">{label}</div>;
+    if (typeof label !== 'string') {
+      return <div role="status" className="py-16 text-center text-slate-600">{label}</div>;
+    }
+    return (
+      <div role="status" className="flex items-center justify-center gap-3 py-16">
+        <span className="route-spinner" aria-hidden="true" />
+        <span className="sr-text">{label}</span>
+      </div>
+    );
   }
   return (
     <Panel

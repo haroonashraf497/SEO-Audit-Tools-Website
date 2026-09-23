@@ -48,6 +48,37 @@ body {
   animation: fade-in 0.22s ease-out both;
 }
 
+/* Loading state for a route chunk: a subtle spinner instead of a block of
+   "Loading page…" text across the content area. The wording is still read out
+   (.sr-text below) — see LoadingFallback in src/components/ErrorBoundary.tsx.
+   The matching spinner for the static header shell in index.html lives with
+   that markup, so the shell is styled before this stylesheet exists. */
+.route-spinner {
+  display: inline-block;
+  width: 1.25rem;
+  height: 1.25rem;
+  border-radius: 9999px;
+  border: 2px solid #e0e7ff;
+  border-top-color: #6366f1;
+  animation: route-spinner-turn 0.7s linear infinite;
+}
+@keyframes route-spinner-turn {
+  to { transform: rotate(360deg); }
+}
+
+/* Screen-reader-only text: "Loading page…" stays announced, not displayed. */
+.sr-text {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+
 /* Skip rendering heavy effects on slow connections */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
@@ -55,6 +86,8 @@ body {
     transition-duration: 0.01ms !important;
   }
   html { scroll-behavior: auto; }
+  /* The route spinner would blur at 0.01ms per turn: park it as a static ring. */
+  .route-spinner { animation: none; border-top-color: #c7d2fe; }
 }
 
 /* Optimize SVG rendering */

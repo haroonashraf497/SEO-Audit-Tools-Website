@@ -67,9 +67,172 @@
       ]
     }
     </script>
+    <!-- ============================================================
+         Boot shell CSS. Kept next to the shell markup (in <body> below) and
+         out of the application stylesheet on purpose: the header has to be
+         styled in the very first frame, which in dev is before src/index.css
+         exists (that stylesheet travels with the JavaScript).
+         ============================================================ -->
+    <style>
+      /* Handover to React, with no JavaScript involved:
+         • a fresh home visit paints the prerendered homepage
+           (html[data-prerender-home]), so the shell is redundant at once;
+         • everywhere else the shell stays up while #root still holds the
+           hidden prerender copy, and while main.tsx has cleared #root and
+           React is committing;
+         • as soon as React has rendered into #root — the marker attribute is
+           gone and the container has children — the real header is on screen
+           and the shell leaves. src/App.tsx then removes the node, so the
+           document is left with exactly one navigation. */
+      html[data-prerender-home] #boot-shell,
+      #root:not([data-prerender]):not(:empty) ~ #boot-shell { display: none; }
+
+      /* Loading affordance: a subtle spinner, plus wording that is announced
+         by screen readers but never painted across the content area. */
+      #boot-shell .boot-status {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: .75rem;
+        padding: 4rem 1rem;
+      }
+      #boot-shell .boot-spinner {
+        display: inline-block;
+        width: 1.25rem;
+        height: 1.25rem;
+        border-radius: 9999px;
+        border: 2px solid #e0e7ff;
+        border-top-color: #6366f1;
+        animation: boot-spinner-turn .7s linear infinite;
+      }
+      @keyframes boot-spinner-turn { to { transform: rotate(360deg); } }
+      #boot-shell .boot-sr {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        white-space: nowrap;
+        border-width: 0;
+      }
+
+      /* Mobile menu icon swap for the shell's own menu button. */
+      #boot-shell .boot-icon-close { display: none; }
+      #boot-shell [aria-expanded="true"] .boot-icon-menu { display: none; }
+      #boot-shell [aria-expanded="true"] .boot-icon-close { display: block; }
+
+      /* The shell's 12s deadline (script below): if the bundle never arrives,
+         trade the endless spinner for a reload action. A late commit still
+         hides the whole shell, so this never fights the real header. */
+      #boot-shell .boot-stalled { display: none; padding: 4rem 1rem; }
+      #boot-shell[data-stalled] .boot-status { display: none; }
+      #boot-shell[data-stalled] .boot-stalled { display: block; }
+
+      @media (prefers-reduced-motion: reduce) {
+        #boot-shell .boot-spinner { animation: none; border-top-color: #c7d2fe; }
+      }
+    </style>
   </head>
   <body>
     <div id="root"></div>
+
+    <!-- ============================================================
+         Static boot shell — the header, brand and navigation painted by
+         the browser from this HTML plus the inlined stylesheet, before a
+         single byte of JavaScript has run.
+
+         It is what a visitor sees while the app is still on its way:
+         a deep link (/tools, /about, /blog/…) or a repeat visit, where the
+         prerendered homepage is deliberately kept hidden. Those visits used
+         to stare at a blank white document until the entry chunk finished
+         downloading, and then at a block of "Loading page…" text while the
+         route chunk arrived.
+
+         Handover is pure CSS (the <style> block in <head> above): the shell
+         stays up while #root is empty or hidden, and disappears the instant
+         React commits the real header. src/App.tsx then removes the
+         node so the document holds exactly one navigation. This markup
+         mirrors the live header — no extra branding, no routes, no content.
+         ============================================================ -->
+    <div id="boot-shell" class="min-h-screen bg-gradient-to-br from-slate-50 via-indigo-50 to-purple-50">
+      <nav class="fixed top-0 left-0 right-0 z-50 h-16 bg-white border-b border-slate-200 px-4">
+        <div class="max-w-7xl mx-auto">
+          <div class="flex items-center justify-between h-16">
+            <a href="/" class="flex items-center gap-2">
+              <div class="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center text-white">
+                <svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3v18h18"></path><path d="M18 17V9"></path><path d="M13 17V5"></path><path d="M8 17v-3"></path></svg>
+              </div>
+              <span class="text-xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">SEO Audit Tools</span>
+            </a>
+            <div class="hidden md:flex items-center gap-7">
+              <a href="/" class="rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 text-slate-600 hover:text-indigo-600">Home</a>
+              <a href="/tools" class="rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 text-slate-600 hover:text-indigo-600">Free SEO Tools</a>
+              <a href="/competitor-analysis" class="rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 text-slate-600 hover:text-indigo-600">Competitor Analysis</a>
+            </div>
+            <button id="boot-menu-btn" type="button" class="md:hidden p-2 rounded-md text-slate-600 hover:text-indigo-600 hover:bg-slate-100 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500" aria-label="Open menu" aria-expanded="false" aria-controls="boot-menu">
+              <svg class="w-6 h-6 boot-icon-menu" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+              <svg class="w-6 h-6 boot-icon-close" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+            </button>
+          </div>
+        </div>
+        <div id="boot-menu" class="md:hidden bg-white border-t border-slate-200 py-4 -mx-4 px-4" hidden>
+          <div class="flex flex-col gap-4">
+            <a href="/" class="rounded-md transition-colors text-slate-600 hover:text-indigo-600">Home</a>
+            <a href="/tools" class="rounded-md transition-colors text-slate-600 hover:text-indigo-600">Free SEO Tools</a>
+            <a href="/competitor-analysis" class="rounded-md transition-colors text-slate-600 hover:text-indigo-600">Competitor Analysis</a>
+          </div>
+        </div>
+      </nav>
+      <div class="h-16 shrink-0" aria-hidden="true"></div>
+
+      <!-- Subtle spinner, not a text block. The wording stays available to
+           screen readers only (.boot-sr). -->
+      <div class="boot-status" role="status">
+        <span class="boot-spinner" aria-hidden="true"></span>
+        <span class="boot-sr">Loading page…</span>
+      </div>
+
+      <!-- Shown by the deadline script below if the bundle never arrives. -->
+      <div class="boot-stalled">
+        <div class="mx-auto max-w-lg rounded-2xl border border-rose-200 bg-white p-6 text-center shadow-sm">
+          <p class="text-lg font-bold text-slate-900">This page is taking too long to load</p>
+          <p class="mt-2 text-sm text-slate-600">The site script has not arrived. Check your connection, then reload.</p>
+          <button type="button" class="mt-5 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 px-5 py-2.5 text-sm font-semibold text-white transition-shadow hover:shadow-lg hover:shadow-indigo-500/25 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2" onclick="location.reload()">Reload page</button>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      (function () {
+        // Mobile menu for the static shell — plain DOM, so it works even if the
+        // application bundle never downloads.
+        var btn = document.getElementById('boot-menu-btn');
+        var menu = document.getElementById('boot-menu');
+        if (btn && menu) {
+          btn.addEventListener('click', function () {
+            var opening = menu.hasAttribute('hidden');
+            if (opening) menu.removeAttribute('hidden');
+            else menu.setAttribute('hidden', '');
+            btn.setAttribute('aria-expanded', opening ? 'true' : 'false');
+            btn.setAttribute('aria-label', opening ? 'Close menu' : 'Open menu');
+          });
+        }
+        // Same 12s deadline the app itself uses: if React has not taken over by
+        // then, stop pretending and offer a reload instead of an endless spinner.
+        // "Taken over" = main.tsx has run (it drops the data-prerender marker)
+        // and committed something, or the prerendered homepage is on screen.
+        setTimeout(function () {
+          var shell = document.getElementById('boot-shell');
+          var root = document.getElementById('root');
+          if (!shell || !root) return;
+          if (document.documentElement.hasAttribute('data-prerender-home')) return;
+          if (!root.hasAttribute('data-prerender') && root.childElementCount > 0) return;
+          shell.setAttribute('data-stalled', '');
+        }, 12000);
+      })();
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

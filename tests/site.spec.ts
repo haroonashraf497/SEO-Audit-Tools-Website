@@ -147,14 +147,22 @@ test('homepage accessibility, including below-fold sections', async ({ page }) =
   await expect(page.getByRole('button', { name: 'Close cookie preferences' })).toBeVisible();
 });
 
-test('code-split build: homepage first, other routes load on demand', async ({ page }) => {
+test('code-split build: homepage first, the rest warms in the background', async ({ page }) => {
   const html = readFileSync('dist/index.html', 'utf8');
-  // The document is prerendered homepage markup + inline CSS; the application
-  // graph is external, content-hashed and loaded without blocking the paint.
+  // The document is prerendered homepage markup + a static header shell +
+  // inline CSS; the application graph is external, content-hashed and loaded
+  // without blocking the paint.
   expect(html).toMatch(/<script[^>]+src="\/assets\/index-[^"]+\.js"/);
   expect(html).not.toContain('__VITE_PRELOAD__');
   expect(html).not.toContain('id="app-modules"');
   expect(html.length).toBeLessThan(220 * 1024); // was a 1.3 MB single file
+
+  // The shell that paints before any JavaScript must not add a second <main>,
+  // a second <h1> or a second live region: strict-mode locators and the
+  // accessibility audit both depend on the app owning those exactly once.
+  const shell = html.slice(html.indexOf('id="boot-shell"'), html.indexOf('</body>'));
+  expect(shell.length).toBeGreaterThan(0);
+  expect(shell).not.toMatch(/<main|<h1|<h2|role="alert"/);
 
   // Every protected surface remains its own lazily-fetched chunk.
   const assets = readdirSync('dist/assets');
@@ -166,19 +174,28 @@ test('code-split build: homepage first, other routes load on demand', async ({ p
 
   const requests: string[] = [];
   page.on('request', r => requests.push(r.url()));
+  const routeChunks = () => requests.filter(url => /\/assets\/(?!index-)[^/]+\.js/.test(url));
+
   await page.coverage.startJSCoverage();
   await page.goto('/');
-  await expect.poll(() => page.evaluate(() => localStorage.getItem('seoaudittool:cms:v1'))).not.toBeNull();
+  // Up to `load`, the homepage needed exactly one script — the entry chunk.
+  // Background warming is deliberately scheduled after this point, so it can
+  // never compete with the page being painted.
+  expect(routeChunks()).toEqual([]);
   const coverage = await page.coverage.stopJSCoverage();
-  // Only the entry chunk is compiled on home; tool/editor/PDF code is not
-  // even fetched, let alone parsed.
   expect(coverage.map(entry => entry.url).filter(url => url.includes('/assets/')))
     .toEqual([expect.stringMatching(/\/assets\/index-[^/]+\.js$/)]);
-  expect(requests.filter(url => /\/assets\/(?!index-)[^/]+\.js/.test(url))).toEqual([]);
+
+  await expect.poll(() => page.evaluate(() => localStorage.getItem('seoaudittool:cms:v1'))).not.toBeNull();
+  // Then the remaining public routes arrive on their own, while the visitor is
+  // still reading the homepage: no click and no loading state required.
+  await expect.poll(() => routeChunks().some(url => /\/assets\/Tools-[^/]+\.js/.test(url)), { timeout: 30_000 }).toBe(true);
+  await expect.poll(() => routeChunks().some(url => /\/assets\/Blog-[^/]+\.js/.test(url)), { timeout: 30_000 }).toBe(true);
+  await expect.poll(() => routeChunks().some(url => /\/assets\/CompetitorAnalysis-[^/]+\.js/.test(url)), { timeout: 30_000 }).toBe(true);
+  // Admin code is not warmed for a signed-out visitor.
+  expect(routeChunks().some(url => /\/assets\/Admin-[^/]+\.js/.test(url))).toBe(false);
 
   await page.getByRole('button', { name: 'Decline', exact: true }).click();
   await page.locator('a[href="/tool/percentage-calculator"]').first().click();
   await expect(page.locator('h1')).toHaveText('Percentage Calculator');
-  // Visiting a tool is exactly when its code is fetched.
-  expect(requests.filter(url => /\/assets\/Tools-[^/]+\.js/.test(url)).length).toBeGreaterThan(0);
 });

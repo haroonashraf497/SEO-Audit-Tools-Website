@@ -1,3 +1,76 @@
+# Loading states — instant header, subtle spinner, background warming (2026-09-23)
+
+## The reported problem
+
+Two visible gaps sat between the request and the page:
+
+1. **A blank document.** The prerendered homepage in `#root` is deliberately
+   hidden unless the visit is a fresh home visit with no saved CMS, cookie or
+   admin state (that gate is protected — see the 2026-09-22 section). So every
+   **deep link** (`/tools`, `/about`, `/blog/…`, `/tool/…`) and every **repeat
+   visit** painted *nothing at all* until the 538 KB entry chunk had downloaded,
+   parsed and rendered. Header, brand and navigation were part of that wait.
+2. **A block of "Loading page…" text.** Once the app was up, each route chunk
+   (`Tools` alone is 370 KB) replaced the whole content area with that sentence
+   while it travelled — on the first click of the session, every time.
+
+## What changed
+
+| Change | Where | Effect |
+| --- | --- | --- |
+| Static **boot shell**: header, brand, navigation (desktop + mobile menu) and a spinner, written as plain HTML with a small `<style>` in `<head>` | `index.html` | Painted by the browser from HTML + CSS alone — the header is on screen in the first frame of *every* visit, with or without JavaScript |
+| **CSS-only handover**: `html[data-prerender-home] #boot-shell` and `#root:not([data-prerender]):not(:empty) ~ #boot-shell` | `index.html` `<style>` | The shell is up while `#root` is empty or hidden, and gone the instant React commits the real header — no flash, no duplicate navigation. `src/App.tsx` then removes the node |
+| Shell **deadline**: after 12 s without React, the spinner is swapped for the same "taking too long to load" + Reload panel the app uses | `index.html` inline script | A bundle that never arrives ends in an action, not an endless spinner. A late commit still hides the whole shell |
+| **Subtle spinner** instead of the text block; the wording survives as screen-reader-only text | `src/components/ErrorBoundary.tsx`, `.route-spinner`/`.sr-text` in `src/index.css` | `role="status"` still announces "Loading page…", crawlers and assistive tech see the same thing, and the content area no longer fills with that sentence. Custom labels (the PDF-engine notice) render exactly as before |
+| **Background warming**: after the shell commits *and* `load` has fired, `<link rel="prefetch" as="script" crossorigin>` for `Tools`, `Blog`, `CompetitorAnalysis` — one at a time, from an idle callback | `src/utils/prefetch.ts` | The rest of the site downloads at the browser's lowest priority while the visitor reads. Prefetch **only downloads**; it does not compile, so it adds no main-thread time and cannot regress TBT. The later `React.lazy` import is a cache hit |
+| **Intent warming**: pointing at or tabbing to an internal link `import()`s just that route's chunk | `src/utils/prefetch.ts` | The common case (hover a tool, click it) has nothing left to fetch *or* compile |
+| Data Saver / 2G skip everything; admin chunks warm only for a signed-in admin | `src/utils/prefetch.ts` | No wasted bytes on constrained connections; the 136 KB `Admin` chunk is never sent to a visitor |
+| Route-chunk URLs injected at build time (content-hashed names cannot be written in source) | `scripts/route-chunks.ts` + `vite.config.ts` | The entry chunk learns `/assets/Tools-<hash>.js` etc. after minification; the **document still references only the entry chunk** |
+
+Ordering is the point: homepage first (entry chunk + prerender/static shell),
+everything else afterwards and in the background.
+
+## Explicitly unchanged
+
+- **URLs, `.htaccess` and routing**: no path, rewrite, canonical, OG tag,
+  sitemap, robots or structured-data change. `src/router.ts` is untouched; the
+  prefetch module only *reads* hrefs through the router's existing `cleanHref`.
+- **All 154 tools, Team SAT and the Pakistan SEO copy**, tool URLs, the PDF
+  engines' on-demand CDN loading, the CMS, admin, both rich-text editors,
+  drafts, media library, export/import.
+- **The prerender/hydration gate** — a fresh home visit still paints the
+  prerendered homepage and hydrates; saved CMS settings, admin sessions and
+  cookie choices still bypass it (now with the static header instead of a blank
+  document while the app loads).
+- **The chunk layout** and every hashed `/assets/*` file name strategy; the
+  document ships no route code and preloads no route chunk.
+- Branding: the shell mirrors the live header (SEO Audit Tools / EKSTRUH LTD
+  defaults). No old domain or retired branding was reintroduced anywhere.
+
+## Tests
+
+`npm run build && npm run typecheck && npm test` (Playwright; needs Chromium).
+
+- `tests/site.spec.ts` — the code-split contract is now "homepage first, the
+  rest warms in the background": at `load` the entry chunk is still the only
+  script fetched *and* compiled, the shell adds no second `<main>`/`<h1>`/live
+  region, and the public route chunks then arrive on their own while the admin
+  chunks do not.
+- `tests/resilience.spec.ts` — adds the shell: header/brand/navigation visible
+  with every script stalled, the 12 s reload panel, the handover leaving exactly
+  one navigation, and a fresh home visit never showing the shell. The existing
+  stalled-chunk assertion (`main` contains "Loading page…") still holds through
+  the screen-reader-only text.
+
+Verified without a browser in this sandbox (no Chromium download available):
+the built document/artefacts (`dist` route-chunk map points at real files, the
+document references only the entry chunk), the shell's handover and deadline
+logic driven through jsdom against the real built HTML, and the prefetch
+scheduler (delay, idle gating, one-at-a-time queue, dedupe, href→chunk mapping,
+Data Saver opt-out, failure tolerance) driven against the real module.
+
+---
+
 # Mobile performance — code-split build (2026-09-22)
 
 ## What changed and why

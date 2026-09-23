@@ -8,12 +8,15 @@ import SerpPreview from './components/SerpPreview';
 import { SeoManager } from './utils/seo';
 import { cleanHref, getRoute, navigate, rewriteLegacyLinks, subscribe } from './router';
 import { lazyRoute } from './utils/lazyRetry';
+import { startAdminPrefetch, startIntentPrefetch, startRoutePrefetch } from './utils/prefetch';
 import { LoadingFallback, RouteBoundary } from './components/ErrorBoundary';
 
 // Route modules are evaluated only when visited. The production build keeps
 // them as separate chunks, so each one is a network request that can fail or
 // stall: `lazyRoute` retries the import and hands a permanent failure to
 // <RouteBoundary> instead of leaving the fallback spinner on screen forever.
+// src/utils/prefetch.ts then warms these same chunks in the background once
+// the homepage is on screen, so in practice the fallback is rarely reached.
 const BlogList = lazyRoute(() => import('./blog/Blog').then(m => ({ default: m.BlogList })));
 const BlogArticlePage = lazyRoute(() => import('./blog/Blog').then(m => ({ default: m.BlogArticlePage })));
 const ToolsList = lazyRoute(() => import('./tools/Tools').then(m => ({ default: m.ToolsList })));
@@ -1376,6 +1379,24 @@ const SiteApp: React.FC = () => {
       setMobileMenuOpen(false);
     });
   }, []);
+
+  useEffect(() => {
+    // index.html paints a static header (brand + navigation + spinner) so no
+    // visit ever starts as a blank document. CSS hides it the moment React
+    // commits the real header; dropping the node here leaves exactly one
+    // navigation in the DOM.
+    document.getElementById('boot-shell')?.remove();
+    // Homepage first — it is already on screen. The remaining routes then warm
+    // in the background and on link hover, so navigating has no chunk left to
+    // wait for and the loading state is normally never seen at all.
+    startIntentPrefetch();
+    startRoutePrefetch();
+  }, []);
+
+  useEffect(() => {
+    // The admin chunks are of no use to a visitor: warm them only once signed in.
+    if (cms.loggedIn) startAdminPrefetch();
+  }, [cms.loggedIn]);
 
   useEffect(() => {
     if (route === 'admin' && !cms.loggedIn) navigate('/admin-login');
