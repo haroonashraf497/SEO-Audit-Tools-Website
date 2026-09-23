@@ -1,4 +1,4 @@
-import React, { lazy, Suspense, useState, useCallback, useMemo, useEffect } from 'react';
+import React, { Suspense, useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { categoryDescriptions, categoryLabels, ToolIcon } from './tools/data';
 import { fetchPageData, type LivePageData } from './utils/pageFetch';
 import { fetchDomainInfo, type DomainInfo } from './utils/domainLookup';
@@ -7,18 +7,22 @@ import { CmsProvider, useCms, liveTools, livePosts, findPage, blocksToHtml } fro
 import SerpPreview from './components/SerpPreview';
 import { SeoManager } from './utils/seo';
 import { cleanHref, getRoute, navigate, rewriteLegacyLinks, subscribe } from './router';
+import { lazyRoute } from './utils/lazyRetry';
+import { LoadingFallback, RouteBoundary } from './components/ErrorBoundary';
 
-// Route modules are evaluated only when visited. The production build embeds
-// the chunks in index.html, preserving the single-file hosting contract.
-const BlogList = lazy(() => import('./blog/Blog').then(m => ({ default: m.BlogList })));
-const BlogArticlePage = lazy(() => import('./blog/Blog').then(m => ({ default: m.BlogArticlePage })));
-const ToolsList = lazy(() => import('./tools/Tools').then(m => ({ default: m.ToolsList })));
-const ToolPage = lazy(() => import('./tools/Tools').then(m => ({ default: m.ToolPage })));
-const CompetitorAnalysis = lazy(() => import('./tools/CompetitorAnalysis'));
-const CompetitorToolContent = lazy(() => import('./tools/CompetitorAnalysis').then(m => ({ default: m.CompetitorToolContent })));
-const AdminApp = lazy(() => import('./cms/Admin').then(m => ({ default: m.AdminApp })));
-const AdminLoginPage = lazy(() => import('./cms/AdminLogin').then(m => ({ default: m.AdminLoginPage })));
-const AdminResetPage = lazy(() => import('./cms/AdminLogin').then(m => ({ default: m.AdminResetPage })));
+// Route modules are evaluated only when visited. The production build keeps
+// them as separate chunks, so each one is a network request that can fail or
+// stall: `lazyRoute` retries the import and hands a permanent failure to
+// <RouteBoundary> instead of leaving the fallback spinner on screen forever.
+const BlogList = lazyRoute(() => import('./blog/Blog').then(m => ({ default: m.BlogList })));
+const BlogArticlePage = lazyRoute(() => import('./blog/Blog').then(m => ({ default: m.BlogArticlePage })));
+const ToolsList = lazyRoute(() => import('./tools/Tools').then(m => ({ default: m.ToolsList })));
+const ToolPage = lazyRoute(() => import('./tools/Tools').then(m => ({ default: m.ToolPage })));
+const CompetitorAnalysis = lazyRoute(() => import('./tools/CompetitorAnalysis'));
+const CompetitorToolContent = lazyRoute(() => import('./tools/CompetitorAnalysis').then(m => ({ default: m.CompetitorToolContent })));
+const AdminApp = lazyRoute(() => import('./cms/Admin').then(m => ({ default: m.AdminApp })));
+const AdminLoginPage = lazyRoute(() => import('./cms/AdminLogin').then(m => ({ default: m.AdminLoginPage })));
+const AdminResetPage = lazyRoute(() => import('./cms/AdminLogin').then(m => ({ default: m.AdminResetPage })));
 
 // Inline SVG icons for critical UI (no JS overhead)
 const InlineIcons = {
@@ -1336,6 +1340,21 @@ const SiteBreadcrumbs: React.FC<{ route: string }> = ({ route }) => {
   );
 };
 
+const delay = (ms: number) => new Promise<void>((resolve) => { setTimeout(resolve, ms); });
+
+/** Reject if `promise` has not settled within `ms`, so callers cannot hang. */
+const withDeadline = <T,>(promise: Promise<T>, ms: number): Promise<T> => Promise.race([
+  promise,
+  new Promise<never>((_, reject) => {
+    setTimeout(() => reject(new Error(`timed out after ${ms}ms`)), ms);
+  }),
+]);
+
+const ANALYSIS_ANIMATION_MS = 2000;      // progress ramp duration
+const ANALYSIS_ANIMATION_MAX_MS = 3000;  // watchdog: rAF is paused in a background tab
+const ANALYSIS_FETCH_MS = 7000;          // per-source network cap
+const ANALYSIS_TOTAL_MS = 12000;         // hard ceiling for the whole audit run
+
 const SiteApp: React.FC = () => {
   const cms = useCms();
   const visibleTools = useMemo(() => liveTools(cms.state), [cms.state]);
@@ -1344,6 +1363,8 @@ const SiteApp: React.FC = () => {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisProgress, setAnalysisProgress] = useState(0);
   const [result, setResult] = useState<AuditResult | null>(null);
+  const [auditError, setAuditError] = useState('');
+  const auditRuns = useRef(0);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [cookiePrefsOpen, setCookiePrefsOpen] = useState(false);
   const [route, setRoute] = useState<string>(getRoute);
@@ -1390,43 +1411,63 @@ const SiteApp: React.FC = () => {
     const trimmed = url.trim();
     if (!trimmed) return;
 
+    // Anything an older run resolves after this point is discarded, so a second
+    // Analyze click can never be un-spun by the first one's late result.
+    const run = auditRuns.current + 1;
+    auditRuns.current = run;
+
     setIsAnalyzing(true);
+    setAuditError('');
     setResult(null);
     setAnalysisProgress(0);
 
-    // Fetch the REAL page in the background while the progress bar animates
-    const normalized = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
-    const kwGuess = normalized.replace(/^https?:\/\//, '').split('/').filter(Boolean).slice(1).pop()?.split('?')[0]?.replace(/\.\w+$/, '').replace(/[-_]+/g, ' ') || '';
-    const livePromise = fetchPageData(normalized, kwGuess).catch(() => null);
-    const domainPromise = fetchDomainInfo(normalized).catch(() => null);
+    try {
+      // Fetch the REAL page in the background while the progress bar animates
+      const normalized = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+      const kwGuess = normalized.replace(/^https?:\/\//, '').split('/').filter(Boolean).slice(1).pop()?.split('?')[0]?.replace(/\.\\w+$/, '').replace(/[-_]+/g, ' ') || '';
+      const livePromise = fetchPageData(normalized, kwGuess).catch(() => null);
+      const domainPromise = fetchDomainInfo(normalized).catch(() => null);
 
-    const animation = new Promise<void>((resolve) => {
-      const start = performance.now();
-      const tick = (now: number) => {
-        const p = Math.min(90, ((now - start) / 2000) * 90);
-        setAnalysisProgress(Math.floor(p));
-        if (p < 90) requestAnimationFrame(tick);
-        else resolve();
-      };
-      requestAnimationFrame(tick);
-    });
+      const animation = new Promise<void>((resolve) => {
+        const start = performance.now();
+        const tick = (now: number) => {
+          const p = Math.min(90, ((now - start) / ANALYSIS_ANIMATION_MS) * 90);
+          setAnalysisProgress(Math.floor(p));
+          if (p < 90) requestAnimationFrame(tick);
+          else resolve();
+        };
+        requestAnimationFrame(tick);
+      });
 
-    await animation;
-    setAnalysisProgress(94);
+      // requestAnimationFrame stops firing in a background tab, so the ramp on
+      // its own can hang forever; the watchdog keeps the audit moving.
+      await Promise.race([animation, delay(ANALYSIS_ANIMATION_MAX_MS)]);
+      if (auditRuns.current !== run) return;
+      setAnalysisProgress(94);
 
-    // Read page and registry data in parallel, never holding the UI longer than seven seconds.
-    const [live, domainInfo] = await Promise.all([
-      Promise.race([livePromise, new Promise<null>((r) => setTimeout(() => r(null), 7000))]),
-      Promise.race([domainPromise, new Promise<null>((r) => setTimeout(() => r(null), 7000))]),
-    ]);
+      // Read page and registry data in parallel: each source is capped, and the
+      // whole read has a hard ceiling so the button can never stay disabled.
+      const [live, domainInfo] = await withDeadline(Promise.all([
+        Promise.race([livePromise, new Promise<null>((r) => setTimeout(() => r(null), ANALYSIS_FETCH_MS))]),
+        Promise.race([domainPromise, new Promise<null>((r) => setTimeout(() => r(null), ANALYSIS_FETCH_MS))]),
+      ]), ANALYSIS_TOTAL_MS);
+      if (auditRuns.current !== run) return;
 
-    setAnalysisProgress(100);
-    await new Promise((r) => setTimeout(r, 180));
-    setResult(generateMockAudit(trimmed, live, domainInfo));
-    setIsAnalyzing(false);
-    setTimeout(() => {
-      document.getElementById('results')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }, 50);
+      setAnalysisProgress(100);
+      await delay(180);
+      if (auditRuns.current !== run) return;
+      setResult(generateMockAudit(trimmed, live, domainInfo));
+      setTimeout(() => {
+        document.getElementById('results')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 50);
+    } catch (error) {
+      if (auditRuns.current !== run) return;
+      console.error('[audit] run failed', error);
+      setAuditError('The audit did not finish. Check the address and your connection, then run it again.');
+    } finally {
+      // The button must always come back, even when the run threw or timed out.
+      if (auditRuns.current === run) setIsAnalyzing(false);
+    }
   }, [url]);
 
   const handleDownloadReport = useCallback(() => {
@@ -1528,7 +1569,10 @@ const SiteApp: React.FC = () => {
       <div className="h-16 shrink-0" aria-hidden="true" />
       <main id="main-content" tabIndex={-1}>
       <SiteBreadcrumbs route={route} />
-      <Suspense fallback={<div role="status" className="py-16 text-center text-slate-600">Loading page…</div>}>
+      {/* keyed by route: navigating away from a failed chunk gets a fresh
+          boundary instead of keeping the error panel on screen */}
+      <RouteBoundary key={route} label={`route ${route}`}>
+      <Suspense fallback={<LoadingFallback />}>
 
       {/* Blog routes */}
       {route === 'blog' && <BlogList />}
@@ -1626,6 +1670,19 @@ const SiteApp: React.FC = () => {
                       style={{ width: `${analysisProgress}%` }}
                     />
                   </div>
+                </div>
+              )}
+
+              {auditError && (
+                <div role="alert" className="mt-4 flex flex-col sm:flex-row items-center justify-center gap-3 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">
+                  <span>{auditError}</span>
+                  <button
+                    type="button"
+                    onClick={() => handleAnalyze()}
+                    className="shrink-0 rounded-lg bg-rose-600 px-4 py-1.5 font-semibold text-white transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500 focus-visible:ring-offset-2"
+                  >
+                    Retry
+                  </button>
                 </div>
               )}
             </form>
@@ -1966,6 +2023,7 @@ const SiteApp: React.FC = () => {
       </>)}
 
       </Suspense>
+      </RouteBoundary>
       </main>
 
       {/* Footer — simple, lightweight */}
