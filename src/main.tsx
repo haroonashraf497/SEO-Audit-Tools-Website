@@ -3,6 +3,7 @@ import { createRoot, hydrateRoot } from "react-dom/client";
 import "./index.css";
 import App from "./App";
 import { normalizeLegacyUrl, startRouter } from "./router";
+import { RouteBoundary } from "./components/ErrorBoundary";
 
 // Clean URLs: rewrite legacy address-bar forms before the first render —
 // /#/p/about (old hash link) → /about, /p/about → /about, /index.html → /.
@@ -16,7 +17,12 @@ startRouter();
 const root = document.getElementById("root")!;
 const app = (
   <StrictMode>
-    <App />
+    {/* Last line of defence: a throw anywhere in the tree still leaves the
+        visitor a recovery panel instead of a blank document. It renders no DOM
+        of its own, so the prerendered homepage still hydrates cleanly. */}
+    <RouteBoundary label="site shell">
+      <App />
+    </RouteBoundary>
   </StrictMode>
 );
 

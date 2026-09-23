@@ -1,0 +1,5 @@
+ErrorDocument 404 /404.html
+Redirect 301 /hire-developers /staff-augmentation/
+Redirect 301 /hire-developers/ /staff-augmentation/
+Redirect 301 /hire-dot-net-developers /staff-augmentation/dedicated-engineers/
+Redirect 301 /hire-angular-developers /staff-augmentation/dedicated-engineers/

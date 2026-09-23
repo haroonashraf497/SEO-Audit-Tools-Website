@@ -19,20 +19,27 @@ import { HtmlFormatterTool, XmlFormatterTool, PhpFormatterTool, HtmlEditorTool, 
 import { Sidebar } from './Sidebar';
 import { PdfGuide } from './pdf/PdfGuide';
 import { ToolRelatedContent } from './toolContent';
+import { importWithRetry } from '../utils/lazyRetry';
+import { LoadingFallback, RouteBoundary } from '../components/ErrorBoundary';
 
 // PDF tools are code-split so the PDF libraries load only when a PDF tool page opens.
-const PdfLoading: React.FC = () => (
-  <div className="flex flex-col items-center gap-3 py-16 text-sm text-slate-600"><span className="w-8 h-8 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />Loading PDF engine (one-time, then cached)…</div>
+const PdfLoadingLabel: React.FC = () => (
+  <span className="flex flex-col items-center gap-3 text-sm text-slate-600"><span className="w-8 h-8 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />Loading PDF engine (one-time, then cached)…</span>
 );
+// The PDF engine is the heaviest chunk on the site, so it gets a longer
+// deadline than a normal route before the fallback admits it has stalled.
+const PDF_LOAD_TIMEOUT_MS = 20_000;
 type AnyComp = React.ComponentType<Record<string, unknown>>;
 const lazyCache = new Map<string, React.LazyExoticComponent<AnyComp>>();
 const pickLazy = (mod: 'pdf' | 'convert', name: string) => {
   const key = `${mod}:${name}`;
   if (!lazyCache.has(key)) {
-    lazyCache.set(key, React.lazy(async () => {
+    // A dropped request for this chunk used to strand the spinner forever;
+    // importWithRetry re-issues it before the failure reaches the boundary.
+    lazyCache.set(key, React.lazy(() => importWithRetry(async () => {
       const m = (mod === 'pdf' ? await import('./pdf/PdfTools') : await import('./pdf/ConvertTools')) as unknown as Record<string, AnyComp>;
       return { default: m[name] };
-    }));
+    })));
   }
   return lazyCache.get(key)!;
 };
@@ -47,10 +54,12 @@ const PdfSwitch: React.FC<{ engine: string }> = ({ engine }) => {
   const C = pickLazy(entry[0], entry[1]);
   const props = isTarget ? { targetKb: Number(engine.split('-').pop()) } : {};
   return (
-    <React.Suspense fallback={<PdfLoading />}>
-      <C {...props} />
-      <PdfGuide engine={engine} />
-    </React.Suspense>
+    <RouteBoundary key={engine} label={`PDF tool ${engine}`}>
+      <React.Suspense fallback={<LoadingFallback label={<PdfLoadingLabel />} timeoutMs={PDF_LOAD_TIMEOUT_MS} />}>
+        <C {...props} />
+        <PdfGuide engine={engine} />
+      </React.Suspense>
+    </RouteBoundary>
   );
 };
 import { WorkingEngine, PrimaryBtn, MetaGen, RobotsGen, ImageTool } from './engines';
