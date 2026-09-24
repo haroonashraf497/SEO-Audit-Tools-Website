@@ -4,10 +4,10 @@ const Field: React.FC<{ label: string; hint?: string; children: React.ReactNode 
   <label className="block"><span className="text-sm font-semibold text-slate-700 block mb-1">{label}</span>{hint && <span className="text-xs text-slate-500 block mb-1">{hint}</span>}{children}</label>
 );
 const Input: React.FC<{ value: string; onChange: (v: string) => void; min?: string; max?: string; step?: string; placeholder?: string; className?: string }> = ({ value, onChange, min, max, step, placeholder, className = '' }) => (
-  <input type="number" value={value} onChange={e => onChange(e.target.value)} min={min} max={max} step={step} placeholder={placeholder} className={`w-full px-4 py-3 rounded-xl border border-slate-300 text-sm bg-white outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 ${className}`} />
+  <input aria-label={placeholder || "Value"} type="number" value={value} onChange={e => onChange(e.target.value)} min={min} max={max} step={step} placeholder={placeholder} className={`w-full px-4 py-3 rounded-xl border border-slate-300 text-sm bg-white outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 ${className}`} />
 );
 const Select: React.FC<{ value: string; onChange: (v: string) => void; options: [string, string][] }> = ({ value, onChange, options }) => (
-  <select value={value} onChange={e => onChange(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-slate-300 text-sm bg-white outline-none">{options.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select>
+  <select aria-label="Calculation type" value={value} onChange={e => onChange(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-slate-300 text-sm bg-white outline-none">{options.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select>
 );
 const Result: React.FC<{ label: string; value: string | number; emphasis?: boolean }> = ({ label, value, emphasis }) => (
   <div className="bg-slate-50 rounded-xl p-4 border border-slate-100"><p className="text-xs text-slate-500">{label}</p><p className={emphasis ? 'text-xl font-bold text-indigo-600' : 'text-lg font-bold text-slate-800'}>{typeof value === 'number' ? value.toLocaleString(undefined, { maximumFractionDigits: 4 }) : value}</p></div>
@@ -38,7 +38,7 @@ export const AgeCalc: React.FC = () => {
       <Field label="Date of birth"><input type="date" value={birth} onChange={e => setBirth(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-slate-300 text-sm bg-white outline-none focus:border-indigo-500" /></Field>
       {result && (
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-          <div className="bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl p-5 text-white col-span-2 sm:col-span-3 text-center"><p className="text-4xl font-extrabold">{result.years} years, {result.months} months, {result.days} days</p><p className="text-indigo-100 text-sm mt-1">Your exact age today</p></div>
+          <div className="bg-gradient-to-br from-indigo-600 to-purple-600 rounded-2xl p-5 text-white col-span-2 sm:col-span-3 text-center"><p className="text-4xl font-extrabold">{result.years} years, {result.months} months, {result.days} days</p><p className="text-indigo-100 text-sm mt-1">Your exact age today</p></div>
           <Result label="Total days alive" value={result.totalDays.toLocaleString()} />
           <Result label="Total weeks" value={result.totalWeeks.toLocaleString()} />
           <Result label="Days until next birthday" value={result.nextBirthday} />
@@ -424,7 +424,7 @@ export const BmiCalc: React.FC = () => {
       )}
       {result && (
         <div className="grid grid-cols-3 gap-3">
-          <div className="bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl p-5 text-white"><p className="text-indigo-100 text-sm">Your BMI</p><p className="text-4xl font-extrabold">{result.bmi.toFixed(1)}</p></div>
+          <div className="bg-gradient-to-br from-indigo-600 to-purple-600 rounded-2xl p-5 text-white"><p className="text-indigo-100 text-sm">Your BMI</p><p className="text-4xl font-extrabold">{result.bmi.toFixed(1)}</p></div>
           <Result label="Category" value={result.category} emphasis />
           <Result label={`${result.weight} × ${result.height}`} value="Input" />
         </div>

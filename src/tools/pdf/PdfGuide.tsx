@@ -33,13 +33,13 @@ export const PdfGuide: React.FC<{ engine: string }> = ({ engine }) => {
   return (
     <div className="grid lg:grid-cols-2 gap-5 mt-8">
       <div className="bg-white rounded-2xl border border-slate-200 p-6">
-        <h3 className="font-bold text-slate-900 mb-4">How it works</h3>
+        <h2 className="font-bold text-slate-900 mb-4">How it works</h2>
         <ol className="space-y-3">{g.steps.map((s, i) => <li key={i} className="flex gap-3 text-sm text-slate-700"><span className="w-6 h-6 rounded-full bg-indigo-600 text-white text-xs font-bold flex items-center justify-center flex-shrink-0">{i + 1}</span>{s}</li>)}</ol>
         {g.tips && <div className="mt-4 bg-indigo-50 border border-indigo-100 rounded-xl p-3 text-xs text-indigo-900">{g.tips.map(t => <p key={t}>💡 {t}</p>)}</div>}
         {target > 0 && <div className="mt-4 bg-slate-50 border border-slate-100 rounded-xl p-3 text-xs text-slate-600"><strong>Where {target} KB matters:</strong> {target <= 100 ? 'government e-services, exam and visa portals, and job application forms commonly cap uploads at 50–100 KB.' : target <= 300 ? 'university admissions, scholarship portals and many HR systems limit attachments to 200–300 KB.' : 'e-mail gateways and CMS uploads frequently reject attachments above 500 KB–1 MB.'}</div>}
       </div>
       <div className="bg-white rounded-2xl border border-slate-200 p-6">
-        <h3 className="font-bold text-slate-900 mb-4">Frequently asked questions</h3>
+        <h2 className="font-bold text-slate-900 mb-4">Frequently asked questions</h2>
         <div className="space-y-3">{g.faqs.map(([q, a]) => <details key={q} className="group"><summary className="text-sm font-semibold text-slate-800 cursor-pointer list-none flex justify-between items-center">{q}<span className="text-slate-400 group-open:rotate-45 transition-transform text-lg">+</span></summary><p className="text-sm text-slate-600 mt-1.5 leading-relaxed">{a}</p></details>)}
           <details className="group"><summary className="text-sm font-semibold text-slate-800 cursor-pointer list-none flex justify-between items-center">Is my file uploaded anywhere?<span className="text-slate-400 group-open:rotate-45 transition-transform text-lg">+</span></summary><p className="text-sm text-slate-600 mt-1.5 leading-relaxed">No. The PDF engine runs in your browser using WebAssembly-free JavaScript. Your document never leaves your device, which also makes processing instant with no queue.</p></details>
         </div>

@@ -20,7 +20,7 @@ import { loadToolModule, toolComponentFor, toolModuleSync, type ToolComponentSpe
 const PrimaryBtn: React.FC<React.ButtonHTMLAttributes<HTMLButtonElement> & { children: React.ReactNode }> = ({ children, className = '', ...rest }) => (
   <button
     {...rest}
-    className={`inline-flex items-center justify-center gap-2 bg-gradient-to-r from-indigo-500 to-purple-600 text-white px-6 py-3 rounded-xl font-semibold hover:shadow-lg hover:shadow-indigo-500/25 transition-all disabled:opacity-50 disabled:cursor-not-allowed ${className}`}
+    className={`inline-flex items-center justify-center gap-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-6 py-3 rounded-xl font-semibold hover:shadow-lg hover:shadow-indigo-500/25 transition-all disabled:opacity-50 disabled:cursor-not-allowed ${className}`}
   >
     {children}
   </button>
@@ -209,12 +209,12 @@ const LookupRunner: React.FC<{ tool: ToolDef; initial?: string }> = ({ tool, ini
         <label className="block border-2 border-dashed border-slate-300 rounded-2xl p-10 text-center cursor-pointer hover:border-indigo-400 hover:bg-indigo-50/50 transition-colors mb-4">
           <input type="file" accept="image/*" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) { setValue(f.name); run(f.name); } }} />
           <p className="text-slate-600 font-medium">{value || 'Choose an image to extract text from'}</p>
-          <p className="text-xs text-slate-400 mt-1">JPG, PNG or screenshot</p>
+          <p className="text-xs text-slate-500 mt-1">JPG, PNG or screenshot</p>
         </label>
         {running && (
           <div className="mb-6">
             <div className="flex justify-between text-sm text-slate-600 mb-2"><span>Reading image…</span><span>{progress}%</span></div>
-            <div className="h-2 bg-slate-200 rounded-full overflow-hidden"><div className="h-full bg-gradient-to-r from-indigo-500 to-purple-600" style={{ width: `${progress}%` }} /></div>
+            <div className="h-2 bg-slate-200 rounded-full overflow-hidden"><div className="h-full bg-gradient-to-r from-indigo-600 to-purple-600" style={{ width: `${progress}%` }} /></div>
           </div>
         )}
         {report && <ReportView report={report} />}
@@ -259,7 +259,7 @@ const LookupRunner: React.FC<{ tool: ToolDef; initial?: string }> = ({ tool, ini
             <span>Running checks…</span><span>{progress}%</span>
           </div>
           <div className="h-2 bg-slate-200 rounded-full overflow-hidden">
-            <div className="h-full bg-gradient-to-r from-indigo-500 to-purple-600" style={{ width: `${progress}%` }} />
+            <div className="h-full bg-gradient-to-r from-indigo-600 to-purple-600" style={{ width: `${progress}%` }} />
           </div>
         </div>
       )}
@@ -297,6 +297,7 @@ const TextRunner: React.FC<{ tool: ToolDef }> = ({ tool }) => {
     />
   ) : (
     <textarea
+      aria-label={tool.placeholder || `${tool.name} input`}
       value={text}
       onChange={e => setText(e.target.value)}
       placeholder={tool.placeholder}
@@ -309,7 +310,7 @@ const TextRunner: React.FC<{ tool: ToolDef }> = ({ tool }) => {
     return (
       <div>
         <div className="grid sm:grid-cols-2 gap-3 mb-4">
-          <textarea value={text} onChange={e => setText(e.target.value)} placeholder={tool.placeholder} rows={8} className="w-full p-4 rounded-xl border border-slate-300 outline-none text-sm font-mono" />
+          <textarea aria-label={tool.placeholder || `${tool.name} input`} value={text} onChange={e => setText(e.target.value)} placeholder={tool.placeholder} rows={8} className="w-full p-4 rounded-xl border border-slate-300 outline-none text-sm font-mono" />
           <textarea value={text2} onChange={e => setText2(e.target.value)} placeholder={tool.placeholder2} rows={8} className="w-full p-4 rounded-xl border border-slate-300 outline-none text-sm font-mono" />
         </div>
         <LazyWorkingEngine slug={tool.slug} input={text} input2={text2} />

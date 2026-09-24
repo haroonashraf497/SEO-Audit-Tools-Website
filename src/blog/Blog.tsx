@@ -238,7 +238,7 @@ export const BlogArticlePage: React.FC<{ slug: string }> = ({ slug }) => {
           <h1 className="text-3xl md:text-4xl font-bold text-slate-900 leading-tight mb-4">{article.title}</h1>
           <p className="text-lg text-slate-600 leading-relaxed">{article.excerpt}</p>
           <div className="flex items-center gap-3 mt-6 pt-6 border-t border-slate-200">
-            <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full flex items-center justify-center text-white text-sm font-bold">
+            <div className="w-10 h-10 bg-gradient-to-br from-indigo-600 to-purple-600 rounded-full flex items-center justify-center text-white text-sm font-bold">
               SP
             </div>
             <div>
@@ -260,7 +260,7 @@ export const BlogArticlePage: React.FC<{ slug: string }> = ({ slug }) => {
 
         {body && (<>
         {/* CTA */}
-        <div className="mt-10 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl p-8 text-white text-center">
+        <div className="mt-10 bg-gradient-to-br from-indigo-600 to-purple-600 rounded-2xl p-8 text-white text-center">
           <h2 className="text-2xl font-bold mb-2">Check your own site in 30 seconds</h2>
           <p className="text-indigo-100 mb-6">Run a free SEO audit and see exactly where your pages stand on the issues covered in this article.</p>
           <a href="/" className="inline-block bg-white text-indigo-600 px-8 py-3 rounded-xl font-semibold hover:shadow-lg transition-shadow">

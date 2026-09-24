@@ -328,3 +328,44 @@ throughout — CLS 0.027 — and no loading message is shown while it waits.
   article's "Keep reading" section (same classes, same look).
 - All four previously failing areas (`/tools` 111 nodes, `/blog` 24 + heading
   order, tool pages 1) now report **0**.
+
+## Accessibility to 100 (2026-09-24, axe-core on every public page)
+
+Audited with axe-core (the engine Lighthouse/PSI use) at mobile and desktop
+viewports, including the `best-practice` rule set that PSI counts in its
+accessibility score. **154/154 tool pages, the homepage, the blog, every CMS
+page and the admin screens now report 0 violations.**
+
+Contrast (measured ratios, WCAG 2.1 AA):
+
+| Element | Before | After |
+|---|---|---|
+| Primary button / CTA gradient (`indigo-500 → purple-600`), white text | 4.47:1 | **6.46:1** (`indigo-600 → purple-600`, the gradient the logo already used) |
+| Green tool badges (`emerald-600` on `emerald-50`) | 3.47:1 | **5.21:1** (`emerald-700`) |
+| PDF stat values (`emerald/amber/red-600` on `slate-50`) | 3.2–3.7:1 | **5.0–5.9:1** (`-700`) |
+| Amber/green grammar stat cards (`amber-500`, `green-500` on `-50`) | 2.06 / 2.35:1 | **3.09 / 3.47:1** (`-600`) |
+| Proxy-table anonymity cells (`emerald/amber-600` on white) | 3.2–3.7:1 | **5.0:1** (`-700`) |
+| Small grey captions (`slate-400` on white/`slate-50`/`slate-100`) | 2.4–2.6:1 | **4.8–6.9:1** (`slate-500/600`) |
+| Blog meta text and admin preview labels | 2.4–4.3:1 | **4.6–6.9:1** |
+
+Heading order: every page now has a single `h1` followed by sequential levels.
+
+- Tool page sections ("How it works", "Location & Network", "Plagiarism Report",
+  "All issues", "Processing your article", …) were `h3`/`h4` directly under the
+  page `h1` — promoted to `h2` (and their children to `h3`).
+- Blog listing cards were `h3` under the page `h1` — now `h2` in the listing and
+  still `h3` inside an article's "Keep reading" section.
+- Footer column titles were `h3` straight after the page `h1` on short pages —
+  now `h2`.
+
+Form controls: 44 inputs, textareas and selects across the tools had a *visible*
+label that was not programmatically associated (or none at all). Each now
+carries an `aria-label` (or inherits one from the shared field component), so
+screen readers announce them. The horizontally scrolling proxy table is
+keyboard-reachable (`tabindex="0"` with a label). Icon-only step buttons in the
+Article Rewriter got spoken names.
+
+None of these changes alter the visual design beyond the small colour-shade
+adjustments listed above — heading tags are visually inert here because
+Tailwind's preflight resets `h1`–`h6` to `font-size/weight: inherit` and the
+classes carry the styling.

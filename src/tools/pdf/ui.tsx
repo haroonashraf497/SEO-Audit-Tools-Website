@@ -20,7 +20,7 @@ export const DropZone: React.FC<{ accept: string; multiple?: boolean; onFiles: (
       className={`border-2 border-dashed rounded-2xl text-center cursor-pointer transition-colors ${compact ? 'p-5' : 'p-10 md:p-14'} ${over ? 'border-indigo-500 bg-indigo-50' : 'border-slate-300 bg-white hover:border-indigo-400 hover:bg-indigo-50/40'}`}
     >
       <input ref={ref} type="file" accept={accept} multiple={multiple} className="hidden" onChange={e => { handle(e.target.files); e.target.value = ''; }} />
-      <div className={`mx-auto rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 text-white flex items-center justify-center ${compact ? 'w-10 h-10 mb-2' : 'w-16 h-16 mb-4'}`}>
+      <div className={`mx-auto rounded-2xl bg-gradient-to-br from-indigo-600 to-purple-600 text-white flex items-center justify-center ${compact ? 'w-10 h-10 mb-2' : 'w-16 h-16 mb-4'}`}>
         <svg className={compact ? 'w-5 h-5' : 'w-8 h-8'} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="17 8 12 3 7 8" /><line x1="12" y1="3" x2="12" y2="15" /></svg>
       </div>
       <p className={`font-bold text-slate-800 ${compact ? 'text-sm' : 'text-lg'}`}>{label}</p>
@@ -32,19 +32,19 @@ export const DropZone: React.FC<{ accept: string; multiple?: boolean; onFiles: (
 export const Progress: React.FC<{ value: number; label: string }> = ({ value, label }) => (
   <div className="bg-white rounded-2xl border border-slate-200 p-5">
     <div className="flex justify-between text-sm text-slate-600 mb-2"><span>{label}</span><span>{Math.round(value)}%</span></div>
-    <div className="h-2 bg-slate-200 rounded-full overflow-hidden"><div className="h-full bg-gradient-to-r from-indigo-500 to-purple-600 transition-all" style={{ width: `${value}%` }} /></div>
+    <div className="h-2 bg-slate-200 rounded-full overflow-hidden"><div className="h-full bg-gradient-to-r from-indigo-600 to-purple-600 transition-all" style={{ width: `${value}%` }} /></div>
   </div>
 );
 
 export const ErrorBox: React.FC<{ msg: string }> = ({ msg }) => <div className="bg-red-50 border border-red-100 rounded-xl p-4 text-sm text-red-700">{msg}</div>;
 
 export const Btn: React.FC<React.ButtonHTMLAttributes<HTMLButtonElement> & { variant?: 'primary' | 'secondary' | 'dark' }> = ({ variant = 'primary', className = '', children, ...rest }) => {
-  const v = { primary: 'bg-gradient-to-r from-indigo-500 to-purple-600 text-white hover:shadow-lg hover:shadow-indigo-500/25', secondary: 'bg-white border border-slate-300 text-slate-700 hover:bg-slate-50', dark: 'bg-slate-900 text-white hover:bg-slate-700' }[variant];
+  const v = { primary: 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white hover:shadow-lg hover:shadow-indigo-500/25', secondary: 'bg-white border border-slate-300 text-slate-700 hover:bg-slate-50', dark: 'bg-slate-900 text-white hover:bg-slate-700' }[variant];
   return <button {...rest} className={`inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-semibold text-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed ${v} ${className}`}>{children}</button>;
 };
 
 export const StatBox: React.FC<{ label: string; value: React.ReactNode; tone?: 'good' | 'warn' | 'bad' | 'neutral' }> = ({ label, value, tone = 'neutral' }) => (
-  <div className="bg-slate-50 rounded-xl p-4 border border-slate-100 min-w-0"><p className="text-xs text-slate-500">{label}</p><p className={`text-lg font-bold break-words ${{ good: 'text-emerald-600', warn: 'text-amber-600', bad: 'text-red-600', neutral: 'text-slate-800' }[tone]}`}>{value}</p></div>
+  <div className="bg-slate-50 rounded-xl p-4 border border-slate-100 min-w-0"><p className="text-xs text-slate-500">{label}</p><p className={`text-lg font-bold break-words ${{ good: 'text-emerald-700', warn: 'text-amber-700', bad: 'text-red-700', neutral: 'text-slate-800' }[tone]}`}>{value}</p></div>
 );
 
 // Detailed file information panel

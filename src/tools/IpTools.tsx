@@ -24,7 +24,7 @@ const InfoGrid: React.FC<{ rows: [string, React.ReactNode][]; cols?: 2 | 3; keep
 const Section: React.FC<{ title: string; children: React.ReactNode; badge?: React.ReactNode }> = ({ title, children, badge }) => (
   <div className="bg-white rounded-2xl border border-slate-200 p-5 md:p-6 shadow-sm">
     <div className="flex items-center justify-between mb-4">
-      <h3 className="font-bold text-slate-900">{title}</h3>
+      <h2 className="font-bold text-slate-900">{title}</h2>
       {badge}
     </div>
     {children}
@@ -53,7 +53,7 @@ const Spinner: React.FC<{ label: string }> = ({ label }) => (
 const CopyableIp: React.FC<{ ip: string; label: string }> = ({ ip, label }) => {
   const [copied, setCopied] = useState(false);
   return (
-    <div className="bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl p-6 text-white">
+    <div className="bg-gradient-to-br from-indigo-600 to-purple-600 rounded-2xl p-6 text-white">
       <p className="text-indigo-100 text-sm mb-1">{label}</p>
       <div className="flex flex-wrap items-center gap-3">
         <p className="text-3xl md:text-4xl font-bold font-mono break-all">{ip || 'Not detected'}</p>
@@ -193,7 +193,7 @@ export const WhatIsMyIp: React.FC = () => {
         <div className="bg-slate-900 rounded-2xl p-6 text-white">
           <p className="text-slate-400 text-sm mb-1">Your public IPv6 address</p>
           <p className="text-xl font-bold font-mono break-all">{ips?.v6 || (info?.version === 'IPv6' ? info.ip : '') || 'No IPv6 detected'}</p>
-          <p className="text-xs text-slate-500 mt-2">{ips?.v6 ? 'Your network supports IPv6.' : 'Your connection is using IPv4 only.'}</p>
+          <p className="text-xs text-slate-400 mt-2">{ips?.v6 ? 'Your network supports IPv6.' : 'Your connection is using IPv4 only.'}</p>
         </div>
       </div>
 
@@ -274,7 +274,7 @@ export const IpLocationTool: React.FC<{ placeholder?: string; withMap?: boolean 
       {loading && <Spinner label="Querying geolocation databases…" />}
       {info && (
         <>
-          <div className="bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl p-6 text-white">
+          <div className="bg-gradient-to-br from-indigo-600 to-purple-600 rounded-2xl p-6 text-white">
             <p className="text-indigo-100 text-sm">{value ? 'Location of' : 'Your location for'}</p>
             <p className="text-2xl font-bold font-mono break-all">{info.ip}</p>
             <p className="text-lg mt-2">
@@ -364,7 +364,7 @@ export const ReverseIpTool: React.FC<{ placeholder?: string }> = ({ placeholder 
             </Section>
           )}
           <Section title={`Websites sharing this IP (${shared})`} badge={<DemoBadge />}>
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto" tabIndex={0} role="region" aria-label="Proxy list table">
               <table className="w-full text-sm">
                 <thead><tr className="bg-slate-50 text-xs uppercase text-slate-500"><th className="text-left px-4 py-2.5">#</th><th className="text-left px-4 py-2.5">Domain</th><th className="text-left px-4 py-2.5">TLD</th><th className="text-left px-4 py-2.5">Type</th></tr></thead>
                 <tbody>
@@ -432,12 +432,12 @@ export const ProxyListTool: React.FC = () => {
       </div>
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <div className="bg-slate-50 rounded-xl p-4 border border-slate-100"><p className="text-xs text-slate-500">Proxies listed</p><p className="text-2xl font-bold text-slate-800">{shown.length}</p></div>
-        <div className="bg-slate-50 rounded-xl p-4 border border-slate-100"><p className="text-xs text-slate-500">Elite (high anonymity)</p><p className="text-2xl font-bold text-emerald-600">{shown.filter(p => p.anonymity === 'Elite').length}</p></div>
+        <div className="bg-slate-50 rounded-xl p-4 border border-slate-100"><p className="text-xs text-slate-500">Elite (high anonymity)</p><p className="text-2xl font-bold text-emerald-700">{shown.filter(p => p.anonymity === 'Elite').length}</p></div>
         <div className="bg-slate-50 rounded-xl p-4 border border-slate-100"><p className="text-xs text-slate-500">Countries</p><p className="text-2xl font-bold text-slate-800">{new Set(shown.map(p => p.cc)).size}</p></div>
         <div className="bg-slate-50 rounded-xl p-4 border border-slate-100"><p className="text-xs text-slate-500">Fastest</p><p className="text-2xl font-bold text-indigo-600">{shown[0]?.speed ?? 0} ms</p></div>
       </div>
       <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto" tabIndex={0} role="region" aria-label="Proxy list">
           <table className="w-full text-sm">
             <thead><tr className="bg-slate-50 text-xs uppercase text-slate-500">
               {['IP Address', 'Port', 'Type', 'Country', 'Anonymity', 'Speed', 'Uptime', 'Checked'].map(h => <th key={h} className="text-left px-4 py-2.5 whitespace-nowrap">{h}</th>)}
@@ -449,7 +449,7 @@ export const ProxyListTool: React.FC = () => {
                   <td className="px-4 py-2 font-mono text-slate-600">{p.port}</td>
                   <td className="px-4 py-2"><span className={`px-2 py-0.5 rounded-full text-[11px] font-semibold ${p.type.startsWith('SOCKS') ? 'bg-violet-50 text-violet-700' : p.type === 'HTTPS' ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-600'}`}>{p.type}</span></td>
                   <td className="px-4 py-2 text-slate-700 whitespace-nowrap">{flagEmoji(p.cc)} {p.country}</td>
-                  <td className={`px-4 py-2 font-semibold ${p.anonymity === 'Elite' ? 'text-emerald-600' : p.anonymity === 'Anonymous' ? 'text-indigo-600' : 'text-amber-600'}`}>{p.anonymity}</td>
+                  <td className={`px-4 py-2 font-semibold ${p.anonymity === 'Elite' ? 'text-emerald-700' : p.anonymity === 'Anonymous' ? 'text-indigo-600' : 'text-amber-700'}`}>{p.anonymity}</td>
                   <td className={`px-4 py-2 ${p.speed < 800 ? 'text-emerald-600 font-semibold' : p.speed < 2000 ? 'text-slate-700' : 'text-red-500'}`}>{p.speed} ms</td>
                   <td className="px-4 py-2 text-slate-600">{p.uptime}%</td>
                   <td className="px-4 py-2 text-slate-400 whitespace-nowrap">{p.checked}</td>
@@ -465,7 +465,7 @@ export const ProxyListTool: React.FC = () => {
           <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-4"><p className="font-bold text-indigo-700 mb-1">Anonymous</p><p className="text-slate-600">Hides your real IP but sends headers that reveal a proxy is being used.</p></div>
           <div className="bg-amber-50 border border-amber-100 rounded-xl p-4"><p className="font-bold text-amber-700 mb-1">Transparent</p><p className="text-slate-600">Forwards your real IP in headers. Only useful for caching, not anonymity.</p></div>
         </div>
-        <p className="text-xs text-slate-400 mt-4">Free public proxies are illustrative here and are inherently unreliable and unsafe for logins or payments. Never send credentials through an untrusted proxy.</p>
+        <p className="text-xs text-slate-500 mt-4">Free public proxies are illustrative here and are inherently unreliable and unsafe for logins or payments. Never send credentials through an untrusted proxy.</p>
       </Section>
     </div>
   );

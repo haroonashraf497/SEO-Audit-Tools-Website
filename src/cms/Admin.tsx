@@ -59,7 +59,7 @@ const SeoMetaEditor: React.FC<{ value: SeoEntry; onChange: (entry: SeoEntry) => 
           <button type="button" onClick={() => onChange({ ...entry, noindex: !entry.noindex })} className={`h-[42px] px-4 rounded-lg border text-sm font-semibold transition-colors ${entry.noindex ? 'bg-amber-50 text-amber-800 border-amber-200 hover:bg-amber-100' : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'}`}>{entry.noindex ? 'No-index enabled' : 'Make no-index'}</button>
         </div>
         <div className="rounded-lg bg-slate-50 border border-slate-100 p-3">
-          <div className="flex items-center justify-between gap-3"><p className="text-[11px] font-bold uppercase tracking-wide text-slate-400">Google preview</p><div className="flex gap-3 text-[11px] font-bold"><span className={titleTone}>{entry.title.length} title</span><span className={descriptionTone}>{entry.description.length} description</span></div></div>
+          <div className="flex items-center justify-between gap-3"><p className="text-[11px] font-bold uppercase tracking-wide text-slate-600">Google preview</p><div className="flex gap-3 text-[11px] font-bold"><span className={titleTone}>{entry.title.length} title</span><span className={descriptionTone}>{entry.description.length} description</span></div></div>
           <p className="text-xs text-slate-600 mt-2">{routeHint}</p>
           <p className="text-lg leading-tight text-[#1a0dab] mt-0.5">{entry.title.slice(0, 60) || 'Your SEO title'}</p>
           <p className="text-sm leading-snug text-slate-600 mt-1">{entry.description.slice(0, 160) || 'Your meta description appears here.'}</p>
@@ -80,7 +80,7 @@ const FeaturedImageEditor: React.FC<{ image?: string; alt?: string; onChange: (p
         <Field label="Alt text" hint={`${alt.length} characters · describe the image for screen readers and image search.`}><input className={inputCls} value={alt} onChange={e => onChange({ featuredImageAlt: e.target.value })} placeholder="Describe what the image shows" /></Field>
       </div>
       <div className="aspect-[1.91/1] rounded-xl border border-dashed border-slate-300 bg-slate-50 overflow-hidden flex items-center justify-center text-center">
-        {image ? <img src={image} alt={alt || ''} width="1200" height="630" className="w-full h-full object-cover" onError={e => { e.currentTarget.style.display = 'none'; }} /> : <span className="text-xs text-slate-400 px-4">1200 × 630<br />preview</span>}
+        {image ? <img src={image} alt={alt || ''} width="1200" height="630" className="w-full h-full object-cover" onError={e => { e.currentTarget.style.display = 'none'; }} /> : <span className="text-xs text-slate-500 px-4">1200 × 630<br />preview</span>}
       </div>
     </div>
   </section>
@@ -851,7 +851,7 @@ export const AdminApp: React.FC = () => {
       <div className="max-w-7xl mx-auto">
         <header className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden mb-6">
           <div className="flex flex-wrap items-center gap-4 px-5 py-5 md:px-6">
-            <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 text-white flex items-center justify-center flex-shrink-0">
+            <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-indigo-600 to-purple-600 text-white flex items-center justify-center flex-shrink-0">
               <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2" /><line x1="3" y1="9" x2="21" y2="9" /><line x1="9" y1="21" x2="9" y2="9" /></svg>
             </div>
             <div className="min-w-0">

@@ -1530,7 +1530,7 @@ const SiteApp: React.FC = () => {
         <div className="max-w-7xl mx-auto">
           <div className="flex items-center justify-between h-16">
             <a href="/" className="flex items-center gap-2">
-              <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center text-white">
+              <div className="w-10 h-10 bg-gradient-to-br from-indigo-600 to-purple-600 rounded-xl flex items-center justify-center text-white">
                 <InlineIcons.BarChart3 />
               </div>
               <span className="text-xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
@@ -1667,7 +1667,7 @@ const SiteApp: React.FC = () => {
                 <button
                   type="submit"
                   disabled={isAnalyzing || !url.trim()}
-                  className="bg-gradient-to-r from-indigo-500 to-purple-600 text-white px-8 py-4 rounded-xl font-semibold hover:shadow-lg hover:shadow-indigo-500/25 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 min-w-[140px]"
+                  className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-8 py-4 rounded-xl font-semibold hover:shadow-lg hover:shadow-indigo-500/25 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 min-w-[140px]"
                 >
                   {isAnalyzing ? (
                     <>
@@ -1691,7 +1691,7 @@ const SiteApp: React.FC = () => {
                   </div>
                   <div className="h-2 bg-slate-200 rounded-full overflow-hidden">
                     <div
-                      className="h-full bg-gradient-to-r from-indigo-500 to-purple-600 transition-all duration-100"
+                      className="h-full bg-gradient-to-r from-indigo-600 to-purple-600 transition-all duration-100"
                       style={{ width: `${analysisProgress}%` }}
                     />
                   </div>
@@ -1831,7 +1831,7 @@ const SiteApp: React.FC = () => {
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
             {FEATURES.map((feature) => (
               <article key={feature.title} className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 border border-white/20 hover:bg-white transition-colors shadow-lg hover:shadow-xl">
-                <div className="w-12 h-12 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center text-white mb-4">
+                <div className="w-12 h-12 bg-gradient-to-br from-indigo-600 to-purple-600 rounded-xl flex items-center justify-center text-white mb-4">
                   <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                     <path d="M9 11l3 3L22 4" /><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
                   </svg>
@@ -1859,7 +1859,7 @@ const SiteApp: React.FC = () => {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
             {STEPS.map((step, i) => (
               <article key={step.title} className="flex flex-col items-center text-center">
-                <div className="w-16 h-16 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl flex items-center justify-center text-white text-2xl font-bold shadow-lg mb-4">
+                <div className="w-16 h-16 bg-gradient-to-br from-indigo-600 to-purple-600 rounded-2xl flex items-center justify-center text-white text-2xl font-bold shadow-lg mb-4">
                   {i + 1}
                 </div>
                 <h3 className="text-lg font-semibold text-slate-800 mb-2">{step.title}</h3>
@@ -1922,7 +1922,7 @@ const SiteApp: React.FC = () => {
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
             {AUDIENCES.map((item) => (
               <article key={item.title} className="bg-slate-50 rounded-2xl p-6 hover:bg-slate-100 transition-colors">
-                <div className="w-14 h-14 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center text-white mb-4">
+                <div className="w-14 h-14 bg-gradient-to-br from-indigo-600 to-purple-600 rounded-xl flex items-center justify-center text-white mb-4">
                   <AudienceIcon type={item.icon} />
                 </div>
                 <h3 className="text-lg font-semibold text-slate-800 mb-2">{item.title}</h3>
@@ -1979,7 +1979,7 @@ const SiteApp: React.FC = () => {
           </div>
 
           <div className="text-center mt-10">
-            <a href="/tools" className="inline-block bg-gradient-to-r from-indigo-500 to-purple-600 text-white px-8 py-3.5 rounded-xl font-semibold hover:shadow-lg hover:shadow-indigo-500/25 transition-all">
+            <a href="/tools" className="inline-block bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-8 py-3.5 rounded-xl font-semibold hover:shadow-lg hover:shadow-indigo-500/25 transition-all">
               Explore All {visibleTools.length} Free Tools
             </a>
           </div>
@@ -2031,7 +2031,7 @@ const SiteApp: React.FC = () => {
             <a
               href="#"
               onClick={(e) => { e.preventDefault(); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
-              className="bg-gradient-to-r from-indigo-500 to-purple-600 text-white px-8 py-4 rounded-xl font-semibold hover:shadow-lg hover:shadow-indigo-500/25 transition-all flex items-center gap-2"
+              className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-8 py-4 rounded-xl font-semibold hover:shadow-lg hover:shadow-indigo-500/25 transition-all flex items-center gap-2"
             >
               Start Free Audit
               <InlineIcons.ArrowRight />
@@ -2057,7 +2057,7 @@ const SiteApp: React.FC = () => {
           {/* Brand + social icons */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-5 pb-8 border-b border-slate-800">
             <a href="/" className="flex items-center gap-2.5">
-              <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center text-white">
+              <div className="w-10 h-10 bg-gradient-to-br from-indigo-600 to-purple-600 rounded-xl flex items-center justify-center text-white">
                 <InlineIcons.BarChart3 />
               </div>
               <span>
@@ -2093,7 +2093,7 @@ const SiteApp: React.FC = () => {
               ] },
             ].map(col => (
               <nav key={col.title} aria-label={col.title}>
-                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-4">{col.title}</h3>
+                <h2 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-4">{col.title}</h2>
                 <ul className="space-y-2.5">
                   {col.links.map(l => (
                     <li key={l.label}><a href={l.href} className="text-sm text-slate-400 hover:text-white transition-colors">{l.label}</a></li>
@@ -2102,7 +2102,7 @@ const SiteApp: React.FC = () => {
               </nav>
             ))}
             <nav aria-label="Legal">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-4">Legal</h3>
+              <h2 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-4">Legal</h2>
               <ul className="space-y-2.5">
                 <li><a href="/privacy-policy" className="text-sm text-slate-400 hover:text-white transition-colors">Privacy Policy</a></li>
                 <li><a href="/cookie-policy" className="text-sm text-slate-400 hover:text-white transition-colors">Cookie Policy</a></li>
@@ -2176,7 +2176,7 @@ const NotFoundView: React.FC = () => (
   </div>
 );
 
-const Btn: React.FC<{ href: string }> = ({ href }) => <a href={href} className="inline-block bg-gradient-to-r from-indigo-500 to-purple-600 text-white px-6 py-3 rounded-xl font-semibold">Back to the audit tool</a>;
+const Btn: React.FC<{ href: string }> = ({ href }) => <a href={href} className="inline-block bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-6 py-3 rounded-xl font-semibold">Back to the audit tool</a>;
 
 // ---------- Cookie consent (PECR) ----------
 type ConsentRecord = { essential: true; analytics: boolean; advertising: boolean; affiliate: boolean; decided: string };
@@ -2250,7 +2250,7 @@ const CookieConsent: React.FC<{ prefsOpen: boolean; onPrefsOpen: (v: boolean) =>
           </div>
           <div className="px-5 py-4 border-t border-slate-100 bg-slate-50 flex flex-col sm:flex-row items-center justify-between gap-3">
             <a href="/cookie-policy" onClick={() => onPrefsOpen(false)} className="text-xs font-semibold text-indigo-600 hover:underline">Read our Cookie Policy</a>
-            <button type="button" autoFocus onClick={() => save(draft)} className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-bold text-sm hover:shadow-lg transition-shadow">Save Preferences</button>
+            <button type="button" autoFocus onClick={() => save(draft)} className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-bold text-sm hover:shadow-lg transition-shadow">Save Preferences</button>
           </div>
         </div>
       </div>
@@ -2269,7 +2269,7 @@ const CookieConsent: React.FC<{ prefsOpen: boolean; onPrefsOpen: (v: boolean) =>
             <div className="flex flex-wrap items-center gap-2 flex-shrink-0">
               <button type="button" onClick={() => onPrefsOpen(true)} className="px-4 py-2.5 rounded-xl border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 font-semibold text-sm">Manage Preferences</button>
               <button type="button" onClick={() => save({ analytics: false, advertising: false, affiliate: false })} className="px-4 py-2.5 rounded-xl border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 font-semibold text-sm">Decline</button>
-              <button type="button" onClick={() => save({ analytics: true, advertising: true, affiliate: true })} className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-bold text-sm hover:shadow-lg transition-shadow">Accept All</button>
+              <button type="button" onClick={() => save({ analytics: true, advertising: true, affiliate: true })} className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-bold text-sm hover:shadow-lg transition-shadow">Accept All</button>
             </div>
           </div>
         </div>

@@ -6,7 +6,7 @@ import { navigate } from '../router';
 const fieldCls = 'w-full px-3.5 py-3 rounded-xl border border-slate-300 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 bg-white';
 
 const BrandMark: React.FC = () => (
-  <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 text-white flex items-center justify-center mb-5">
+  <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-indigo-600 to-purple-600 text-white flex items-center justify-center mb-5">
     <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <rect x="3" y="11" width="18" height="11" rx="2" />
       <path d="M7 11V7a5 5 0 0 1 10 0v4" />
@@ -69,7 +69,7 @@ export const AdminLoginPage: React.FC = () => {
               <button type="button" onClick={() => { setView('forgot'); setErr(''); }} className="text-sm font-semibold text-indigo-600 hover:underline">Forgot password?</button>
             </div>
             {err && <p className="text-sm text-red-600 mb-3" role="alert">{err}</p>}
-            <button type="submit" disabled={busy} className="w-full py-3 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-bold text-sm hover:shadow-lg hover:shadow-indigo-500/25 transition-all disabled:opacity-60">
+            <button type="submit" disabled={busy} className="w-full py-3 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-bold text-sm hover:shadow-lg hover:shadow-indigo-500/25 transition-all disabled:opacity-60">
               {busy ? 'Signing in…' : 'Sign In'}
             </button>
           </form>
@@ -83,7 +83,7 @@ export const AdminLoginPage: React.FC = () => {
               <input type="email" className={`${fieldCls} mt-1`} value={email} onChange={e => setEmail(e.target.value)} autoComplete="email" autoFocus required />
             </label>
             {err && <p className="text-sm text-red-600 mb-3" role="alert">{err}</p>}
-            <button type="submit" className="w-full py-3 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-bold text-sm hover:shadow-lg transition-all">Send reset link</button>
+            <button type="submit" className="w-full py-3 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-bold text-sm hover:shadow-lg transition-all">Send reset link</button>
             <button type="button" onClick={() => setView('login')} className="w-full mt-3 text-sm font-semibold text-slate-600 hover:text-indigo-600">Back to sign in</button>
           </form>
         )}
@@ -139,7 +139,7 @@ export const AdminResetPage: React.FC = () => {
           <>
             <h1 className="text-2xl font-bold text-slate-900 mb-2">Password updated</h1>
             <p className="text-sm text-slate-600 mb-6">You can now sign in with your new password.</p>
-            <a href="/admin-login" className="inline-flex w-full justify-center py-3 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-bold text-sm">Sign In</a>
+            <a href="/admin-login" className="inline-flex w-full justify-center py-3 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-bold text-sm">Sign In</a>
           </>
         ) : !valid ? (
           <>
@@ -160,7 +160,7 @@ export const AdminResetPage: React.FC = () => {
               <input type="password" className={`${fieldCls} mt-1`} value={confirm} onChange={e => setConfirm(e.target.value)} autoComplete="new-password" required minLength={8} />
             </label>
             {err && <p className="text-sm text-red-600 mb-3" role="alert">{err}</p>}
-            <button type="submit" className="w-full py-3 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-bold text-sm hover:shadow-lg transition-all">Save new password</button>
+            <button type="submit" className="w-full py-3 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-bold text-sm hover:shadow-lg transition-all">Save new password</button>
           </form>
         )}
       </div>

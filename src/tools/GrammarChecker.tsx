@@ -345,7 +345,7 @@ export const GrammarChecker: React.FC = () => {
   const StatCard: React.FC<{ label: string; value: string; color: 'red' | 'blue' | 'green' | 'amber' }> = ({ label, value, color }) => {
     const c = {
       red: 'border-red-500 bg-red-50 text-red-500', blue: 'border-blue-500 bg-blue-50 text-blue-500',
-      green: 'border-green-500 bg-green-50 text-green-500', amber: 'border-amber-400 bg-amber-50 text-amber-500',
+      green: 'border-green-500 bg-green-50 text-green-600', amber: 'border-amber-400 bg-amber-50 text-amber-600',
     }[color];
     return (
       <div className={`border-2 rounded-lg py-4 px-3 text-center ${c}`}>
@@ -446,7 +446,7 @@ export const GrammarChecker: React.FC = () => {
           </span>
         </div>
         <button type="button" onClick={run} disabled={checking || !text.trim()}
-          className="ml-auto bg-gradient-to-r from-indigo-500 to-purple-600 text-white px-8 py-3.5 rounded-xl font-bold hover:shadow-lg hover:shadow-indigo-500/25 transition-all disabled:opacity-50 disabled:cursor-not-allowed">
+          className="ml-auto bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-8 py-3.5 rounded-xl font-bold hover:shadow-lg hover:shadow-indigo-500/25 transition-all disabled:opacity-50 disabled:cursor-not-allowed">
           {checking ? 'Checking…' : issues ? 'Re-check Grammar' : 'Check Grammar'}
         </button>
       </div>
@@ -496,7 +496,7 @@ export const GrammarChecker: React.FC = () => {
 
           <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
             <div className="flex items-center justify-between mb-4">
-              <h4 className="font-bold text-slate-900">All issues</h4>
+              <h2 className="font-bold text-slate-900">All issues</h2>
               <span className="text-xs text-slate-400">Click any row or highlighted phrase to review</span>
             </div>
             {issues.length === 0 ? (

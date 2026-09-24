@@ -5,7 +5,7 @@ import { md5 } from './md5';
 export const PrimaryBtn: React.FC<React.ButtonHTMLAttributes<HTMLButtonElement> & { children: React.ReactNode }> = ({ children, className = '', ...rest }) => (
   <button
     {...rest}
-    className={`inline-flex items-center justify-center gap-2 bg-gradient-to-r from-indigo-500 to-purple-600 text-white px-6 py-3 rounded-xl font-semibold hover:shadow-lg hover:shadow-indigo-500/25 transition-all disabled:opacity-50 disabled:cursor-not-allowed ${className}`}
+    className={`inline-flex items-center justify-center gap-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-6 py-3 rounded-xl font-semibold hover:shadow-lg hover:shadow-indigo-500/25 transition-all disabled:opacity-50 disabled:cursor-not-allowed ${className}`}
   >
     {children}
   </button>
@@ -13,6 +13,7 @@ export const PrimaryBtn: React.FC<React.ButtonHTMLAttributes<HTMLButtonElement> 
 
 export const TextArea: React.FC<{ value: string; onChange: (v: string) => void; placeholder?: string; rows?: number }> = ({ value, onChange, placeholder, rows = 8 }) => (
   <textarea
+    aria-label={placeholder || 'Text input'}
     value={value}
     onChange={e => onChange(e.target.value)}
     placeholder={placeholder}
@@ -397,12 +398,12 @@ const TextToSpeech: React.FC<{ input: string }> = ({ input }) => {
   return (
     <div className="space-y-4">
       <div className="grid sm:grid-cols-2 gap-3">
-        <select value={voiceURI} onChange={e => setVoiceURI(e.target.value)} className="p-3 rounded-xl border border-slate-300 text-sm bg-white">
+        <select aria-label="Voice" value={voiceURI} onChange={e => setVoiceURI(e.target.value)} className="p-3 rounded-xl border border-slate-300 text-sm bg-white">
           {voices.map(v => <option key={v.voiceURI} value={v.voiceURI}>{v.name} ({v.lang})</option>)}
         </select>
         <div className="flex items-center gap-3">
           <label className="text-sm text-slate-600 whitespace-nowrap">Speed {rate.toFixed(1)}×</label>
-          <input type="range" min="0.5" max="2" step="0.1" value={rate} onChange={e => setRate(Number(e.target.value))} className="flex-1 accent-indigo-600" />
+          <input aria-label="Speech rate" type="range" min="0.5" max="2" step="0.1" value={rate} onChange={e => setRate(Number(e.target.value))} className="flex-1 accent-indigo-600" />
         </div>
       </div>
       <div className="flex gap-3">
@@ -487,11 +488,11 @@ const RobotsGen: React.FC = () => {
         )}
         <div>
           <label className="text-sm font-semibold text-slate-700 block mb-1">Crawl delay (seconds, optional)</label>
-          <input value={crawlDelay} onChange={e => setCrawlDelay(e.target.value.replace(/[^0-9]/g, ''))} placeholder="e.g. 5" className="w-full p-3 rounded-xl border border-slate-300 text-sm" />
+          <input aria-label="Crawl delay in seconds" value={crawlDelay} onChange={e => setCrawlDelay(e.target.value.replace(/[^0-9]/g, ''))} placeholder="e.g. 5" className="w-full p-3 rounded-xl border border-slate-300 text-sm" />
         </div>
         <div>
           <label className="text-sm font-semibold text-slate-700 block mb-1">Sitemap URL</label>
-          <input value={sitemap} onChange={e => setSitemap(e.target.value)} className="w-full p-3 rounded-xl border border-slate-300 text-sm font-mono" />
+          <input aria-label="Sitemap URL" value={sitemap} onChange={e => setSitemap(e.target.value)} className="w-full p-3 rounded-xl border border-slate-300 text-sm font-mono" />
         </div>
       </div>
       <Output label="robots.txt" value={out} />
@@ -532,18 +533,18 @@ ${f.author ? `<meta name="author" content="${f.author}" />\n` : ''}<link rel="ca
         ))}
         <div>
           <label className="text-sm font-semibold text-slate-700 block mb-1">Robots</label>
-          <select value={f.robots} onChange={set('robots')} className="w-full p-3 rounded-xl border border-slate-300 text-sm bg-white">
+          <select aria-label="Search engine robots directive" value={f.robots} onChange={set('robots')} className="w-full p-3 rounded-xl border border-slate-300 text-sm bg-white">
             <option>index, follow</option><option>noindex, follow</option><option>index, nofollow</option><option>noindex, nofollow</option>
           </select>
         </div>
       </div>
       <div className="space-y-4">
         <div className="bg-white rounded-xl border border-slate-200 p-4">
-          <p className="text-xs font-semibold text-slate-400 uppercase mb-3">Google preview</p>
+          <p className="text-xs font-semibold text-slate-500 uppercase mb-3">Google preview</p>
           <p className="text-sm text-slate-700 flex items-center gap-2"><span className="w-6 h-6 bg-slate-100 rounded-full inline-block" />{domain}</p>
           <p className="text-lg text-blue-700 leading-snug mt-1">{f.title || 'Your Page Title | Brand Name'}</p>
           <p className="text-sm text-slate-600 mt-1">{f.desc || 'Your meta description will appear here. Aim for 150–160 characters.'}</p>
-          <p className={`text-xs mt-2 ${f.desc.length > 160 ? 'text-red-500' : 'text-slate-400'}`}>{f.desc.length} / 160 characters</p>
+          <p className={`text-xs mt-2 ${f.desc.length > 160 ? 'text-red-700' : 'text-slate-500'}`}>{f.desc.length} / 160 characters</p>
         </div>
         <Output label="Meta tags HTML" value={html} />
       </div>
@@ -604,14 +605,14 @@ const ImageTool: React.FC<{ mode: 'compress' | 'resize' }> = ({ mode }) => {
       {img && mode === 'compress' && (
         <div>
           <label className="text-sm font-semibold text-slate-700 block mb-1">Quality: {Math.round(quality * 100)}%</label>
-          <input type="range" min="0.1" max="1" step="0.05" value={quality} onChange={e => setQuality(Number(e.target.value))} className="w-full accent-indigo-600" />
+          <input aria-label="Image quality" type="range" min="0.1" max="1" step="0.05" value={quality} onChange={e => setQuality(Number(e.target.value))} className="w-full accent-indigo-600" />
         </div>
       )}
       {img && mode === 'resize' && (
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label className="text-sm font-semibold text-slate-700 block mb-1">Width (px)</label>
-            <input type="number" value={width || ''} onChange={e => setWidth(Number(e.target.value))} className="w-full p-3 rounded-xl border border-slate-300 text-sm" />
+            <input aria-label="Target width in pixels" type="number" value={width || ''} onChange={e => setWidth(Number(e.target.value))} className="w-full p-3 rounded-xl border border-slate-300 text-sm" />
           </div>
           <div>
             <label className="text-sm font-semibold text-slate-700 block mb-1">Height (auto)</label>

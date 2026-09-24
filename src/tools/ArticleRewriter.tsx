@@ -204,10 +204,11 @@ export const ArticleRewriter: React.FC = () => {
                     ${state === 'active' ? 'bg-blue-500 border-blue-500 text-white shadow-lg shadow-blue-500/30 scale-105' :
                       state === 'done' ? 'bg-blue-50 border-blue-500 text-blue-600 cursor-pointer' : 'bg-slate-100 border-slate-200 text-slate-500'}`}
                   aria-current={state === 'active' ? 'step' : undefined}
+                  aria-label={`Step ${s.n}: ${s.label}${state === 'done' ? ' (completed)' : state === 'active' ? ' (in progress)' : ''}`}
                 >
                   {state === 'done' ? <Icon d="M20 6L9 17l-5-5" className="w-6 h-6" /> : <Icon d={s.icon} />}
                 </button>
-                <p className={`mt-3 text-sm font-bold uppercase tracking-wide ${state === 'todo' ? 'text-blue-400' : 'text-blue-600'}`}>Step {s.n}</p>
+                <p className={`mt-3 text-sm font-bold uppercase tracking-wide text-blue-600`}>Step {s.n}</p>
                 <p className="text-[13px] md:text-base font-bold text-slate-800 leading-tight px-1">{s.label}</p>
               </div>
             );
@@ -270,7 +271,7 @@ export const ArticleRewriter: React.FC = () => {
           {notice && <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm text-amber-800">{notice}</div>}
 
           <button type="button" onClick={() => process()} disabled={!text.trim()}
-            className="w-full md:w-auto md:min-w-[280px] mx-auto block bg-gradient-to-r from-indigo-500 to-purple-600 text-white px-10 py-4 rounded-xl font-bold text-lg hover:shadow-lg hover:shadow-indigo-500/25 transition-all disabled:opacity-50 disabled:cursor-not-allowed">
+            className="w-full md:w-auto md:min-w-[280px] mx-auto block bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-10 py-4 rounded-xl font-bold text-lg hover:shadow-lg hover:shadow-indigo-500/25 transition-all disabled:opacity-50 disabled:cursor-not-allowed">
             Rewrite Article →
           </button>
         </>
@@ -280,7 +281,7 @@ export const ArticleRewriter: React.FC = () => {
       {step === 2 && (
         <div className="bg-white rounded-2xl border border-slate-200 p-10 md:p-16 text-center shadow-sm">
           <div className="w-20 h-20 mx-auto rounded-full border-4 border-blue-100 border-t-blue-500 animate-spin mb-6" />
-          <h3 className="text-2xl font-bold text-slate-900 mb-2">Processing your article</h3>
+          <h2 className="text-2xl font-bold text-slate-900 mb-2">Processing your article</h2>
           <p className="text-slate-600 mb-6">{stage}</p>
           <div className="max-w-md mx-auto h-2 bg-slate-200 rounded-full overflow-hidden">
             <div className="h-full bg-blue-500 transition-all" style={{ width: `${progress}%` }} />
@@ -340,7 +341,7 @@ export const ArticleRewriter: React.FC = () => {
 
           <div className="flex flex-col sm:flex-row gap-3 justify-between">
             <button type="button" onClick={reset} className="px-6 py-3.5 rounded-xl bg-white border border-slate-300 hover:bg-slate-50 font-semibold text-slate-700">← Edit original</button>
-            <button type="button" onClick={() => setStep(4)} className="bg-gradient-to-r from-indigo-500 to-purple-600 text-white px-10 py-3.5 rounded-xl font-bold hover:shadow-lg hover:shadow-indigo-500/25 transition-all">
+            <button type="button" onClick={() => setStep(4)} className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-10 py-3.5 rounded-xl font-bold hover:shadow-lg hover:shadow-indigo-500/25 transition-all">
               Finish &amp; Get Unique Article →
             </button>
           </div>

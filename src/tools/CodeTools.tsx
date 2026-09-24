@@ -77,8 +77,8 @@ export const HtmlFormatterTool: React.FC = () => {
   const out = useMemo(() => (src.trim() ? formatHtml(src, indent) : ''), [src, indent]);
   return (
     <div className="space-y-4">
-      <Toolbar onClear={() => setSrc('')} onSample={() => setSrc(SAMPLE_HTML)} extra={<select value={indent} onChange={e => setIndent(e.target.value)} className="ml-auto text-xs border border-slate-300 rounded-lg px-2 py-1.5 bg-white"><option value="  ">2 spaces</option><option value="    ">4 spaces</option><option value={'\t'}>Tab</option></select>} />
-      <textarea value={src} onChange={e => setSrc(e.target.value)} rows={10} spellCheck={false} placeholder="Paste minified or messy HTML…" className="w-full p-4 rounded-xl border border-slate-300 text-sm font-mono outline-none focus:border-indigo-500" />
+      <Toolbar onClear={() => setSrc('')} onSample={() => setSrc(SAMPLE_HTML)} extra={<select aria-label="Indentation" value={indent} onChange={e => setIndent(e.target.value)} className="ml-auto text-xs border border-slate-300 rounded-lg px-2 py-1.5 bg-white"><option value="  ">2 spaces</option><option value="    ">4 spaces</option><option value={'\t'}>Tab</option></select>} />
+      <textarea aria-label="HTML source" value={src} onChange={e => setSrc(e.target.value)} rows={10} spellCheck={false} placeholder="Paste minified or messy HTML…" className="w-full p-4 rounded-xl border border-slate-300 text-sm font-mono outline-none focus:border-indigo-500" />
       {out && <><div className="grid grid-cols-2 sm:grid-cols-4 gap-3"><Stat label="Input lines" value={src.split('\n').length} /><Stat label="Output lines" value={out.split('\n').length} /><Stat label="Tags" value={(src.match(/<[a-zA-Z]/g) || []).length} /><Stat label="Size" value={`${(new Blob([out]).size / 1024).toFixed(1)} KB`} /></div><Output label="Formatted HTML" value={out} /></>}
     </div>
   );
@@ -91,8 +91,8 @@ export const XmlFormatterTool: React.FC = () => {
   const r = useMemo(() => (src.trim() ? formatXml(src, indent) : null), [src, indent]);
   return (
     <div className="space-y-4">
-      <Toolbar onClear={() => setSrc('')} onSample={() => setSrc(SAMPLE_XML)} extra={<select value={indent} onChange={e => setIndent(e.target.value)} className="ml-auto text-xs border border-slate-300 rounded-lg px-2 py-1.5 bg-white"><option value="  ">2 spaces</option><option value="    ">4 spaces</option><option value={'\t'}>Tab</option></select>} />
-      <textarea value={src} onChange={e => setSrc(e.target.value)} rows={10} spellCheck={false} placeholder="Paste XML, RSS or a sitemap…" className="w-full p-4 rounded-xl border border-slate-300 text-sm font-mono outline-none focus:border-indigo-500" />
+      <Toolbar onClear={() => setSrc('')} onSample={() => setSrc(SAMPLE_XML)} extra={<select aria-label="Indentation" value={indent} onChange={e => setIndent(e.target.value)} className="ml-auto text-xs border border-slate-300 rounded-lg px-2 py-1.5 bg-white"><option value="  ">2 spaces</option><option value="    ">4 spaces</option><option value={'\t'}>Tab</option></select>} />
+      <textarea aria-label="XML source" value={src} onChange={e => setSrc(e.target.value)} rows={10} spellCheck={false} placeholder="Paste XML, RSS or a sitemap…" className="w-full p-4 rounded-xl border border-slate-300 text-sm font-mono outline-none focus:border-indigo-500" />
       {r && (<>
         <div className={`rounded-xl p-4 text-sm border ${r.error ? 'bg-red-50 border-red-100 text-red-700' : 'bg-emerald-50 border-emerald-100 text-emerald-700'}`}>{r.error ? `✗ Invalid XML: ${r.error}` : '✓ Well-formed XML'}</div>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3"><Stat label="Elements" value={r.elements} /><Stat label="Attributes" value={r.attrs} /><Stat label="Max depth" value={r.depth} /><Stat label="Size" value={`${(new Blob([r.out]).size / 1024).toFixed(1)} KB`} /></div>
@@ -109,8 +109,8 @@ export const PhpFormatterTool: React.FC = () => {
   const out = useMemo(() => (src.trim() ? formatPhp(src, indent) : ''), [src, indent]);
   return (
     <div className="space-y-4">
-      <Toolbar onClear={() => setSrc('')} onSample={() => setSrc(SAMPLE_PHP)} extra={<select value={indent} onChange={e => setIndent(e.target.value)} className="ml-auto text-xs border border-slate-300 rounded-lg px-2 py-1.5 bg-white"><option value="    ">4 spaces (PSR-12)</option><option value="  ">2 spaces</option><option value={'\t'}>Tab</option></select>} />
-      <textarea value={src} onChange={e => setSrc(e.target.value)} rows={10} spellCheck={false} placeholder="Paste PHP code…" className="w-full p-4 rounded-xl border border-slate-300 text-sm font-mono outline-none focus:border-indigo-500" />
+      <Toolbar onClear={() => setSrc('')} onSample={() => setSrc(SAMPLE_PHP)} extra={<select aria-label="Indentation" value={indent} onChange={e => setIndent(e.target.value)} className="ml-auto text-xs border border-slate-300 rounded-lg px-2 py-1.5 bg-white"><option value="    ">4 spaces (PSR-12)</option><option value="  ">2 spaces</option><option value={'\t'}>Tab</option></select>} />
+      <textarea aria-label="PHP source" value={src} onChange={e => setSrc(e.target.value)} rows={10} spellCheck={false} placeholder="Paste PHP code…" className="w-full p-4 rounded-xl border border-slate-300 text-sm font-mono outline-none focus:border-indigo-500" />
       {out && <><div className="grid grid-cols-2 sm:grid-cols-4 gap-3"><Stat label="Lines" value={out.split('\n').length} /><Stat label="Functions" value={(src.match(/\bfunction\s+\w+/g) || []).length} /><Stat label="Classes" value={(src.match(/\bclass\s+\w+/g) || []).length} /><Stat label="Variables" value={new Set(src.match(/\$\w+/g) || []).size} /></div><Output label="Formatted PHP" value={out} /><p className="text-xs text-slate-400">Applies PSR-12-style spacing around operators, one statement per line and brace indentation. Review complex string literals manually.</p></>}
     </div>
   );
@@ -132,15 +132,15 @@ export const HtmlEditorTool: React.FC = () => {
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center gap-2">
-        <select onChange={e => { setCode(TEMPLATES[e.target.value]); setPreview(TEMPLATES[e.target.value]); }} defaultValue="blank" className="text-sm border border-slate-300 rounded-lg px-3 py-2 bg-white"><option value="blank">Blank page</option><option value="landing">Landing page</option><option value="form">Contact form</option></select>
-        <div className="flex bg-slate-100 rounded-lg p-0.5">{(['split', 'code', 'preview'] as const).map(l => <button key={l} type="button" onClick={() => setLayout(l)} className={`px-3 py-1.5 rounded-md text-xs font-semibold capitalize ${layout === l ? 'bg-white shadow-sm text-slate-800' : 'text-slate-500'}`}>{l}</button>)}</div>
+        <select aria-label="Page template" onChange={e => { setCode(TEMPLATES[e.target.value]); setPreview(TEMPLATES[e.target.value]); }} defaultValue="blank" className="text-sm border border-slate-300 rounded-lg px-3 py-2 bg-white"><option value="blank">Blank page</option><option value="landing">Landing page</option><option value="form">Contact form</option></select>
+        <div className="flex bg-slate-100 rounded-lg p-0.5">{(['split', 'code', 'preview'] as const).map(l => <button key={l} type="button" onClick={() => setLayout(l)} className={`px-3 py-1.5 rounded-md text-xs font-semibold capitalize ${layout === l ? 'bg-white shadow-sm text-slate-800' : 'text-slate-600'}`}>{l}</button>)}</div>
         <label className="flex items-center gap-2 text-sm text-slate-600"><input type="checkbox" checked={auto} onChange={e => setAuto(e.target.checked)} className="accent-indigo-600" /> Auto-run</label>
         {!auto && <button type="button" onClick={() => setPreview(code)} className="px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm font-semibold">▶ Run</button>}
         <div className="ml-auto flex gap-2"><button type="button" onClick={() => setCode(formatHtml(code))} className="px-3 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-xs font-semibold text-slate-700">Format</button><button type="button" onClick={() => navigator.clipboard?.writeText(code)} className="px-3 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-xs font-semibold text-slate-700">Copy</button><button type="button" onClick={download} className="px-3 py-2 rounded-lg bg-slate-900 text-white text-xs font-semibold hover:bg-slate-700">Download .html</button></div>
       </div>
       <div className={`grid gap-3 ${layout === 'split' ? 'lg:grid-cols-2' : ''}`}>
-        {layout !== 'preview' && <textarea value={code} onChange={e => setCode(e.target.value)} spellCheck={false} className="w-full h-[520px] p-4 rounded-xl bg-slate-900 text-slate-100 text-[13px] font-mono leading-relaxed outline-none resize-y" />}
-        {layout !== 'code' && <div className="rounded-xl border border-slate-200 overflow-hidden bg-white h-[520px]"><div className="h-8 bg-slate-100 border-b border-slate-200 flex items-center px-3 gap-1.5"><span className="w-3 h-3 rounded-full bg-red-400" /><span className="w-3 h-3 rounded-full bg-amber-400" /><span className="w-3 h-3 rounded-full bg-emerald-400" /><span className="ml-3 text-xs text-slate-500">Preview</span></div><iframe title="HTML preview" srcDoc={shown} sandbox="allow-scripts" className="w-full h-[488px] bg-white" /></div>}
+        {layout !== 'preview' && <textarea aria-label="HTML code" value={code} onChange={e => setCode(e.target.value)} spellCheck={false} className="w-full h-[520px] p-4 rounded-xl bg-slate-900 text-slate-100 text-[13px] font-mono leading-relaxed outline-none resize-y" />}
+        {layout !== 'code' && <div className="rounded-xl border border-slate-200 overflow-hidden bg-white h-[520px]"><div className="h-8 bg-slate-100 border-b border-slate-200 flex items-center px-3 gap-1.5"><span className="w-3 h-3 rounded-full bg-red-400" /><span className="w-3 h-3 rounded-full bg-amber-400" /><span className="w-3 h-3 rounded-full bg-emerald-400" /><span className="ml-3 text-xs text-slate-600">Preview</span></div><iframe title="HTML preview" srcDoc={shown} sandbox="allow-scripts" className="w-full h-[488px] bg-white" /></div>}
       </div>
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3"><Stat label="Lines" value={code.split('\n').length} /><Stat label="Characters" value={code.length.toLocaleString()} /><Stat label="Elements" value={(code.match(/<[a-zA-Z]/g) || []).length} /><Stat label="Size" value={`${(new Blob([code]).size / 1024).toFixed(1)} KB`} /></div>
     </div>
@@ -155,7 +155,7 @@ export const HtmlViewerTool: React.FC = () => {
   return (
     <div className="space-y-4">
       <Toolbar onClear={() => setSrc('')} onSample={() => setSrc(SAMPLE_HTML)} />
-      <textarea value={src} onChange={e => setSrc(e.target.value)} rows={8} spellCheck={false} placeholder="Paste HTML code to render it…" className="w-full p-4 rounded-xl border border-slate-300 text-sm font-mono outline-none focus:border-indigo-500" />
+      <textarea aria-label="HTML code to render" value={src} onChange={e => setSrc(e.target.value)} rows={8} spellCheck={false} placeholder="Paste HTML code to render it…" className="w-full p-4 rounded-xl border border-slate-300 text-sm font-mono outline-none focus:border-indigo-500" />
       {src.trim() && (<>
         <div className="grid grid-cols-2 sm:grid-cols-5 gap-3"><Stat label="Tags" value={stats.tags} /><Stat label="Links" value={stats.links} /><Stat label="Images" value={stats.images} /><Stat label="Scripts" value={stats.scripts} tone={stats.scripts ? 'warn' : 'neutral'} /><Stat label="Words" value={stats.text} /></div>
         <div className="grid lg:grid-cols-2 gap-4">

@@ -20,7 +20,7 @@ export const Spinner: React.FC<{ label: string }> = ({ label }) => (
 
 export const Card: React.FC<{ title: string; children: React.ReactNode; right?: React.ReactNode; className?: string }> = ({ title, children, right, className = '' }) => (
   <div className={`bg-white rounded-2xl border border-slate-200 p-5 md:p-6 shadow-sm ${className}`}>
-    <div className="flex items-center justify-between mb-4"><h3 className="font-bold text-slate-900">{title}</h3>{right}</div>
+    <div className="flex items-center justify-between mb-4"><h2 className="font-bold text-slate-900">{title}</h2>{right}</div>
     {children}
   </div>
 );
@@ -32,7 +32,7 @@ export const Live: React.FC<{ ms?: number }> = ({ ms }) => (
 );
 
 export const Stat: React.FC<{ label: string; value: React.ReactNode; tone?: 'good' | 'warn' | 'bad' | 'neutral' }> = ({ label, value, tone = 'neutral' }) => {
-  const c = { good: 'text-emerald-600', warn: 'text-amber-600', bad: 'text-red-600', neutral: 'text-slate-800' }[tone];
+  const c = { good: 'text-emerald-700', warn: 'text-amber-700', bad: 'text-red-700', neutral: 'text-slate-800' }[tone];
   return <div className="bg-slate-50 rounded-xl p-4 border border-slate-100 min-w-0"><p className="text-xs text-slate-500">{label}</p><p className={`text-lg font-bold break-words ${c}`}>{value}</p></div>;
 };
 
@@ -142,7 +142,7 @@ export const SeoScoreTool: React.FC = () => {
           </div>
           <Card title="Detailed checks"><CheckList checks={checks} /></Card>
           <Card title="Priority fixes">
-            {checks.filter(c => !c.pass).length === 0 ? <p className="text-sm text-emerald-600 font-semibold">Everything passed — excellent on-page foundation.</p> : (
+            {checks.filter(c => !c.pass).length === 0 ? <p className="text-sm text-emerald-700 font-semibold">Everything passed — excellent on-page foundation.</p> : (
               <ol className="list-decimal pl-5 space-y-1.5 text-sm text-slate-700">
                 {checks.filter(c => !c.pass).sort((a, b) => (b.weight || 0) - (a.weight || 0)).map(c => <li key={c.label}><strong>{c.label}</strong> — {c.detail}</li>)}
               </ol>
@@ -192,8 +192,8 @@ export const MetaAnalyzerTool: React.FC = () => {
                 <tbody>{rows.map(r => (
                   <tr key={r.name} className="border-t border-slate-100 align-top">
                     <td className="px-3 py-2 font-mono text-xs text-indigo-700 whitespace-nowrap">{r.name}</td>
-                    <td className="px-3 py-2 text-slate-700 break-all max-w-xl">{r.content || <span className="text-slate-400 italic">not set</span>}</td>
-                    <td className={`px-3 py-2 font-semibold whitespace-nowrap ${r.g[1] === 'good' ? 'text-emerald-600' : r.g[1] === 'warn' ? 'text-amber-600' : 'text-red-600'}`}>{r.g[0]}</td>
+                    <td className="px-3 py-2 text-slate-700 break-all max-w-xl">{r.content || <span className="text-slate-500 italic">not set</span>}</td>
+                    <td className={`px-3 py-2 font-semibold whitespace-nowrap ${r.g[1] === 'good' ? 'text-emerald-700' : r.g[1] === 'warn' ? 'text-amber-700' : 'text-red-700'}`}>{r.g[0]}</td>
                   </tr>))}</tbody>
               </table></div>
             </Card>
@@ -229,7 +229,7 @@ export const OgCheckerTool: React.FC = () => {
             <div className="grid lg:grid-cols-2 gap-5">
               <Card title="Facebook / LinkedIn share preview" right={<Live ms={d.fetchMs} />}>
                 <div className="rounded-xl border border-slate-300 overflow-hidden bg-white max-w-md">
-                  <div className="aspect-[1.91/1] bg-slate-100 flex items-center justify-center text-slate-400 text-sm overflow-hidden">
+                  <div className="aspect-[1.91/1] bg-slate-100 flex items-center justify-center text-slate-600 text-sm overflow-hidden">
                     {img ? <img src={img} alt="" className="w-full h-full object-cover" loading="lazy" onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} /> : 'No og:image — link will show without an image'}
                   </div>
                   <div className="p-3 bg-slate-50 border-t border-slate-200">
@@ -289,7 +289,7 @@ export const SnooperTool: React.FC = () => {
                   <span className={`px-3 text-slate-200 ${wrap ? 'whitespace-pre-wrap break-all' : 'whitespace-pre'}`}>{l.length > 2000 ? l.slice(0, 2000) + ' …' : l}</span>
                 </div>
               ))}
-              {shown.length > 3000 && <p className="px-4 py-2 text-xs text-slate-400">Showing first 3,000 lines. Use the filter or copy the full source.</p>}
+              {shown.length > 3000 && <p className="px-4 py-2 text-xs text-slate-500">Showing first 3,000 lines. Use the filter or copy the full source.</p>}
             </div>
           </div>
         </>
@@ -364,7 +364,7 @@ export const HeadersTool: React.FC = () => {
             <Stat label="Headers" value={res.headers.length} />
             <Stat label="Security headers" value={`${security.filter(s => res.headers.some(h => h[0] === s)).length}/6`} tone={security.filter(s => res.headers.some(h => h[0] === s)).length >= 4 ? 'good' : 'warn'} />
           </div>
-          <Card title="Response headers" right={<span className="text-xs text-slate-400">via {res.via}</span>}>
+          <Card title="Response headers" right={<span className="text-xs text-slate-500">via {res.via}</span>}>
             <div className="divide-y divide-slate-100">
               {res.headers.map(([k, v]) => (
                 <div key={k + v} className="py-2.5 grid sm:grid-cols-[220px_1fr] gap-1">
@@ -402,7 +402,7 @@ export const WpDetectorTool: React.FC = () => {
         const pretty = (s: string) => s.replace(/[-_]/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
         return (
           <>
-            <div className={`rounded-2xl p-6 text-white ${isWp ? 'bg-gradient-to-br from-indigo-500 to-purple-600' : 'bg-slate-800'}`}>
+            <div className={`rounded-2xl p-6 text-white ${isWp ? 'bg-gradient-to-br from-indigo-600 to-purple-600' : 'bg-slate-800'}`}>
               <p className="text-sm opacity-80">{host(f.data.finalUrl)}</p>
               <p className="text-3xl font-extrabold mt-1">{isWp ? 'WordPress detected' : `Not WordPress — ${cms}`}</p>
               {isWp && themes[0] && <p className="text-lg mt-2">Active theme: <strong>{pretty(themes[0])}</strong>{themes[1] && <span className="opacity-80"> (parent: {pretty(themes[1])})</span>}</p>}
@@ -414,7 +414,7 @@ export const WpDetectorTool: React.FC = () => {
             {plugins.length > 0 && (
               <Card title={`Installed plugins (${plugins.length} visible in source)`}>
                 <div className="flex flex-wrap gap-2">{plugins.map(p => <span key={p} className="px-3 py-1.5 rounded-full bg-slate-100 text-slate-700 text-sm font-medium">{pretty(p)}</span>)}</div>
-                <p className="text-xs text-slate-400 mt-3">Only plugins that load front-end assets are detectable. Admin-only plugins remain hidden.</p>
+                <p className="text-xs text-slate-500 mt-3">Only plugins that load front-end assets are detectable. Admin-only plugins remain hidden.</p>
               </Card>
             )}
             {f.data.generator && <Card title="Generator meta tag"><p className="font-mono text-sm text-slate-700">{f.data.generator}</p></Card>}
@@ -454,7 +454,7 @@ export const MobileTestTool: React.FC = () => {
               <div className="space-y-4">
                 <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm flex items-center gap-6">
                   <Ring value={score} label="Mobile" />
-                  <div><p className={`text-2xl font-extrabold ${score >= 80 ? 'text-emerald-600' : score >= 60 ? 'text-amber-600' : 'text-red-600'}`}>{score >= 80 ? 'Mobile friendly' : score >= 60 ? 'Needs improvement' : 'Not mobile friendly'}</p><p className="text-sm text-slate-600 mt-1">{checks.filter(c => c.pass).length}/{checks.length} checks passed for {host(d.finalUrl)}</p><div className="mt-2"><Live ms={d.fetchMs} /></div></div>
+                  <div><p className={`text-2xl font-extrabold ${score >= 80 ? 'text-emerald-700' : score >= 60 ? 'text-amber-700' : 'text-red-700'}`}>{score >= 80 ? 'Mobile friendly' : score >= 60 ? 'Needs improvement' : 'Not mobile friendly'}</p><p className="text-sm text-slate-600 mt-1">{checks.filter(c => c.pass).length}/{checks.length} checks passed for {host(d.finalUrl)}</p><div className="mt-2"><Live ms={d.fetchMs} /></div></div>
                 </div>
                 <Card title="Mobile usability checks"><CheckList checks={checks} /></Card>
               </div>
@@ -462,7 +462,7 @@ export const MobileTestTool: React.FC = () => {
                 <div className="bg-white rounded-[1.7rem] overflow-hidden"><div className="h-6 bg-slate-100 flex items-center justify-center"><span className="w-16 h-1.5 rounded-full bg-slate-300" /></div>
                   <iframe title="Mobile preview" src={d.finalUrl} loading="lazy" sandbox="allow-same-origin allow-scripts" className="w-full h-[520px] bg-white" />
                 </div>
-                <p className="text-[10px] text-slate-400 text-center mt-2">Live preview at 375px · some sites block embedding</p>
+                <p className="text-[10px] text-slate-500 text-center mt-2">Live preview at 375px · some sites block embedding</p>
               </div>
             </div>
           </>
@@ -533,7 +533,7 @@ export const PageSizeTool: React.FC = () => {
         const conns: [string, number][] = [['2G (50 kbps)', 50_000], ['3G (1.6 Mbps)', 1_600_000], ['4G (9 Mbps)', 9_000_000], ['5G / Fibre (100 Mbps)', 100_000_000]];
         return (
           <>
-            <div className="bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl p-6 text-white"><p className="text-indigo-100 text-sm">{host(d.finalUrl)} — HTML document size</p><p className="text-4xl font-extrabold">{kb(bytes)} <span className="text-lg font-semibold opacity-80">({bytes.toLocaleString()} bytes)</span></p><p className="text-sm mt-2 text-indigo-100">{bytes < 50000 ? 'Lean — well under the 100 KB HTML guideline.' : bytes < 150000 ? 'Average — consider trimming inline scripts/styles.' : 'Heavy — large HTML delays first render on slow connections.'}</p></div>
+            <div className="bg-gradient-to-br from-indigo-600 to-purple-600 rounded-2xl p-6 text-white"><p className="text-indigo-100 text-sm">{host(d.finalUrl)} — HTML document size</p><p className="text-4xl font-extrabold">{kb(bytes)} <span className="text-lg font-semibold opacity-80">({bytes.toLocaleString()} bytes)</span></p><p className="text-sm mt-2 text-indigo-100">{bytes < 50000 ? 'Lean — well under the 100 KB HTML guideline.' : bytes < 150000 ? 'Average — consider trimming inline scripts/styles.' : 'Heavy — large HTML delays first render on slow connections.'}</p></div>
             <div className="grid sm:grid-cols-4 gap-3">
               <Stat label="Visible text" value={kb(d.textSize)} /><Stat label="Text ratio" value={`${d.textRatio}%`} tone={d.textRatio >= 10 ? 'good' : 'warn'} /><Stat label="Inline <style> blocks" value={d.inlineStyles} /><Stat label="Inline <script> blocks" value={d.scripts - d.externalScripts} />
             </div>
@@ -621,7 +621,7 @@ export const EmailPrivacyTool: React.FC = () => {
           <div className="space-y-3">{[['HTML entities (recommended)', o.entity], ['Human readable', o.spelled], ['CSS reversed', o.reversed], ['JavaScript assembled', o.js]].map(([l, v]) => (
             <div key={l} className="bg-slate-900 rounded-xl p-3"><div className="flex justify-between items-center mb-1"><span className="text-xs font-semibold uppercase text-slate-400">{l}</span><button type="button" onClick={() => navigator.clipboard?.writeText(v)} className="text-xs bg-slate-700 hover:bg-slate-600 text-white px-2 py-1 rounded">Copy</button></div><code className="text-xs text-emerald-300 break-all">{v}</code></div>))}</div>
         ); })()}
-        <p className="text-xs text-slate-400 mt-4">Best practice: use a contact form, or obfuscate with entities plus a mailto link generated by JavaScript.</p>
+        <p className="text-xs text-slate-500 mt-4">Best practice: use a contact form, or obfuscate with entities plus a mailto link generated by JavaScript.</p>
       </Card>
     </div>
   );
@@ -643,7 +643,7 @@ export const PageRankTool: React.FC = () => {
       {res && (
         <>
           <div className="grid sm:grid-cols-5 gap-3">
-            <div className="sm:col-span-2 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl p-6 text-white"><p className="text-indigo-100 text-sm">Estimated PageRank</p><p className="text-5xl font-extrabold">{res.pr}<span className="text-2xl opacity-80">/10</span></p><div className="flex gap-1 mt-3">{Array.from({ length: 10 }, (_, i) => <span key={i} className={`h-2 flex-1 rounded ${i < res.pr ? 'bg-white' : 'bg-white/25'}`} />)}</div></div>
+            <div className="sm:col-span-2 bg-gradient-to-br from-indigo-600 to-purple-600 rounded-2xl p-6 text-white"><p className="text-indigo-100 text-sm">Estimated PageRank</p><p className="text-5xl font-extrabold">{res.pr}<span className="text-2xl opacity-80">/10</span></p><div className="flex gap-1 mt-3">{Array.from({ length: 10 }, (_, i) => <span key={i} className={`h-2 flex-1 rounded ${i < res.pr ? 'bg-white' : 'bg-white/25'}`} />)}</div></div>
             <Stat label="Domain Authority (Moz-style)" value={`${res.da}/100`} /><Stat label="Domain Rating (Ahrefs-style)" value={`${res.dr}/100`} /><Stat label="Backlinks / Ref. domains" value={`${res.links.toLocaleString()} / ${res.ref.toLocaleString()}`} />
           </div>
           <Card title="What PageRank means today">

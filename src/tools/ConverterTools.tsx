@@ -145,7 +145,7 @@ const UnitConversionTable: React.FC<{ units: UnitEntry[] }> = ({ units }) => {
       </div>
       {result && (
         <div className="bg-slate-50 rounded-xl p-4 border border-slate-100">
-          <p className="text-xs text-slate-400 mb-2">1 {fromUnit} = {result.factor.toPrecision(6)} {toUnit}</p>
+          <p className="text-xs text-slate-500 mb-2">1 {fromUnit} = {result.factor.toPrecision(6)} {toUnit}</p>
           <div className="flex flex-wrap gap-1.5">
             {units.map(u => (
               <button key={u.symbol} type="button" onClick={() => { setFromUnit(fromUnit); setToUnit(u.symbol); }} className="text-xs px-2 py-1 rounded bg-slate-100 hover:bg-slate-200">{u.symbol}: {(result.value * (units.find(u => u.symbol === fromUnit)?.toBase || 1) / (u.toBase)).toPrecision(4)}</button>
@@ -177,9 +177,9 @@ export const TempConverter: React.FC = () => {
         </div>
       </div>
       <div className="bg-slate-50 rounded-xl p-4 border border-slate-100 grid grid-cols-3 gap-3 text-center text-sm">
-        <div><p className="text-xs text-slate-400">Freezing point of water</p><p className="font-bold text-slate-700">0°C / 32°F / 273K</p></div>
-        <div><p className="text-xs text-slate-400">Boiling point of water</p><p className="font-bold text-slate-700">100°C / 212°F / 373K</p></div>
-        <div><p className="text-xs text-slate-400">Body temperature</p><p className="font-bold text-slate-700">37°C / 98.6°F / 310K</p></div>
+        <div><p className="text-xs text-slate-500">Freezing point of water</p><p className="font-bold text-slate-700">0°C / 32°F / 273K</p></div>
+        <div><p className="text-xs text-slate-500">Boiling point of water</p><p className="font-bold text-slate-700">100°C / 212°F / 373K</p></div>
+        <div><p className="text-xs text-slate-500">Body temperature</p><p className="font-bold text-slate-700">37°C / 98.6°F / 310K</p></div>
       </div>
     </div>
   );
@@ -214,7 +214,7 @@ export const TimezoneConverter: React.FC = () => {
         <div><Field label="To timezone"><select value={to} onChange={e => setTo(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-slate-300 text-sm bg-white outline-none">{TIME_ZONES.map(z => <option key={z.id} value={z.id}>{z.label} (UTC{z.offset >= 0 ? '+' : ''}{z.offset})</option>)}</select></Field></div>
       </div>
       {result && (
-        <div className="bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl p-6 text-white space-y-2">
+        <div className="bg-gradient-to-br from-indigo-600 to-purple-600 rounded-2xl p-6 text-white space-y-2">
           <p className="text-indigo-200 text-sm">From {TIME_ZONES.find(t => t.id === from)?.label}</p>
           <p className="text-2xl font-bold">{result.fromFormatted}</p>
           <div className="text-xl text-indigo-200 my-2">↓ {result.offsetDiff >= 0 ? '+' : ''}{result.offsetDiff} hours</div>
