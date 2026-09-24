@@ -533,7 +533,7 @@ export const PageSizeTool: React.FC = () => {
         const conns: [string, number][] = [['2G (50 kbps)', 50_000], ['3G (1.6 Mbps)', 1_600_000], ['4G (9 Mbps)', 9_000_000], ['5G / Fibre (100 Mbps)', 100_000_000]];
         return (
           <>
-            <div className="bg-gradient-to-br from-indigo-600 to-purple-600 rounded-2xl p-6 text-white"><p className="text-indigo-100 text-sm">{host(d.finalUrl)} — HTML document size</p><p className="text-4xl font-extrabold">{kb(bytes)} <span className="text-lg font-semibold opacity-80">({bytes.toLocaleString()} bytes)</span></p><p className="text-sm mt-2 text-indigo-100">{bytes < 50000 ? 'Lean — well under the 100 KB HTML guideline.' : bytes < 150000 ? 'Average — consider trimming inline scripts/styles.' : 'Heavy — large HTML delays first render on slow connections.'}</p></div>
+            <div className="bg-gradient-to-br from-indigo-600 to-purple-600 rounded-2xl p-6 text-white"><p className="text-white text-sm">{host(d.finalUrl)} — HTML document size</p><p className="text-4xl font-extrabold">{kb(bytes)} <span className="text-lg font-semibold opacity-80">({bytes.toLocaleString()} bytes)</span></p><p className="text-sm mt-2 text-white">{bytes < 50000 ? 'Lean — well under the 100 KB HTML guideline.' : bytes < 150000 ? 'Average — consider trimming inline scripts/styles.' : 'Heavy — large HTML delays first render on slow connections.'}</p></div>
             <div className="grid sm:grid-cols-4 gap-3">
               <Stat label="Visible text" value={kb(d.textSize)} /><Stat label="Text ratio" value={`${d.textRatio}%`} tone={d.textRatio >= 10 ? 'good' : 'warn'} /><Stat label="Inline <style> blocks" value={d.inlineStyles} /><Stat label="Inline <script> blocks" value={d.scripts - d.externalScripts} />
             </div>
@@ -608,10 +608,10 @@ export const EmailPrivacyTool: React.FC = () => {
       {f.busy && <Spinner label="Scanning page source for email addresses…" />}
       {f.failed && <Fail />}
       {f.data && (
-        <div className={`rounded-2xl p-6 text-white ${list.length ? 'bg-gradient-to-br from-amber-500 to-orange-600' : 'bg-gradient-to-br from-emerald-500 to-teal-600'}`}>
-          <p className="text-sm opacity-90">{host(f.data.finalUrl)}</p>
+        <div className={`rounded-2xl p-6 text-white ${list.length ? 'bg-gradient-to-br from-amber-700 to-orange-700' : 'bg-gradient-to-br from-emerald-700 to-teal-800'}`}>
+          <p className="text-sm">{host(f.data.finalUrl)}</p>
           <p className="text-3xl font-extrabold">{list.length ? `${list.length} exposed email${list.length > 1 ? 's' : ''} found` : 'No plain-text emails exposed'}</p>
-          <p className="text-sm mt-1 opacity-90">{list.length ? 'These addresses can be harvested by spam bots.' : 'Good — harvesters will not find addresses in this page\u2019s HTML.'}</p>
+          <p className="text-sm mt-1">{list.length ? 'These addresses can be harvested by spam bots.' : 'Good — harvesters will not find addresses in this page\u2019s HTML.'}</p>
           {list.length > 0 && <ul className="mt-3 flex flex-wrap gap-2">{list.map(e => <li key={e} className="bg-white/20 rounded-full px-3 py-1 font-mono text-sm">{e}</li>)}</ul>}
         </div>
       )}
@@ -643,7 +643,7 @@ export const PageRankTool: React.FC = () => {
       {res && (
         <>
           <div className="grid sm:grid-cols-5 gap-3">
-            <div className="sm:col-span-2 bg-gradient-to-br from-indigo-600 to-purple-600 rounded-2xl p-6 text-white"><p className="text-indigo-100 text-sm">Estimated PageRank</p><p className="text-5xl font-extrabold">{res.pr}<span className="text-2xl opacity-80">/10</span></p><div className="flex gap-1 mt-3">{Array.from({ length: 10 }, (_, i) => <span key={i} className={`h-2 flex-1 rounded ${i < res.pr ? 'bg-white' : 'bg-white/25'}`} />)}</div></div>
+            <div className="sm:col-span-2 bg-gradient-to-br from-indigo-600 to-purple-600 rounded-2xl p-6 text-white"><p className="text-white text-sm">Estimated PageRank</p><p className="text-5xl font-extrabold">{res.pr}<span className="text-2xl opacity-80">/10</span></p><div className="flex gap-1 mt-3">{Array.from({ length: 10 }, (_, i) => <span key={i} className={`h-2 flex-1 rounded ${i < res.pr ? 'bg-white' : 'bg-white/25'}`} />)}</div></div>
             <Stat label="Domain Authority (Moz-style)" value={`${res.da}/100`} /><Stat label="Domain Rating (Ahrefs-style)" value={`${res.dr}/100`} /><Stat label="Backlinks / Ref. domains" value={`${res.links.toLocaleString()} / ${res.ref.toLocaleString()}`} />
           </div>
           <Card title="What PageRank means today">

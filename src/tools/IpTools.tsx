@@ -54,7 +54,7 @@ const CopyableIp: React.FC<{ ip: string; label: string }> = ({ ip, label }) => {
   const [copied, setCopied] = useState(false);
   return (
     <div className="bg-gradient-to-br from-indigo-600 to-purple-600 rounded-2xl p-6 text-white">
-      <p className="text-indigo-100 text-sm mb-1">{label}</p>
+      <p className="text-white text-sm mb-1">{label}</p>
       <div className="flex flex-wrap items-center gap-3">
         <p className="text-3xl md:text-4xl font-bold font-mono break-all">{ip || 'Not detected'}</p>
         {ip && (
@@ -275,12 +275,12 @@ export const IpLocationTool: React.FC<{ placeholder?: string; withMap?: boolean 
       {info && (
         <>
           <div className="bg-gradient-to-br from-indigo-600 to-purple-600 rounded-2xl p-6 text-white">
-            <p className="text-indigo-100 text-sm">{value ? 'Location of' : 'Your location for'}</p>
+            <p className="text-white text-sm">{value ? 'Location of' : 'Your location for'}</p>
             <p className="text-2xl font-bold font-mono break-all">{info.ip}</p>
             <p className="text-lg mt-2">
               {flagEmoji(info.countryCode)} {[info.city, info.region, info.country].filter(Boolean).join(', ') || 'Location unavailable'}
             </p>
-            {dist !== null && <p className="text-sm text-indigo-100 mt-1">≈ {dist.toLocaleString()} km from your current location</p>}
+            {dist !== null && <p className="text-sm text-white mt-1">≈ {dist.toLocaleString()} km from your current location</p>}
           </div>
           {withMap && info.latitude !== null && info.longitude !== null && (
             <MapEmbed lat={info.latitude} lon={info.longitude} label={info.city || info.ip} />
@@ -333,7 +333,7 @@ export const ReverseIpTool: React.FC<{ placeholder?: string }> = ({ placeholder 
   };
 
   const shared = domains.length;
-  const risk = shared <= 5 ? ['Low', 'text-emerald-600'] : shared <= 20 ? ['Moderate', 'text-amber-600'] : ['High', 'text-red-600'];
+  const risk = shared <= 5 ? ['Low', 'text-emerald-700'] : shared <= 20 ? ['Moderate', 'text-amber-700'] : ['High', 'text-red-700'];
 
   return (
     <div className="space-y-5">
@@ -370,7 +370,7 @@ export const ReverseIpTool: React.FC<{ placeholder?: string }> = ({ placeholder 
                 <tbody>
                   {domains.map((d, i) => (
                     <tr key={d.domain} className="border-t border-slate-100">
-                      <td className="px-4 py-2 text-slate-400">{i + 1}</td>
+                      <td className="px-4 py-2 text-slate-500">{i + 1}</td>
                       <td className="px-4 py-2 font-mono text-slate-800">{d.domain}</td>
                       <td className="px-4 py-2 text-slate-600">{d.tld}</td>
                       <td className="px-4 py-2 text-slate-600">{d.type}</td>
@@ -450,9 +450,9 @@ export const ProxyListTool: React.FC = () => {
                   <td className="px-4 py-2"><span className={`px-2 py-0.5 rounded-full text-[11px] font-semibold ${p.type.startsWith('SOCKS') ? 'bg-violet-50 text-violet-700' : p.type === 'HTTPS' ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-600'}`}>{p.type}</span></td>
                   <td className="px-4 py-2 text-slate-700 whitespace-nowrap">{flagEmoji(p.cc)} {p.country}</td>
                   <td className={`px-4 py-2 font-semibold ${p.anonymity === 'Elite' ? 'text-emerald-700' : p.anonymity === 'Anonymous' ? 'text-indigo-600' : 'text-amber-700'}`}>{p.anonymity}</td>
-                  <td className={`px-4 py-2 ${p.speed < 800 ? 'text-emerald-600 font-semibold' : p.speed < 2000 ? 'text-slate-700' : 'text-red-500'}`}>{p.speed} ms</td>
+                  <td className={`px-4 py-2 ${p.speed < 800 ? 'text-emerald-700 font-semibold' : p.speed < 2000 ? 'text-slate-700' : 'text-red-700'}`}>{p.speed} ms</td>
                   <td className="px-4 py-2 text-slate-600">{p.uptime}%</td>
-                  <td className="px-4 py-2 text-slate-400 whitespace-nowrap">{p.checked}</td>
+                  <td className="px-4 py-2 text-slate-500 whitespace-nowrap">{p.checked}</td>
                 </tr>
               ))}
             </tbody>

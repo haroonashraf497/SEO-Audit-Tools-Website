@@ -203,7 +203,7 @@ export const Sidebar: React.FC<{ category?: ToolCategory; currentSlug?: string; 
       {cfg.cta && (
         <div className="bg-gradient-to-br from-indigo-600 to-purple-600 rounded-xl p-5 text-white">
           <p className="font-bold text-lg leading-tight">{cfg.ctaTitle}</p>
-          <p className="text-sm text-indigo-100 mt-1">{cfg.ctaText}</p>
+          <p className="text-sm text-white mt-1">{cfg.ctaText}</p>
           <a href={cleanHref(cfg.ctaHref) || cfg.ctaHref} className="inline-block mt-3 bg-white text-indigo-600 text-sm font-bold px-4 py-2 rounded-lg hover:shadow-lg transition-shadow">{cfg.ctaLabel}</a>
         </div>
       )}

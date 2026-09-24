@@ -1712,7 +1712,7 @@ const SiteApp: React.FC = () => {
               )}
             </form>
 
-            <div className="flex flex-wrap items-center justify-center gap-6 mt-8 text-sm text-slate-500">
+            <div className="flex flex-wrap items-center justify-center gap-6 mt-8 text-sm text-slate-600">
               <span className="flex items-center gap-2">
                 <span className="text-emerald-500"><InlineIcons.CheckCircle /></span>
                 No sign-up required
@@ -1898,7 +1898,7 @@ const SiteApp: React.FC = () => {
                     <p className="text-3xl font-bold bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent">
                       {stat.value}
                     </p>
-                    <p className="text-slate-400 text-sm mt-2">{stat.label}</p>
+                    <p className="text-slate-300 text-sm mt-2">{stat.label}</p>
                   </div>
                 ))}
               </div>

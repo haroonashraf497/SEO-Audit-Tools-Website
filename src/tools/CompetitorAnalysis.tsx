@@ -480,9 +480,9 @@ const CompetitorAnalysis: React.FC = () => {
   if (!yourAudit || !theirAudit) return (
     <div className="space-y-6">
       <section className="text-center bg-gradient-to-br from-indigo-600 to-purple-600 rounded-3xl p-8 md:p-10 text-white">
-        <p className="text-xs font-bold uppercase tracking-[.18em] text-indigo-200 mb-3">Side-by-side SEO audit</p>
+        <p className="text-xs font-bold uppercase tracking-[.18em] text-white mb-3">Side-by-side SEO audit</p>
         <h1 className="text-3xl md:text-4xl font-extrabold">Website Competitor Analysis</h1>
-        <p className="max-w-2xl mx-auto text-indigo-100 mt-3">Run two complete audits with the same on-page, technical, mobile, security and performance checks used by the homepage audit.</p>
+        <p className="max-w-2xl mx-auto text-white mt-3">Run two complete audits with the same on-page, technical, mobile, security and performance checks used by the homepage audit.</p>
       </section>
       <section className="bg-white rounded-2xl border border-slate-200 p-5 md:p-6 shadow-sm">
         <div className="grid md:grid-cols-2 gap-4">
@@ -504,7 +504,7 @@ const CompetitorAnalysis: React.FC = () => {
           <button onClick={run} className="w-full mt-5 py-4 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold">Compare Both Websites →</button>
         )}
         {error && <p className="text-sm text-red-600 text-center mt-3">{error}</p>}
-        <p className="text-xs text-slate-400 text-center mt-3">If a site blocks browser access, a clearly labelled URL-based fallback keeps the comparison working.</p>
+        <p className="text-xs text-slate-500 text-center mt-3">If a site blocks browser access, a clearly labelled URL-based fallback keeps the comparison working.</p>
       </section>
     </div>
   );

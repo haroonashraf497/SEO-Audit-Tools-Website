@@ -137,7 +137,7 @@ const UnitConversionTable: React.FC<{ units: UnitEntry[] }> = ({ units }) => {
           <Field label="From"><select value={fromUnit} onChange={e => setFromUnit(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-slate-300 text-sm bg-white outline-none">{units.map(u => <option key={u.symbol} value={u.symbol}>{u.name} ({u.symbol})</option>)}</select></Field>
           <Input value={value} onChange={setValue} placeholder="Enter value" />
         </div>
-        <div className="pb-6 text-2xl text-slate-300 font-bold">→</div>
+        <div className="pb-6 text-2xl text-slate-500 font-bold">→</div>
         <div>
           <Field label="To"><select value={toUnit} onChange={e => setToUnit(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-slate-300 text-sm bg-white outline-none">{units.map(u => <option key={u.symbol} value={u.symbol}>{u.name} ({u.symbol})</option>)}</select></Field>
           <Result label={`Result in ${toUnit}`} value={result ? result.converted.toPrecision(8).replace(/\.?0+$/, '') : '—'} emphasis />
@@ -169,7 +169,7 @@ export const TempConverter: React.FC = () => {
           <Field label="From"><select value={fromUnit} onChange={e => setFromUnit(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-slate-300 text-sm bg-white outline-none">{TEMP_UNITS.map(u => <option key={u.symbol} value={u.symbol}>{u.name} ({u.symbol}°)</option>)}</select></Field>
           <Input value={value} onChange={setValue} placeholder="Enter temperature" />
         </div>
-        <div className="pb-6 text-2xl text-slate-300 font-bold">→</div>
+        <div className="pb-6 text-2xl text-slate-500 font-bold">→</div>
         <div className="space-y-2">
           {TEMP_UNITS.filter(u => u.symbol !== fromUnit).map(u => (
             <Result key={u.symbol} label={`${u.name} (${u.symbol}°)`} value={tempFromC(celsius, u.symbol).toFixed(2) + '°'} emphasis />
@@ -210,15 +210,15 @@ export const TimezoneConverter: React.FC = () => {
         <div><Field label="From timezone"><select value={from} onChange={e => setFrom(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-slate-300 text-sm bg-white outline-none">{TIME_ZONES.map(z => <option key={z.id} value={z.id}>{z.label} (UTC{z.offset >= 0 ? '+' : ''}{z.offset})</option>)}</select></Field>
         <Field label="Time"><input type="time" value={time} onChange={e => setTime(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-slate-300 text-sm bg-white outline-none" /></Field>
         <Field label="Date"><input type="date" value={date} onChange={e => setDate(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-slate-300 text-sm bg-white outline-none" /></Field></div>
-        <div className="pb-6 text-2xl text-slate-300 font-bold">→</div>
+        <div className="pb-6 text-2xl text-slate-500 font-bold">→</div>
         <div><Field label="To timezone"><select value={to} onChange={e => setTo(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-slate-300 text-sm bg-white outline-none">{TIME_ZONES.map(z => <option key={z.id} value={z.id}>{z.label} (UTC{z.offset >= 0 ? '+' : ''}{z.offset})</option>)}</select></Field></div>
       </div>
       {result && (
         <div className="bg-gradient-to-br from-indigo-600 to-purple-600 rounded-2xl p-6 text-white space-y-2">
-          <p className="text-indigo-200 text-sm">From {TIME_ZONES.find(t => t.id === from)?.label}</p>
+          <p className="text-white text-sm">From {TIME_ZONES.find(t => t.id === from)?.label}</p>
           <p className="text-2xl font-bold">{result.fromFormatted}</p>
-          <div className="text-xl text-indigo-200 my-2">↓ {result.offsetDiff >= 0 ? '+' : ''}{result.offsetDiff} hours</div>
-          <p className="text-indigo-200 text-sm">To {TIME_ZONES.find(t => t.id === to)?.label}</p>
+          <div className="text-xl text-white my-2">↓ {result.offsetDiff >= 0 ? '+' : ''}{result.offsetDiff} hours</div>
+          <p className="text-white text-sm">To {TIME_ZONES.find(t => t.id === to)?.label}</p>
           <p className="text-2xl font-bold">{result.toFormatted}</p>
         </div>
       )}

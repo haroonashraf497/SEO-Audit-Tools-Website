@@ -231,9 +231,9 @@ export const BlogArticlePage: React.FC<{ slug: string }> = ({ slug }) => {
             <span className={`px-2.5 py-1 rounded-full text-xs font-semibold border ${categoryColor[article.category]}`}>
               {article.category}
             </span>
-            <time dateTime={article.date} className="text-sm text-slate-500">{formatDate(article.date)}</time>
-            <span className="text-sm text-slate-500">·</span>
-            <span className="text-sm text-slate-500">{article.readTime}</span>
+            <time dateTime={article.date} className="text-sm text-slate-600">{formatDate(article.date)}</time>
+            <span className="text-sm text-slate-600">·</span>
+            <span className="text-sm text-slate-600">{article.readTime}</span>
           </div>
           <h1 className="text-3xl md:text-4xl font-bold text-slate-900 leading-tight mb-4">{article.title}</h1>
           <p className="text-lg text-slate-600 leading-relaxed">{article.excerpt}</p>
@@ -243,7 +243,7 @@ export const BlogArticlePage: React.FC<{ slug: string }> = ({ slug }) => {
             </div>
             <div>
               <p className="text-sm font-semibold text-slate-800">{article.author}</p>
-              <p className="text-xs text-slate-500">SEO & Performance Specialists</p>
+              <p className="text-xs text-slate-600">SEO & Performance Specialists</p>
             </div>
           </div>
         </header>
@@ -262,7 +262,7 @@ export const BlogArticlePage: React.FC<{ slug: string }> = ({ slug }) => {
         {/* CTA */}
         <div className="mt-10 bg-gradient-to-br from-indigo-600 to-purple-600 rounded-2xl p-8 text-white text-center">
           <h2 className="text-2xl font-bold mb-2">Check your own site in 30 seconds</h2>
-          <p className="text-indigo-100 mb-6">Run a free SEO audit and see exactly where your pages stand on the issues covered in this article.</p>
+          <p className="text-white mb-6">Run a free SEO audit and see exactly where your pages stand on the issues covered in this article.</p>
           <a href="/" className="inline-block bg-white text-indigo-600 px-8 py-3 rounded-xl font-semibold hover:shadow-lg transition-shadow">
             Run Free SEO Audit
           </a>

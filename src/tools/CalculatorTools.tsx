@@ -38,7 +38,7 @@ export const AgeCalc: React.FC = () => {
       <Field label="Date of birth"><input type="date" value={birth} onChange={e => setBirth(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-slate-300 text-sm bg-white outline-none focus:border-indigo-500" /></Field>
       {result && (
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-          <div className="bg-gradient-to-br from-indigo-600 to-purple-600 rounded-2xl p-5 text-white col-span-2 sm:col-span-3 text-center"><p className="text-4xl font-extrabold">{result.years} years, {result.months} months, {result.days} days</p><p className="text-indigo-100 text-sm mt-1">Your exact age today</p></div>
+          <div className="bg-gradient-to-br from-indigo-600 to-purple-600 rounded-2xl p-5 text-white col-span-2 sm:col-span-3 text-center"><p className="text-4xl font-extrabold">{result.years} years, {result.months} months, {result.days} days</p><p className="text-white text-sm mt-1">Your exact age today</p></div>
           <Result label="Total days alive" value={result.totalDays.toLocaleString()} />
           <Result label="Total weeks" value={result.totalWeeks.toLocaleString()} />
           <Result label="Days until next birthday" value={result.nextBirthday} />
@@ -424,7 +424,7 @@ export const BmiCalc: React.FC = () => {
       )}
       {result && (
         <div className="grid grid-cols-3 gap-3">
-          <div className="bg-gradient-to-br from-indigo-600 to-purple-600 rounded-2xl p-5 text-white"><p className="text-indigo-100 text-sm">Your BMI</p><p className="text-4xl font-extrabold">{result.bmi.toFixed(1)}</p></div>
+          <div className="bg-gradient-to-br from-indigo-600 to-purple-600 rounded-2xl p-5 text-white"><p className="text-white text-sm">Your BMI</p><p className="text-4xl font-extrabold">{result.bmi.toFixed(1)}</p></div>
           <Result label="Category" value={result.category} emphasis />
           <Result label={`${result.weight} × ${result.height}`} value="Input" />
         </div>

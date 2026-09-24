@@ -396,3 +396,39 @@ The two largest deferred items that remain in the entry (`cms/store.tsx` and
 `tools/data.tsx`) are read during homepage render, so they cannot be lazily
 imported without changing behaviour; `cms/store.tsx` is also the CMS, which is
 out of scope for this work.
+
+## Contrast axe cannot see (gradients), audit of all 163 routes
+
+Lighthouse/axe skips any element whose background it cannot resolve, which
+means **every** text-on-gradient and text-over-translucent-panel issue is
+invisible to the PageSpeed accessibility score. A separate pass was written for
+this (`resolve the CSS paint stack, stop at the first opaque layer, composite
+translucent layers, then measure every gradient stop`) and run over the
+homepage, /tools, the blog, the long-form pages, /competitor-analysis and all
+154 tool pages: **0 failures remaining** (down from 30 on-load + 3 panels that
+only appear after interaction).
+
+What it found and fixed:
+
+| Element | Was | Now |
+|---|---|---|
+| Tool category counts on the indigo-50 hero | 2.35:1 | 6.78:1 (`slate-600`) |
+| Homepage trust badges on indigo-100 | 3.87:1 | 6.16:1 (`slate-600`) |
+| Homepage stat labels on the slate-900 band | 4.04:1 | 7.15:1 (`slate-300`) |
+| Primary CTA sub-line on the purple end of the gradient | 4.50:1 (on the limit) | 5.54–6.46:1 (`white`) — 13 sites |
+| Proxy table speed / age / risk cells | 2.63–3.81:1 | 4.76–5.48:1 (`-500` / `-700`) |
+| Blog article meta on the indigo-50 article background | 4.26:1 | 6.78:1 |
+| Competitor analysis eyebrow + caption | 3.71:1 / 2.63:1 | 5.54:1 / 4.76:1 |
+| Converter "→" glyphs | 1.42:1 | 4.76:1 |
+| PDF FAQ "+" toggle | 2.63:1 | 4.76:1 |
+| Plagiarism empty-state hint | 1.23:1 | 4.76:1 |
+| Video-tool ✓ / ! bullets | 2.47:1 / 2.13:1 | 5.48:1 / 5.03:1 |
+| Post-interaction stat cards (emerald-500, amber-500 starts) | 2.1–2.5:1 | 5.0–7.6:1 |
+
+The last line is the only visible design change of this pass: the three
+bright-gradient stat cards (AdSense daily-earnings, article uniqueness, email
+exposure) had white 14px text on an `emerald-500`/`amber-500` start, which
+measures 2.1–2.5:1 — no shade of white can reach 4.5:1 on those stops. Their
+gradients move to the `-700` family (`emerald-700 → teal-800`,
+`amber-700 → orange-700`), the smallest step that clears 4.5:1, and two
+`opacity-90` rules on their small lines were dropped.

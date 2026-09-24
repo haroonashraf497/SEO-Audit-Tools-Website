@@ -621,7 +621,7 @@ export const ToolsList: React.FC = () => {
                   <ToolIcon category={cat} />
                 </div>
                 <h2 className="text-xl font-bold text-slate-900">{categoryLabels[cat]}</h2>
-                <span className="text-sm text-slate-400">({list.length})</span>
+                <span className="text-sm text-slate-600">({list.length})</span>
               </div>
               <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {list.map(t => (

@@ -352,7 +352,7 @@ export const ArticleRewriter: React.FC = () => {
       {step === 4 && (
         <>
           <div className="grid md:grid-cols-4 gap-3">
-            <div className="bg-gradient-to-br from-emerald-500 to-teal-600 rounded-2xl p-5 text-white">
+            <div className="bg-gradient-to-br from-emerald-700 to-teal-800 rounded-2xl p-5 text-white">
               <p className="text-emerald-100 text-sm">Estimated uniqueness</p>
               <p className="text-4xl font-extrabold">{uniqueness}%</p>
             </div>

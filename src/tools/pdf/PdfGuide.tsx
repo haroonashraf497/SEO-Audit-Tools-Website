@@ -40,8 +40,8 @@ export const PdfGuide: React.FC<{ engine: string }> = ({ engine }) => {
       </div>
       <div className="bg-white rounded-2xl border border-slate-200 p-6">
         <h2 className="font-bold text-slate-900 mb-4">Frequently asked questions</h2>
-        <div className="space-y-3">{g.faqs.map(([q, a]) => <details key={q} className="group"><summary className="text-sm font-semibold text-slate-800 cursor-pointer list-none flex justify-between items-center">{q}<span className="text-slate-400 group-open:rotate-45 transition-transform text-lg">+</span></summary><p className="text-sm text-slate-600 mt-1.5 leading-relaxed">{a}</p></details>)}
-          <details className="group"><summary className="text-sm font-semibold text-slate-800 cursor-pointer list-none flex justify-between items-center">Is my file uploaded anywhere?<span className="text-slate-400 group-open:rotate-45 transition-transform text-lg">+</span></summary><p className="text-sm text-slate-600 mt-1.5 leading-relaxed">No. The PDF engine runs in your browser using WebAssembly-free JavaScript. Your document never leaves your device, which also makes processing instant with no queue.</p></details>
+        <div className="space-y-3">{g.faqs.map(([q, a]) => <details key={q} className="group"><summary className="text-sm font-semibold text-slate-800 cursor-pointer list-none flex justify-between items-center">{q}<span className="text-slate-500 group-open:rotate-45 transition-transform text-lg">+</span></summary><p className="text-sm text-slate-600 mt-1.5 leading-relaxed">{a}</p></details>)}
+          <details className="group"><summary className="text-sm font-semibold text-slate-800 cursor-pointer list-none flex justify-between items-center">Is my file uploaded anywhere?<span className="text-slate-500 group-open:rotate-45 transition-transform text-lg">+</span></summary><p className="text-sm text-slate-600 mt-1.5 leading-relaxed">No. The PDF engine runs in your browser using WebAssembly-free JavaScript. Your document never leaves your device, which also makes processing instant with no queue.</p></details>
         </div>
       </div>
     </div>

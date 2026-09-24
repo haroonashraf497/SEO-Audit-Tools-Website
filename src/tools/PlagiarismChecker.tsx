@@ -217,7 +217,7 @@ export const PlagiarismChecker: React.FC = () => {
         {tab === 'text' ? (
           <div className="relative border-t border-slate-200">
             {!text && (
-              <p className="pointer-events-none absolute inset-0 flex items-center justify-center text-2xl md:text-4xl font-extrabold text-slate-200 text-center px-6 select-none" aria-hidden="true">
+              <p className="pointer-events-none absolute inset-0 flex items-center justify-center text-2xl md:text-4xl font-extrabold text-slate-500 text-center px-6 select-none" aria-hidden="true">
                 Enter text here to check for Plagiarism
               </p>
             )}
@@ -271,7 +271,7 @@ export const PlagiarismChecker: React.FC = () => {
           <div className="flex gap-2">
             <input value={excludeInput} onChange={e => setExcludeInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && addExclude()} placeholder="https://example.com"
               className="flex-1 px-4 py-3 rounded-lg border border-slate-300 bg-white outline-none text-sm focus:border-indigo-500" />
-            <button type="button" onClick={addExclude} disabled={excluded.length >= 5} className="w-11 h-11 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-xl disabled:opacity-40">+</button>
+            <button type="button" onClick={addExclude} disabled={excluded.length >= 5} className="w-11 h-11 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xl disabled:opacity-40">+</button>
           </div>
           {excluded.length > 0 && (
             <div className="flex flex-wrap gap-2 mt-3">
