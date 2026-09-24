@@ -91,7 +91,7 @@ export interface SectionFlags {
   whyAudit: boolean; whoBenefits: boolean; freeTools: boolean; fromBlog: boolean; cta: boolean; footer: boolean;
 }
 
-export interface SiteSettings { name: string; domain: string; tagline: string; footerNote: string }
+export interface SiteSettings { name: string; domain: string; tagline: string; footerNote: string; headerVerificationAds: string }
 
 export interface CmsState {
   version: number;
@@ -433,7 +433,7 @@ export const defaultState: CmsState = {
     widgets: [],
   },
   sections: { hero: true, auditTool: true, results: true, features: true, howItWorks: true, whyAudit: true, whoBenefits: true, freeTools: true, fromBlog: true, cta: true, footer: true },
-  settings: { name: 'SEO Audit Tools', domain: 'seoaudittools.pk', tagline: 'Pakistan’s free SEO audit + 150 tools', footerNote: 'SEO Audit Tools — free online SEO, calculator and unit converter tools for website owners in Pakistan and worldwide, provided by EKSTRUH LTD.' },
+  settings: { name: 'SEO Audit Tools', domain: 'seoaudittools.pk', tagline: 'Pakistan’s free SEO audit + 150 tools', footerNote: 'SEO Audit Tools — free online SEO, calculator and unit converter tools for website owners in Pakistan and worldwide, provided by EKSTRUH LTD.', headerVerificationAds: '' },
   nav: [
     { id: uid(), label: 'Free SEO Tools', href: '/tools', visible: true },
   ],
@@ -675,6 +675,20 @@ export const CmsProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // Content is persisted in this browser. Uploaded images are embedded as
   // data URLs, so a full quota is the one failure mode worth surfacing loudly
   // instead of losing an edit silently.
+  useEffect(() => {
+    // Replace only CMS-managed head snippets; leave the rest of the document untouched.
+    document.head.querySelectorAll('[data-cms-header-code]').forEach(node => node.remove());
+    if (state.settings.headerVerificationAds?.trim()) {
+      const template = document.createElement('template');
+      template.innerHTML = state.settings.headerVerificationAds;
+      Array.from(template.content.childNodes).forEach(node => {
+        const clone = node.cloneNode(true) as HTMLElement;
+        if (clone.nodeType === Node.ELEMENT_NODE) clone.setAttribute('data-cms-header-code', 'true');
+        document.head.appendChild(clone);
+      });
+    }
+  }, [state.settings.headerVerificationAds]);
+
   useEffect(() => {
     try {
       localStorage.setItem(KEY, JSON.stringify(state));
