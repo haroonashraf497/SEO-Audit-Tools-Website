@@ -34,11 +34,10 @@ body {
   overflow: hidden;
 }
 
-/* Content visibility for performance - off-screen sections skip rendering */
-.cv-auto {
-  content-visibility: auto;
-  contain-intrinsic-size: auto 500px;
-}
+/* NOTE: content-visibility:auto was removed from the homepage sections — its
+   contain-intrinsic-size estimate caused layout shift (CLS) as each section's
+   real height differed from the estimate. Rendering the sections normally is
+   CLS-safe; they are static DOM already present in the prerendered HTML. */
 
 @keyframes fade-in {
   from { opacity: 0; }
@@ -157,3 +156,22 @@ svg {
 /* Enlarge the close button's hit area without moving neighbouring content. */
 .cookie-close { position: relative; }
 .cookie-close::after { content: ''; position: absolute; inset: -12px; }
+
+/* ============================================================
+   Critical app shell (the #app-shell block in index.html)
+
+   Holds the site header and nothing else, so the logo, brand name and
+   navigation are painted by the HTML itself — no request, no parse, no
+   execution, and no loading message anywhere on the page.
+
+   `display: contents` makes the wrapper generate no box at all: the fixed
+   <nav> inside it takes part in the layout as if it were a direct child of
+   <body>, so the shell can never add height, push the real content down,
+   leave a gap, or create a stacking context above the app.
+
+   The shell is hidden from assistive technology (`aria-hidden` in the HTML)
+   and nothing inside it is keyboard-focusable, because React renders the
+   identical, fully accessible header a moment later and drops the shell in
+   the same commit (see componentDidMount in src/components/ErrorBoundary.tsx).
+   ============================================================ */
+#app-shell { display: contents; }

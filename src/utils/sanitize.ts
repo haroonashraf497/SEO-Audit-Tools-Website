@@ -162,11 +162,15 @@ const sanitizeElement = (el: Element): void => {
     el.setAttribute('rel', rel.join(' '));
   }
 
-  // Mobile-friendliness defaults for content images: keep off-screen/hero
-  // images from competing with the first paint. Editors already emit these
-  // attributes; this normalises pasted/imported markup. Purely a loading
-  // hint — layout, dimensions and sources are untouched.
+  // Mobile-friendliness + CLS defaults for content images. Editors already emit
+  // dimensions where known; this normalises pasted/imported markup so every
+  // image reserves its box BEFORE it loads and never shifts the layout:
+  //  - width/height give the browser an intrinsic aspect ratio to reserve;
+  //  - loading=lazy / decoding=async keep off-screen images from competing
+  //    with the first paint.
   if (tag === 'img') {
+    if (!el.hasAttribute('width')) el.setAttribute('width', '1200');
+    if (!el.hasAttribute('height')) el.setAttribute('height', '675');
     if (!el.hasAttribute('loading')) el.setAttribute('loading', 'lazy');
     if (!el.hasAttribute('decoding')) el.setAttribute('decoding', 'async');
   }

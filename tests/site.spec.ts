@@ -182,3 +182,92 @@ test('code-split build: homepage first, other routes load on demand', async ({ p
   // Visiting a tool is exactly when its code is fetched.
   expect(requests.filter(url => /\/assets\/Tools-[^/]+\.js/.test(url)).length).toBeGreaterThan(0);
 });
+
+/**
+ * Render order. The header used to arrive only after the entry chunk had been
+ * downloaded and parsed, so every visit that did not qualify for the homepage
+ * prerender (a returning visitor, or any deep link) looked at a blank white
+ * page and then at "Loading page…" on its own. The header is now part of the
+ * HTML itself.
+ */
+test('the HTML ships the header before the content and before any script', () => {
+  const html = readFileSync('dist/index.html', 'utf8');
+  const shell = html.indexOf('id="app-shell"');
+  expect(shell).toBeGreaterThan(html.indexOf('<body>'));
+  // The shell is the first thing in <body>, ahead of the app mount point and
+  // therefore ahead of everything the app can render.
+  expect(shell).toBeLessThan(html.indexOf('<div id="root"'));
+
+  const markup = html.slice(shell, html.indexOf('<div id="root"'));
+  const navOpen = markup.indexOf('<nav ');
+  const navClose = markup.indexOf('</nav>');
+  // Logo, brand and navigation — and nothing else. The shell must not carry a
+  // spinner, a notice or any placeholder copy.
+  expect(navOpen).toBeGreaterThan(-1);
+  expect(markup.slice(navOpen, navClose)).toContain('SEO Audit Tools');
+  expect(markup.slice(navOpen, navClose)).toContain('href="/tools"');
+  expect(markup.slice(navOpen, navClose)).toContain('<svg');
+  expect(markup.slice(navClose)).not.toMatch(/\S/);
+
+  // No loading message exists anywhere in the document, and the app never
+  // renders one either (LoadingFallback has no default label).
+  expect(html).not.toContain('Loading page');
+  expect(readFileSync('src/components/ErrorBoundary.tsx', 'utf8'))
+    .not.toContain('Loading page');
+
+  // The entry module is discovered in <head> so its fetch overlaps the HTML
+  // download; module scripts are deferred, so the paint still does not wait.
+  expect(html.indexOf('/assets/index-')).toBeLessThan(html.indexOf('</head>'));
+});
+
+test('the header is on screen with JavaScript completely unavailable', async ({ page }) => {
+  // An empty entry chunk parses but mounts nothing, so whatever is visible is
+  // exactly what the HTML painted on its own — the slowest possible case.
+  await page.route('**/assets/index-*.js', route => route.fulfill({
+    status: 200, contentType: 'application/javascript', body: '',
+  }));
+  await page.goto('/tools');
+
+  const shell = page.locator('#app-shell');
+  await expect(shell.locator('nav')).toBeVisible();
+  await expect(shell.locator('nav svg')).toHaveCount(1);
+  await expect(shell.locator('nav a[href="/"]').first()).toContainText('SEO Audit Tools');
+  await expect(shell.locator('nav a[href="/tools"]')).toHaveText('Free SEO Tools');
+  await expect(shell.locator('nav a[href="/competitor-analysis"]')).toHaveText('Competitor Analysis');
+
+  // The header is pinned to the very top with nothing above it…
+  const nav = (await shell.locator('nav').boundingBox())!;
+  expect(nav.y).toBeLessThanOrEqual(0);
+  // …and it is the ONLY thing on the page: no notice, no spinner, no copy.
+  expect((await page.locator('body').innerText()).trim()).toBe((await shell.locator('nav').innerText()).trim());
+  await expect(page.locator('[role="status"]')).toHaveCount(0);
+
+  // Inert for assistive technology, and generates no box of its own so it can
+  // never push the real content down.
+  await expect(shell).toHaveAttribute('aria-hidden', 'true');
+  expect(await page.locator('#root').evaluate(node => node.getBoundingClientRect().height)).toBe(0);
+});
+
+test('React swaps the shell for the real header with no gap', async ({ page }) => {
+  await page.goto('/tools');
+  await expect(page.locator('h1')).toContainText('Tools');
+  // One header, the app's own: the shell is gone the frame React commits.
+  // (The footer keeps its own four <nav> landmarks, so count the fixed one.)
+  await expect(page.locator('#app-shell')).toHaveCount(0);
+  await expect(page.locator('nav.fixed')).toHaveCount(1);
+  await expect(page.locator('nav.fixed')).toContainText('SEO Audit Tools');
+  await expect(page.locator('main')).not.toContainText('Loading page…');
+  await expect(page.locator('[role="status"]')).toHaveCount(0);
+});
+
+test('navigating between routes never shows a loading message', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Decline', exact: true }).click();
+  for (const href of ['/tools', '/blog', '/tool/percentage-calculator', '/competitor-analysis']) {
+    await page.locator(`a[href="${href}"]`).first().click();
+    await expect(page.locator('#app-shell')).toHaveCount(0);
+    await expect(page.locator('main')).not.toContainText('Loading page…');
+    await expect(page.locator('[role="status"]')).toHaveCount(0);
+    await expect(page.locator('h1')).toBeVisible();
+  }
+});

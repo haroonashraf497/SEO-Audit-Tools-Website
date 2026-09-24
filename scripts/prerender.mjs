@@ -20,6 +20,26 @@ try {
   const markup = renderToString(React.createElement(App));
   const file = new URL('../dist/index.html', import.meta.url);
   let html = await readFile(file, 'utf8');
+
+  // The critical shell in index.html paints the header before any script runs.
+  // Fill it with the navigation the app itself renders, so the shell is always
+  // pixel-identical to the real header instead of a copy that can drift.
+  const nav = markup.match(/<nav class="fixed top-0[\s\S]*?<\/nav>/);
+  if (!nav) {
+    throw new Error('prerender: the site navigation changed shape — update the critical shell extraction in scripts/prerender.mjs');
+  }
+  const shellNav = nav[0]
+    // The shell is shown on every route, so the homepage-only current-page
+    // marker does not belong in it.
+    .replace(/\saria-current="page"/g, '')
+    // The shell is aria-hidden, so nothing inside it may be focusable.
+    .replace(/<a /g, '<a tabindex="-1" ')
+    .replace(/<button /g, '<button tabindex="-1" ');
+  if (!html.includes('<!--app-shell-nav-->')) {
+    throw new Error('prerender: the <!--app-shell-nav--> marker is missing from index.html');
+  }
+  html = html.replace('<!--app-shell-nav-->', () => shellNav);
+
   // Only a fresh home visit may hydrate defaults. Existing CMS content, admin
   // sessions and consent always use the original client rendering path.
   const gate = `<style>html:not([data-prerender-home]) #root[data-prerender]{display:none}</style>

@@ -67,9 +67,35 @@
       ]
     }
     </script>
+    <!--
+      The entry module lives in <head> so the browser's preload scanner finds
+      the hashed chunk while the document is still arriving instead of after
+      the whole (prerendered) HTML has been parsed. Module scripts are deferred
+      by specification, so this never blocks first paint and never changes
+      execution order.
+    -->
+    <script type="module" src="/src/main.tsx"></script>
   </head>
   <body>
+    <!--
+      Critical app shell — paints the logo, brand name and navigation straight
+      from the HTML, before a single byte of JavaScript has run.
+
+      It holds the site header and nothing else: no spinner, no notice, no
+      placeholder copy. The header is the first thing the parser can paint and
+      the page content simply appears when it is ready, so a visit never shows
+      a loading message of any kind.
+
+      scripts/prerender.mjs fills the marker below with the real navigation
+      markup rendered from the app itself, so this shell can never drift from
+      the design. React removes the whole shell on its first commit (see the
+      componentDidMount hook in src/components/ErrorBoundary.tsx) — the real
+      header is already in the DOM at that point, so there is no flash and no
+      layout shift.
+    -->
+    <div id="app-shell" aria-hidden="true">
+      <!--app-shell-nav-->
+    </div>
     <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

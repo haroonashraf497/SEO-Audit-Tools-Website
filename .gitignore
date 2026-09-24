@@ -1,5 +1,7 @@
 node_modules/
-dist/
+# dist/ is the deployable build output and is committed on purpose —
+# PERFORMANCE.md ("Hosting deployment and verification") deploys the whole
+# folder: index.html, 404.html, .htaccess and assets/.
 download/
 php-site/
 php-site.zip

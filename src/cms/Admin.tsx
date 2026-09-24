@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useCms, type CmsPage, type CmsPost, type CmsTool, type SeoEntry, type SidebarLinkSource, type SidebarWidget, type SidebarWidgetType, type Status } from './store';
 import { categoryLabels, categoryOrder, ToolIcon, type ToolCategory } from '../tools/data';
 import { RichTextEditor } from './RichTextEditor';
@@ -837,8 +837,14 @@ type Tab = 'dashboard' | 'pages' | 'blog' | 'tools' | 'sidebar' | 'sections' | '
 const TABS: [Tab, string][] = [['dashboard', 'Dashboard'], ['pages', 'Pages'], ['blog', 'Blog posts'], ['tools', 'Tools'], ['sidebar', 'Sidebar'], ['sections', 'Sections & Nav'], ['settings', 'Settings']];
 
 export const AdminApp: React.FC = () => {
-  const { loggedIn, logout, state, storageWarning } = useCms();
+  const { loggedIn, logout, state, storageWarning, hydrateBuiltinPosts } = useCms();
   const [tab, setTab] = useState<Tab>('dashboard');
+
+  // The built-in article bodies are not part of the initial bundle (they are a
+  // separate chunk no public page needs). The content manager is the one place
+  // that must be able to edit them, so pull them in when this screen opens.
+  useEffect(() => { void hydrateBuiltinPosts(); }, [hydrateBuiltinPosts]);
+
   if (!loggedIn) return null;
   return (
     <div className="pt-8 pb-16 px-4">

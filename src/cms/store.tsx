@@ -2,6 +2,7 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useS
 import { clearAdminSession, readAdminSession, saveAdminPassword, verifyAdminLogin, writeAdminSession } from './auth';
 import { tools as staticTools, type ToolCategory, type InputType } from '../tools/data';
 import { allArticles } from '../blog';
+import { loadArticleContent } from '../blog/content';
 
 /* ============================================================
    SEO Audit Tool — built-in CMS
@@ -597,10 +598,18 @@ const migrateNav = (stored: NavItem[] | undefined): NavItem[] => {
   return nav.map(n => ({ ...n, href: cleanStoredHref(n.href) }));
 };
 
+/**
+ * True when this session started from an empty CMS (no saved state), which is
+ * the only case where built-in article bodies are safe to fill in later — a
+ * browser with saved content may have edited or emptied them deliberately.
+ */
+export let cmsLoadedFromStorage = false;
+
 const load = (): CmsState => {
   try {
     const raw = localStorage.getItem(KEY);
     if (!raw) return defaultState;
+    cmsLoadedFromStorage = true;
     const parsed = JSON.parse(raw) as Partial<CmsState>;
     const parsedVersion = typeof parsed.version === 'number' ? parsed.version : 1;
     const oldSidebar = parsed.sidebar || {};
@@ -636,6 +645,13 @@ interface Ctx {
   deleteTool: (slug: string) => void;
   /* posts */
   addPost: (p: Partial<CmsPost>) => string;
+  /**
+   * Load the built-in article bodies into the CMS state. They live in a separate
+   * chunk because no public page needs them up front (the blog article page
+   * renders them directly), so this is called by the content manager, which is
+   * the only place that must be able to edit them.
+   */
+  hydrateBuiltinPosts: () => Promise<void>;
   savePost: (slug: string, patch: Partial<CmsPost>) => void;
   setPostStatus: (slug: string, status: Status) => void;
   deletePost: (slug: string) => void;
@@ -672,6 +688,7 @@ export const CmsProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [loggedIn, setLoggedIn] = useState(() => readAdminSession() !== null);
   const [storageWarning, setStorageWarning] = useState<string | null>(null);
 
+
   // Content is persisted in this browser. Uploaded images are embedded as
   // data URLs, so a full quota is the one failure mode worth surfacing loudly
   // instead of losing an edit silently.
@@ -694,6 +711,17 @@ export const CmsProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     deleteTool: (slug) => setState(s => ({ ...s, tools: s.tools.filter(t => t.slug !== slug) })),
 
     addPost: (p) => { const slug = p.slug || `post-${uid()}`; setState(s => ({ ...s, posts: [{ slug, title: p.title || 'Untitled post', metaTitle: p.metaTitle || p.title || 'Untitled post', metaDescription: p.metaDescription || '', excerpt: p.excerpt || '', content: p.content || '', category: p.category || 'Google & Indexing', date: p.date || new Date().toISOString().slice(0, 10), readTime: p.readTime || '6 min read', author: p.author || 'SEO Audit Tools Team', keywords: p.keywords || [], featuredImage: p.featuredImage, featuredImageAlt: p.featuredImageAlt, status: p.status || 'draft', builtin: false }, ...s.posts] })); return slug; },
+    hydrateBuiltinPosts: async () => {
+      if (cmsLoadedFromStorage) return; // saved/edited content always wins
+      const map = await loadArticleContent();
+      setState(current => {
+        let changed = false;
+        const posts = current.posts.map(p => (
+          p.builtin && !p.content && map[p.slug] ? ((changed = true), { ...p, content: map[p.slug] }) : p
+        ));
+        return changed ? { ...current, posts } : current;
+      });
+    },
     savePost: (slug, patch) => setState(s => ({ ...s, posts: s.posts.map(p => (p.slug === slug ? { ...p, ...patch } : p)) })),
     setPostStatus: (slug, status) => setState(s => ({ ...s, posts: s.posts.map(p => (p.slug === slug ? { ...p, status } : p)) })),
     deletePost: (slug) => setState(s => ({ ...s, posts: s.posts.filter(p => p.slug !== slug) })),

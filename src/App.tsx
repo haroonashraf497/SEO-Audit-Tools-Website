@@ -1,4 +1,4 @@
-import React, { Suspense, useState, useCallback, useMemo, useEffect, useRef } from 'react';
+import React, { Suspense, startTransition, useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { categoryDescriptions, categoryLabels, ToolIcon } from './tools/data';
 import { fetchPageData, type LivePageData } from './utils/pageFetch';
 import { fetchDomainInfo, type DomainInfo } from './utils/domainLookup';
@@ -6,9 +6,15 @@ import { sanitizeRichHtml } from './utils/sanitize';
 import { CmsProvider, useCms, liveTools, livePosts, findPage, blocksToHtml } from './cms/store';
 import SerpPreview from './components/SerpPreview';
 import { SeoManager } from './utils/seo';
-import { cleanHref, getRoute, navigate, rewriteLegacyLinks, subscribe } from './router';
+import { cleanHref, currentPath, getRoute, navigate, rewriteLegacyLinks, subscribe } from './router';
 import { lazyRoute } from './utils/lazyRetry';
+import { prefetchPath } from './utils/prefetch';
 import { LoadingFallback, RouteBoundary } from './components/ErrorBoundary';
+
+/** Hard ceiling: even if a chunk stalls, commit the new route so the visitor
+ *  is never stuck on the old page. The Suspense fallback/boundary then handle
+ *  recovery as usual. */
+const NAV_COMMIT_TIMEOUT_MS = 6_000;
 
 // Route modules are evaluated only when visited. The production build keeps
 // them as separate chunks, so each one is a network request that can fail or
@@ -1369,11 +1375,30 @@ const SiteApp: React.FC = () => {
   const [cookiePrefsOpen, setCookiePrefsOpen] = useState(false);
   const [route, setRoute] = useState<string>(getRoute);
 
+  // The admin console and its login/reset screens are full-screen pages with no
+  // public footer or breadcrumbs. Deciding this before the first paint (instead
+  // of dropping the footer once the console loads) keeps /admin at zero layout
+  // shift while looking exactly the same once it has rendered.
+  const isAdminRoute = route === 'admin' || route === 'admin-login' || route === 'admin-reset';
+
   useEffect(() => {
     // Follow clean-URL navigation (intercepted link clicks + back/forward).
+    //
+    // The previous page stays mounted and visible until the next route's chunk
+    // has actually loaded, then we commit the route in a transition. That means
+    // no blank body, no empty gap and no loading message between pages — the
+    // visitor sees continuous content and the swap happens only when the new
+    // page is ready to paint. `prefetchPath` resolves immediately for routes
+    // whose views live in the entry chunk (home, CMS pages), and a hard ceiling
+    // guarantees we never strand the visitor on the old page if a chunk stalls.
     return subscribe(r => {
-      setRoute(r);
       setMobileMenuOpen(false);
+      const path = currentPath();
+      const ready = Promise.race([
+        prefetchPath(path).catch(() => { /* let the boundary handle a failure */ }),
+        new Promise(resolve => setTimeout(resolve, NAV_COMMIT_TIMEOUT_MS)),
+      ]);
+      ready.then(() => startTransition(() => setRoute(r)));
     });
   }, []);
 
@@ -1792,7 +1817,7 @@ const SiteApp: React.FC = () => {
       )}
 
       {/* Features Section */}
-      <section id="features" className={`scroll-mt-24 py-20 px-4 cv-auto ${cms.state.sections.features ? '' : 'hidden'}`}>
+      <section id="features" className={`scroll-mt-24 py-20 px-4 ${cms.state.sections.features ? '' : 'hidden'}`}>
         <div className="max-w-7xl mx-auto">
           <header className="text-center mb-16">
             <h2 className="text-3xl md:text-4xl font-bold text-slate-900 mb-4">
@@ -1820,7 +1845,7 @@ const SiteApp: React.FC = () => {
       </section>
 
       {/* How It Works Section */}
-      <section id="how-it-works" className={`scroll-mt-24 py-20 px-4 bg-white cv-auto ${cms.state.sections.howItWorks ? '' : 'hidden'}`}>
+      <section id="how-it-works" className={`scroll-mt-24 py-20 px-4 bg-white ${cms.state.sections.howItWorks ? '' : 'hidden'}`}>
         <div className="max-w-7xl mx-auto">
           <header className="text-center mb-16">
             <h2 className="text-3xl md:text-4xl font-bold text-slate-900 mb-4">
@@ -1883,7 +1908,7 @@ const SiteApp: React.FC = () => {
       </section>
 
       {/* Who Can Benefit Section */}
-      <section id="audiences" className={`scroll-mt-24 py-20 px-4 bg-white cv-auto ${cms.state.sections.whoBenefits ? '' : 'hidden'}`}>
+      <section id="audiences" className={`scroll-mt-24 py-20 px-4 bg-white ${cms.state.sections.whoBenefits ? '' : 'hidden'}`}>
         <div className="max-w-7xl mx-auto">
           <header className="text-center mb-16">
             <h2 className="text-3xl md:text-4xl font-bold text-slate-900 mb-4">
@@ -1909,7 +1934,7 @@ const SiteApp: React.FC = () => {
       </section>
 
       {/* Free SEO Tools */}
-      <section className={`py-20 px-4 cv-auto ${cms.state.sections.freeTools ? '' : 'hidden'}`}>
+      <section className={`py-20 px-4 ${cms.state.sections.freeTools ? '' : 'hidden'}`}>
         <div className="max-w-7xl mx-auto">
           <header className="text-center mb-12">
             <h2 className="text-3xl md:text-4xl font-bold text-slate-900 mb-4">
@@ -1962,7 +1987,7 @@ const SiteApp: React.FC = () => {
       </section>
 
       {/* From the Blog */}
-      <section className={`py-20 px-4 cv-auto bg-white ${cms.state.sections.fromBlog ? '' : 'hidden'}`}>
+      <section className={`py-20 px-4 bg-white ${cms.state.sections.fromBlog ? '' : 'hidden'}`}>
         <div className="max-w-7xl mx-auto">
           <header className="text-center mb-12">
             <h2 className="text-3xl md:text-4xl font-bold text-slate-900 mb-4">From the Blog</h2>
@@ -2027,7 +2052,7 @@ const SiteApp: React.FC = () => {
       </main>
 
       {/* Footer — simple, lightweight */}
-      <footer className={`bg-slate-900 text-white pt-10 pb-6 px-4 ${cms.state.sections.footer ? '' : 'hidden'}`}>
+      <footer className={`bg-slate-900 text-white pt-10 pb-6 px-4 ${cms.state.sections.footer && !isAdminRoute ? '' : 'hidden'}`}>
         <div className="max-w-7xl mx-auto">
           {/* Brand + social icons */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-5 pb-8 border-b border-slate-800">

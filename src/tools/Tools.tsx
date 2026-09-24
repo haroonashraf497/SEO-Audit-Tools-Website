@@ -7,62 +7,107 @@ import { useCms } from '../cms/store';
 import { navigate, subscribe } from '../router';
 import { buildReport, type SimReport, type RowStatus, Seeded } from './simulator';
 import { fetchPageData } from '../utils/pageFetch';
-import { WhatIsMyIp, IpLocationTool, ReverseIpTool, ProxyListTool, ClassCTool } from './IpTools';
-import { PlagiarismChecker } from './PlagiarismChecker';
-import { GrammarChecker } from './GrammarChecker';
-import { ArticleRewriter } from './ArticleRewriter';
-import { SeoScoreTool, MetaAnalyzerTool, OgCheckerTool, SnooperTool, HeadersTool, WpDetectorTool, MobileTestTool, PageSpeedTool, PageSizeTool, SafetyTool, EmailPrivacyTool, PageRankTool, PingTool } from './WebTools';
-import { QrTool, HtaccessTool, OgGeneratorTool, TwitterCardTool, UrlCodecTool, AdsenseTool, UrlRewriteTool, HitCounterTool, ScreenSimTool, ScreenshotTool, SpeedTestTool, ShortenerTool, SuggestTool, VideoInfoTool } from './WebGenerators';
-import { AgeCalc, AvgCalc, CICalc, GstCalc, MarginCalc, PctCalc, ProbCalc, TaxCalc, LtvCalc, DiscountCalc, CpmCalc, PaypalCalc, EpsCalc, BmiCalc } from './CalculatorTools';
-import { UnitConverter, LengthConverter, TempConverter, TimezoneConverter, PressureConverter, VoltageConverter, PowerConverter, SpeedConverter, AreaConverter, WeightConverter } from './ConverterTools';
-import { HtmlFormatterTool, XmlFormatterTool, PhpFormatterTool, HtmlEditorTool, HtmlViewerTool } from './CodeTools';
 import { Sidebar } from './Sidebar';
 import { PdfGuide } from './pdf/PdfGuide';
 import { ToolRelatedContent } from './toolContent';
-import { importWithRetry } from '../utils/lazyRetry';
-import { LoadingFallback, RouteBoundary } from '../components/ErrorBoundary';
+import { RouteBoundary } from '../components/ErrorBoundary';
+import { loadPdfEngineModule, pdfEngineComponent, pdfEngineSpec, type PdfEngineSpec } from './pdf/engineRegistry';
 
-// PDF tools are code-split so the PDF libraries load only when a PDF tool page opens.
-const PdfLoadingLabel: React.FC = () => (
-  <span className="flex flex-col items-center gap-3 text-sm text-slate-600"><span className="w-8 h-8 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />Loading PDF engine (one-time, then cached)…</span>
+import { loadToolModule, toolComponentFor, toolModuleSync, type ToolComponentSpec } from './toolModules';
+
+// Same markup/classes as the shared primitive in engines.tsx, defined locally so
+// the in-chunk components below do not drag the engines chunk into this chunk.
+const PrimaryBtn: React.FC<React.ButtonHTMLAttributes<HTMLButtonElement> & { children: React.ReactNode }> = ({ children, className = '', ...rest }) => (
+  <button
+    {...rest}
+    className={`inline-flex items-center justify-center gap-2 bg-gradient-to-r from-indigo-500 to-purple-600 text-white px-6 py-3 rounded-xl font-semibold hover:shadow-lg hover:shadow-indigo-500/25 transition-all disabled:opacity-50 disabled:cursor-not-allowed ${className}`}
+  >
+    {children}
+  </button>
 );
-// The PDF engine is the heaviest chunk on the site, so it gets a longer
-// deadline than a normal route before the fallback admits it has stalled.
-const PDF_LOAD_TIMEOUT_MS = 20_000;
+
 type AnyComp = React.ComponentType<Record<string, unknown>>;
-const lazyCache = new Map<string, React.LazyExoticComponent<AnyComp>>();
-const pickLazy = (mod: 'pdf' | 'convert', name: string) => {
-  const key = `${mod}:${name}`;
-  if (!lazyCache.has(key)) {
-    // A dropped request for this chunk used to strand the spinner forever;
-    // importWithRetry re-issues it before the failure reaches the boundary.
-    lazyCache.set(key, React.lazy(() => importWithRetry(async () => {
-      const m = (mod === 'pdf' ? await import('./pdf/PdfTools') : await import('./pdf/ConvertTools')) as unknown as Record<string, AnyComp>;
-      return { default: m[name] };
-    })));
-  }
-  return lazyCache.get(key)!;
+
+/**
+ * Renders a split tool component. Until its chunk is in memory it shows an
+ * INVISIBLE, height-reserving box (never a spinner or any loading text) and the
+ * tool page keeps its below-body content unmounted, so the component mounting
+ * later cannot push anything that is already on screen — no layout shift.
+ */
+const ToolBody: React.FC<{ spec: ToolComponentSpec; tool: ToolDef; onSettled?: () => void }> = ({ spec, tool, onSettled }) => {
+  const [Comp, setComp] = useState<AnyComp | null>(() => (toolModuleSync(spec.load)?.[spec.name] as AnyComp) || null);
+  const [failed, setFailed] = useState(false);
+  const settledOnce = useRef(false);
+  const markSettled = useCallback(() => {
+    if (settledOnce.current) return;
+    settledOnce.current = true;
+    onSettled?.();
+  }, [onSettled]);
+
+  useEffect(() => {
+    if (Comp) { markSettled(); return; }
+    let alive = true;
+    loadToolModule(spec.load)
+      .then(module => {
+        if (!alive) return;
+        const found = module[spec.name] as AnyComp | undefined;
+        if (found) setComp(() => found); else setFailed(true);
+        markSettled();
+      })
+      .catch(() => { if (alive) { setFailed(true); markSettled(); } });
+    return () => { alive = false; };
+  }, [Comp, spec.load, spec.name, markSettled]);
+
+  if (failed) throw new Error(`Tool module failed to load: ${spec.name}`);
+  if (!Comp) return <div className="min-h-[calc(100vh-4rem)]" aria-hidden="true" />;
+  return <Comp {...(spec.props ? spec.props(tool) : {})} />;
 };
-const PDF_ENGINES: Record<string, ['pdf' | 'convert', string]> = {
-  'pdf-merge': ['pdf', 'MergePdf'], 'pdf-split': ['pdf', 'SplitPdf'], 'pdf-rotate': ['pdf', 'RotatePdf'], 'pdf-lock': ['pdf', 'LockPdf'], 'pdf-unlock': ['pdf', 'UnlockPdf'], 'pdf-compress': ['pdf', 'CompressPdf'],
-  'text-to-pdf': ['convert', 'TextToPdf'], 'word-to-pdf': ['convert', 'WordToPdf'], 'pdf-to-word': ['convert', 'PdfToWord'], 'pdf-to-jpg': ['convert', 'PdfToJpg'], 'jpg-to-pdf': ['convert', 'JpgToPdf'], 'ppt-to-pdf': ['convert', 'PptToPdf'], 'excel-to-pdf': ['convert', 'ExcelToPdf'],
-};
-const PdfSwitch: React.FC<{ engine: string }> = ({ engine }) => {
-  const isTarget = engine.startsWith('pdf-compress-');
-  const entry = isTarget ? PDF_ENGINES['pdf-compress'] : PDF_ENGINES[engine];
-  if (!entry) return null;
-  const C = pickLazy(entry[0], entry[1]);
-  const props = isTarget ? { targetKb: Number(engine.split('-').pop()) } : {};
+
+// PDF tools are code-split so the PDF libraries load only when a PDF tool page
+// opens (see src/tools/pdf/engineRegistry.ts). The engine resolves either from
+// the prefetched module cache — the router warms it together with the route
+// chunk, so this is the normal case — or from a fresh import. While it settles,
+// the body renders an INVISIBLE height-reserving box: no spinner, no loading
+// copy of any kind, and no post-paint growth, because the tool page only mounts
+// its below-the-body content once the engine has settled.
+const PdfSwitch: React.FC<{ spec: PdfEngineSpec; onSettled?: () => void }> = ({ spec, onSettled }) => {
+  const [Engine, setEngine] = useState<AnyComp | null>(() => pdfEngineComponent(spec));
+  const [failure, setFailure] = useState<unknown>(null);
+  const settled = useRef(false);
+
+  const markSettled = useCallback(() => {
+    if (settled.current) return;
+    settled.current = true;
+    onSettled?.();
+  }, [onSettled]);
+
+  useEffect(() => {
+    if (!Engine) {
+      let alive = true;
+      loadPdfEngineModule(spec.mod)
+        .then(module => {
+          if (!alive) return;
+          // One batched commit: engine + the page content below it mount
+          // together, so nothing already on screen is displaced.
+          setEngine(() => (module[spec.name] as AnyComp) || null);
+          markSettled();
+        })
+        .catch(error => { if (alive) { setFailure(error); markSettled(); } });
+      return () => { alive = false; };
+    }
+    markSettled();
+  }, [Engine, spec.mod, spec.name, markSettled]);
+
+  if (failure) throw failure; // RouteBoundary offers Try again / Reload
+  if (!Engine) return <div className="min-h-[calc(100vh-4rem)]" aria-hidden="true" />;
   return (
-    <RouteBoundary key={engine} label={`PDF tool ${engine}`}>
-      <React.Suspense fallback={<LoadingFallback label={<PdfLoadingLabel />} timeoutMs={PDF_LOAD_TIMEOUT_MS} />}>
-        <C {...props} />
-        <PdfGuide engine={engine} />
-      </React.Suspense>
-    </RouteBoundary>
+    <>
+      <Engine {...spec.props} />
+      <PdfGuide engine={spec.key} />
+    </>
   );
 };
-import { WorkingEngine, PrimaryBtn, MetaGen, RobotsGen, ImageTool } from './engines';
+
 
 // ---------- Status dot ----------
 const statusStyle: Record<RowStatus, { dot: string; text: string; label: string }> = {
@@ -229,6 +274,16 @@ const LookupRunner: React.FC<{ tool: ToolDef; initial?: string }> = ({ tool, ini
   );
 };
 
+// The shared engine runner lives in the engines chunk; render it lazily so the
+// tools that do not use it never download that chunk.
+const WORKING_ENGINE: ToolComponentSpec = { load: () => import('./engines'), name: 'WorkingEngine', props: () => ({}) };
+const LazyWorkingEngine: React.FC<{ slug: string; input: string; input2: string }> = ({ slug, input, input2 }) => (
+  <ToolBody spec={{ ...WORKING_ENGINE, props: () => ({ slug, input, input2 }) }} tool={WORKING_ENGINE_TOOL} />
+);
+// ToolBody only uses `tool` when a spec declares props(tool), which the override
+// above replaces — this placeholder keeps the signature honest.
+const WORKING_ENGINE_TOOL = {} as ToolDef;
+
 // ---------- Live text engine runner ----------
 const TextRunner: React.FC<{ tool: ToolDef }> = ({ tool }) => {
   const [text, setText] = useState('');
@@ -257,14 +312,14 @@ const TextRunner: React.FC<{ tool: ToolDef }> = ({ tool }) => {
           <textarea value={text} onChange={e => setText(e.target.value)} placeholder={tool.placeholder} rows={8} className="w-full p-4 rounded-xl border border-slate-300 outline-none text-sm font-mono" />
           <textarea value={text2} onChange={e => setText2(e.target.value)} placeholder={tool.placeholder2} rows={8} className="w-full p-4 rounded-xl border border-slate-300 outline-none text-sm font-mono" />
         </div>
-        <WorkingEngine slug={tool.slug} input={text} input2={text2} />
+        <LazyWorkingEngine slug={tool.slug} input={text} input2={text2} />
       </div>
     );
   }
   return (
     <div>
       {textarea}
-      <WorkingEngine slug={tool.slug} input={text} input2="" />
+      <LazyWorkingEngine slug={tool.slug} input={text} input2="" />
     </div>
   );
 };
@@ -576,7 +631,7 @@ export const ToolsList: React.FC = () => {
                         <ToolIcon category={t.category} className="w-4 h-4" />
                       </span>
                       {t.engine && (
-                        <span className="text-[10px] font-bold uppercase tracking-wide text-emerald-600 bg-emerald-50 border border-emerald-100 px-2 py-0.5 rounded-full">Instant</span>
+                        <span className="text-[10px] font-bold uppercase tracking-wide text-emerald-700 bg-emerald-50 border border-emerald-100 px-2 py-0.5 rounded-full">Instant</span>
                       )}
                     </div>
                     <h3 className="font-bold text-slate-900 mb-1.5 group-hover:text-indigo-600 transition-colors text-sm">{t.name}</h3>
@@ -628,87 +683,45 @@ export const ToolPage: React.FC<{ slug: string }> = ({ slug }) => {
 
   const related = useMemo(() => (cmsState.tools.filter(t => t.category === tool.category && t.slug !== tool.slug && t.status === 'live') as unknown as ToolDef[]).slice(0, 3), [cmsState.tools, tool]);
 
+  // Split engines (PDF/convert) arrive after the tool-page chunk. Until the
+  // engine is settled the page keeps everything that sits BELOW the tool body
+  // unmounted, so when the engine mounts nothing already visible is pushed
+  // down — this is what keeps a cold PDF-tool deep link at zero layout shift.
+  const engineSpec = tool.category === 'pdf' && tool.engine ? pdfEngineSpec(tool.engine) : null;
+  const componentSpec = toolComponentFor(tool.slug, tool.engine);
+  const [bodySettled, setBodySettled] = useState(() => (
+    (!engineSpec || !!pdfEngineComponent(engineSpec)) &&
+    (!componentSpec || !!toolModuleSync(componentSpec.load))
+  ));
+  const markBodySettled = useCallback(() => setBodySettled(true), []);
+
   const renderBody = () => {
-    if (tool.slug === 'plagiarism-checker') return <PlagiarismChecker />;
-    if (tool.slug === 'grammar-checker') return <GrammarChecker />;
-    if (tool.slug === 'article-rewriter') return <ArticleRewriter />;
-    if (tool.category === 'pdf' && tool.engine) return <PdfSwitch engine={tool.engine} />;
-    // Website management: engine-keyed dispatch
-    switch (tool.engine) {
-      case 'wm-seoscore': return <SeoScoreTool />;
-      case 'wm-metaanalyze': return <MetaAnalyzerTool />;
-      case 'wm-ogcheck': return <OgCheckerTool />;
-      case 'wm-snooper': return <SnooperTool />;
-      case 'wm-headers': return <HeadersTool />;
-      case 'wm-wpdetect': return <WpDetectorTool />;
-      case 'wm-mobile': return <MobileTestTool />;
-      case 'wm-speed': return <PageSpeedTool />;
-      case 'wm-pagesize': return <PageSizeTool />;
-      case 'wm-antivirus': return <SafetyTool />;
-      case 'wm-emailprivacy': return <EmailPrivacyTool />;
-      case 'wm-pagerank': return <PageRankTool />;
-      case 'wm-ping': return <PingTool />;
-      case 'wm-qr': return <QrTool />;
-      case 'wm-htaccess': return <HtaccessTool />;
-      case 'wm-oggen': return <OgGeneratorTool />;
-      case 'wm-twittercard': return <TwitterCardTool />;
-      case 'wm-urlencode': return <UrlCodecTool />;
-      case 'wm-adsense': return <AdsenseTool />;
-      case 'wm-urlrewrite': return <UrlRewriteTool />;
-      case 'wm-hitcounter': return <HitCounterTool />;
-      case 'wm-screensim': return <ScreenSimTool />;
-      case 'wm-screenshot': return <ScreenshotTool />;
-      case 'wm-speedtest': return <SpeedTestTool />;
-      case 'wm-shortener': return <ShortenerTool />;
-      case 'wm-suggest': return <SuggestTool />;
-      case 'wm-video': return <VideoInfoTool slug={tool.slug} />;
-      case 'wm-format-html': return <HtmlFormatterTool />;
-      case 'wm-format-xml': return <XmlFormatterTool />;
-      case 'wm-format-php': return <PhpFormatterTool />;
-      case 'wm-htmleditor': return <HtmlEditorTool />;
-      case 'wm-htmlviewer': return <HtmlViewerTool />;
+    // Split tool components: the chunk for this one tool loads on demand and
+    // the page waits for it behind an invisible reserve (see ToolBody), so a
+    // tool page never ships the code of the other 153 tools.
+    const componentSpec = toolComponentFor(tool.slug, tool.engine);
+    if (componentSpec) {
+      return (
+        <RouteBoundary key={tool.slug} label={`tool ${tool.slug}`}>
+          <ToolBody spec={componentSpec} tool={tool} onSettled={markBodySettled} />
+        </RouteBoundary>
+      );
     }
-    if (tool.slug === 'meta-tag-generator') return <MetaGen />;
-    if (tool.slug === 'robots-txt-generator') return <RobotsGen />;
+    if (tool.category === 'pdf' && tool.engine) {
+      const spec = pdfEngineSpec(tool.engine);
+      if (!spec) return null;
+      return (
+        <RouteBoundary key={tool.engine} label={`PDF tool ${tool.engine}`}>
+          <PdfSwitch spec={spec} onSettled={markBodySettled} />
+        </RouteBoundary>
+      );
+    }
+    // Components defined in this chunk (their code is already here)
     if (tool.slug === 'backlink-maker') return <BacklinkMaker tool={tool} />;
     if (tool.slug === 'domain-name-search') return <DomainAvail tool={tool} />;
     if (tool.slug === 'what-is-my-browser') return <BrowserInfo />;
     if (tool.slug === 'pokemon-go-server-status') return <PokemonStatus />;
-    // IP tools (live geolocation APIs, fired only on demand)
-    if (tool.slug === 'what-is-my-ip') return <WhatIsMyIp />;
-    if (tool.slug === 'ip-location') return <IpLocationTool placeholder={tool.placeholder} />;
-    if (tool.slug === 'geo-ip-locator') return <IpLocationTool placeholder={tool.placeholder} withMap />;
-    if (tool.slug === 'reverse-ip-domain-check') return <ReverseIpTool placeholder={tool.placeholder} />;
-    if (tool.slug === 'free-daily-proxy-list') return <ProxyListTool />;
-    if (tool.slug === 'class-c-ip-checker') return <ClassCTool placeholder={tool.placeholder} />;
-    // Calculator tools
-    if (tool.slug === 'age-calculator') return <AgeCalc />;
-    if (tool.slug === 'average-calculator') return <AvgCalc />;
-    if (tool.slug === 'confidence-interval-calculator') return <CICalc />;
-    if (tool.slug === 'gst-calculator') return <GstCalc />;
-    if (tool.slug === 'margin-calculator') return <MarginCalc />;
-    if (tool.slug === 'percentage-calculator') return <PctCalc />;
-    if (tool.slug === 'probability-calculator') return <ProbCalc />;
-    if (tool.slug === 'sales-tax-calculator') return <TaxCalc />;
-    if (tool.slug === 'ltv-calculator') return <LtvCalc />;
-    if (tool.slug === 'discount-calculator') return <DiscountCalc />;
-    if (tool.slug === 'cpm-calculator') return <CpmCalc />;
-    if (tool.slug === 'paypal-fee-calculator') return <PaypalCalc />;
-    if (tool.slug === 'earnings-per-share-calculator') return <EpsCalc />;
-    if (tool.slug === 'bmi-calculator') return <BmiCalc />;
-    // Unit converter tools
-    if (tool.slug === 'unit-converter') return <UnitConverter />;
-    if (tool.slug === 'length-converter') return <LengthConverter />;
-    if (tool.slug === 'temperature-converter') return <TempConverter />;
-    if (tool.slug === 'time-zone-converter') return <TimezoneConverter />;
-    if (tool.slug === 'pressure-conversion') return <PressureConverter />;
-    if (tool.slug === 'voltage-conversion') return <VoltageConverter />;
-    if (tool.slug === 'power-conversion') return <PowerConverter />;
-    if (tool.slug === 'speed-converter') return <SpeedConverter />;
-    if (tool.slug === 'area-converter') return <AreaConverter />;
-    if (tool.slug === 'weight-converter') return <WeightConverter />;
-    if (tool.engine === 'image-compress') return <ImageTool mode="compress" />;
-    if (tool.engine === 'image-resize') return <ImageTool mode="resize" />;
+    // Any remaining live engine runs through the shared text runner
     if (tool.engine) return <TextRunner tool={tool} />;
     // Custom CMS tools without an engine render their own info page
     if (tool.input === 'none') {
@@ -739,7 +752,7 @@ export const ToolPage: React.FC<{ slug: string }> = ({ slug }) => {
                 <ToolIcon category={tool.category} className="w-5 h-5" />
               </span>
               {tool.engine && (
-                <span className="text-[11px] font-bold uppercase tracking-wide text-emerald-600 bg-emerald-50 border border-emerald-100 px-2.5 py-1 rounded-full">
+                <span className="text-[11px] font-bold uppercase tracking-wide text-emerald-700 bg-emerald-50 border border-emerald-100 px-2.5 py-1 rounded-full">
                   Instant · runs in your browser
                 </span>
               )}
@@ -758,7 +771,7 @@ export const ToolPage: React.FC<{ slug: string }> = ({ slug }) => {
             {renderBody()}
           </div>
 
-          <ToolRelatedContent tool={tool} related={related} />
+          {bodySettled && <ToolRelatedContent tool={tool} related={related} />}
         </div>
 
         {/* ---------- Right sidebar ---------- */}

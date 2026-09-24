@@ -7,14 +7,17 @@ import {
 } from '../utils/ipLookup';
 
 // ---------- Shared UI ----------
-const InfoGrid: React.FC<{ rows: [string, React.ReactNode][]; cols?: 2 | 3 }> = ({ rows, cols = 2 }) => (
+const InfoGrid: React.FC<{ rows: [string, React.ReactNode][]; cols?: 2 | 3; keepEmpty?: boolean }> = ({ rows, cols = 2, keepEmpty = false }) => (
   <div className={`grid gap-3 ${cols === 3 ? 'sm:grid-cols-2 lg:grid-cols-3' : 'sm:grid-cols-2'}`}>
-    {rows.filter(([, v]) => v !== '' && v !== null && v !== undefined).map(([label, value]) => (
+    {(keepEmpty ? rows : rows.filter(([, v]) => v !== '' && v !== null && v !== undefined)).map(([label, raw]) => {
+      const value = raw === '' || raw === null || raw === undefined ? '—' : raw;
+      return (
       <div key={label} className="bg-slate-50 rounded-xl p-4 border border-slate-100 min-w-0">
         <p className="text-xs text-slate-500 mb-0.5">{label}</p>
         <p className="text-sm font-semibold text-slate-800 break-words">{value}</p>
       </div>
-    ))}
+      );
+    })}
   </div>
 );
 
@@ -124,11 +127,19 @@ const geoRows = (info: IpInfo): [string, React.ReactNode][] => [
   ['In European Union', info.isEU === null ? '' : info.isEU ? 'Yes' : 'No'],
 ];
 
+/** Placeholder shape for the fields a lookup fills in; keeps layout stable. */
+const EMPTY_INFO: IpInfo = {
+  ip: '', version: 'Unknown', city: '', region: '', regionCode: '', country: '', countryCode: '',
+  continent: '', postal: '', latitude: null, longitude: null, timezone: '', utcOffset: '', currency: '',
+  callingCode: '', languages: '', capital: '', borders: '', isp: '', org: '', asn: '', hostname: '',
+  isEU: null, source: '',
+};
+
 // ---------- 1. What is my IP ----------
 export const WhatIsMyIp: React.FC = () => {
   const [ips, setIps] = useState<{ v4: string; v6: string } | null>(null);
   const [info, setInfo] = useState<IpInfo | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [, setLoading] = useState(true); // state kept: the shared `load` toggles it
   const [failed, setFailed] = useState(false);
 
   const load = async () => {
@@ -168,7 +179,12 @@ export const WhatIsMyIp: React.FC = () => {
   const tzMismatch = info?.timezone && Intl.DateTimeFormat().resolvedOptions().timeZone &&
     info.timezone !== Intl.DateTimeFormat().resolvedOptions().timeZone;
 
-  if (loading) return <Spinner label="Detecting your public IP address and location…" />;
+  // The lookup result arrives a moment after mount. Instead of swapping a small
+  // spinner for a tall page (which moved everything below it — a 0.41 layout
+  // shift), the real page is rendered from the very first paint and only the
+  // values fill in. Fields that are not known yet show a neutral dash, the map
+  // slot keeps its height, and no loading message is ever displayed.
+  const shown: IpInfo = info ?? EMPTY_INFO;
 
   return (
     <div className="space-y-5">
@@ -188,19 +204,17 @@ export const WhatIsMyIp: React.FC = () => {
         </div>
       )}
 
-      {info && (
-        <Section title="Location & Network" badge={<LiveBadge source={info.source} />}>
-          <InfoGrid rows={geoRows(info)} cols={3} />
-          {info.latitude !== null && info.longitude !== null && (
-            <div className="mt-4"><MapEmbed lat={info.latitude} lon={info.longitude} label={info.city || info.ip} /></div>
-          )}
-          {tzMismatch && (
-            <div className="mt-4 bg-indigo-50 border border-indigo-100 rounded-xl p-4 text-sm text-indigo-800">
-              <strong>VPN / proxy hint:</strong> your IP timezone ({info.timezone}) differs from your device timezone ({Intl.DateTimeFormat().resolvedOptions().timeZone}). This often indicates a VPN, proxy or corporate gateway.
-            </div>
-          )}
-        </Section>
-      )}
+      <Section title="Location & Network" badge={info ? <LiveBadge source={info.source} /> : undefined}>
+        <InfoGrid rows={geoRows(shown)} cols={3} keepEmpty />
+        {shown.latitude !== null && shown.longitude !== null && (
+          <div className="mt-4"><MapEmbed lat={shown.latitude} lon={shown.longitude} label={shown.city || shown.ip} /></div>
+        )}
+        {tzMismatch && (
+          <div className="mt-4 bg-indigo-50 border border-indigo-100 rounded-xl p-4 text-sm text-indigo-800">
+            <strong>VPN / proxy hint:</strong> your IP timezone ({info?.timezone}) differs from your device timezone ({Intl.DateTimeFormat().resolvedOptions().timeZone}). This often indicates a VPN, proxy or corporate gateway.
+          </div>
+        )}
+      </Section>
 
       <Section title="Your Browser & Connection" badge={<LiveBadge source="local" />}>
         <InfoGrid rows={browser} cols={3} />

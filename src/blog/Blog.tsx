@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { categories, type BlogArticle } from './index';
 import { Sidebar } from '../tools/Sidebar';
 import { useCms, livePosts } from '../cms/store';
+import { articleContentSync, loadArticleContent } from './content';
 import { sanitizeRichHtml } from '../utils/sanitize';
 import { rewriteLegacyLinks } from '../router';
 
@@ -90,7 +91,13 @@ const formatDate = (iso: string): string => {
 };
 
 // ---------- Article card ----------
-const ArticleCard: React.FC<{ article: BlogArticle }> = ({ article }) => (
+// `level` keeps the heading outline sequential in both places the card is used:
+// on the listing page the cards sit directly under the page <h1> (so h2), while
+// inside the article's "Keep reading" section they sit under that <h2> (so h3).
+// Only the tag changes — the classes (and therefore the design) are identical.
+const ArticleCard: React.FC<{ article: BlogArticle; level?: 2 | 3 }> = ({ article, level = 3 }) => {
+  const Heading = (level === 2 ? 'h2' : 'h3') as 'h2' | 'h3';
+  return (
   <article className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm hover:shadow-lg hover:border-indigo-200 transition-all flex flex-col">
     {article.featuredImage && (
       <a href={`/blog/${article.slug}`} className="block -mx-1 -mt-1 mb-5 overflow-hidden rounded-xl bg-slate-100 aspect-[1.91/1]">
@@ -101,23 +108,24 @@ const ArticleCard: React.FC<{ article: BlogArticle }> = ({ article }) => (
       <span className={`px-2.5 py-1 rounded-full text-xs font-semibold border ${categoryColor[article.category]}`}>
         {article.category}
       </span>
-      <span className="text-xs text-slate-400">{article.readTime}</span>
+      <span className="text-xs text-slate-500">{article.readTime}</span>
     </div>
-    <h3 className="text-lg font-bold text-slate-900 leading-snug mb-3">
+    <Heading className="text-lg font-bold text-slate-900 leading-snug mb-3">
       <a href={`/blog/${article.slug}`} className="hover:text-indigo-600 transition-colors">
         {article.title}
       </a>
-    </h3>
+    </Heading>
     <p className="text-sm text-slate-600 leading-relaxed mb-4 flex-1">{article.excerpt}</p>
     <div className="flex items-center justify-between pt-4 border-t border-slate-100">
-      <time dateTime={article.date} className="text-xs text-slate-400">{formatDate(article.date)}</time>
+      <time dateTime={article.date} className="text-xs text-slate-500">{formatDate(article.date)}</time>
       <a href={`/blog/${article.slug}`} className="text-sm font-semibold text-indigo-600 hover:text-indigo-700 inline-flex items-center gap-1">
         Read article
         <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><line x1="5" y1="12" x2="19" y2="12" /><polyline points="12 5 19 12 12 19" /></svg>
       </a>
     </div>
   </article>
-);
+  );
+};
 
 // ---------- Blog listing page ----------
 export const BlogList: React.FC = () => {
@@ -168,7 +176,7 @@ export const BlogList: React.FC = () => {
 
           <div className="grid md:grid-cols-2 gap-6">
             {filtered.map(article => (
-              <ArticleCard key={article.slug} article={article} />
+              <ArticleCard key={article.slug} article={article} level={2} />
             ))}
           </div>
         </div>
@@ -198,6 +206,22 @@ export const BlogArticlePage: React.FC<{ slug: string }> = ({ slug }) => {
 
   const related = (livePosts(state) as unknown as BlogArticle[]).filter(a => a.category === article.category && a.slug !== article.slug).slice(0, 2);
 
+  // The article body normally comes straight from the CMS post. For the built-in
+  // posts it may still be in the lazy content chunk: when it is already cached
+  // (the router warms it while preparing the navigation) the body renders in
+  // this very commit; otherwise the body is filled in once, below an invisible
+  // reserve, so the page never jumps and never shows a loading message.
+  const [body, setBody] = useState<string>(() => article.content || articleContentSync(article.slug) || '');
+  useEffect(() => {
+    if (body) return;
+    let alive = true;
+    loadArticleContent().then(map => {
+      if (!alive) return;
+      setBody(current => current || map[article.slug] || '');
+    });
+    return () => { alive = false; };
+  }, [body, article.slug]);
+
   return (
     <div className="pt-10 pb-20 px-4 min-h-screen">
       <div className="max-w-7xl mx-auto grid lg:grid-cols-[minmax(0,1fr)_minmax(0,300px)] gap-8 items-start">
@@ -207,9 +231,9 @@ export const BlogArticlePage: React.FC<{ slug: string }> = ({ slug }) => {
             <span className={`px-2.5 py-1 rounded-full text-xs font-semibold border ${categoryColor[article.category]}`}>
               {article.category}
             </span>
-            <time dateTime={article.date} className="text-sm text-slate-400">{formatDate(article.date)}</time>
-            <span className="text-sm text-slate-400">·</span>
-            <span className="text-sm text-slate-400">{article.readTime}</span>
+            <time dateTime={article.date} className="text-sm text-slate-500">{formatDate(article.date)}</time>
+            <span className="text-sm text-slate-500">·</span>
+            <span className="text-sm text-slate-500">{article.readTime}</span>
           </div>
           <h1 className="text-3xl md:text-4xl font-bold text-slate-900 leading-tight mb-4">{article.title}</h1>
           <p className="text-lg text-slate-600 leading-relaxed">{article.excerpt}</p>
@@ -219,7 +243,7 @@ export const BlogArticlePage: React.FC<{ slug: string }> = ({ slug }) => {
             </div>
             <div>
               <p className="text-sm font-semibold text-slate-800">{article.author}</p>
-              <p className="text-xs text-slate-400">SEO & Performance Specialists</p>
+              <p className="text-xs text-slate-500">SEO & Performance Specialists</p>
             </div>
           </div>
         </header>
@@ -230,10 +254,11 @@ export const BlogArticlePage: React.FC<{ slug: string }> = ({ slug }) => {
           </figure>
         )}
 
-        <div className="bg-white rounded-2xl border border-slate-200 p-6 md:p-10 shadow-sm">
-          <MarkdownContent content={article.content} />
+        <div className={`bg-white rounded-2xl border border-slate-200 p-6 md:p-10 shadow-sm${body ? '' : ' min-h-[calc(100vh-4rem)]'}`}>
+          {body && <MarkdownContent content={body} />}
         </div>
 
+        {body && (<>
         {/* CTA */}
         <div className="mt-10 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl p-8 text-white text-center">
           <h2 className="text-2xl font-bold mb-2">Check your own site in 30 seconds</h2>
@@ -254,6 +279,7 @@ export const BlogArticlePage: React.FC<{ slug: string }> = ({ slug }) => {
             </div>
           </div>
         )}
+        </>)}
       </article>
       <Sidebar currentPost={article.slug} />
       </div>

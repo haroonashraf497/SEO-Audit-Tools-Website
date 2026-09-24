@@ -4,15 +4,17 @@ import { RouteRetryContext, useRouteRetry, ChunkLoadError, type RouteRetry } fro
 /**
  * The site renders routes from lazily fetched chunks. Before this, a chunk that
  * failed to arrive — or a component that threw while rendering — took the whole
- * page down: the spinner stayed on screen forever, or the visitor was left with
- * a blank white document. These two pieces make both outcomes recoverable.
+ * page down: the visitor waited forever, or was left with a blank white
+ * document. These two pieces make both outcomes recoverable.
  *
  *  - `RouteBoundary` catches anything thrown below it and replaces the subtree
  *    with an actionable message. "Try again" clears the error and bumps the
  *    retry token, which makes every `lazyRoute` child re-issue its import.
- *  - `LoadingFallback` is the Suspense fallback. It shows the normal loading
- *    notice first, but if the chunk still has not arrived after
- *    `LOAD_TIMEOUT_MS` it stops pretending and offers the same two actions.
+ *  - `LoadingFallback` is the Suspense fallback. It renders **nothing at all**
+ *    while a chunk is on its way — the header is already on screen straight
+ *    from the HTML, so a route transition needs no message. Only if the chunk
+ *    is still missing after `timeoutMs` does it stop waiting silently and offer
+ *    the same two recovery actions.
  */
 
 /** How long the fallback waits before declaring the load stalled. */
@@ -42,12 +44,27 @@ const Panel: React.FC<{ title: string; detail: string; actions: PanelAction[] }>
 const reload = () => { window.location.reload(); };
 
 /**
- * Suspense fallback with a hard deadline. The `role="status"` notice and its
- * wording are unchanged while the load is still plausible, so crawlers, screen
- * readers and the existing tests keep seeing exactly what they saw before.
+ * Suspense fallback with a hard deadline — and no loading message.
+ *
+ * Page and route transitions pass no `label`, so nothing readable is shown:
+ * the header, logo and navigation are already on screen from the HTML shell,
+ * and the visitor never sees "Loading page…" or any other waiting notice.
+ *
+ * The fallback is not `null`, though. While a route chunk downloads it renders
+ * an *invisible* spacer the height of the viewport minus the header, so the
+ * content area keeps its space and the footer stays pinned to the bottom of
+ * the screen instead of collapsing up against the navigation. When the chunk
+ * arrives the real content replaces the spacer and the layout is unchanged.
+ *
+ * A caller that genuinely needs to explain a long one-off download (the PDF
+ * engine chunk in tools/Tools.tsx) still passes its own `label`, and that
+ * behaviour is untouched.
+ *
+ * Either way, once `timeoutMs` has elapsed the fallback stops waiting silently
+ * and offers recovery instead of leaving the visitor with nothing.
  */
 export const LoadingFallback: React.FC<{ label?: React.ReactNode; timeoutMs?: number }> = ({
-  label = 'Loading page…',
+  label,
   timeoutMs = LOAD_TIMEOUT_MS,
 }) => {
   const { token, retry } = useRouteRetry();
@@ -60,7 +77,13 @@ export const LoadingFallback: React.FC<{ label?: React.ReactNode; timeoutMs?: nu
   }, [token, timeoutMs]);
 
   if (!stalled) {
-    return <div role="status" className="py-16 text-center text-slate-600">{label}</div>;
+    if (label) {
+      return <div role="status" className="py-16 text-center text-slate-600">{label}</div>;
+    }
+    // Silent, but not empty: reserve the content area's height so the footer
+    // does not jump up against the header while the route chunk downloads.
+    // No text, no spinner, invisible to assistive technology.
+    return <div aria-hidden="true" className="min-h-[calc(100vh-4rem)]" />;
   }
   return (
     <Panel
@@ -88,6 +111,24 @@ export class RouteBoundary extends React.Component<RouteBoundaryProps, RouteBoun
 
   static getDerivedStateFromError(error: Error): Partial<RouteBoundaryState> {
     return { error };
+  }
+
+  /**
+   * index.html paints a static shell (logo, brand, navigation and the loading
+   * notice) so the header is on screen before any JavaScript runs. This
+   * boundary wraps the whole app in main.tsx, so its mount is the moment React
+   * has committed its own, identical header to the DOM.
+   *
+   * `componentDidMount` runs in the commit phase — after the DOM mutations and
+   * before the browser paints — so the shell disappears in exactly the frame
+   * the real header appears: no flash, no gap above the content, no layout
+   * shift. It also runs when the boundary is already showing the error panel,
+   * so a page that cannot render never keeps claiming it is still loading.
+   * Route boundaries keyed by route remount on navigation; the lookup simply
+   * finds nothing then.
+   */
+  override componentDidMount() {
+    document.getElementById('app-shell')?.remove();
   }
 
   override componentDidCatch(error: Error, info: React.ErrorInfo) {

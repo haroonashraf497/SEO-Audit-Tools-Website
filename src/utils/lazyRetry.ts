@@ -4,9 +4,8 @@ import React, { createContext, useContext } from 'react';
  * Route chunks are fetched from /assets on demand. Two things can go wrong on a
  * real network: the request fails (offline, flaky proxy, a 404 for a chunk that
  * a new deploy replaced) or it never settles at all. Both used to leave the
- * visitor staring at the "Loading page…" spinner forever, because a rejected
- * `React.lazy` import had no error boundary to land in and a stalled one simply
- * never resolves.
+ * visitor waiting on the route forever, because a rejected `React.lazy` import
+ * had no error boundary to land in and a stalled one simply never resolves.
  *
  * This module makes the failure recoverable:
  *  - `importWithRetry` re-attempts a failed import a few times with backoff,

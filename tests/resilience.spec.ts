@@ -5,8 +5,12 @@ import { test, expect } from '@playwright/test';
  *
  * Route chunks are separate network requests, so they can fail (a redeploy
  * replaced the hashed file, the connection dropped) or stall. Both used to leave
- * the visitor on "Loading page…" forever. These tests drive the real built
+ * the visitor waiting on the route forever. These tests drive the real built
  * site with a real broken network.
+ *
+ * The wait itself is deliberately silent — no "Loading page…", no spinner. The
+ * header is on screen from the HTML shell and the recovery panel is the only
+ * thing that ever appears when a chunk does not arrive.
  *
  * Deliberately separate from site.spec.ts: that file fails the run on any
  * pageerror, and a chunk that fails to load legitimately reports one.
@@ -41,7 +45,11 @@ test('a route chunk that never arrives times out instead of spinning forever', a
   await page.getByRole('button', { name: 'Decline', exact: true }).click();
   await page.locator('a[href="/blog"]').first().click();
 
-  await expect(page.locator('main')).toContainText('Loading page…');
+  // The stall is invisible: no loading message, and the recovery panel has
+  // not fired early either.
+  await expect(page.locator('main')).not.toContainText('Loading page…');
+  await expect(page.locator('[role="status"]')).toHaveCount(0);
+  await expect(page.getByRole('alert')).toHaveCount(0);
   await expect(page.getByRole('alert')).toBeVisible({ timeout: 45_000 });
   await expect(page.getByRole('alert')).toContainText('This page is taking too long to load');
   await expect(page.getByRole('button', { name: 'Reload page', exact: true })).toBeVisible();

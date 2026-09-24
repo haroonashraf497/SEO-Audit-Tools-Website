@@ -1,0 +1,88 @@
+# SEO Audit Tools — Apache / LiteSpeed (Namecheap, Webuzo, cPanel)
+# Upload this file to public_html together with index.html AND the
+# assets/ folder of hashed build chunks (dist/assets/*).
+
+DirectoryIndex index.html
+Options -Indexes -MultiViews
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteBase /
+
+  # Canonical host/scheme (www requests go directly to the HTTPS apex).
+  RewriteCond %{HTTP_HOST} ^www\.seoaudittools\.pk$ [NC]
+  RewriteRule ^ https://seoaudittools.pk%{REQUEST_URI} [R=301,L]
+  RewriteCond %{HTTPS} !=on
+  RewriteCond %{HTTP:X-Forwarded-Proto} !^https$ [NC]
+  RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [R=301,L]
+
+  # Redirect only a browser's explicit index.html request. Never redirect
+  # the internal SPA fallback (the old rule lost deep links on reload).
+  RewriteCond %{THE_REQUEST} \s/+index\.html(?:[?\s]) [NC]
+  RewriteRule ^index\.html$ / [R=301,L]
+  RewriteRule ^index\.html$ - [L]
+
+  # Real files and directories must not be rewritten or canonicalised.
+  # This covers /assets/*.js build chunks, images and every static asset.
+  RewriteCond %{REQUEST_FILENAME} -f [OR]
+  RewriteCond %{REQUEST_FILENAME} -d
+  RewriteRule ^ - [L]
+
+  # Apache merges duplicate slashes when matching RewriteRule. Compare
+  # THE_REQUEST with that normalised path; no undefined CLEANPATH variable.
+  RewriteCond %{THE_REQUEST} \s(?=[^?\s]*//)/
+  RewriteRule ^(.*)$ /$1 [R=301,L]
+
+  # Preserve extensionless aliases from the supplied hosting rules, without
+  # redirecting real HTML assets (already handled above).
+  RewriteCond %{THE_REQUEST} \s/+[^?\s]+\.html(?:[?\s]) [NC]
+  RewriteRule ^(.+)\.html$ /$1 [R=301,L]
+
+  # Legacy page links; keep query strings, tool slugs and blog slugs intact.
+  RewriteRule ^p/?$ / [R=301,L]
+  RewriteRule ^p/(.+?)/?$ /$1 [R=301,L]
+  RewriteRule ^tool/?$ /tools [R=301,L]
+  RewriteRule ^(.+)/$ /$1 [R=301,L]
+
+  # Serve, don't redirect: the address bar retains the requested route.
+  RewriteRule ^ index.html [L]
+</IfModule>
+
+<IfModule mod_headers.c>
+  Header set X-Content-Type-Options "nosniff"
+  Header set Referrer-Policy "strict-origin-when-cross-origin"
+  Header set X-Frame-Options "SAMEORIGIN"
+  Header set Permissions-Policy "camera=(), microphone=(), geolocation=()"
+  Header set Strict-Transport-Security "max-age=31536000; includeSubDomains" "expr=%{HTTPS} == 'on'"
+  # The HTML shell is not fingerprinted: revalidate it on every visit.
+  # Last-Modified/ETag still allow a cheap 304 without a stale CMS build.
+  <FilesMatch "\.html$">
+    Header set Cache-Control "public, max-age=0, must-revalidate"
+  </FilesMatch>
+  # Build chunks under /assets/ carry a content hash in the filename, so
+  # they are immutable. Repeat visits load them from cache instead of the
+  # network — application JS is no longer re-downloaded on every visit.
+  <FilesMatch "\.(?:js|css|woff2)$">
+    Header set Cache-Control "public, max-age=31536000, immutable"
+  </FilesMatch>
+</IfModule>
+
+<IfModule mod_deflate.c>
+  AddOutputFilterByType DEFLATE text/html text/plain text/xml text/css application/javascript text/javascript application/json application/xml image/svg+xml
+</IfModule>
+
+<IfModule mod_expires.c>
+  ExpiresActive On
+  ExpiresByType text/html "access plus 0 seconds"
+  ExpiresByType text/plain "access plus 1 day"
+  ExpiresByType application/xml "access plus 1 day"
+  ExpiresByType application/javascript "access plus 1 year"
+  ExpiresByType text/javascript "access plus 1 year"
+  ExpiresByType font/woff2 "access plus 1 year"
+  ExpiresByType image/jpeg "access plus 30 days"
+  ExpiresByType image/png "access plus 30 days"
+  ExpiresByType image/webp "access plus 30 days"
+  ExpiresByType image/avif "access plus 30 days"
+  ExpiresByType image/svg+xml "access plus 30 days"
+</IfModule>
+
+# Unknown routes use the app’s existing noindex not-found view.
