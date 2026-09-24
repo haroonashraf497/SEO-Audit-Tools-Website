@@ -159,7 +159,7 @@ const Dashboard: React.FC<{ go: (t: Tab) => void }> = ({ go }) => {
             <p className="text-sm md:text-base text-slate-300 max-w-2xl mt-2 leading-relaxed">Manage {state.settings.name}, publish content, tune SEO and control every public-facing section from this workspace.</p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <a href="/" className="px-4 py-2.5 rounded-xl bg-white text-slate-900 text-sm font-bold hover:bg-slate-100 transition-colors">View live site ↗</a>
+            <a href="/" target="_blank" rel="noopener" className="px-4 py-2.5 rounded-xl bg-white text-slate-900 text-sm font-bold hover:bg-slate-100 transition-colors">View live site ↗</a>
             <button type="button" onClick={() => go('sections')} className="px-4 py-2.5 rounded-xl bg-white/10 border border-white/15 text-white text-sm font-bold hover:bg-white/15 transition-colors">Manage visibility</button>
           </div>
         </div>
@@ -560,6 +560,9 @@ const NewPageForm: React.FC<{ onDone: () => void }> = ({ onDone }) => {
 
 const SectionsPane: React.FC = () => {
   const { state, setSections, setNav, setSettings } = useCms();
+  const [savedNav, setSavedNav] = useState(false);
+  const [savedBrand, setSavedBrand] = useState(false);
+  const confirmSave = (setter: (value: boolean) => void) => { setter(true); window.setTimeout(() => setter(false), 2500); };
   const labels: Record<keyof typeof state.sections, [string, string]> = {
     hero: ['Hero + URL audit box', 'The headline, sub-headline and the audit form at the top'],
     auditTool: ['Hero tool form', 'The URL input and Analyze button'],
@@ -578,7 +581,7 @@ const SectionsPane: React.FC = () => {
       <section className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
         <div className="flex flex-wrap items-center justify-between gap-4 px-5 py-5 md:px-6 border-b border-slate-100">
           <div><h3 className="font-bold text-slate-900">Site visibility</h3><p className="text-sm text-slate-500 mt-0.5">Choose exactly which homepage sections visitors can see.</p></div>
-          <div className="flex items-center gap-3"><span className="text-sm text-slate-500"><strong className="text-emerald-600">{Object.values(state.sections).filter(Boolean).length}</strong> / {Object.keys(state.sections).length} live</span><a href="/" className="px-3.5 py-2 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-sm font-semibold text-slate-700">View site ↗</a></div>
+          <div className="flex items-center gap-3"><span className="text-sm text-slate-500"><strong className="text-emerald-600">{Object.values(state.sections).filter(Boolean).length}</strong> / {Object.keys(state.sections).length} live</span><a href="/" target="_blank" rel="noopener" className="px-3.5 py-2 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-sm font-semibold text-slate-700">View site ↗</a></div>
         </div>
         <div className="grid lg:grid-cols-2">
           {Object.entries(labels).map(([k, [l, h]]) => {
@@ -610,6 +613,7 @@ const SectionsPane: React.FC = () => {
           ))}
         </div>
         <Btn tone="ghost" className="mt-3" onClick={() => setNav([...state.nav, { id: Math.random().toString(36).slice(2, 9), label: 'New link', href: '/', visible: true }])}>+ Add nav link</Btn>
+        <Btn className="ml-2" onClick={() => confirmSave(setSavedNav)}>{savedNav ? '✅ Changes saved' : 'Save Changes'}</Btn>
       </div>
       <div className="bg-white rounded-2xl border border-slate-200 p-5 space-y-4">
         <h3 className="font-bold text-slate-900">Brand &amp; footer</h3>
@@ -618,6 +622,7 @@ const SectionsPane: React.FC = () => {
           <Field label="Domain"><input className={inputCls} value={state.settings.domain} onChange={e => setSettings({ domain: e.target.value })} /></Field>
           <Field label="Footer note"><input className={inputCls} value={state.settings.footerNote} onChange={e => setSettings({ footerNote: e.target.value })} /></Field>
         </div>
+        <Btn onClick={() => confirmSave(setSavedBrand)}>{savedBrand ? '✅ Changes saved' : 'Save Changes'}</Btn>
       </div>
     </div>
   );
@@ -788,7 +793,7 @@ const StorageSummary: React.FC = () => {
 };
 
 const SettingsPane: React.FC = () => {
-  const { setPasscode, exportJson, importJson, reset } = useCms();
+  const { state, setSettings, setPasscode, exportJson, importJson, reset } = useCms();
   const [code, setCode] = useState('');
   const [msg, setMsg] = useState('');
   const [draftVersion, setDraftVersion] = useState(0);
@@ -796,6 +801,10 @@ const SettingsPane: React.FC = () => {
   const download = () => { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([exportJson()], { type: 'application/json' })); a.download = 'cms-content.json'; a.click(); };
   return (
     <div className="grid lg:grid-cols-2 gap-5">
+      <section className="lg:col-span-2 bg-white rounded-2xl border border-slate-200 p-5 space-y-3">
+        <div><h3 className="font-bold text-slate-900">Header Verification &amp; Ads</h3><p className="text-sm text-slate-500">Paste AdSense, Google Search Console, Bing Webmaster or other verification snippets. They are added inside the document head.</p></div>
+        <textarea rows={7} className={inputCls + ' font-mono text-xs'} value={state.settings.headerVerificationAds || ''} onChange={e => setSettings({ headerVerificationAds: e.target.value })} placeholder={'<meta name="google-site-verification" content="…">'} aria-label="Header verification and ads code" />
+      </section>
       <div className="bg-white rounded-2xl border border-slate-200 p-5 space-y-4">
         <h3 className="font-bold text-slate-900">Password</h3>
         <Field label="New password" hint="Stored in this browser. Because this is a static site, this gate protects the admin UI, not the published files."><input type="password" className={inputCls} value={code} onChange={e => setCode(e.target.value)} autoComplete="new-password" /></Field>
@@ -856,7 +865,7 @@ export const AdminApp: React.FC = () => {
               <p className="text-sm text-slate-500 truncate">{state.settings.name} · {state.settings.domain} · changes save automatically in this browser</p>
             </div>
             <div className="ml-auto flex flex-wrap gap-2">
-              <a href="/" className="px-3.5 py-2 rounded-lg text-sm font-semibold bg-slate-900 text-white hover:bg-slate-700 transition-colors">View live site ↗</a>
+              <a href="/" target="_blank" rel="noopener" className="px-3.5 py-2 rounded-lg text-sm font-semibold bg-slate-900 text-white hover:bg-slate-700 transition-colors">View live site ↗</a>
               <Btn tone="ghost" onClick={() => { logout(); navigate('/'); }}>Log Out</Btn>
             </div>
           </div>
