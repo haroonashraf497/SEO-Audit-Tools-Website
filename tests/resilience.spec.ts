@@ -18,7 +18,7 @@ test('a route chunk that cannot be fetched shows a recovery panel, and Try again
 
   await page.goto('/');
   await page.getByRole('button', { name: 'Decline', exact: true }).click();
-  await page.locator('a[href="/tools?cat=calculator"]').first().click();
+  await page.locator('a[href="/free-tools?cat=calculator"]').first().click();
 
   // Three import attempts happen first, so the panel is not instantaneous.
   await expect(page.getByRole('alert')).toBeVisible({ timeout: 30_000 });

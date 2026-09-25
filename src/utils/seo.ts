@@ -138,7 +138,7 @@ export const resolvePageSeo = (route: string, cms: CmsState): PageSeo => {
     };
   }
 
-  if (route === 'tools') {
+  if (route === 'free-tools' || route === 'tools') {
     const live = cms.tools.filter(t => t.status === 'live');
     const seo = cms.seo.tools;
     const title = seo?.title || `${live.length}+ Free SEO Tools — Audit, Speed, Calculator & Converter Tools`;
@@ -146,7 +146,7 @@ export const resolvePageSeo = (route: string, cms: CmsState): PageSeo => {
     return {
       title,
       description,
-      path: '/tools',
+      path: '/free-tools',
       origin,
       noindex: seo?.noindex,
       canonicalOverride: seo?.slug,

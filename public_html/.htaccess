@@ -40,7 +40,8 @@ Options -Indexes -MultiViews
   # Legacy page links; keep query strings, tool slugs and blog slugs intact.
   RewriteRule ^p/?$ / [R=301,L]
   RewriteRule ^p/(.+?)/?$ /$1 [R=301,L]
-  RewriteRule ^tool/?$ /tools [R=301,L]
+  RewriteRule ^tool/?$ /free-tools [R=301,L]
+  RewriteRule ^tools/?$ /free-tools [R=301,L]
   RewriteRule ^(.+)/$ /$1 [R=301,L]
 
   # Serve, don't redirect: the address bar retains the requested route.

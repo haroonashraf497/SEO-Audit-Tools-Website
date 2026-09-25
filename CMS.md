@@ -12,7 +12,7 @@ deployed app independent of any backend.
 | Username | `admin` |
 | Password | `admin123` |
 
-The site uses clean URL routing (`/tools`, `/blog/<slug>`, `/about`, …) powered by the History API —
+The site uses clean URL routing (`/free-tools`, `/blog/<slug>`, `/about`, …) powered by the History API —
 see `src/router.ts`. Old hash links (`/#/about`) are rewritten in the browser on load, and
 `public/.htaccess` 301-redirects the old `/p/<slug>` paths to `/<slug>`.
 

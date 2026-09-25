@@ -230,7 +230,7 @@ export const defaultState: CmsState = {
         { id: uid(), type: 'text', text: 'The more you tell us, the faster we can fix it. Helpful things to include: the address of the tool page, the input you gave it, your browser and device, and what you expected to happen versus what actually did. A screenshot never hurts.' },
         { id: uid(), type: 'heading', text: 'Questions about your data', level: 2 },
         { id: uid(), type: 'text', text: 'Because our tools process your inputs in your browser, we usually hold nothing to update or delete. If you want to exercise any right under the UK GDPR — or simply want to know what, if anything, we hold — email us and we will give you a straight answer. You also have the right to complain to the Information Commissioner\'s Office at ico.org.uk.' },
-        { id: uid(), type: 'cta', text: 'While you are here,', label: 'Browse 150+ free tools', href: '#/tools' },
+        { id: uid(), type: 'cta', text: 'While you are here,', label: 'Browse 150+ free tools', href: '#/free-tools' },
       ],
     },
     {
@@ -435,7 +435,7 @@ export const defaultState: CmsState = {
   sections: { hero: true, auditTool: true, results: true, features: true, howItWorks: true, whyAudit: true, whoBenefits: true, freeTools: true, fromBlog: true, cta: true, footer: true },
   settings: { name: 'SEO Audit Tools', domain: 'seoaudittools.pk', tagline: 'Pakistan’s free SEO audit + 150 tools', footerNote: 'SEO Audit Tools — free online SEO, calculator and unit converter tools for website owners in Pakistan and worldwide, provided by EKSTRUH LTD.', headerVerificationAds: '' },
   nav: [
-    { id: uid(), label: 'Free SEO Tools', href: '/tools', visible: true },
+    { id: uid(), label: 'Free SEO Tools', href: '/free-tools', visible: true },
   ],
   passcode: 'admin123',
 };
@@ -456,9 +456,11 @@ const cleanStoredHref = (href: string): string => {
     const path = value.slice(1);
     if (!path) return '/';
     if (!path.startsWith('/')) return value; // in-page fragment — keep as-is
-    const clean = path.replace(/^\/p\//, '/').replace(/^\//, '').replace(/\/+$/, '');
+    let clean = path.replace(/^\/p\//, '/').replace(/^\//, '').replace(/\/+$/, '');
+    if (clean === 'tools' || clean === 'tool') clean = 'free-tools';
     return clean === '' ? '/' : `/${clean}`;
   }
+  if (value === '/tools' || value === '/tool') return '/free-tools';
   return value;
 };
 
@@ -585,7 +587,9 @@ const migrateSidebar = (stored: Partial<SidebarConfig> | undefined): SidebarConf
 
 /** Untouched default navs from earlier builds. Admin-edited menus are kept. */
 const LEGACY_NAV_SIGNATURES = [
+  'Features|#features;Tools|#/free-tools;Blog|#/blog;Users|#audiences',
   'Features|#features;Tools|#/tools;Blog|#/blog;Users|#audiences',
+  'SEO Tools|#/free-tools',
   'SEO Tools|#/tools',
 ];
 const migrateNav = (stored: NavItem[] | undefined): NavItem[] => {

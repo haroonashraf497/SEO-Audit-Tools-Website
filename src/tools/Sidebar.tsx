@@ -47,7 +47,7 @@ export const ToolSearch: React.FC<{ autoFocus?: boolean; placeholder?: string }>
   const go = (href: string) => { navigate(href); setOpen(false); setQ(''); };
   const submit = () => {
     if (flat[active]) go(flat[active]);
-    else if (q.trim()) { navigate(`/tools?q=${encodeURIComponent(q.trim())}`); setOpen(false); }
+    else if (q.trim()) { navigate(`/free-tools?q=${encodeURIComponent(q.trim())}`); setOpen(false); }
   };
 
   return (
@@ -76,7 +76,7 @@ export const ToolSearch: React.FC<{ autoFocus?: boolean; placeholder?: string }>
       {open && q.trim() && (
         <div className="absolute left-0 right-0 top-full mt-2 z-40 bg-white rounded-xl border border-slate-200 shadow-2xl overflow-hidden">
           {results.tools.length === 0 && results.posts.length === 0 ? (
-            <p className="px-4 py-4 text-sm text-slate-500">No tools match “{q}”. <a href={`/tools?q=${encodeURIComponent(q)}`} className="text-indigo-600 font-semibold">Browse all {cmsTools.length} tools</a></p>
+            <p className="px-4 py-4 text-sm text-slate-500">No tools match “{q}”. <a href={`/free-tools?q=${encodeURIComponent(q)}`} className="text-indigo-600 font-semibold">Browse all {cmsTools.length} tools</a></p>
           ) : (
             <>
               {results.tools.length > 0 && <p className="px-4 pt-3 pb-1 text-[11px] font-bold uppercase tracking-wide text-slate-400">Tools</p>}

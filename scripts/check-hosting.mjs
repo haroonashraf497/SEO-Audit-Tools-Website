@@ -3,7 +3,7 @@
 import assert from 'node:assert/strict';
 const origin = process.argv[2];
 if (!origin) throw new Error('Pass your Apache/LiteSpeed staging origin');
-for (const path of ['/about', '/tools?cat=calculator', '/tool/percentage-calculator', '/blog']) {
+for (const path of ['/about', '/free-tools?cat=calculator', '/tool/percentage-calculator', '/blog']) {
   const response = await fetch(new URL(path, origin), { redirect: 'manual' });
   assert.equal(response.status, 200, `${path} must serve the shell, not redirect to /`);
   assert.match(await response.text(), /id="root"/);
@@ -12,9 +12,10 @@ for (const path of ['/about', '/tools?cat=calculator', '/tool/percentage-calcula
 for (const [path, destination] of [
   ['/index.html?from=test', '/?from=test'],
   ['/p/about?from=test', '/about?from=test'],
-  ['/tool', '/tools'],
+  ['/tool', '/free-tools'],
   ['/about.html', '/about'],
-  ['/tools/', '/tools'],
+  ['/tools', '/free-tools'],
+  ['/tools/', '/free-tools'],
   ['/tool//percentage-calculator', '/tool/percentage-calculator'],
 ]) {
   const response = await fetch(new URL(path, origin), { redirect: 'manual' });

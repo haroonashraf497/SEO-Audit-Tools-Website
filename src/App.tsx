@@ -1294,11 +1294,11 @@ const SiteBreadcrumbs: React.FC<{ route: string }> = ({ route }) => {
   const crumbs: Crumb[] = (() => {
     const home: Crumb = { label: 'Home', href: '/' };
     if (route === 'home') return [];
-    if (route === 'tools') return [home, { label: 'Free SEO Tools' }];
+    if (route === 'free-tools' || route === 'tools') return [home, { label: 'Free SEO Tools' }];
     if (route.startsWith('tool/')) {
       const tool = state.tools.find(t => t.slug === route.slice(5));
       const catLabel = tool ? (categoryLabels[tool.category] || 'Free SEO Tools') : 'Free SEO Tools';
-      const catHref = tool ? `/tools?cat=${tool.category}` : '/tools';
+      const catHref = tool ? `/free-tools?cat=${tool.category}` : '/free-tools';
       return [home, { label: catLabel, href: catHref }, { label: tool?.name || 'Tool' }];
     }
     if (route === 'blog') return [home, { label: 'Blog' }];
@@ -1405,7 +1405,7 @@ const SiteApp: React.FC = () => {
   }, [route]);
 
   const isBlog = route === 'blog' || route.startsWith('blog/');
-  const isTools = route === 'tools' || route.startsWith('tool/');
+  const isTools = route === 'free-tools' || route === 'tools' || route.startsWith('tool/');
 
   const handleAnalyze = useCallback(async () => {
     const trimmed = url.trim();
@@ -1517,7 +1517,7 @@ const SiteApp: React.FC = () => {
               <a href="/" aria-current={route === 'home' ? 'page' : undefined} className={`rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 ${route === 'home' ? 'text-indigo-600 font-semibold' : 'text-slate-600 hover:text-indigo-600'}`}>Home</a>
               {cms.state.nav.filter(n => n.visible && (!(n.href || '').includes('/admin') || cms.loggedIn)).map(n => {
                 const href = cleanHref(n.href) || n.href;
-                const active = (isTools && href.includes('tools')) || (isBlog && href.includes('blog')) || href.includes('competitor');
+                const active = (isTools && (href.includes('tools') || href.includes('free-tools'))) || (isBlog && href.includes('blog')) || href.includes('competitor');
                 return (
                   <a key={n.id} href={href} aria-current={active ? 'page' : undefined} className={`rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 ${active ? 'text-indigo-600 font-semibold' : 'text-slate-600 hover:text-indigo-600'}`}>{n.label}</a>
                 );
@@ -1537,34 +1537,32 @@ const SiteApp: React.FC = () => {
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
               aria-label={mobileMenuOpen ? 'Close menu' : 'Open menu'}
               aria-expanded={mobileMenuOpen}
-              aria-controls={mobileMenuOpen ? 'site-mobile-menu' : undefined}
+              aria-controls="site-mobile-menu"
             >
               {mobileMenuOpen ? <InlineIcons.X /> : <InlineIcons.Menu />}
             </button>
           </div>
         </div>
 
-        {mobileMenuOpen && (
-          <div id="site-mobile-menu" className="md:hidden bg-white border-t border-slate-200 py-4 -mx-4 px-4">
-            <div className="flex flex-col gap-4">
-              <a href="/" aria-current={route === 'home' ? 'page' : undefined} className={`rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 ${route === 'home' ? 'text-indigo-600 font-semibold' : 'text-slate-600 hover:text-indigo-600'}`} onClick={() => setMobileMenuOpen(false)}>Home</a>
-              {cms.state.nav.filter(n => n.visible && (!(n.href || '').includes('/admin') || cms.loggedIn)).map(n => {
-                const href = cleanHref(n.href) || n.href;
-                const active = (isTools && href.includes('tools')) || (isBlog && href.includes('blog')) || href.includes('competitor');
-                return (
-                  <a key={n.id} href={href} aria-current={active ? 'page' : undefined} className={`rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 ${active ? 'text-indigo-600 font-semibold' : 'text-slate-600 hover:text-indigo-600'}`} onClick={() => setMobileMenuOpen(false)}>{n.label}</a>
-                );
-              })}
-              <a href="/competitor-analysis" aria-current={route === 'competitor-analysis' ? 'page' : undefined} className={`rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 ${route === 'competitor-analysis' ? 'text-indigo-600 font-semibold' : 'text-slate-600 hover:text-indigo-600'}`} onClick={() => setMobileMenuOpen(false)}>Competitor Analysis</a>
-              {cms.loggedIn && (
-                <>
-                  <a href="/admin" className="rounded-md text-slate-600 hover:text-indigo-600 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500" onClick={() => setMobileMenuOpen(false)}>Admin</a>
-                  <button type="button" onClick={() => { cms.logout(); setMobileMenuOpen(false); navigate('/'); }} className="text-left rounded-md text-slate-600 hover:text-indigo-600 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500">Log Out</button>
-                </>
-              )}
-            </div>
+        <div id="site-mobile-menu" className={`md:hidden bg-white border-t border-slate-200 py-4 -mx-4 px-4 ${mobileMenuOpen ? '' : 'hidden'}`}>
+          <div className="flex flex-col gap-4">
+            <a href="/" aria-current={route === 'home' ? 'page' : undefined} className={`rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 ${route === 'home' ? 'text-indigo-600 font-semibold' : 'text-slate-600 hover:text-indigo-600'}`} onClick={() => setMobileMenuOpen(false)}>Home</a>
+            {cms.state.nav.filter(n => n.visible && (!(n.href || '').includes('/admin') || cms.loggedIn)).map(n => {
+              const href = cleanHref(n.href) || n.href;
+              const active = (isTools && (href.includes('tools') || href.includes('free-tools'))) || (isBlog && href.includes('blog')) || href.includes('competitor');
+              return (
+                <a key={n.id} href={href} aria-current={active ? 'page' : undefined} className={`rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 ${active ? 'text-indigo-600 font-semibold' : 'text-slate-600 hover:text-indigo-600'}`} onClick={() => setMobileMenuOpen(false)}>{n.label}</a>
+              );
+            })}
+            <a href="/competitor-analysis" aria-current={route === 'competitor-analysis' ? 'page' : undefined} className={`rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 ${route === 'competitor-analysis' ? 'text-indigo-600 font-semibold' : 'text-slate-600 hover:text-indigo-600'}`} onClick={() => setMobileMenuOpen(false)}>Competitor Analysis</a>
+            {cms.loggedIn && (
+              <>
+                <a href="/admin" className="rounded-md text-slate-600 hover:text-indigo-600 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500" onClick={() => setMobileMenuOpen(false)}>Admin</a>
+                <button type="button" onClick={() => { cms.logout(); setMobileMenuOpen(false); navigate('/'); }} className="text-left rounded-md text-slate-600 hover:text-indigo-600 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500">Log Out</button>
+              </>
+            )}
           </div>
-        )}
+        </div>
       </nav>
       <div className="h-16 shrink-0" aria-hidden="true" />
       <main id="main-content" tabIndex={-1}>
@@ -1579,7 +1577,7 @@ const SiteApp: React.FC = () => {
       {route.startsWith('blog/') && <BlogArticlePage slug={route.slice(5)} />}
 
       {/* Tools routes */}
-      {route === 'tools' && <ToolsList />}
+      {(route === 'free-tools' || route === 'tools') && <ToolsList />}
       {route.startsWith('tool/') && <ToolPage slug={route.slice(5)} />}
 
       {/* Admin (CMS) */}
@@ -1939,7 +1937,7 @@ const SiteApp: React.FC = () => {
             {(['text', 'keyword', 'backlink', 'checker', 'domain', 'ip', 'management', 'pdf', 'image', 'calculator', 'converter'] as const).map(cat => {
               const count = visibleTools.filter(t => t.category === cat).length;
               return (
-                <a key={cat} href={`/tools?cat=${cat}`} className="group h-full flex flex-col bg-white rounded-2xl border border-slate-200 p-5 shadow-sm hover:shadow-lg hover:border-indigo-200 transition-all">
+                <a key={cat} href={`/free-tools?cat=${cat}`} className="group h-full flex flex-col bg-white rounded-2xl border border-slate-200 p-5 shadow-sm hover:shadow-lg hover:border-indigo-200 transition-all">
                   <div className="flex items-center justify-between gap-3 mb-2 min-h-[1.25rem]">
                     <span className="flex items-center gap-3 min-w-0">
                       <span className="text-indigo-600 flex-shrink-0"><ToolIcon category={cat} className="w-5 h-5" /></span>
@@ -1954,7 +1952,7 @@ const SiteApp: React.FC = () => {
           </div>
 
           <div className="text-center mt-10">
-            <a href="/tools" className="inline-block bg-gradient-to-r from-indigo-500 to-purple-600 text-white px-8 py-3.5 rounded-xl font-semibold hover:shadow-lg hover:shadow-indigo-500/25 transition-all">
+            <a href="/free-tools" className="inline-block bg-gradient-to-r from-indigo-500 to-purple-600 text-white px-8 py-3.5 rounded-xl font-semibold hover:shadow-lg hover:shadow-indigo-500/25 transition-all">
               Explore All {visibleTools.length} Free Tools
             </a>
           </div>
@@ -2054,7 +2052,7 @@ const SiteApp: React.FC = () => {
             {[
               { title: 'SEO Tools', links: [
                 { label: 'Free SEO Audit', href: '/' },
-                { label: 'Free SEO Tools', href: '/tools' },
+                { label: 'Free SEO Tools', href: '/free-tools' },
                 { label: 'Competitor Analysis', href: '/competitor-analysis' },
               ] },
               { title: 'Resources', links: [
@@ -2146,7 +2144,7 @@ const NotFoundView: React.FC = () => (
     <p className="text-slate-600 mb-8 max-w-md mx-auto">The page you are looking for does not exist or has been moved. Head back to the free SEO audit tool.</p>
     <div className="flex items-center justify-center gap-3">
       <Btn href="/" />
-      <a href="/tools" className="inline-block bg-white text-slate-700 px-6 py-3 rounded-xl font-semibold border border-slate-300 hover:bg-slate-50 transition-colors">Browse tools</a>
+      <a href="/free-tools" className="inline-block bg-white text-slate-700 px-6 py-3 rounded-xl font-semibold border border-slate-300 hover:bg-slate-50 transition-colors">Browse tools</a>
     </div>
   </div>
 );
