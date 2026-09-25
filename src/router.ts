@@ -1,7 +1,7 @@
 /* ============================================================
    Clean-URL router (History API) — replaces the legacy #/ hash router.
 
-   • Routes come from location.pathname: /, /tools, /tool/slug,
+   • Routes come from location.pathname: /, /free-tools, /tool/slug,
      /blog, /blog/slug, /about, /admin …
    • Internal <a> clicks are intercepted → history.pushState,
      so navigation stays instant (no full reload).
@@ -12,7 +12,9 @@
        /#/p/about        → /about    (hash URLs never reach the
                                  server, so the app rewrites them
                                  client-side)
-       /#/tools?cat=x    → /tools?cat=x
+       /#/tools?cat=x    → /free-tools?cat=x
+       /#/free-tools?cat=x → /free-tools?cat=x
+       /tools            → /free-tools
        /p/about          → /about    (.htaccess issues a 301 for
                                  this; this is the client fallback)
        /index.html       → /
@@ -44,7 +46,7 @@ export const cleanPath = (pathname: string): string => {
 export const getRoute = (): string => {
   const seg = currentPath().slice(1);
   if (seg === '') return 'home';
-  if (seg === 'tools' || seg === 'tool') return 'tools';
+  if (seg === 'free-tools' || seg === 'tools' || seg === 'tool') return 'free-tools';
   if (seg.startsWith('tool/')) return `tool/${seg.slice(5)}`;
   if (seg === 'blog') return 'blog';
   if (seg.startsWith('blog/')) return `blog/${seg.slice(5)}`;
@@ -118,7 +120,8 @@ export const navigate = (to: string, opts: { replace?: boolean } = {}): void => 
 /**
  * One-shot legacy-URL normalisation, run before the first render:
  *  - /#/p/about (old hash link)  → /about
- *  - /#/tools?cat=keyword        → /tools?cat=keyword
+ *  - /#/tools?cat=keyword        → /free-tools?cat=keyword
+ *  - /tools                      → /free-tools
  *  - /p/about (old clean link)   → /about
  *  - /index.html                 → /
  */
@@ -128,10 +131,14 @@ export const normalizeLegacyUrl = (): void => {
   // must survive reloads, bookmarks and "Open in new tab" unchanged.
   if (hash.startsWith('#/')) {
     const legacy = new URL(hash.slice(1), window.location.origin);
-    window.history.replaceState(null, '', cleanPath(legacy.pathname) + (legacy.search || search) + legacy.hash);
+    let p = cleanPath(legacy.pathname);
+    if (p === '/tools' || p === '/tool') p = '/free-tools';
+    window.history.replaceState(null, '', p + (legacy.search || search) + legacy.hash);
     return;
   }
-  const next = cleanPath(pathname) + search + hash;
+  let next = cleanPath(pathname);
+  if (next === '/tools' || next === '/tool') next = '/free-tools';
+  next = next + search + hash;
   if (next !== pathname + search + hash) window.history.replaceState(null, '', next);
 };
 

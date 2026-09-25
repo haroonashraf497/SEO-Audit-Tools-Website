@@ -486,7 +486,7 @@ export const ToolsList: React.FC = () => {
     if (q.trim()) params.set('q', q.trim());
     if (cat !== 'all') params.set('cat', cat);
     const qs = params.toString();
-    navigate(qs ? `/tools?${qs}` : '/tools', { replace: true });
+    navigate(qs ? `/free-tools?${qs}` : '/free-tools', { replace: true });
   }, []);
 
   const onQueryChange = useCallback((q: string) => { setQuery(q); syncUrl(q, activeCat); }, [activeCat, syncUrl]);
@@ -621,7 +621,7 @@ export const ToolPage: React.FC<{ slug: string }> = ({ slug }) => {
     return (
       <div className="pt-16 pb-20 px-4 text-center min-h-screen">
         <h1 className="text-3xl font-bold text-slate-900 mb-4">Tool not found</h1>
-        <a href="/tools" className="text-indigo-600 font-semibold hover:underline">Browse all tools</a>
+        <a href="/free-tools" className="text-indigo-600 font-semibold hover:underline">Browse all tools</a>
       </div>
     );
   }

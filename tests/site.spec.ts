@@ -11,7 +11,7 @@ test.afterEach(() => expect(errors).toEqual([]));
 
 for (const [path, heading] of [
   ['/about', 'About SEO Audit Tools'],
-  ['/tools?cat=calculator', /Free SEO Tools/],
+  ['/free-tools?cat=calculator', /Free SEO Tools/],
   ['/tool/percentage-calculator', 'Percentage Calculator'],
   ['/blog', 'The SEO Audit Tool Blog'],
   ['/admin-login', 'Admin login'],
@@ -43,13 +43,13 @@ test('new-tab link, query filters and browser history', async ({ page, context }
   await tab.goto(href!);
   await expect(tab.locator('h1')).toHaveText('Percentage Calculator');
   await tab.close();
-  await page.locator('a[href="/tools?cat=calculator"]').click();
-  await expect(page).toHaveURL(/\/tools\?cat=calculator$/);
+  await page.locator('a[href="/free-tools?cat=calculator"]').click();
+  await expect(page).toHaveURL(/\/free-tools\?cat=calculator$/);
   await expect(page.locator('h1')).toContainText('Tools');
   await page.goBack();
   await expect(page.locator('h1')).toHaveText('Free SEO Audit Tool');
   await page.goForward();
-  await expect(page).toHaveURL(/\/tools\?cat=calculator$/);
+  await expect(page).toHaveURL(/\/free-tools\?cat=calculator$/);
 });
 
 for (const [path, destination, heading] of [
