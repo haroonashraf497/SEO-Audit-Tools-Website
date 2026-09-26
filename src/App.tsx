@@ -1282,9 +1282,9 @@ const AudienceIcon: React.FC<{ type: string }> = ({ type }) => {
 };
 
 // Routing lives in src/router.ts — the route is derived from the clean URL
-// pathname (/free-tools, /blog/slug, /about, …). Legacy #/ hash links are
+// pathname (/free-seo-tools, /blog/slug, /about, …). Legacy #/ hash links are
 // rewritten to it before the first render, and .htaccess 301s both the old
-// /p/… paths and /tools → /free-tools.
+// /p/… paths and /tools → /free-seo-tools.
 
 /** The five social profiles the CMS can fill in (Admin → Sections & Nav →
  *  Brand & footer). A blank URL hides that icon, so the footer only ever
@@ -1330,7 +1330,7 @@ const SiteBreadcrumbs: React.FC<{ route: string }> = ({ route }) => {
     if (route.startsWith('tool/')) {
       const tool = state.tools.find(t => t.slug === route.slice(5));
       const catLabel = tool ? (categoryLabels[tool.category] || 'Free SEO Tools') : 'Free SEO Tools';
-      const catHref = tool ? `/free-tools?cat=${tool.category}` : '/free-tools';
+      const catHref = tool ? `/free-seo-tools?cat=${tool.category}` : '/free-seo-tools';
       return [home, { label: catLabel, href: catHref }, { label: tool?.name || 'Tool' }];
     }
     if (route === 'blog') return [home, { label: 'Blog' }];
@@ -1991,7 +1991,7 @@ const SiteApp: React.FC = () => {
             {(['text', 'keyword', 'backlink', 'checker', 'domain', 'ip', 'management', 'pdf', 'image', 'calculator', 'converter'] as const).map(cat => {
               const count = visibleTools.filter(t => t.category === cat).length;
               return (
-                <a key={cat} href={`/free-tools?cat=${cat}`} className="group h-full flex flex-col bg-white rounded-2xl border border-slate-200 p-5 shadow-sm hover:shadow-lg hover:border-indigo-200 transition-all">
+                <a key={cat} href={`/free-seo-tools?cat=${cat}`} className="group h-full flex flex-col bg-white rounded-2xl border border-slate-200 p-5 shadow-sm hover:shadow-lg hover:border-indigo-200 transition-all">
                   <div className="flex items-center justify-between gap-3 mb-2 min-h-[1.25rem]">
                     <span className="flex items-center gap-3 min-w-0">
                       <span className="text-indigo-600 flex-shrink-0"><ToolIcon category={cat} className="w-5 h-5" /></span>
@@ -2006,7 +2006,7 @@ const SiteApp: React.FC = () => {
           </div>
 
           <div className="text-center mt-10">
-            <a href="/free-tools" className="inline-block bg-gradient-to-r from-indigo-500 to-purple-600 text-white px-8 py-3.5 rounded-xl font-semibold hover:shadow-lg hover:shadow-indigo-500/25 transition-all">
+            <a href="/free-seo-tools" className="inline-block bg-gradient-to-r from-indigo-500 to-purple-600 text-white px-8 py-3.5 rounded-xl font-semibold hover:shadow-lg hover:shadow-indigo-500/25 transition-all">
               Explore All {visibleTools.length} Free Tools
             </a>
           </div>
@@ -2213,7 +2213,7 @@ const NotFoundView: React.FC = () => (
     <p className="text-slate-600 mb-8 max-w-md mx-auto">The page you are looking for does not exist or has been moved. Head back to the free SEO audit tool.</p>
     <div className="flex items-center justify-center gap-3">
       <Btn href="/" />
-      <a href="/free-tools" className="inline-block bg-white text-slate-700 px-6 py-3 rounded-xl font-semibold border border-slate-300 hover:bg-slate-50 transition-colors">Browse tools</a>
+      <a href="/free-seo-tools" className="inline-block bg-white text-slate-700 px-6 py-3 rounded-xl font-semibold border border-slate-300 hover:bg-slate-50 transition-colors">Browse tools</a>
     </div>
   </div>
 );

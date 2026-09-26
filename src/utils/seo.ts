@@ -60,7 +60,7 @@ const originOf = (cms: CmsState): string => {
  * `https://seoaudittools.pk/about` as far as search engines are concerned, and
  * hash URLs never index. Legacy hash-style values (from an older CMS entry or
  * an old override) are converted to their clean path, and the legacy
- * `/tools` directory collapses to `/free-tools`.
+ * `/tools`, `/tool` and `/free-tools` paths collapse to `/free-seo-tools`.
  */
 const absoluteUrl = (origin: string, path: string): string => {
   if (!path || path === '/' || path === '#/' || path === '#') return `${origin}/`;
@@ -68,7 +68,7 @@ const absoluteUrl = (origin: string, path: string): string => {
   let clean = path.startsWith('#') ? path.slice(1) : path;
   if (!clean.startsWith('/')) clean = `/${clean}`;
   clean = clean.replace(/^\/p(?=\/|$)/, '').replace(/\/{2,}/g, '/');
-  if (clean === '/tools' || clean === '/tool') clean = '/free-tools';
+  if (clean === '/tools' || clean === '/tool' || clean === '/free-tools') clean = '/free-seo-tools';
   if (clean === '' || clean === '/') return `${origin}/`;
   if (clean.length > 1) clean = clean.replace(/\/+$/, '');
   return `${origin}${clean}`;
@@ -153,7 +153,7 @@ export const resolvePageSeo = (route: string, cms: CmsState): PageSeo => {
     return {
       title,
       description,
-      path: '/free-tools',
+      path: '/free-seo-tools',
       origin,
       noindex: seo?.noindex,
       canonicalOverride: seo?.slug,

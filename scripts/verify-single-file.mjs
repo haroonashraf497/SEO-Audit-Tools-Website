@@ -199,8 +199,8 @@ const wait = () => new Promise(resolve => setTimeout(resolve, 250));
   check('click on /blog renders the blog, never a loading placeholder',
     blogNow.includes('The SEO Audit Tool Blog') && !/Loading page|Loading PDF engine/i.test(blogNow), blogNow.slice(0, 60));
 
-  const toolsSwap = clickIn('footer', '/free-tools');
-  check('footer click on /free-tools updates the URL immediately', toolsSwap.urlNow === '/free-tools', toolsSwap.urlNow);
+  const toolsSwap = clickIn('footer', '/free-seo-tools');
+  check('footer click on /free-seo-tools updates the URL immediately', toolsSwap.urlNow === '/free-seo-tools', toolsSwap.urlNow);
   const toolsTicks = await swapDelay('Free SEO Tools');
   check('footer click swaps the tools page within a microtask',
     toolsTicks >= 0 && toolsTicks < 50, `microtasks: ${toolsTicks}`);
@@ -224,12 +224,20 @@ for (const [path, expected] of [['/tool/merge-pdf', 'Merge PDF'], ['/admin-login
   dom.window.close();
 }
 
-/* 4. legacy /tools URLs are normalised to /free-tools client-side */
-{
-  const { dom, errors } = await boot('', '/tools');
-  check('legacy /tools boot has no script errors', errors.length === 0, errors.join(' | '));
-  check('/tools normalises to /free-tools', dom.window.location.pathname === '/free-tools', dom.window.location.pathname);
+/* 4. legacy tools URLs — /tools, /tool and the previous /free-tools — are all
+      normalised to the canonical /free-seo-tools client-side */
+for (const legacy of ['/tools', '/tool', '/free-tools']) {
+  const { dom, errors } = await boot('', legacy);
+  check(`legacy ${legacy} boot has no script errors`, errors.length === 0, errors.join(' | '));
+  check(`${legacy} normalises to /free-seo-tools`, dom.window.location.pathname === '/free-seo-tools', dom.window.location.pathname);
   check('tools page renders its heading', /Tools/.test(dom.window.document.querySelector('h1')?.textContent || ''));
+  dom.window.close();
+}
+{
+  const { dom } = await boot('', '/free-tools?cat=pdf');
+  check('a filtered old URL keeps its query string',
+    dom.window.location.pathname === '/free-seo-tools' && dom.window.location.search === '?cat=pdf',
+    `${dom.window.location.pathname}${dom.window.location.search}`);
   dom.window.close();
 }
 
@@ -433,7 +441,7 @@ for (const [short, long, heading] of [['/privacy', '/privacy-policy', 'Privacy P
     tools: [], posts: [], pages: [], seo: {},
     footerColumns: [
       { id: 'c1', title: 'Guides', links: [{ id: 'l1', label: 'How-to hub', href: '/blog', visible: true }, { id: 'l2', label: 'Draft row', href: '/x', visible: false }] },
-      { id: 'c2', title: 'Tools', links: [{ id: 'l3', label: 'PDF tools', href: '/free-tools', visible: true }] },
+      { id: 'c2', title: 'Tools', links: [{ id: 'l3', label: 'PDF tools', href: '/free-seo-tools', visible: true }] },
       { id: 'c3', title: 'Company', links: [] },
       { id: 'c4', title: 'More', links: [{ id: 'l4', label: 'Contact us', href: '/contact', visible: true }] },
     ],
@@ -510,7 +518,7 @@ for (const [short, long, heading] of [['/privacy', '/privacy-policy', 'Privacy P
     await new Promise(r => setTimeout(r, 60));
     const panel = doc.getElementById('tool-categories-menu');
     const links = [...(panel?.querySelectorAll('a') || [])];
-    const categories = links.filter(a => (a.getAttribute('href') || '').startsWith('/free-tools?cat='));
+    const categories = links.filter(a => (a.getAttribute('href') || '').startsWith('/free-seo-tools?cat='));
     const expected = [
       'Text Analysis Tools (11)', 'Keyword Tools (8)', 'Backlink Tools (8)', 'Calculator Tools (14)',
       'Website Management Tools (45)', 'Website Checker Tools (24)', 'Domain Tools (8)', 'Unit Converter Tools (10)',
@@ -522,7 +530,7 @@ for (const [short, long, heading] of [['/privacy', '/privacy-policy', 'Privacy P
       && JSON.stringify(categories.map(a => a.textContent.replace(/\s+/g, ' ').trim())) === JSON.stringify(expected),
       `${categories.length} category links: ${categories.map(a => a.textContent.replace(/\s+/g, ' ').trim()).join(' | ')}`);
     check('each category links to its filtered tools page',
-      JSON.stringify(categories.map(a => a.getAttribute('href'))) === JSON.stringify(['text', 'keyword', 'backlink', 'calculator', 'management', 'checker', 'domain', 'converter', 'ip', 'pdf', 'image'].map(c => `/free-tools?cat=${c}`)));
+      JSON.stringify(categories.map(a => a.getAttribute('href'))) === JSON.stringify(['text', 'keyword', 'backlink', 'calculator', 'management', 'checker', 'domain', 'converter', 'ip', 'pdf', 'image'].map(c => `/free-seo-tools?cat=${c}`)));
     check('panel carries no heading of its own',
       (panel?.querySelectorAll('h1, h2, h3, h4, h5, h6').length || 0) === 0
       && !(panel?.textContent || '').includes('Tool Categories'),
@@ -530,12 +538,12 @@ for (const [short, long, heading] of [['/privacy', '/privacy-policy', 'Privacy P
     check('panel is a fixed mega panel under the 4rem nav', /fixed left-0 right-0 top-16 z-50/.test(panel?.className || ''));
 
     // clicking a category navigates and filters the tools list
-    const checker = categories.find(a => a.getAttribute('href') === '/free-tools?cat=checker');
+    const checker = categories.find(a => a.getAttribute('href') === '/free-seo-tools?cat=checker');
     checker?.dispatchEvent(new bootNav.dom.window.MouseEvent('click', { bubbles: true, cancelable: true }));
     await new Promise(r => setTimeout(r, 120));
     const status = [...doc.querySelectorAll('main p')].find(p => /Showing/.test(p.textContent));
     check('clicking a category filters the tools page in the same task',
-      bootNav.dom.window.location.pathname === '/free-tools' && bootNav.dom.window.location.search === '?cat=checker'
+      bootNav.dom.window.location.pathname === '/free-seo-tools' && bootNav.dom.window.location.search === '?cat=checker'
       && doc.querySelectorAll('main a[href^="/tool/"]').length === 24
       && /Showing 24 of \d+ tools in Website Checker Tools/.test(status?.textContent || ''),
       `${bootNav.dom.window.location.pathname}${bootNav.dom.window.location.search}, tools=${doc.querySelectorAll('main a[href^="/tool/"]').length}, status=${status?.textContent.replace(/\s+/g, ' ').trim()}`);
@@ -543,9 +551,9 @@ for (const [short, long, heading] of [['/privacy', '/privacy-policy', 'Privacy P
     bootNav.dom.window.close();
   }
 
-  // /free-tools: no category filter chips, hero band like the home page
+  // /free-seo-tools: no category filter chips, hero band like the home page
   {
-    const bootTools = await boot('', '/free-tools');
+    const bootTools = await boot('', '/free-seo-tools');
     const doc = bootTools.dom.window.document;
     const chips = [...doc.querySelectorAll('main button')].filter(b => /^(All Tools|Text Analysis|Keyword|Backlink|Website |Domain|Unit Converter|Calculator|PDF|Image|IP) \(\d+\)$/.test(b.textContent.trim()));
     const hero = [...doc.querySelectorAll('main section')].find(s => /from-indigo-100/.test(s.className));
@@ -564,7 +572,7 @@ for (const [short, long, heading] of [['/privacy', '/privacy-policy', 'Privacy P
 
   // filtered arrival (e.g. from the nav mega menu) offers a way back to all tools
   {
-    const bootFiltered = await boot('', '/free-tools?cat=pdf');
+    const bootFiltered = await boot('', '/free-seo-tools?cat=pdf');
     const doc = bootFiltered.dom.window.document;
     const reset = [...doc.querySelectorAll('main button')].find(b => /^Show all \d+ tools$/.test(b.textContent.trim()));
     check('a filtered tools page offers "Show all" to clear the filter',
@@ -575,7 +583,7 @@ for (const [short, long, heading] of [['/privacy', '/privacy-policy', 'Privacy P
 
   // top-nav text weight: selected items are indigo but never bold
   {
-    const bootNavWeight = await boot('', '/free-tools');
+    const bootNavWeight = await boot('', '/free-seo-tools');
     const doc = bootNavWeight.dom.window.document;
     const navLinks = [...doc.querySelectorAll('nav.fixed a, nav.fixed button')];
     const bold = navLinks.filter(el => /font-(semibold|bold|extrabold|black)/.test(el.className));
@@ -599,7 +607,7 @@ for (const [short, long, heading] of [['/privacy', '/privacy-policy', 'Privacy P
     const trigger = [...doc.querySelectorAll('#site-mobile-menu button')].find(b => b.textContent.trim().startsWith('Tool Categories'));
     trigger?.dispatchEvent(new bootMobile.dom.window.MouseEvent('click', { bubbles: true }));
     await new Promise(r => setTimeout(r, 60));
-    const links = [...doc.querySelectorAll('#tool-categories-mobile a')].filter(a => (a.getAttribute('href') || '').startsWith('/free-tools?cat='));
+    const links = [...doc.querySelectorAll('#tool-categories-mobile a')].filter(a => (a.getAttribute('href') || '').startsWith('/free-seo-tools?cat='));
     check('mobile burger menu lists the same eleven categories', !!trigger && links.length === 11,
       `${links.length} links`);
     bootMobile.dom.window.close();

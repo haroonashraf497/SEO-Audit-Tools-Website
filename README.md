@@ -38,7 +38,7 @@ what is there and deleting any old `assets/` folder:
 | File | Purpose |
 | --- | --- |
 | `index.html` | the entire application (1.3 MB, gzip ~358 KB) |
-| `.htaccess` | Apache/LiteSpeed: `/tools` → `/free-tools` 301, clean-URL rewrites, security headers, caching |
+| `.htaccess` | Apache/LiteSpeed: `/tools`, `/tool` and `/free-tools` → `/free-seo-tools` 301, clean-URL rewrites, security headers, caching |
 | `404.html` | fallback used by hosts that serve it for unknown paths |
 | `favicon.svg`, `og.jpg`, `robots.txt`, `sitemap.xml` | static files crawlers and browsers request directly |
 
@@ -49,7 +49,8 @@ without building. Apache/LiteSpeed needs `mod_rewrite`, `mod_deflate`,
 
 ```bash
 node scripts/check-hosting.mjs https://your-domain   # verifies a live deploy
-curl -I https://your-domain/tools                    # → 301 /free-tools
+curl -I https://your-domain/tools                    # → 301 /free-seo-tools
+curl -I https://your-domain/free-tools               # → 301 /free-seo-tools
 ```
 
 ## Content manager
@@ -78,14 +79,32 @@ name, and the Cookie preferences control there is the footer's only one. Legal p
 `/privacy-policy`, `/cookie-policy` and `/terms-of-service` URLs are 301-redirected and are
 also upgraded client-side for the dev/preview server, which does no rewriting.
 
-### Free SEO Tools page (/free-tools)
+### URL hierarchy
+
+The tools index lives at **`/free-seo-tools`** (canonical, in the sitemap, canonical tag,
+nav, footer, home page cards and every CTA). Its older spellings all 301 to it, keeping their
+query string:
+
+| Old URL | Result |
+| --- | --- |
+| `/free-tools`, `/free-tools?cat=pdf` | 301 → `/free-seo-tools`, `/free-seo-tools?cat=pdf` |
+| `/tools`, `/tools/` | 301 → `/free-seo-tools` |
+| `/tool` | 301 → `/free-seo-tools` |
+| `/tool/<slug>` | served (individual tool pages keep their own slug) |
+
+The redirects live in three places so no link ever breaks: `public/.htaccess` (server, `[R=301,L]`),
+`src/router.ts` (`TOOLS_PATH` + `LEGACY_TOOLS_PATHS`, rewritten with `replaceState` before the first
+paint) and `src/utils/seo.ts` / `src/cms/store.tsx` (canonical builder + stored CMS hrefs upgraded on
+load, so content saved against the old URL keeps working).
+
+### Free SEO Tools page (/free-seo-tools)
 
 - the page opens with the **same gradient band as the home hero**
   (`bg-gradient-to-br from-indigo-100 via-violet-50 to-purple-100`), holding the title,
   the description and the search box; the tool grid then continues on the page background;
 - the **category filter chips are gone** — categories now live only in the top-nav mega menu, so
   the page shows one section per category (heading + count) with all its tool cards;
-- arriving on a filtered URL (e.g. `/free-tools?cat=pdf` or `?q=sitemap`) keeps working and the
+- arriving on a filtered URL (e.g. `/free-seo-tools?cat=pdf` or `?q=sitemap`) keeps working and the
   status line gains a **Show all N tools** link that clears the filter;
 - search, grouping, "Instant" badges and the empty state are unchanged.
 
@@ -101,7 +120,7 @@ The top navigation carries a fixed **Tool Categories** item (next to *Free SEO T
 | Backlink Tools (8) | Domain Tools (8) | Image Tools (3) |
 | Calculator Tools (14) | Unit Converter Tools (10) | |
 
-- each entry links to `/free-tools?cat=<category>`, so the tools page opens already filtered;
+- each entry links to `/free-seo-tools?cat=<category>`, so the tools page opens already filtered;
 - the counts are computed from the live CMS tool list, so they always match the tools page;
 - the panel opens on hover and on click, and closes on Escape, outside click, navigation or the
   chevron; it is a `fixed` panel pinned under the 4 rem nav bar, so it can never overflow the
@@ -141,9 +160,9 @@ to move or version it. See `CMS.md` for the full CMS reference.
 
 ```bash
 npm run typecheck                  # tsc --noEmit
-node scripts/feature-audit.mjs     # 115 checks: CMS controls, footer redesign, legal URLs, /free-tools, text-tool layout/mobile, case-converter grid, Tool Categories mega menu, no-bold top nav, category chips removed from /free-tools, no EKSTRUH, 154 tools
+node scripts/feature-audit.mjs     # 122 checks: CMS controls, footer redesign, legal URLs, /free-seo-tools, text-tool layout/mobile, case-converter grid, Tool Categories mega menu, no-bold top nav, category chips removed from /free-seo-tools, no EKSTRUH, 154 tools
 npm install --no-save jsdom
-node scripts/verify-single-file.mjs  # 107 checks: boots the built file, instant swap, footer, legal URLs, head injection, text-tool layout, mega-menu navigation
+node scripts/verify-single-file.mjs  # 114 checks: boots the built file, instant swap, footer, legal URLs, head injection, text-tool layout, mega-menu navigation
 npm test                           # 34 Playwright tests (needs Chromium)
 ```
 

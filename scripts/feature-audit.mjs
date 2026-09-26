@@ -82,9 +82,9 @@ console.log('\n=== 🦶 Footer redesign ===');
 check('four equal footer columns defined (Quick Links, SEO Tools, Resources, Company)',
   /export const defaultFooterColumns: FooterColumn\[\] = \[[\s\S]{0,1400}title: 'Quick links'[\s\S]{0,700}title: 'SEO Tools'[\s\S]{0,700}title: 'Resources'[\s\S]{0,700}title: 'Company'/.test(store));
 check('Quick Links column = audit, tools, blog, about, contact',
-  /title: 'Quick links', links: \[[\s\S]{0,420}footerLink\('Free SEO Audit', '\/'\)[\s\S]{0,200}footerLink\('Free SEO Tools', '\/free-tools'\)[\s\S]{0,200}footerLink\('Blog', '\/blog'\)[\s\S]{0,200}footerLink\('About', '\/about'\)[\s\S]{0,200}footerLink\('Contact', '\/contact'\)/.test(store));
+  /title: 'Quick links', links: \[[\s\S]{0,420}footerLink\('Free SEO Audit', '\/'\)[\s\S]{0,200}footerLink\('Free SEO Tools', '\/free-seo-tools'\)[\s\S]{0,200}footerLink\('Blog', '\/blog'\)[\s\S]{0,200}footerLink\('About', '\/about'\)[\s\S]{0,200}footerLink\('Contact', '\/contact'\)/.test(store));
 check('SEO Tools column = audit, tools, competitor analysis',
-  /title: 'SEO Tools', links: \[[\s\S]{0,320}footerLink\('Free SEO Audit', '\/'\)[\s\S]{0,200}footerLink\('Free SEO Tools', '\/free-tools'\)[\s\S]{0,200}footerLink\('Competitor Analysis', '\/competitor-analysis'\)/.test(store));
+  /title: 'SEO Tools', links: \[[\s\S]{0,320}footerLink\('Free SEO Audit', '\/'\)[\s\S]{0,200}footerLink\('Free SEO Tools', '\/free-seo-tools'\)[\s\S]{0,200}footerLink\('Competitor Analysis', '\/competitor-analysis'\)/.test(store));
 check('Resources column = blog, FAQ, who it\'s for',
   /title: 'Resources', links: \[[\s\S]{0,320}footerLink\('Blog', '\/blog'\)[\s\S]{0,200}footerLink\('FAQ', '\/faq'\)[\s\S]{0,200}footerLink\("Who It's For", '\/#audiences'\)/.test(store));
 check('Company column = about, contact',
@@ -120,6 +120,22 @@ check('sitemap lists the short legal URLs only', sitemap.includes('<loc>https://
   && sitemap.includes('<loc>https://seoaudittools.pk/terms</loc>')
   && !/seoaudittools\.pk\/(privacy-policy|cookie-policy|terms-of-service)</.test(sitemap));
 
+console.log('\n=== 🔗 Tools URL hierarchy (/free-seo-tools) ===');
+const seoUtil = read('src/utils/seo.ts');
+const appSrcTools = read('src/App.tsx');
+const menuSrcTools = read('src/components/ToolCategoriesMenu.tsx');
+const sitemapXml = read('public/sitemap.xml');
+check('canonical tools path is /free-seo-tools in code',
+  /export const TOOLS_PATH = '\/free-seo-tools';/.test(read('src/router.ts'))
+  && /path: '\/free-seo-tools',/.test(seoUtil));
+check('no link in the app points at the old /free-tools URL',
+  !/href=(["'`])\/free-tools[?"'`]/.test(appSrcTools + menuSrcTools + read('src/tools/Sidebar.tsx') + read('src/tools/Tools.tsx') + store));
+check('home page category cards and CTAs use /free-seo-tools',
+  /href=\{`\/free-seo-tools\?cat=\$\{cat\}`\}/.test(appSrcTools) && /href="\/free-seo-tools"/.test(appSrcTools));
+check('mega menu uses /free-seo-tools?cat=', /href=\{`\/free-seo-tools\?cat=\$\{cat\}`\}/.test(menuSrcTools));
+check('sitemap lists /free-seo-tools', sitemapXml.includes('<loc>https://seoaudittools.pk/free-seo-tools</loc>'));
+check('SEO canonical collapses the old tools URLs', /clean === '\/free-tools'\) clean = '\/free-seo-tools';/.test(seoUtil));
+
 console.log('\n=== 🧭 Tool Categories mega menu ===');
 const appSrc = read('src/App.tsx');
 const menuSrc = read('src/components/ToolCategoriesMenu.tsx');
@@ -136,10 +152,10 @@ check('panel closes on Escape, outside click and navigation',
 check('eleven categories in three columns, in the approved order',
   /const COLUMNS: ToolCategory\[\]\[\] = \[\s*\['text', 'keyword', 'backlink', 'calculator'\],\s*\['management', 'checker', 'domain', 'converter'\],\s*\['ip', 'pdf', 'image'\],\s*\];/.test(menuSrc));
 check('every category link points at the filtered tools page',
-  /href=\{`\/free-tools\?cat=\$\{cat\}`\}/.test(menuSrc));
+  /href=\{`\/free-seo-tools\?cat=\$\{cat\}`\}/.test(menuSrc));
 check('counts come from the live CMS tool list', /cms\.state\.tools\.forEach\(t => \{[\s\S]{0,80}if \(t\.status !== 'live'\) return;/.test(menuSrc)
   && /categoryLabels\[cat\]\} <span className="text-slate-400">\(\{counts\.get\(cat\) \|\| 0\}\)/.test(menuSrc));
-check('menu offers a browse-all link to /free-tools', /Browse all \{total\} free tools/.test(menuSrc));
+check('menu offers a browse-all link to /free-seo-tools', /Browse all \{total\} free tools/.test(menuSrc));
 const listSrc = read('src/tools/Tools.tsx');
 check('tools page drops the category filter chips',
   !/onCatChange|pillCls|countByCat/.test(listSrc)
@@ -196,14 +212,20 @@ check('text-to-speech survives browsers without the speech API', /const supporte
   && /if \(!supported\) return;/.test(engines));
 
 console.log('\n=== 🔗 URLs ===');
-check('.htaccess 301 /tools → /free-tools', /RewriteRule \^tools\/\?\$ \/free-tools \[R=301,L\]/.test(htaccess));
-check('.htaccess 301 /tool → /free-tools', /RewriteRule \^tool\/\?\$ \/free-tools \[R=301,L\]/.test(htaccess));
-check('router normalises /tools', /if \(next === '\/tools' \|\| next === '\/tool'\) next = '\/free-tools'/.test(router));
-check('route alias maps tools → free-tools', /seg === 'free-tools' \|\| seg === 'tools'/.test(router));
-check('stored content rewrites /tools', /if \(value === '\/tools' \|\| value === '\/tool'\) return '\/free-tools'/.test(store));
-check('nav default points at /free-tools', /label: 'Free SEO Tools', href: '\/free-tools', visible: true/.test(store));
+check('.htaccess 301 /tools → /free-seo-tools', /RewriteRule \^tools\/\?\$ \/free-seo-tools \[R=301,L\]/.test(htaccess));
+check('.htaccess 301 /free-tools → /free-seo-tools', /RewriteRule \^free-tools\/\?\$ \/free-seo-tools \[R=301,L\]/.test(htaccess));
+check('.htaccess 301 /tool → /free-seo-tools', /RewriteRule \^tool\/\?\$ \/free-seo-tools \[R=301,L\]/.test(htaccess));
+check('router canonicalises /tools, /tool and /free-tools',
+  /export const TOOLS_PATH = '\/free-seo-tools';/.test(router)
+  && /export const LEGACY_TOOLS_PATHS = \['\/free-tools', '\/tools', '\/tool'\];/.test(router)
+  && /if \(LEGACY_TOOLS_PATHS\.includes\(next\)\) next = TOOLS_PATH;/.test(router));
+check('route alias maps the tools paths to the free-tools route',
+  /seg === TOOLS_PATH\.slice\(1\) \|\| LEGACY_TOOLS_PATHS\.some\(p => p\.slice\(1\) === seg\)/.test(router));
+check('stored content rewrites legacy tool paths',
+  /if \(value === '\/tools' \|\| value === '\/tool' \|\| value === '\/free-tools'\) return '\/free-seo-tools';/.test(store));
+check('nav default points at /free-seo-tools', /label: 'Free SEO Tools', href: '\/free-seo-tools', visible: true/.test(store));
 check('canonical uses clean path (no #/)', /return `\$\{origin\}\$\{clean\}`/.test(seo) && !/return `\$\{origin\}\/#\$\{clean\}`/.test(seo));
-check('sitemap uses /free-tools', sitemap.includes('<loc>https://seoaudittools.pk/free-tools</loc>') && !/seoaudittools\.pk\/tools</.test(sitemap));
+check('sitemap uses /free-seo-tools', sitemap.includes('<loc>https://seoaudittools.pk/free-seo-tools</loc>') && !/seoaudittools\.pk\/free-tools</.test(sitemap));
 
 console.log('\n=== ✅ Preserved ===');
 check('no "Loading page" anywhere in src', !/Loading page/.test(read('src/App.tsx') + read('src/components/ErrorBoundary.tsx') + read('src/tools/Tools.tsx')));

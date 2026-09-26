@@ -1,7 +1,7 @@
 /* ============================================================
    Clean-URL router (History API) — replaces the legacy #/ hash router.
 
-   • Routes come from location.pathname: /, /free-tools, /tool/slug,
+   • Routes come from location.pathname: /, /free-seo-tools, /tool/slug,
      /blog, /blog/slug, /about, /admin …
    • Internal <a> clicks are intercepted → history.pushState,
      so navigation stays instant (no full reload).
@@ -17,9 +17,10 @@
        /#/p/about        → /about    (hash URLs never reach the
                                  server, so the app rewrites them
                                  client-side)
-       /#/tools?cat=x    → /free-tools?cat=x
-       /#/free-tools?cat=x → /free-tools?cat=x
-       /tools            → /free-tools
+       /#/tools?cat=x    → /free-seo-tools?cat=x
+       /#/free-tools?cat=x → /free-seo-tools?cat=x
+       /tools, /tool     → /free-seo-tools
+       /free-tools       → /free-seo-tools  (previous canonical URL)
        /privacy-policy   → /privacy  (.htaccess 301s it as well)
        /p/about          → /about    (.htaccess issues a 301 for
                                  this; this is the client fallback)
@@ -27,6 +28,12 @@
      Canonical tags always point at the clean URL, so every old
      link stays SEO-safe even while it is being rewritten.
    ============================================================ */
+
+/** Canonical URL of the tools index. Internal route id stays `free-tools`. */
+export const TOOLS_PATH = '/free-seo-tools';
+
+/** Every older spelling of the tools index, redirected to `TOOLS_PATH`. */
+export const LEGACY_TOOLS_PATHS = ['/free-tools', '/tools', '/tool'];
 
 export type RouteListener = (route: string) => void;
 
@@ -91,7 +98,7 @@ export const cleanPath = (pathname: string): string => {
 export const getRoute = (): string => {
   const seg = currentPath().slice(1);
   if (seg === '') return 'home';
-  if (seg === 'free-tools' || seg === 'tools' || seg === 'tool') return 'free-tools';
+  if (seg === TOOLS_PATH.slice(1) || LEGACY_TOOLS_PATHS.some(p => p.slice(1) === seg)) return 'free-tools';
   if (seg.startsWith('tool/')) return `tool/${seg.slice(5)}`;
   if (seg === 'blog') return 'blog';
   if (seg.startsWith('blog/')) return `blog/${seg.slice(5)}`;
@@ -167,8 +174,8 @@ export const navigate = (to: string, opts: { replace?: boolean } = {}): void => 
 /**
  * One-shot legacy-URL normalisation, run before the first render:
  *  - /#/p/about (old hash link)  → /about
- *  - /#/tools?cat=keyword        → /free-tools?cat=keyword
- *  - /tools                      → /free-tools
+ *  - /#/tools?cat=keyword        → /free-seo-tools?cat=keyword
+ *  - /tools, /tool, /free-tools  → /free-seo-tools
  *  - /p/about (old clean link)   → /about
  *  - /index.html                 → /
  */
@@ -179,12 +186,12 @@ export const normalizeLegacyUrl = (): void => {
   if (hash.startsWith('#/')) {
     const legacy = new URL(hash.slice(1), window.location.origin);
     let p = cleanPath(legacy.pathname);
-    if (p === '/tools' || p === '/tool') p = '/free-tools';
+    if (LEGACY_TOOLS_PATHS.includes(p)) p = TOOLS_PATH;
     window.history.replaceState(null, '', canonicalLegalPath(p) + (legacy.search || search) + legacy.hash);
     return;
   }
   let next = cleanPath(pathname);
-  if (next === '/tools' || next === '/tool') next = '/free-tools';
+  if (LEGACY_TOOLS_PATHS.includes(next)) next = TOOLS_PATH;
   next = canonicalLegalPath(next);
   next = next + search + hash;
   if (next !== pathname + search + hash) window.history.replaceState(null, '', next);

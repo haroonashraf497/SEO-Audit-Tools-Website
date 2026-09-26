@@ -168,14 +168,14 @@ const footerLink = (label: string, href: string): FooterLink => ({ id: uid(), la
 export const defaultFooterColumns: FooterColumn[] = [
   { id: uid(), title: 'Quick links', links: [
     footerLink('Free SEO Audit', '/'),
-    footerLink('Free SEO Tools', '/free-tools'),
+    footerLink('Free SEO Tools', '/free-seo-tools'),
     footerLink('Blog', '/blog'),
     footerLink('About', '/about'),
     footerLink('Contact', '/contact'),
   ] },
   { id: uid(), title: 'SEO Tools', links: [
     footerLink('Free SEO Audit', '/'),
-    footerLink('Free SEO Tools', '/free-tools'),
+    footerLink('Free SEO Tools', '/free-seo-tools'),
     footerLink('Competitor Analysis', '/competitor-analysis'),
   ] },
   { id: uid(), title: 'Resources', links: [
@@ -289,7 +289,7 @@ export const defaultState: CmsState = {
         { id: uid(), type: 'text', text: 'The more you tell us, the faster we can fix it. Helpful things to include: the address of the tool page, the input you gave it, your browser and device, and what you expected to happen versus what actually did. A screenshot never hurts.' },
         { id: uid(), type: 'heading', text: 'Questions about your data', level: 2 },
         { id: uid(), type: 'text', text: 'Because our tools process your inputs in your browser, we usually hold nothing to update or delete. If you want to exercise any right under the UK GDPR — or simply want to know what, if anything, we hold — email us and we will give you a straight answer. You also have the right to complain to the Information Commissioner\'s Office at ico.org.uk.' },
-        { id: uid(), type: 'cta', text: 'While you are here,', label: 'Browse 150+ free tools', href: '#/free-tools' },
+        { id: uid(), type: 'cta', text: 'While you are here,', label: 'Browse 150+ free tools', href: '#/free-seo-tools' },
       ],
     },
     {
@@ -506,7 +506,7 @@ export const defaultState: CmsState = {
     footerMenuTitle: 'Quick links',
     footerLinks: [
       { id: uid(), label: 'Free SEO Audit', href: '/', visible: true },
-      { id: uid(), label: 'Free SEO Tools', href: '/free-tools', visible: true },
+      { id: uid(), label: 'Free SEO Tools', href: '/free-seo-tools', visible: true },
       { id: uid(), label: 'Blog', href: '/blog', visible: true },
       { id: uid(), label: 'About', href: '/about', visible: true },
       { id: uid(), label: 'Contact', href: '/contact', visible: true },
@@ -514,7 +514,7 @@ export const defaultState: CmsState = {
     social: { facebook: 'https://www.facebook.com/', x: 'https://x.com/', linkedin: '', instagram: '', youtube: '' },
   },
   nav: [
-    { id: uid(), label: 'Free SEO Tools', href: '/free-tools', visible: true },
+    { id: uid(), label: 'Free SEO Tools', href: '/free-seo-tools', visible: true },
   ],
   footerColumns: defaultFooterColumns.map(col => ({ ...col, links: col.links.map(l => ({ ...l })) })),
   passcode: 'admin123',
@@ -537,10 +537,10 @@ const cleanStoredHref = (href: string): string => {
     if (!path) return '/';
     if (!path.startsWith('/')) return value; // in-page fragment — keep as-is
     let clean = path.replace(/^\/p\//, '/').replace(/^\//, '').replace(/\/+$/, '');
-    if (clean === 'tools' || clean === 'tool') clean = 'free-tools';
+    if (clean === 'tools' || clean === 'tool' || clean === 'free-tools') clean = 'free-seo-tools';
     return clean === '' ? '/' : `/${clean}`;
   }
-  if (value === '/tools' || value === '/tool') return '/free-tools';
+  if (value === '/tools' || value === '/tool' || value === '/free-tools') return '/free-seo-tools';
   return value;
 };
 
@@ -795,9 +795,9 @@ const migrateSidebar = (stored: Partial<SidebarConfig> | undefined): SidebarConf
 
 /** Untouched default navs from earlier builds. Admin-edited menus are kept. */
 const LEGACY_NAV_SIGNATURES = [
-  'Features|#features;Tools|#/free-tools;Blog|#/blog;Users|#audiences',
+  'Features|#features;Tools|#/free-seo-tools;Blog|#/blog;Users|#audiences',
   'Features|#features;Tools|#/tools;Blog|#/blog;Users|#audiences',
-  'SEO Tools|#/free-tools',
+  'SEO Tools|#/free-seo-tools',
   'SEO Tools|#/tools',
 ];
 const migrateNav = (stored: NavItem[] | undefined): NavItem[] => {

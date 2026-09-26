@@ -11,7 +11,7 @@ test.afterEach(() => expect(errors).toEqual([]));
 
 for (const [path, heading] of [
   ['/about', 'About SEO Audit Tools'],
-  ['/free-tools?cat=calculator', /Free SEO Tools/],
+  ['/free-seo-tools?cat=calculator', /Free SEO Tools/],
   ['/tool/percentage-calculator', 'Percentage Calculator'],
   ['/blog', 'The SEO Audit Tool Blog'],
   ['/admin-login', 'Admin login'],
@@ -44,13 +44,13 @@ test('new-tab link, query filters and browser history', async ({ page, context }
   await tab.goto(href!);
   await expect(tab.locator('h1')).toHaveText('Percentage Calculator');
   await tab.close();
-  await page.locator('a[href="/free-tools?cat=calculator"]').click();
-  await expect(page).toHaveURL(/\/free-tools\?cat=calculator$/);
+  await page.locator('a[href="/free-seo-tools?cat=calculator"]').click();
+  await expect(page).toHaveURL(/\/free-seo-tools\?cat=calculator$/);
   await expect(page.locator('h1')).toContainText('Tools');
   await page.goBack();
   await expect(page.locator('h1')).toHaveText('Free SEO Audit Tool');
   await page.goForward();
-  await expect(page).toHaveURL(/\/free-tools\?cat=calculator$/);
+  await expect(page).toHaveURL(/\/free-seo-tools\?cat=calculator$/);
 });
 
 for (const [path, destination, heading] of [
@@ -167,7 +167,7 @@ test('navigation is instant: content swaps within a single frame', async ({ page
 
   await page.locator('a[href="/blog"]').first().click();
   await expect(page.locator('h1')).toContainText('Blog');
-  await page.locator('a[href="/free-tools"]').first().click();
+  await page.locator('a[href="/free-seo-tools"]').first().click();
   await expect(page.locator('h1')).toContainText('Tools');
   await page.waitForTimeout(120);
 
@@ -181,7 +181,7 @@ test('navigation is instant: content swaps within a single frame', async ({ page
 
 test('the content area always fills the viewport, so the footer never touches the header', async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 800 });
-  for (const path of ['/admin-login', '/free-tools', '/about']) {
+  for (const path of ['/admin-login', '/free-seo-tools', '/about']) {
     await page.goto(path);
     const { minHeight, height, footerTop } = await page.evaluate(() => {
       const main = document.querySelector('main') as HTMLElement;
@@ -206,7 +206,7 @@ test('a click opens the new page at the top; history keeps the reader in place',
   expect(await page.evaluate(() => window.scrollY)).toBeGreaterThan(0);
 
   // A link click is a new page: it starts at the top, immediately.
-  await page.locator('a[href="/free-tools"]').first().click();
+  await page.locator('a[href="/free-seo-tools"]').first().click();
   await expect(page.locator('h1')).toContainText('Tools');
   expect(await page.evaluate(() => window.scrollY)).toBe(0);
 

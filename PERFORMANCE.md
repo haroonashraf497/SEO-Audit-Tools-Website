@@ -126,6 +126,6 @@ Apache/LiteSpeed needs `mod_rewrite`, `mod_deflate`, `mod_headers` and
 `mod_expires` with AllowOverride. Verify on staging:
 
 - `curl --compressed -I https://YOUR-HOST/` → 200, `text/html`.
-- `curl --compressed -I https://YOUR-HOST/tools` → **301** to `/free-tools`.
+- `curl --compressed -I https://YOUR-HOST/tools` → **301** to `/free-seo-tools`.
 - `curl --compressed -I https://YOUR-HOST/about` → 200 (not redirected to `/`).
 - `https://YOUR-HOST/assets/` → 404/403 (nothing should be deployed there).

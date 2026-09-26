@@ -7,7 +7,7 @@ import { useCms } from '../cms/store';
  *
  * Every category shown on the Free SEO Tools page (with its live tool count)
  * is listed here and links straight to the filtered tools page, e.g.
- * /free-tools?cat=management. Counts come from the same CMS source the tools
+ * /free-seo-tools?cat=management. Counts come from the same CMS source the tools
  * page uses, so the numbers can never drift apart.
  */
 
@@ -107,7 +107,7 @@ export const ToolCategoriesMenu: React.FC<{ route?: string }> = ({ route }) => {
                 {column.map(cat => (
                   <a
                     key={cat}
-                    href={`/free-tools?cat=${cat}`}
+                    href={`/free-seo-tools?cat=${cat}`}
                     onClick={close}
                     className="py-2 text-[17px] leading-snug text-slate-800 hover:text-indigo-600 transition-colors rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2"
                   >
@@ -119,7 +119,7 @@ export const ToolCategoriesMenu: React.FC<{ route?: string }> = ({ route }) => {
           </div>
 
           <div className="mt-4 pt-4 border-t border-slate-100 flex items-center justify-between gap-4">
-            <a href="/free-tools" onClick={close} className="text-sm text-indigo-600 hover:text-indigo-700 transition-colors">
+            <a href="/free-seo-tools" onClick={close} className="text-sm text-indigo-600 hover:text-indigo-700 transition-colors">
               Browse all {total} free tools →
             </a>
             <span className="text-xs text-slate-400">{categoryOrder.length} categories</span>
@@ -151,14 +151,14 @@ export const ToolCategoriesMobileSection: React.FC<{ onNavigate: () => void }> =
         {categoryOrder.map(cat => (
           <a
             key={cat}
-            href={`/free-tools?cat=${cat}`}
+            href={`/free-seo-tools?cat=${cat}`}
             onClick={onNavigate}
             className="py-2 text-[15px] text-slate-700 hover:text-indigo-600 transition-colors rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2"
           >
             {categoryLabels[cat]} <span className="text-slate-400">({counts.get(cat) || 0})</span>
           </a>
         ))}
-        <a href="/free-tools" onClick={onNavigate} className="py-2 text-sm text-indigo-600 hover:text-indigo-700 transition-colors">
+        <a href="/free-seo-tools" onClick={onNavigate} className="py-2 text-sm text-indigo-600 hover:text-indigo-700 transition-colors">
           Browse all free tools →
         </a>
       </div>
