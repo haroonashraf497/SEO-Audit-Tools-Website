@@ -462,13 +462,6 @@ export const ToolsList: React.FC = () => {
     return map;
   }, [filtered]);
 
-  // Per-category totals for the filter pills (stable while browsing).
-  const countByCat = useMemo(() => {
-    const map = new Map<ToolCategory, number>();
-    tools.forEach(t => map.set(t.category, (map.get(t.category) || 0) + 1));
-    return map;
-  }, [tools]);
-
   // Keep the URL in step with the active filters so filtered views are
   // shareable and survive reload. replaceState: filtering is not navigation.
   const syncUrl = useCallback((q: string, cat: 'all' | ToolCategory) => {
@@ -480,16 +473,14 @@ export const ToolsList: React.FC = () => {
   }, []);
 
   const onQueryChange = useCallback((q: string) => { setQuery(q); syncUrl(q, activeCat); }, [activeCat, syncUrl]);
-  const onCatChange = useCallback((cat: 'all' | ToolCategory) => { setActiveCat(cat); syncUrl(query, cat); }, [query, syncUrl]);
   const clearFilters = useCallback(() => { setQuery(''); setActiveCat('all'); syncUrl('', 'all'); }, [syncUrl]);
 
-  const pillCls = (active: boolean) =>
-    `px-4 py-2 rounded-full text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 ${active ? 'bg-indigo-600 text-white shadow-md' : 'bg-white border border-slate-200 text-slate-600 hover:border-indigo-300'}`;
-
   return (
-    <div className="pt-10 pb-20 px-4 min-h-screen">
-      <div className="max-w-7xl mx-auto">
-        <header className="text-center mb-10">
+    <div className="pb-20 min-h-screen">
+      {/* Hero band — same background as the home page hero */}
+      <section className="pt-16 pb-16 px-4 bg-gradient-to-br from-indigo-100 via-violet-50 to-purple-100">
+        <div className="max-w-7xl mx-auto">
+        <header className="text-center mb-8">
           <h1 className="text-4xl md:text-5xl font-bold text-slate-900 mb-4">
             Free{' '}
             <span className="bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">SEO Tools</span>
@@ -523,24 +514,25 @@ export const ToolsList: React.FC = () => {
             )}
           </div>
         </div>
-
-        <div className="flex flex-wrap justify-center gap-2 mb-6">
-          <button onClick={() => onCatChange('all')} aria-pressed={activeCat === 'all'} className={pillCls(activeCat === 'all')}>
-            All Tools ({tools.length})
-          </button>
-          {categoryOrder.map(cat => (
-            <button key={cat} onClick={() => onCatChange(cat)} aria-pressed={activeCat === cat} className={pillCls(activeCat === cat)}>
-              {categoryLabels[cat].replace(' Tools', '')} ({countByCat.get(cat) || 0})
-            </button>
-          ))}
         </div>
+      </section>
 
+      <div className="px-4 pt-10">
+        <div className="max-w-7xl mx-auto">
         <div className="min-h-[1.5rem] mb-6 text-center" aria-live="polite">
           {(query.trim() || activeCat !== 'all') && (
             <p className="text-sm text-slate-500">
               Showing <strong className="text-slate-700">{filtered.length}</strong> of {tools.length} tools
               {activeCat !== 'all' && <> in {categoryLabels[activeCat]}</>}
               {query.trim() && <> matching “{query.trim()}”</>}
+              {' · '}
+              <button
+                type="button"
+                onClick={clearFilters}
+                className="text-indigo-600 hover:text-indigo-700 underline decoration-indigo-300 underline-offset-2 transition-colors rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2"
+              >
+                Show all {tools.length} tools
+              </button>
             </p>
           )}
         </div>
@@ -590,6 +582,7 @@ export const ToolsList: React.FC = () => {
             </button>
           </div>
         )}
+        </div>
       </div>
     </div>
   );

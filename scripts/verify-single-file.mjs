@@ -533,14 +533,44 @@ for (const [short, long, heading] of [['/privacy', '/privacy-policy', 'Privacy P
     const checker = categories.find(a => a.getAttribute('href') === '/free-tools?cat=checker');
     checker?.dispatchEvent(new bootNav.dom.window.MouseEvent('click', { bubbles: true, cancelable: true }));
     await new Promise(r => setTimeout(r, 120));
-    const pill = [...doc.querySelectorAll('main button')].find(b => /^Website Checker \(\d+\)$/.test(b.textContent.trim()));
+    const status = [...doc.querySelectorAll('main p')].find(p => /Showing/.test(p.textContent));
     check('clicking a category filters the tools page in the same task',
       bootNav.dom.window.location.pathname === '/free-tools' && bootNav.dom.window.location.search === '?cat=checker'
-      && pill?.getAttribute('aria-pressed') === 'true'
-      && doc.querySelectorAll('main a[href^="/tool/"]').length === 24,
-      `${bootNav.dom.window.location.pathname}${bootNav.dom.window.location.search}, pill=${pill?.textContent.trim()}, tools=${doc.querySelectorAll('main a[href^="/tool/"]').length}`);
+      && doc.querySelectorAll('main a[href^="/tool/"]').length === 24
+      && /Showing 24 of \d+ tools in Website Checker Tools/.test(status?.textContent || ''),
+      `${bootNav.dom.window.location.pathname}${bootNav.dom.window.location.search}, tools=${doc.querySelectorAll('main a[href^="/tool/"]').length}, status=${status?.textContent.replace(/\s+/g, ' ').trim()}`);
     check('the menu closes once a category is chosen', doc.getElementById('tool-categories-menu')?.className.includes('hidden'));
     bootNav.dom.window.close();
+  }
+
+  // /free-tools: no category filter chips, hero band like the home page
+  {
+    const bootTools = await boot('', '/free-tools');
+    const doc = bootTools.dom.window.document;
+    const chips = [...doc.querySelectorAll('main button')].filter(b => /^(All Tools|Text Analysis|Keyword|Backlink|Website |Domain|Unit Converter|Calculator|PDF|Image|IP) \(\d+\)$/.test(b.textContent.trim()));
+    const hero = [...doc.querySelectorAll('main section')].find(s => /from-indigo-100/.test(s.className));
+    check('the tools page has no category filter chips',
+      chips.length === 0 && doc.querySelectorAll('main button[aria-pressed]').length === 0,
+      `${chips.length} chips: ${chips.map(b => b.textContent.trim()).join(', ')}`);
+    check('the tools page hero uses the home-page gradient band',
+      /bg-gradient-to-br from-indigo-100 via-violet-50 to-purple-100/.test(hero?.className || '')
+      && !!hero?.querySelector('h1') && !!hero?.querySelector('input[type="search"]'),
+      hero?.className || 'no hero band');
+    check('every category section heading is still rendered',
+      [...doc.querySelectorAll('main h2')].length === 11,
+      `${doc.querySelectorAll('main h2').length} headings`);
+    bootTools.dom.window.close();
+  }
+
+  // filtered arrival (e.g. from the nav mega menu) offers a way back to all tools
+  {
+    const bootFiltered = await boot('', '/free-tools?cat=pdf');
+    const doc = bootFiltered.dom.window.document;
+    const reset = [...doc.querySelectorAll('main button')].find(b => /^Show all \d+ tools$/.test(b.textContent.trim()));
+    check('a filtered tools page offers "Show all" to clear the filter',
+      !!reset && doc.querySelectorAll('main a[href^="/tool/"]').length === 18,
+      `reset=${!!reset}, cards=${doc.querySelectorAll('main a[href^="/tool/"]').length}`);
+    bootFiltered.dom.window.close();
   }
 
   // top-nav text weight: selected items are indigo but never bold

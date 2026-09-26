@@ -78,6 +78,17 @@ name, and the Cookie preferences control there is the footer's only one. Legal p
 `/privacy-policy`, `/cookie-policy` and `/terms-of-service` URLs are 301-redirected and are
 also upgraded client-side for the dev/preview server, which does no rewriting.
 
+### Free SEO Tools page (/free-tools)
+
+- the page opens with the **same gradient band as the home hero**
+  (`bg-gradient-to-br from-indigo-100 via-violet-50 to-purple-100`), holding the title,
+  the description and the search box; the tool grid then continues on the page background;
+- the **category filter chips are gone** — categories now live only in the top-nav mega menu, so
+  the page shows one section per category (heading + count) with all its tool cards;
+- arriving on a filtered URL (e.g. `/free-tools?cat=pdf` or `?q=sitemap`) keeps working and the
+  status line gains a **Show all N tools** link that clears the filter;
+- search, grouping, "Instant" badges and the empty state are unchanged.
+
 ### Tool Categories mega menu
 
 The top navigation carries a fixed **Tool Categories** item (next to *Free SEO Tools*, before
@@ -130,9 +141,9 @@ to move or version it. See `CMS.md` for the full CMS reference.
 
 ```bash
 npm run typecheck                  # tsc --noEmit
-node scripts/feature-audit.mjs     # 112 checks: CMS controls, footer redesign, legal URLs, /free-tools, text-tool layout/mobile, case-converter grid, Tool Categories mega menu, no-bold top nav, no EKSTRUH, 154 tools
+node scripts/feature-audit.mjs     # 115 checks: CMS controls, footer redesign, legal URLs, /free-tools, text-tool layout/mobile, case-converter grid, Tool Categories mega menu, no-bold top nav, category chips removed from /free-tools, no EKSTRUH, 154 tools
 npm install --no-save jsdom
-node scripts/verify-single-file.mjs  # 103 checks: boots the built file, instant swap, footer, legal URLs, head injection, text-tool layout, mega-menu navigation
+node scripts/verify-single-file.mjs  # 107 checks: boots the built file, instant swap, footer, legal URLs, head injection, text-tool layout, mega-menu navigation
 npm test                           # 34 Playwright tests (needs Chromium)
 ```
 

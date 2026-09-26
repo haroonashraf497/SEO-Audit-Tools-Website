@@ -140,6 +140,14 @@ check('every category link points at the filtered tools page',
 check('counts come from the live CMS tool list', /cms\.state\.tools\.forEach\(t => \{[\s\S]{0,80}if \(t\.status !== 'live'\) return;/.test(menuSrc)
   && /categoryLabels\[cat\]\} <span className="text-slate-400">\(\{counts\.get\(cat\) \|\| 0\}\)/.test(menuSrc));
 check('menu offers a browse-all link to /free-tools', /Browse all \{total\} free tools/.test(menuSrc));
+const listSrc = read('src/tools/Tools.tsx');
+check('tools page drops the category filter chips',
+  !/onCatChange|pillCls|countByCat/.test(listSrc)
+  && !/All Tools \(\{tools\.length\}\)/.test(listSrc));
+check('tools page hero carries the home gradient band',
+  /<section className="pt-16 pb-16 px-4 bg-gradient-to-br from-indigo-100 via-violet-50 to-purple-100">/.test(listSrc));
+check('filtered tools pages keep a "Show all" reset',
+  /Show all \{tools\.length\} tools/.test(listSrc) && /onClick=\{clearFilters\}/.test(listSrc));
 check('top-nav text is never bold on hover or when selected',
   (() => {
     const navRegion = appSrc.slice(appSrc.indexOf('hidden md:flex items-center gap-7'), appSrc.indexOf('</nav>'));
