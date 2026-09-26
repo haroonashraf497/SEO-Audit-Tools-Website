@@ -271,6 +271,19 @@ for (const [path, expected] of [['/tool/merge-pdf', 'Merge PDF'], ['/admin-login
     bottom ? bottom.className : 'no bottom nav');
   check('bottom-bar legal links mirror the column',
     [...bottom.querySelectorAll('a')].map(a => a.getAttribute('href')).join(',') === '/privacy,/cookies,/terms');
+  check('bottom bar shows the short labels',
+    [...bottom.querySelectorAll('a')].map(a => a.textContent.trim()).join(' · ') === 'Privacy · Cookie · Terms',
+    [...bottom.querySelectorAll('a')].map(a => a.textContent.trim()).join(' · '));
+  check('short links keep Privacy Policy / Cookie Policy / Terms & Conditions as their accessible name',
+    [...bottom.querySelectorAll('a')].map(a => a.getAttribute('aria-label')).join('|') === 'Privacy Policy|Cookie Policy|Terms & Conditions'
+    && [...bottom.querySelectorAll('a')].map(a => a.getAttribute('title')).join('|') === 'Privacy Policy|Cookie Policy|Terms & Conditions');
+  check('bottom bar ends with the Cookie preferences control',
+    (() => {
+      const items = [...bottom.children].filter(el => el.tagName !== 'SPAN' || el.textContent.trim() !== '·');
+      const last = items[items.length - 1];
+      return !!last && last.tagName === 'BUTTON' && last.textContent.trim() === 'Cookie preferences'
+        && bottom.textContent.replace(/\s+/g, '').endsWith('·Cookiepreferences');
+    })(), bottom.textContent.trim());
   check('bottom bar keeps the editable copyright on the left',
     footer.textContent.includes(`© ${new Date().getFullYear()} SEO Audit Tools · seoaudittools.pk`));
 
@@ -278,6 +291,12 @@ for (const [path, expected] of [['/tool/merge-pdf', 'Merge PDF'], ['/admin-login
   click([...legal.querySelectorAll('button')].find(button => button.textContent.includes('Cookie preferences')));
   await wait();
   check('footer Cookie preferences button opens the dialog',
+    !!doc.querySelector('[role="dialog"][aria-label="Cookie preferences"]'));
+  click(doc.querySelector('[aria-label="Close cookie preferences"]'));
+  await wait();
+  click([...bottom.querySelectorAll('button')].find(button => button.textContent.trim() === 'Cookie preferences'));
+  await wait();
+  check('bottom-bar Cookie preferences control opens the dialog too',
     !!doc.querySelector('[role="dialog"][aria-label="Cookie preferences"]'));
   dom.window.close();
 }

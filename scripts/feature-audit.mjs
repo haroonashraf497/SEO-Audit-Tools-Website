@@ -74,10 +74,16 @@ check('Company column = about, contact', /title: 'Company', links: \[[\s\S]{0,22
 check('columns render in an equal-width grid', /grid grid-cols-2 gap-8 py-10 md:grid-cols-3 lg:grid-cols-5/.test(app));
 check('separate Legal column beside them', /aria-label="Legal"[\s\S]{0,240}Legal<\/h3>/.test(app));
 check('Legal column = privacy, cookies, terms on short URLs', /const FOOTER_LEGAL_LINKS[\s\S]{0,400}href: '\/privacy'[\s\S]{0,200}href: '\/cookies'[\s\S]{0,200}href: '\/terms'/.test(app));
-check('Terms link labelled "Terms & Conditions"', /label: 'Terms & Conditions', href: '\/terms'/.test(app));
+check('Terms link labelled "Terms & Conditions"', /label: 'Terms & Conditions', short: 'Terms', href: '\/terms'/.test(app));
 check('bottom bar: copyright left, legal links right', /sm:flex-row sm:items-center sm:justify-between[\s\S]{0,600}aria-label="Legal documents"[\s\S]{0,200}sm:justify-end/.test(app));
 check('bottom bar reuses renderCopyright (still editable)', /sm:justify-between[\s\S]{0,400}renderCopyright\(cms\.state\.settings\.footerCopyright/.test(app));
 check('cookie preferences button kept', /onClick=\{\(\) => setCookiePrefsOpen\(true\)\}[^>]*>Cookie preferences/.test(app));
+check('bottom bar uses the short labels', /short: 'Privacy', href: '\/privacy'/.test(app)
+  && /short: 'Cookie', href: '\/cookies'/.test(app)
+  && /short: 'Terms', href: '\/terms'/.test(app)
+  && /className="hover:text-white transition-colors">\{l\.short\}<\/a>/.test(app));
+check('short links keep the full name for a11y/tooltip', /title=\{l\.label\} aria-label=\{l\.label\}/.test(app));
+check('bottom bar also offers Cookie preferences', /sm:justify-end"[\s\S]{0,700}onClick=\{\(\) => setCookiePrefsOpen\(true\)\}[^>]*>Cookie preferences<\/button>/.test(app));
 check('no long legal URL left in the app shell', !/href="\/privacy-policy"|href="\/cookie-policy"|href="\/terms-of-service"/.test(app));
 check('router maps short legal routes to stored slugs', /privacy: 'privacy-policy'/.test(router) && /cookies: 'cookie-policy'/.test(router) && /terms: 'terms-of-service'/.test(router));
 check('router upgrades long legal paths to short ones', /canonicalLegalPath\(cleanPath\(u\.pathname\)\)/.test(router) && /next = canonicalLegalPath\(next\)/.test(router));

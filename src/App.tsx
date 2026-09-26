@@ -1322,11 +1322,13 @@ const FOOTER_COLUMNS: { title: string; links: { label: string; href: string }[] 
 ];
 
 /** The three legal documents on their canonical short URLs — shared by the
- *  Legal column and the bottom bar so both always agree. */
-const FOOTER_LEGAL_LINKS: { label: string; href: string }[] = [
-  { label: 'Privacy Policy', href: '/privacy' },
-  { label: 'Cookie Policy', href: '/cookies' },
-  { label: 'Terms & Conditions', href: '/terms' },
+ *  Legal column and the bottom bar so both always agree. `short` is what the
+ *  compact bottom bar shows; the full title stays as a tooltip / accessible
+ *  name. */
+const FOOTER_LEGAL_LINKS: { label: string; short: string; href: string }[] = [
+  { label: 'Privacy Policy', short: 'Privacy', href: '/privacy' },
+  { label: 'Cookie Policy', short: 'Cookie', href: '/cookies' },
+  { label: 'Terms & Conditions', short: 'Terms', href: '/terms' },
 ];
 
 /**
@@ -2171,18 +2173,22 @@ const SiteApp: React.FC = () => {
             </nav>
           </div>
 
-          {/* Bottom bar — copyright on the left, the legal documents on the
-              right. The copyright line stays editable (Admin → Brand & footer)
-              and the cookie-preferences button keeps its bottom-right spot. */}
+          {/* Bottom bar — copyright on the left, the short legal links and the
+              cookie-preferences control on the right:
+                Privacy · Cookie · Terms · Cookie preferences
+              The copyright line stays editable (Admin → Brand & footer); the
+              links carry their full name as the accessible name / tooltip. */}
           <div className="border-t border-slate-800 pt-6 flex flex-col gap-3 text-xs text-slate-400 sm:flex-row sm:items-center sm:justify-between">
             <p>{renderCopyright(cms.state.settings.footerCopyright, cms.state.settings.name, cms.state.settings.domain)}</p>
             <nav aria-label="Legal documents" className="flex flex-wrap items-center gap-x-2 gap-y-1 sm:justify-end">
               {FOOTER_LEGAL_LINKS.map((l, i) => (
                 <React.Fragment key={l.label}>
                   {i > 0 && <span aria-hidden="true" className="text-slate-600">·</span>}
-                  <a href={l.href} className="hover:text-white transition-colors">{l.label}</a>
+                  <a href={l.href} title={l.label} aria-label={l.label} className="hover:text-white transition-colors">{l.short}</a>
                 </React.Fragment>
               ))}
+              <span aria-hidden="true" className="text-slate-600">·</span>
+              <button type="button" onClick={() => setCookiePrefsOpen(true)} className="hover:text-white transition-colors">Cookie preferences</button>
             </nav>
           </div>
         </div>

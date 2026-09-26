@@ -68,8 +68,10 @@ Settings → Password; override the defaults at build time with the variables in
 The footer itself is fixed: **Quick Links** (the CMS-editable menu above), **SEO Tools**,
 **Resources**, **Company** as four equal columns, plus a separate **Legal** column
 (Privacy Policy, Cookie Policy, Terms & Conditions) that also holds the cookie-preferences
-button. The bottom bar shows the editable copyright line on the left and the three legal
-links on the right. Legal pages answer on `/privacy`, `/cookies` and `/terms`; the old
+button. The bottom bar shows the editable copyright line on the left and, on the right, the
+short legal links plus the cookie-preferences control —
+`Privacy · Cookie · Terms · Cookie preferences` — each short link keeping its full name as
+the tooltip / accessible name. Legal pages answer on `/privacy`, `/cookies` and `/terms`; the old
 `/privacy-policy`, `/cookie-policy` and `/terms-of-service` URLs are 301-redirected and are
 also upgraded client-side for the dev/preview server, which does no rewriting.
 
@@ -81,9 +83,9 @@ to move or version it. See `CMS.md` for the full CMS reference.
 
 ```bash
 npm run typecheck                  # tsc --noEmit
-node scripts/feature-audit.mjs     # 75 checks: every CMS control, footer redesign, legal URLs, /free-tools, no EKSTRUH, 154 tools
+node scripts/feature-audit.mjs     # 78 checks: every CMS control, footer redesign, legal URLs, /free-tools, no EKSTRUH, 154 tools
 npm install --no-save jsdom
-node scripts/verify-single-file.mjs  # 67 checks: boots the built file, instant swap, footer, legal URLs, head injection
+node scripts/verify-single-file.mjs  # 71 checks: boots the built file, instant swap, footer, legal URLs, head injection
 npm test                           # 34 Playwright tests (needs Chromium)
 ```
 
