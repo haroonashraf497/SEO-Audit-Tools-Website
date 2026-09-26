@@ -123,10 +123,12 @@ check('sitemap lists the short legal URLs only', sitemap.includes('<loc>https://
 console.log('\n=== 🧯 pdf.js buffer detachment (compression ladder) ===');
 const pdfEngine = read('src/tools/pdf/engine.ts');
 const pdfUiSrc = read('src/tools/pdf/ui.tsx');
+const pdfToolSources = pdfEngine + read('src/tools/pdf/PdfTools.tsx') + read('src/tools/pdf/ConvertTools.tsx') + read('src/tools/pdf/ui.tsx');
 check('every buffer handed to pdf.js is copied first',
   /export const copyBuffer = \(buf: ArrayBuffer\): Uint8Array => \{/.test(pdfEngine)
   && (pdfEngine.match(/data: copyBuffer\(buf\)/g) || []).length === 2
-  && !/getDocument\(\{ data: new Uint8Array\(buf\)/.test(pdfEngine));
+  && /data: copyBuffer\(f\.buf\), password: pw/.test(pdfToolSources)
+  && !/getDocument\(\{ data: new Uint8Array\(/.test(pdfToolSources));
 check('the copy helper explains why it exists',
   /pdf\.js TRANSFERS the buffer it is given to its worker thread, which detaches/.test(pdfEngine));
 check('the compression ladder survives one failing pass',

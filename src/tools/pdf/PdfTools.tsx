@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useMemo, useState } from 'react';
 import { PrivacyNote, DropZone, Progress, ErrorBox, Btn, StatBox, FileInfoPanel, Thumbnails, ResultPanel, CompressMore, usePdfFile } from './ui';
-import { loadPdfLib, loadPdfJs, fmtBytes, readFile, download, inspectPdf, parseRanges, compressToTarget, renderPages, imagesToPdf, type PdfInfo, type PdfDoc } from './engine';
+import { loadPdfLib, loadPdfJs, copyBuffer, fmtBytes, readFile, download, inspectPdf, parseRanges, compressToTarget, renderPages, imagesToPdf, type PdfInfo, type PdfDoc } from './engine';
 
 const base = (name: string) => name.replace(/\.pdf$/i, '');
 
@@ -266,7 +266,9 @@ export const UnlockPdf: React.FC = () => {
       if (!done) {
         if (!pw) throw new Error('This PDF requires its open password. Enter the password and try again.');
         const pdfjs = await loadPdfJs();
-        const src = await pdfjs.getDocument({ data: new Uint8Array(f.buf), password: pw }).promise; // throws on wrong password
+        // copyBuffer: pdf.js detaches the buffer it is given, and f.buf is still
+        // needed for the render below (and for further attempts).
+        const src = await pdfjs.getDocument({ data: copyBuffer(f.buf), password: pw }).promise; // throws on wrong password
         const total: number = src.numPages;
         const imgs = await renderPages(f.buf, { scale: 2, quality: 0.92, password: pw });
         setOut(await imagesToPdf(imgs));
