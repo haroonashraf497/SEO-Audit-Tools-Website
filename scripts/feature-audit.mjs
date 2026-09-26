@@ -120,6 +120,29 @@ check('sitemap lists the short legal URLs only', sitemap.includes('<loc>https://
   && sitemap.includes('<loc>https://seoaudittools.pk/terms</loc>')
   && !/seoaudittools\.pk\/(privacy-policy|cookie-policy|terms-of-service)</.test(sitemap));
 
+console.log('\n=== 🧭 Tool Categories mega menu ===');
+const appSrc = read('src/App.tsx');
+const menuSrc = read('src/components/ToolCategoriesMenu.tsx');
+check('Tool Categories trigger lives in the desktop nav',
+  /<ToolCategoriesMenu route=\{route\} \/>\s*\n\s*<a href="\/competitor-analysis"/.test(appSrc));
+check('burger menu gets the same categories',
+  /<ToolCategoriesMobileSection onNavigate=\{\(\) => setMobileMenuOpen\(false\)\} \/>/.test(appSrc));
+check('trigger is an accessible disclosure', /aria-haspopup="true"[\s\S]{0,120}aria-expanded=\{open\}/.test(menuSrc)
+  && /aria-controls="tool-categories-menu"/.test(menuSrc));
+check('panel opens on hover and on click', /onMouseEnter=\{\(\) => \{ clearTimer\(\); setOpen\(true\); \}\}/.test(menuSrc)
+  && /onClick=\{\(\) => setOpen\(o => !o\)\}/.test(menuSrc));
+check('panel closes on Escape, outside click and navigation',
+  /e\.key === 'Escape'/.test(menuSrc) && /wrapRef\.current\.contains/.test(menuSrc) && /useEffect\(\(\) => \{ setOpen\(false\); \}, \[route\]\)/.test(menuSrc));
+check('eleven categories in three columns, in the approved order',
+  /const COLUMNS: ToolCategory\[\]\[\] = \[\s*\['text', 'keyword', 'backlink', 'calculator'\],\s*\['management', 'checker', 'domain', 'converter'\],\s*\['ip', 'pdf', 'image'\],\s*\];/.test(menuSrc));
+check('every category link points at the filtered tools page',
+  /href=\{`\/free-tools\?cat=\$\{cat\}`\}/.test(menuSrc));
+check('counts come from the live CMS tool list', /cms\.state\.tools\.forEach\(t => \{[\s\S]{0,80}if \(t\.status !== 'live'\) return;/.test(menuSrc)
+  && /categoryLabels\[cat\]\} <span className="text-slate-400">\(\{counts\.get\(cat\) \|\| 0\}\)/.test(menuSrc));
+check('menu offers a browse-all link to /free-tools', /Browse all \{total\} free tools/.test(menuSrc));
+check('panel is a viewport-safe mega panel under the nav', /fixed left-0 right-0 top-16 z-50 px-4 pt-3/.test(menuSrc)
+  && /max-w-7xl mx-auto bg-white rounded-2xl border border-slate-200 shadow-2xl/.test(menuSrc));
+
 console.log('\n=== 📱 Text Analysis Tools (layout + mobile) ===');
 const toolsSrc = read('src/tools/Tools.tsx');
 const grammar = read('src/tools/GrammarChecker.tsx');

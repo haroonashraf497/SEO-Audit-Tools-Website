@@ -498,6 +498,63 @@ for (const [short, long, heading] of [['/privacy', '/privacy-policy', 'Privacy P
   check('every other category keeps the classic layout',
     others.every(r => r.kind === 'classic'), JSON.stringify(others.map(r => [r.slug, r.kind])));
 
+  // "Tool Categories" mega menu in the top navigation
+  {
+    const bootNav = await boot('', '/');
+    const doc = bootNav.dom.window.document;
+    const nav = doc.querySelector('nav.fixed');
+    const trigger = [...nav.querySelectorAll('button')].find(b => b.textContent.trim().startsWith('Tool Categories'));
+    check('top nav shows the Tool Categories trigger', !!trigger && trigger.getAttribute('aria-expanded') === 'false',
+      `trigger=${!!trigger}`);
+    trigger?.dispatchEvent(new bootNav.dom.window.MouseEvent('click', { bubbles: true }));
+    await new Promise(r => setTimeout(r, 60));
+    const panel = doc.getElementById('tool-categories-menu');
+    const links = [...(panel?.querySelectorAll('a') || [])];
+    const categories = links.filter(a => (a.getAttribute('href') || '').startsWith('/free-tools?cat='));
+    const expected = [
+      'Text Analysis Tools (11)', 'Keyword Tools (8)', 'Backlink Tools (8)', 'Calculator Tools (14)',
+      'Website Management Tools (45)', 'Website Checker Tools (24)', 'Domain Tools (8)', 'Unit Converter Tools (10)',
+      'IP Tools (6)', 'PDF Tools (18)', 'Image Tools (3)',
+    ];
+    check('menu opens and lists all eleven categories with live counts',
+      trigger?.getAttribute('aria-expanded') === 'true' && !panel?.className.includes('hidden')
+      && categories.length === 11
+      && JSON.stringify(categories.map(a => a.textContent.replace(/\s+/g, ' ').trim())) === JSON.stringify(expected),
+      `${categories.length} category links: ${categories.map(a => a.textContent.replace(/\s+/g, ' ').trim()).join(' | ')}`);
+    check('each category links to its filtered tools page',
+      JSON.stringify(categories.map(a => a.getAttribute('href'))) === JSON.stringify(['text', 'keyword', 'backlink', 'calculator', 'management', 'checker', 'domain', 'converter', 'ip', 'pdf', 'image'].map(c => `/free-tools?cat=${c}`)));
+    check('panel is a fixed mega panel under the 4rem nav', /fixed left-0 right-0 top-16 z-50/.test(panel?.className || ''));
+
+    // clicking a category navigates and filters the tools list
+    const checker = categories.find(a => a.getAttribute('href') === '/free-tools?cat=checker');
+    checker?.dispatchEvent(new bootNav.dom.window.MouseEvent('click', { bubbles: true, cancelable: true }));
+    await new Promise(r => setTimeout(r, 120));
+    const pill = [...doc.querySelectorAll('main button')].find(b => /^Website Checker \(\d+\)$/.test(b.textContent.trim()));
+    check('clicking a category filters the tools page in the same task',
+      bootNav.dom.window.location.pathname === '/free-tools' && bootNav.dom.window.location.search === '?cat=checker'
+      && pill?.getAttribute('aria-pressed') === 'true'
+      && doc.querySelectorAll('main a[href^="/tool/"]').length === 24,
+      `${bootNav.dom.window.location.pathname}${bootNav.dom.window.location.search}, pill=${pill?.textContent.trim()}, tools=${doc.querySelectorAll('main a[href^="/tool/"]').length}`);
+    check('the menu closes once a category is chosen', doc.getElementById('tool-categories-menu')?.className.includes('hidden'));
+    bootNav.dom.window.close();
+  }
+
+  // same categories inside the mobile burger menu
+  {
+    const bootMobile = await boot('', '/');
+    const doc = bootMobile.dom.window.document;
+    const burger = doc.querySelector('nav.fixed button[aria-controls="site-mobile-menu"]');
+    burger?.dispatchEvent(new bootMobile.dom.window.MouseEvent('click', { bubbles: true }));
+    await new Promise(r => setTimeout(r, 60));
+    const trigger = [...doc.querySelectorAll('#site-mobile-menu button')].find(b => b.textContent.trim().startsWith('Tool Categories'));
+    trigger?.dispatchEvent(new bootMobile.dom.window.MouseEvent('click', { bubbles: true }));
+    await new Promise(r => setTimeout(r, 60));
+    const links = [...doc.querySelectorAll('#tool-categories-mobile a')].filter(a => (a.getAttribute('href') || '').startsWith('/free-tools?cat='));
+    check('mobile burger menu lists the same eleven categories', !!trigger && links.length === 11,
+      `${links.length} links`);
+    bootMobile.dom.window.close();
+  }
+
   // Case Converter: the eight dark result cards form a two-column grid
   {
     const bootCase = await boot('', '/tool/case-converter');

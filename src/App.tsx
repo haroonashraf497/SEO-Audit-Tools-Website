@@ -4,6 +4,7 @@ import { fetchPageData, type LivePageData } from './utils/pageFetch';
 import { fetchDomainInfo, type DomainInfo } from './utils/domainLookup';
 import { sanitizeRichHtml } from './utils/sanitize';
 import { CmsProvider, useCms, liveTools, livePosts, findPage, blocksToHtml, renderCopyright, defaultFooterColumns, type SocialLinks } from './cms/store';
+import { ToolCategoriesMenu, ToolCategoriesMobileSection } from './components/ToolCategoriesMenu';
 import SerpPreview from './components/SerpPreview';
 import { SeoManager } from './utils/seo';
 import { cleanHref, getRoute, lastNavigationKind, navigate, rewriteLegacyLinks, storedSlugForRoute, subscribe } from './router';
@@ -1571,6 +1572,7 @@ const SiteApp: React.FC = () => {
                   <a key={n.id} href={href} aria-current={active ? 'page' : undefined} className={`rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 ${active ? 'text-indigo-600 font-semibold' : 'text-slate-600 hover:text-indigo-600'}`}>{n.label}</a>
                 );
               })}
+              <ToolCategoriesMenu route={route} />
               <a href="/competitor-analysis" aria-current={route === 'competitor-analysis' ? 'page' : undefined} className={`rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 ${route === 'competitor-analysis' ? 'text-indigo-600 font-semibold' : 'text-slate-600 hover:text-indigo-600'}`}>Competitor Analysis</a>
               {cms.loggedIn && (
                 <>
@@ -1603,6 +1605,7 @@ const SiteApp: React.FC = () => {
                 <a key={n.id} href={href} aria-current={active ? 'page' : undefined} className={`rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 ${active ? 'text-indigo-600 font-semibold' : 'text-slate-600 hover:text-indigo-600'}`} onClick={() => setMobileMenuOpen(false)}>{n.label}</a>
               );
             })}
+            <ToolCategoriesMobileSection onNavigate={() => setMobileMenuOpen(false)} />
             <a href="/competitor-analysis" aria-current={route === 'competitor-analysis' ? 'page' : undefined} className={`rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 ${route === 'competitor-analysis' ? 'text-indigo-600 font-semibold' : 'text-slate-600 hover:text-indigo-600'}`} onClick={() => setMobileMenuOpen(false)}>Competitor Analysis</a>
             {cms.loggedIn && (
               <>

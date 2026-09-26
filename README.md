@@ -78,6 +78,27 @@ name, and the Cookie preferences control there is the footer's only one. Legal p
 `/privacy-policy`, `/cookie-policy` and `/terms-of-service` URLs are 301-redirected and are
 also upgraded client-side for the dev/preview server, which does no rewriting.
 
+### Tool Categories mega menu
+
+The top navigation carries a fixed **Tool Categories** item (next to *Free SEO Tools*, before
+*Competitor Analysis*) that opens a mega panel listing every category on the Free SEO Tools page:
+
+| Column 1 | Column 2 | Column 3 |
+| --- | --- | --- |
+| Text Analysis Tools (11) | Website Management Tools (45) | IP Tools (6) |
+| Keyword Tools (8) | Website Checker Tools (24) | PDF Tools (18) |
+| Backlink Tools (8) | Domain Tools (8) | Image Tools (3) |
+| Calculator Tools (14) | Unit Converter Tools (10) | |
+
+- each entry links to `/free-tools?cat=<category>`, so the tools page opens already filtered;
+- the counts are computed from the live CMS tool list, so they always match the tools page;
+- the panel opens on hover and on click, and closes on Escape, outside click, navigation or the
+  chevron; it is a `fixed` panel pinned under the 4 rem nav bar, so it can never overflow the
+  viewport at any width;
+- phones get the same categories as a collapsible section inside the burger menu;
+- like *Home* and *Competitor Analysis*, this item is part of the app shell (not CMS-managed),
+  so the editable Navigation Menu keeps working exactly as before.
+
 ### Text Analysis Tools layout
 
 Tool pages in the **Text Analysis Tools** category (`category: 'text'`) render differently from
@@ -105,9 +126,9 @@ to move or version it. See `CMS.md` for the full CMS reference.
 
 ```bash
 npm run typecheck                  # tsc --noEmit
-node scripts/feature-audit.mjs     # 100 checks: CMS controls, footer redesign, legal URLs, /free-tools, text-tool layout/mobile/case-converter grid, no EKSTRUH, 154 tools
+node scripts/feature-audit.mjs     # 110 checks: CMS controls, footer redesign, legal URLs, /free-tools, text-tool layout/mobile, case-converter grid, Tool Categories mega menu, no EKSTRUH, 154 tools
 npm install --no-save jsdom
-node scripts/verify-single-file.mjs  # 93 checks: boots the built file, instant swap, footer, legal URLs, head injection, text-tool + case-converter layout
+node scripts/verify-single-file.mjs  # 100 checks: boots the built file, instant swap, footer, legal URLs, head injection, text-tool layout, mega-menu navigation
 npm test                           # 34 Playwright tests (needs Chromium)
 ```
 
