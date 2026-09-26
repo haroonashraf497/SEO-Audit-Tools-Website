@@ -717,36 +717,77 @@ export const ToolPage: React.FC<{ slug: string }> = ({ slug }) => {
 
   const wide = ['plagiarism-checker', 'grammar-checker', 'article-rewriter'].includes(tool.slug) || ['wm-htmleditor', 'wm-screensim', 'wm-snooper', 'wm-mobile', 'wm-htmlviewer'].includes(tool.engine || '') || tool.category === 'pdf';
 
+  /* Text Analysis Tools get the wide layout: the tool panel spans the full
+     content width and the sidebar (search, other relevant tools, popular
+     tools, latest articles) starts level with the "About the …" section
+     underneath it instead of sitting beside the panel. Everything is
+     mobile-first: single column, full-width controls, no sideways scroll. */
+  const stacked = tool.category === 'text';
+
+  const header = (
+    <header className={`text-center ${stacked ? 'mb-5 sm:mb-6' : 'mb-6'}`}>
+      <div className="inline-flex flex-wrap items-center justify-center gap-2 mb-4">
+        <span className={`w-10 h-10 rounded-xl flex items-center justify-center border ${categoryStyles[tool.category]}`}>
+          <ToolIcon category={tool.category} className="w-5 h-5" />
+        </span>
+        {tool.engine && (
+          <span className="text-[11px] font-bold uppercase tracking-wide text-emerald-600 bg-emerald-50 border border-emerald-100 px-2.5 py-1 rounded-full">
+            Instant · runs in your browser
+          </span>
+        )}
+      </div>
+      <h1 className={`font-extrabold text-slate-900 uppercase tracking-tight mb-4 ${stacked ? 'text-[26px] leading-[1.15] sm:text-3xl md:text-5xl' : 'text-3xl md:text-5xl'}`}>{tool.name}</h1>
+      <p className={`text-slate-600 max-w-3xl mx-auto leading-relaxed ${stacked ? 'text-[15px] sm:text-base md:text-lg' : 'text-base md:text-lg'}`}>{tool.description}</p>
+    </header>
+  );
+
+  const featuredImage = tool.featuredImage ? (
+    <figure className="mb-6 overflow-hidden rounded-2xl border border-slate-200 bg-slate-100 aspect-[1.91/1]">
+      <img src={tool.featuredImage} alt={tool.featuredImageAlt || tool.name} width="1200" height="630" loading="lazy" decoding="async" className="w-full h-full object-cover" onError={e => { e.currentTarget.parentElement?.classList.add('hidden'); }} />
+    </figure>
+  ) : null;
+
+  const panel = (
+    <div className={`${wide ? 'bg-white shadow-md' : 'bg-slate-50'} rounded-2xl border border-slate-200 ${stacked ? '' : 'mb-10'} ${wide
+      ? (stacked ? 'p-3 sm:p-4 md:p-6' : 'p-4 md:p-6')
+      : (stacked ? 'p-4 sm:p-5 md:p-7' : 'p-5 md:p-7')}`} key={tool.slug}>
+      {renderBody()}
+    </div>
+  );
+
+  if (stacked) {
+    return (
+      <div className="pt-8 sm:pt-10 pb-16 sm:pb-20 px-3 sm:px-4 min-h-screen">
+        <div className="max-w-7xl mx-auto">
+          {/* Full-width tool panel */}
+          {header}
+          {featuredImage}
+          {panel}
+
+          {/* Sidebar starts in front of the About / FAQ / Related-tools column */}
+          <div className="grid lg:grid-cols-[minmax(0,1fr)_minmax(0,300px)] gap-8 items-start">
+            <div className="min-w-0">
+              <ToolRelatedContent tool={tool} related={related} />
+            </div>
+            <div className="mt-10 min-w-0">
+              <Sidebar category={tool.category} currentSlug={tool.slug} />
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="pt-10 pb-20 px-4 min-h-screen">
       <div className="max-w-7xl mx-auto grid lg:grid-cols-[minmax(0,1fr)_minmax(0,300px)] gap-8 items-start">
         {/* ---------- Main column ---------- */}
         <div className="min-w-0">
-          {/* Professional centered header */}
-          <header className="text-center mb-6">
-            <div className="inline-flex items-center gap-2 mb-4">
-              <span className={`w-10 h-10 rounded-xl flex items-center justify-center border ${categoryStyles[tool.category]}`}>
-                <ToolIcon category={tool.category} className="w-5 h-5" />
-              </span>
-              {tool.engine && (
-                <span className="text-[11px] font-bold uppercase tracking-wide text-emerald-600 bg-emerald-50 border border-emerald-100 px-2.5 py-1 rounded-full">
-                  Instant · runs in your browser
-                </span>
-              )}
-            </div>
-            <h1 className="text-3xl md:text-5xl font-extrabold text-slate-900 uppercase tracking-tight mb-4">{tool.name}</h1>
-            <p className="text-base md:text-lg text-slate-600 max-w-3xl mx-auto leading-relaxed">{tool.description}</p>
-          </header>
+          {header}
 
-          {tool.featuredImage && (
-            <figure className="mb-6 overflow-hidden rounded-2xl border border-slate-200 bg-slate-100 aspect-[1.91/1]">
-              <img src={tool.featuredImage} alt={tool.featuredImageAlt || tool.name} width="1200" height="630" loading="lazy" decoding="async" className="w-full h-full object-cover" onError={e => { e.currentTarget.parentElement?.classList.add('hidden'); }} />
-            </figure>
-          )}
+          {featuredImage}
 
-          <div className={`${wide ? 'bg-white p-4 md:p-6 shadow-md' : 'bg-slate-50 p-5 md:p-7'} rounded-2xl border border-slate-200 mb-10`} key={tool.slug}>
-            {renderBody()}
-          </div>
+          {panel}
 
           <ToolRelatedContent tool={tool} related={related} />
         </div>

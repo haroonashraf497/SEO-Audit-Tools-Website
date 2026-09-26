@@ -188,27 +188,29 @@ export const ArticleRewriter: React.FC = () => {
   return (
     <div className="space-y-5">
       {/* Step wizard */}
-      <div className="bg-white rounded-2xl border border-slate-200 px-4 md:px-10 pt-8 pb-6 shadow-sm">
+      <div className="bg-white rounded-2xl border border-slate-200 px-2 sm:px-4 md:px-10 pt-6 sm:pt-8 pb-5 sm:pb-6 shadow-sm">
         <div className="relative grid grid-cols-4">
           {STEPS.map((s, i) => {
             const state = step > s.n ? 'done' : step === s.n ? 'active' : 'todo';
             return (
               <div key={s.n} className="relative flex flex-col items-center text-center">
                 {i < STEPS.length - 1 && (
-                  <div className="absolute top-7 left-1/2 w-full h-1 bg-slate-200 -z-0" aria-hidden="true">
+                  <div className="absolute top-[21px] sm:top-7 left-1/2 w-full h-1 bg-slate-200 -z-0" aria-hidden="true">
                     <div className={`h-full bg-blue-500 transition-all duration-700 ${step > s.n ? 'w-full' : 'w-0'}`} />
                   </div>
                 )}
                 <button type="button" onClick={() => { if (s.n < step) setStep(s.n); }}
-                  className={`relative z-10 w-14 h-14 rounded-full flex items-center justify-center border-2 transition-all duration-500
+                  className={`relative z-10 w-11 h-11 sm:w-14 sm:h-14 rounded-full flex items-center justify-center border-2 transition-all duration-500
                     ${state === 'active' ? 'bg-blue-500 border-blue-500 text-white shadow-lg shadow-blue-500/30 scale-105' :
                       state === 'done' ? 'bg-blue-50 border-blue-500 text-blue-600 cursor-pointer' : 'bg-slate-100 border-slate-200 text-slate-500'}`}
                   aria-current={state === 'active' ? 'step' : undefined}
                 >
-                  {state === 'done' ? <Icon d="M20 6L9 17l-5-5" className="w-6 h-6" /> : <Icon d={s.icon} />}
+                  {state === 'done'
+                    ? <Icon d="M20 6L9 17l-5-5" className="w-5 h-5 sm:w-6 sm:h-6" />
+                    : <span className="[&>svg]:w-5 [&>svg]:h-5 sm:[&>svg]:w-6 sm:[&>svg]:h-6"><Icon d={s.icon} /></span>}
                 </button>
-                <p className={`mt-3 text-sm font-bold uppercase tracking-wide ${state === 'todo' ? 'text-blue-400' : 'text-blue-600'}`}>Step {s.n}</p>
-                <p className="text-[13px] md:text-base font-bold text-slate-800 leading-tight px-1">{s.label}</p>
+                <p className={`mt-2 sm:mt-3 text-xs sm:text-sm font-bold uppercase tracking-wide ${state === 'todo' ? 'text-blue-400' : 'text-blue-600'}`}>Step {s.n}</p>
+                <p className="text-[11px] sm:text-[13px] md:text-base font-bold text-slate-800 leading-tight px-0.5 sm:px-1">{s.label}</p>
               </div>
             );
           })}
@@ -225,45 +227,45 @@ export const ArticleRewriter: React.FC = () => {
               placeholder="Paste content here to rewrite"
               spellCheck={false}
               aria-label="Content to rewrite"
-              className={`w-full min-h-[440px] p-6 md:p-8 bg-slate-100 rounded-2xl text-[17px] leading-relaxed text-slate-800 outline-none resize-y placeholder:text-slate-500 focus:ring-2 focus:ring-blue-300 ${over ? 'ring-2 ring-red-300' : ''}`}
+              className={`w-full min-h-[300px] sm:min-h-[440px] p-4 sm:p-6 md:p-8 bg-slate-100 rounded-2xl text-base sm:text-[17px] leading-relaxed text-slate-800 outline-none resize-y placeholder:text-slate-500 focus:ring-2 focus:ring-blue-300 ${over ? 'ring-2 ring-red-300' : ''}`}
             />
           </div>
 
-          <div className="flex flex-wrap items-center gap-4">
-            <div className="relative">
+          <div className="flex flex-wrap items-center gap-3 sm:gap-4">
+            <div className="relative w-full sm:w-auto">
               <select value={language} onChange={e => setLanguage(e.target.value)} aria-label="Language"
-                className="appearance-none bg-white border border-slate-300 rounded-lg pl-4 pr-12 py-3.5 text-[17px] text-slate-800 outline-none min-w-[240px]">
+                className="w-full appearance-none bg-white border border-slate-300 rounded-lg pl-4 pr-12 py-3 sm:py-3.5 text-base sm:text-[17px] text-slate-800 outline-none sm:min-w-[240px]">
                 <option>English - EN</option>
                 <option>English - UK</option>
               </select>
               <svg className="w-4 h-4 text-slate-600 absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9" /></svg>
             </div>
-            <p className={`text-xl font-bold ${over ? 'text-red-600' : 'text-slate-800'}`}>Word Limit: {words}/{WORD_LIMIT}</p>
+            <p className={`text-base sm:text-xl font-bold ${over ? 'text-red-600' : 'text-slate-800'}`}>Word Limit: {words}/{WORD_LIMIT}</p>
 
-            <div className="ml-auto flex items-center gap-2">
+            <div className="w-full sm:w-auto sm:ml-auto flex items-center justify-between sm:justify-start gap-2">
               <input ref={fileRef} type="file" accept=".txt,.md,.html,.htm,.csv,text/plain" className="hidden" onChange={e => onFile(e.target.files?.[0] || null)} />
               <button type="button" onClick={() => fileRef.current?.click()} title="Upload a text file"
-                className="w-[76px] h-[68px] rounded-lg border border-slate-300 bg-white hover:bg-slate-50 flex items-center justify-center text-slate-500">
+                className="flex-1 sm:flex-none sm:w-[76px] h-14 sm:h-[68px] rounded-lg border border-slate-300 bg-white hover:bg-slate-50 flex items-center justify-center text-slate-500">
                 <Icon d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12" className="w-6 h-6" />
               </button>
               <button type="button" onClick={() => setNotice('Cloud import is a Pro feature. Upload a .txt file or paste your text instead.')} title="Choose from Dropbox"
-                className="w-[76px] h-[68px] rounded-lg border border-slate-300 bg-white hover:bg-slate-50 flex items-center justify-center">
+                className="flex-1 sm:flex-none sm:w-[76px] h-14 sm:h-[68px] rounded-lg border border-slate-300 bg-white hover:bg-slate-50 flex items-center justify-center">
                 <svg className="w-8 h-8 text-blue-500" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M6 2L0 6l6 4-6 4 6 4 6-4-6-4 6-4-6-4zm12 0l-6 4 6 4-6 4 6 4 6-4-6-4 6-4-6-4zM6 19l6 4 6-4-6-4-6 4z" /></svg>
               </button>
               <button type="button" onClick={() => { setText(''); setNotice(''); }} title="Clear text"
-                className="w-[76px] h-[68px] rounded-lg border border-slate-300 bg-white hover:bg-slate-50 flex items-center justify-center text-slate-500">
+                className="flex-1 sm:flex-none sm:w-[76px] h-14 sm:h-[68px] rounded-lg border border-slate-300 bg-white hover:bg-slate-50 flex items-center justify-center text-slate-500">
                 <Icon d="M4 7V4h16v3M9 20h6M12 4v16M3 21L21 3" className="w-7 h-7" />
               </button>
             </div>
           </div>
 
-          <div className="grid lg:grid-cols-[2fr_1fr] gap-4">
+          <div className="grid lg:grid-cols-[2fr_1fr] gap-3 sm:gap-4">
             <input value={exclude} onChange={e => setExclude(e.target.value)} placeholder='Exclude Words with Comma ","'
-              className="w-full px-5 py-4 rounded-lg border border-slate-300 bg-white text-[17px] outline-none focus:border-blue-400 placeholder:text-slate-500" />
-            <div className="flex items-center gap-3 px-4 rounded-lg border border-slate-300 bg-white">
-              <span className="text-sm font-semibold text-slate-700 whitespace-nowrap">Rewrite strength</span>
+              className="w-full px-4 sm:px-5 py-3.5 sm:py-4 rounded-lg border border-slate-300 bg-white text-base sm:text-[17px] outline-none focus:border-blue-400 placeholder:text-slate-500" />
+            <div className="flex items-center gap-3 px-3 sm:px-4 py-3 sm:py-0 rounded-lg border border-slate-300 bg-white">
+              <span className="text-xs sm:text-sm font-semibold text-slate-700 sm:whitespace-nowrap">Strength</span>
               <input type="range" min="0.3" max="1" step="0.1" value={intensity} onChange={e => setIntensity(Number(e.target.value))} className="flex-1 accent-blue-600" aria-label="Rewrite strength" />
-              <span className="text-sm font-bold text-blue-600 w-16 text-right">{intensity < 0.5 ? 'Light' : intensity < 0.85 ? 'Medium' : 'Heavy'}</span>
+              <span className="text-xs sm:text-sm font-bold text-blue-600 w-14 sm:w-16 text-right">{intensity < 0.5 ? 'Light' : intensity < 0.85 ? 'Medium' : 'Heavy'}</span>
             </div>
           </div>
 

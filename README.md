@@ -78,6 +78,21 @@ name, and the Cookie preferences control there is the footer's only one. Legal p
 `/privacy-policy`, `/cookie-policy` and `/terms-of-service` URLs are 301-redirected and are
 also upgraded client-side for the dev/preview server, which does no rewriting.
 
+### Text Analysis Tools layout
+
+Tool pages in the **Text Analysis Tools** category (`category: 'text'`) render differently from
+every other category:
+
+- the tool panel spans the **full content width** (header, optional featured image, then the panel);
+- underneath it, a two-column grid puts the **About / Use cases / Why / FAQ / Related tools**
+  column on the left and the **sidebar** (search, Other Relevant Tools, Popular SEO Tools,
+  Latest Articles, CTA) on the right, so the sidebar starts level with the About section;
+- every other category keeps the classic layout, where the sidebar sits beside the panel.
+
+All eleven text tools are mobile-first: single column, full-width controls, `min-h`/padding
+staircases from phone to desktop, horizontally scrollable tab strips and long-token wrapping,
+so nothing overflows a 320-390 px viewport.
+
 Every panel saves to `localStorage` (so it survives a refresh) and updates the
 public site immediately. Content is per-browser: use **Settings → Export JSON**
 to move or version it. See `CMS.md` for the full CMS reference.
@@ -86,9 +101,9 @@ to move or version it. See `CMS.md` for the full CMS reference.
 
 ```bash
 npm run typecheck                  # tsc --noEmit
-node scripts/feature-audit.mjs     # 86 checks: every CMS control, footer redesign, legal URLs, /free-tools, no EKSTRUH, 154 tools
+node scripts/feature-audit.mjs     # 99 checks: every CMS control, footer redesign, legal URLs, /free-tools, no EKSTRUH, 154 tools
 npm install --no-save jsdom
-node scripts/verify-single-file.mjs  # 87 checks: boots the built file, instant swap, footer, legal URLs, head injection
+node scripts/verify-single-file.mjs  # 92 checks: boots the built file, instant swap, footer, legal URLs, head injection
 npm test                           # 34 Playwright tests (needs Chromium)
 ```
 

@@ -120,6 +120,37 @@ check('sitemap lists the short legal URLs only', sitemap.includes('<loc>https://
   && sitemap.includes('<loc>https://seoaudittools.pk/terms</loc>')
   && !/seoaudittools\.pk\/(privacy-policy|cookie-policy|terms-of-service)</.test(sitemap));
 
+console.log('\n=== 📱 Text Analysis Tools (layout + mobile) ===');
+const toolsSrc = read('src/tools/Tools.tsx');
+const grammar = read('src/tools/GrammarChecker.tsx');
+const plag = read('src/tools/PlagiarismChecker.tsx');
+const rewriter = read('src/tools/ArticleRewriter.tsx');
+const engines = read('src/tools/engines.tsx');
+check('text category flagged for the stacked layout', /const stacked = tool\.category === 'text';/.test(toolsSrc));
+check('stacked layout renders the panel full width above the grid',
+  /if \(stacked\) \{[\s\S]{0,320}\{header\}[\s\S]{0,200}\{featuredImage\}[\s\S]{0,200}\{panel\}[\s\S]{0,300}grid lg:grid-cols-\[minmax\(0,1fr\)_minmax\(0,300px\)\]/.test(toolsSrc));
+check('sidebar starts level with the About column', /<ToolRelatedContent tool=\{tool\} related=\{related\} \/>[\s\S]{0,200}<div className="mt-10 min-w-0">[\s\S]{0,120}<Sidebar/.test(toolsSrc));
+check('other categories keep the classic two-column layout',
+  /if \(stacked\) \{[\s\S]{0,1400}return \(\s*<div className="pt-10 pb-20 px-4 min-h-screen">/.test(toolsSrc));
+check('text tools use tighter mobile page padding', /<>pt-8 sm:pt-10 pb-16 sm:pb-20 px-3 sm:px-4 min-h-screen<|className="pt-8 sm:pt-10 pb-16 sm:pb-20 px-3 sm:px-4 min-h-screen"/.test(toolsSrc)
+  || /pt-8 sm:pt-10 pb-16 sm:pb-20 px-3 sm:px-4/.test(toolsSrc));
+check('text-tool heading scales from 26px on phones', /stacked \? 'text-\[26px\] leading-\[1\.15\] sm:text-3xl md:text-5xl'/.test(toolsSrc));
+check('grammar checker editor shrinks on phones', /min-h-\[300px\] sm:min-h-\[420px\] p-4 sm:p-6 md:p-8/.test(grammar));
+check('grammar checker selects fill the row on phones', /flex flex-1 min-w-0 sm:flex-none items-center rounded-lg/.test(grammar)
+  && /appearance-none w-full bg-transparent px-3 sm:px-4 py-3 text-slate-800 text-sm sm:text-\[15px\]/.test(grammar)
+  && /w-full sm:w-auto sm:ml-auto bg-gradient-to-r/.test(grammar));
+check('grammar stat cards shrink on phones', /border-2 rounded-lg py-3 sm:py-4 px-2 sm:px-3 text-center/.test(grammar));
+check('plagiarism editor + toolbar stack on phones', /min-h-\[280px\] sm:min-h-\[380px\] p-4 sm:p-6/.test(plag)
+  && /w-full sm:w-auto sm:mr-auto text-sm sm:text-base/.test(plag)
+  && /flex overflow-x-auto border-t border-slate-200 px-3 sm:px-5/.test(plag));
+check('article rewriter steps + editor scale down on phones', /w-11 h-11 sm:w-14 sm:h-14 rounded-full/.test(rewriter)
+  && /min-h-\[300px\] sm:min-h-\[440px\] p-4 sm:p-6 md:p-8/.test(rewriter)
+  && /w-full appearance-none bg-white border border-slate-300/.test(rewriter)
+  && !/(?<!sm:)min-w-\[240px\]/.test(rewriter));
+check('text outputs wrap long tokens', /break-words/.test(engines) && /break-all/.test(engines));
+check('text-to-speech survives browsers without the speech API', /const supported = typeof window !== 'undefined' && 'speechSynthesis' in window;/.test(engines)
+  && /if \(!supported\) return;/.test(engines));
+
 console.log('\n=== 🔗 URLs ===');
 check('.htaccess 301 /tools → /free-tools', /RewriteRule \^tools\/\?\$ \/free-tools \[R=301,L\]/.test(htaccess));
 check('.htaccess 301 /tool → /free-tools', /RewriteRule \^tool\/\?\$ \/free-tools \[R=301,L\]/.test(htaccess));

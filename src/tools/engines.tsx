@@ -191,7 +191,7 @@ const SmallText: React.FC<{ input: string }> = ({ input }) => {
             <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">{name}</span>
             <CopyBtn text={convert(map)} />
           </div>
-          <p className="text-lg text-slate-100 break-words">{convert(map) || '—'}</p>
+          <p className="text-base sm:text-lg text-slate-100 break-words">{convert(map) || '—'}</p>
         </div>
       ))}
     </div>
@@ -214,7 +214,7 @@ const ReverseText: React.FC<{ input: string }> = ({ input }) => {
             <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">{label}</span>
             <CopyBtn text={value} />
           </div>
-          <p className="text-lg text-slate-100 break-words">{value || '—'}</p>
+          <p className="text-base sm:text-lg text-slate-100 break-words">{value || '—'}</p>
         </div>
       ))}
     </div>
@@ -360,15 +360,15 @@ const SpellChecker: React.FC<{ input: string }> = ({ input }) => {
   return (
     <div className="bg-white rounded-xl border border-slate-200 divide-y divide-slate-100">
       {found.length === 0 ? (
-        <div className="p-6 text-center text-emerald-600 font-semibold">No common spelling mistakes found.</div>
+        <div className="p-5 sm:p-6 text-center text-emerald-600 font-semibold">No common spelling mistakes found.</div>
       ) : found.map(([wrong, count]) => (
-        <div key={wrong} className="p-4 flex items-center justify-between">
-          <div>
+        <div key={wrong} className="p-3.5 sm:p-4 flex items-center justify-between gap-3">
+          <div className="min-w-0 break-words">
             <span className="text-red-600 font-semibold line-through">{wrong}</span>
             <span className="mx-2 text-slate-400">→</span>
             <span className="text-emerald-700 font-semibold">{MISSPELLINGS[wrong]}</span>
           </div>
-          <span className="text-xs text-slate-400">{count}×</span>
+          <span className="text-xs text-slate-400 flex-shrink-0">{count}×</span>
         </div>
       ))}
     </div>
@@ -380,19 +380,26 @@ const TextToSpeech: React.FC<{ input: string }> = ({ input }) => {
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
   const [voiceURI, setVoiceURI] = useState('');
   const [rate, setRate] = useState(1);
+  // Guarded: browsers without the Web Speech API (and headless test runners)
+  // must still render the page instead of throwing.
+  const supported = typeof window !== 'undefined' && 'speechSynthesis' in window;
   useEffect(() => {
-    const load = () => { const v = speechSynthesis.getVoices(); setVoices(v); setVoiceURI(prev => prev || v[0]?.voiceURI || ''); };
+    if (!supported) return;
+    const synth = window.speechSynthesis;
+    const load = () => { const v = synth.getVoices(); setVoices(v); setVoiceURI(prev => prev || v[0]?.voiceURI || ''); };
     load();
-    speechSynthesis.onvoiceschanged = load;
-    return () => speechSynthesis.cancel();
-  }, []);
+    synth.onvoiceschanged = load;
+    return () => { synth.onvoiceschanged = null; synth.cancel(); };
+  }, [supported]);
   const speak = () => {
-    speechSynthesis.cancel();
+    if (!supported || typeof SpeechSynthesisUtterance === 'undefined') return;
+    const synth = window.speechSynthesis;
+    synth.cancel();
     const u = new SpeechSynthesisUtterance(input);
     const v = voices.find(x => x.voiceURI === voiceURI);
     if (v) u.voice = v;
     u.rate = rate;
-    speechSynthesis.speak(u);
+    synth.speak(u);
   };
   return (
     <div className="space-y-4">
@@ -405,11 +412,11 @@ const TextToSpeech: React.FC<{ input: string }> = ({ input }) => {
           <input type="range" min="0.5" max="2" step="0.1" value={rate} onChange={e => setRate(Number(e.target.value))} className="flex-1 accent-indigo-600" />
         </div>
       </div>
-      <div className="flex gap-3">
-        <PrimaryBtn type="button" onClick={speak} disabled={!input.trim()}>▶ Listen</PrimaryBtn>
-        <button type="button" onClick={() => speechSynthesis.cancel()} className="px-6 py-3 rounded-xl font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700">Stop</button>
+      <div className="flex flex-col sm:flex-row gap-3">
+        <PrimaryBtn type="button" onClick={speak} disabled={!input.trim() || !supported} className="w-full sm:w-auto">▶ Listen</PrimaryBtn>
+        <button type="button" onClick={() => supported && window.speechSynthesis.cancel()} className="w-full sm:w-auto px-6 py-3 rounded-xl font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700">Stop</button>
       </div>
-      {typeof window !== 'undefined' && !('speechSynthesis' in window) && (
+      {!supported && (
         <p className="text-sm text-red-600">Your browser does not support speech synthesis.</p>
       )}
     </div>

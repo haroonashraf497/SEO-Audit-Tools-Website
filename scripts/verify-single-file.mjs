@@ -453,6 +453,61 @@ for (const [short, long, heading] of [['/privacy', '/privacy-policy', 'Privacy P
   dom.window.close();
 }
 
+/* 12. Text Analysis Tools layout: the tool panel spans the full width and the
+       sidebar starts level with the About column; other categories keep the
+       classic sidebar-beside-panel layout */
+{
+  const GRID = 'lg:grid-cols-[minmax(0,1fr)_minmax(0,300px)]';
+  const layout = dom => {
+    const doc = dom.window.document;
+    const h1 = doc.querySelector('main h1');
+    if (!h1) return { kind: 'no-h1' };
+    let el = h1.parentElement, h1Grid = null;
+    while (el && el.tagName !== 'MAIN') { if (el.className.includes(GRID)) { h1Grid = el; break; } el = el.parentElement; }
+    const aside = doc.querySelector('aside');
+    let asideGrid = null, a = aside?.parentElement;
+    while (a && a.tagName !== 'MAIN') { if (a.className.includes(GRID)) { asideGrid = a; break; } a = a.parentElement; }
+    const about = [...doc.querySelectorAll('main h2')].find(h => /^About the /.test(h.textContent.trim()));
+    const aboutCol = about ? about.closest('div.min-w-0') : null;
+    return { kind: h1Grid ? 'classic' : 'stacked', sharesGrid: !!(asideGrid && aboutCol && asideGrid.contains(aboutCol)), about: !!about };
+  };
+
+  const textSlugs = ['grammar-checker', 'plagiarism-checker', 'article-rewriter', 'word-counter', 'spell-checker', 'online-md5-generator', 'case-converter', 'merge-words-online-tool', 'text-to-speech', 'small-text-generator', 'reverse-text-generator'];
+  const results12 = [];
+  for (const slug of textSlugs) {
+    const boot12 = await boot('', `/tool/${slug}`);
+    const info = layout(boot12.dom);
+    const main = boot12.dom.window.document.querySelector('main');
+    results12.push({ slug, ...info, err: boot12.errors.length, h1: main.querySelector('h1')?.textContent?.trim() || '' });
+    boot12.dom.window.close();
+  }
+  check('every Text Analysis Tool is a single-column page with a full-width panel',
+    results12.every(r => r.kind === 'stacked' && r.h1), JSON.stringify(results12.map(r => [r.slug, r.kind])).slice(0, 200));
+  check('the sidebar starts level with the About column in all of them',
+    results12.every(r => r.sharesGrid && r.about), JSON.stringify(results12.filter(r => !r.sharesGrid).map(r => r.slug)));
+  check('every Text Analysis Tool page renders without script errors',
+    results12.every(r => r.err === 0), JSON.stringify(results12.filter(r => r.err).map(r => r.slug)));
+
+  const otherSlugs = ['merge-pdf', 'website-seo-score-checker', 'meta-tag-generator', 'bmi-calculator'];
+  const others = [];
+  for (const slug of otherSlugs) {
+    const bootOther = await boot('', `/tool/${slug}`);
+    others.push({ slug, ...layout(bootOther.dom) });
+    bootOther.dom.window.close();
+  }
+  check('every other category keeps the classic layout',
+    others.every(r => r.kind === 'classic'), JSON.stringify(others.map(r => [r.slug, r.kind])));
+
+  // mobile hardening present in the built file
+  const compactHtml = rawHtml.replace(/\s+/g, ' ');
+  check('text-tool controls are mobile-first in the built file',
+    compactHtml.includes('pt-8 sm:pt-10 pb-16 sm:pb-20 px-3 sm:px-4')
+    && compactHtml.includes('min-h-[300px] sm:min-h-[420px]')
+    && compactHtml.includes('min-h-[300px] sm:min-h-[440px]')
+    && compactHtml.includes('w-11 h-11 sm:w-14 sm:h-14')
+    && compactHtml.includes('overflow-x-auto border-t border-slate-200 px-3 sm:px-5'));
+}
+
 const failed = results.filter(result => !result.ok);
 console.log(`\n${results.length - failed.length}/${results.length} checks passed`);
 process.exit(failed.length ? 1 : 0);
