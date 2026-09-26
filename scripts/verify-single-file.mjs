@@ -523,6 +523,10 @@ for (const [short, long, heading] of [['/privacy', '/privacy-policy', 'Privacy P
       `${categories.length} category links: ${categories.map(a => a.textContent.replace(/\s+/g, ' ').trim()).join(' | ')}`);
     check('each category links to its filtered tools page',
       JSON.stringify(categories.map(a => a.getAttribute('href'))) === JSON.stringify(['text', 'keyword', 'backlink', 'calculator', 'management', 'checker', 'domain', 'converter', 'ip', 'pdf', 'image'].map(c => `/free-tools?cat=${c}`)));
+    check('panel carries no heading of its own',
+      (panel?.querySelectorAll('h1, h2, h3, h4, h5, h6').length || 0) === 0
+      && !(panel?.textContent || '').includes('Tool Categories'),
+      `headings=${panel?.querySelectorAll('h1, h2, h3, h4, h5, h6').length}`);
     check('panel is a fixed mega panel under the 4rem nav', /fixed left-0 right-0 top-16 z-50/.test(panel?.className || ''));
 
     // clicking a category navigates and filters the tools list

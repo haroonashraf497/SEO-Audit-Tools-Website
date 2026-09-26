@@ -99,19 +99,8 @@ export const ToolCategoriesMenu: React.FC<{ route?: string }> = ({ route }) => {
         aria-label="Tool categories"
         className={`fixed left-0 right-0 top-16 z-50 px-4 pt-3 ${open ? '' : 'hidden'}`}
       >
-        <div className="max-w-7xl mx-auto bg-white rounded-2xl border border-slate-200 shadow-2xl p-5 lg:p-6 max-h-[calc(100vh-6rem)] overflow-y-auto">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-bold text-slate-900">Tool Categories</h2>
-            <button
-              type="button"
-              onClick={close}
-              aria-label="Close tool categories"
-              className="text-slate-400 hover:text-slate-600 transition-colors rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
-            >
-              <Chevron up />
-            </button>
-          </div>
-
+        {/* No heading inside the panel — the nav item itself is the label. */}
+        <div className="max-w-7xl mx-auto bg-white rounded-2xl border border-slate-200 shadow-2xl px-5 py-4 lg:px-6 lg:py-5 max-h-[calc(100vh-6rem)] overflow-y-auto">
           <div className="grid grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-1">
             {COLUMNS.map((column, i) => (
               <div key={i} className="flex flex-col">

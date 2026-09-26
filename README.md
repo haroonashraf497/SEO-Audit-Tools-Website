@@ -95,6 +95,8 @@ The top navigation carries a fixed **Tool Categories** item (next to *Free SEO T
 - the panel opens on hover and on click, and closes on Escape, outside click, navigation or the
   chevron; it is a `fixed` panel pinned under the 4 rem nav bar, so it can never overflow the
   viewport at any width;
+- the panel has **no heading of its own** — the nav item's own "Tool Categories" label is the
+  title, so the wording is not repeated inside;
 - phones get the same categories as a collapsible section inside the burger menu;
 - like *Home* and *Competitor Analysis*, this item is part of the app shell (not CMS-managed),
   so the editable Navigation Menu keeps working exactly as before.
@@ -126,9 +128,9 @@ to move or version it. See `CMS.md` for the full CMS reference.
 
 ```bash
 npm run typecheck                  # tsc --noEmit
-node scripts/feature-audit.mjs     # 110 checks: CMS controls, footer redesign, legal URLs, /free-tools, text-tool layout/mobile, case-converter grid, Tool Categories mega menu, no EKSTRUH, 154 tools
+node scripts/feature-audit.mjs     # 111 checks: CMS controls, footer redesign, legal URLs, /free-tools, text-tool layout/mobile, case-converter grid, Tool Categories mega menu, no EKSTRUH, 154 tools
 npm install --no-save jsdom
-node scripts/verify-single-file.mjs  # 100 checks: boots the built file, instant swap, footer, legal URLs, head injection, text-tool layout, mega-menu navigation
+node scripts/verify-single-file.mjs  # 101 checks: boots the built file, instant swap, footer, legal URLs, head injection, text-tool layout, mega-menu navigation
 npm test                           # 34 Playwright tests (needs Chromium)
 ```
 

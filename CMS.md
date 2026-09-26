@@ -34,7 +34,7 @@ Editing surfaces use the same WordPress-style editor:
 | Where | Field |
 |---|---|
 | **Sections & Nav → Brand & footer** | site name, domain, tagline, footer note, footer copyright (`{year}` `{name}` `{domain}`), footer logo URL or upload, the **four footer columns** (each with its own Section title, link rows — label + URL + Visible/Hidden + Remove — its own + Add and its own Save Changes), Facebook/X/LinkedIn/Instagram/YouTube URLs |
-| **Sections & Nav → Navigation menu** | header links — add, rename, hide or remove. The fixed *Tool Categories* mega menu (all eleven categories with live counts, each linking to `/free-tools?cat=…`) sits after these links and before *Competitor Analysis*; it is part of the app shell, like *Home*, so it is not part of this list |
+| **Sections & Nav → Navigation menu** | header links — add, rename, hide or remove. The fixed *Tool Categories* mega menu (the panel itself carries no repeated heading) (all eleven categories with live counts, each linking to `/free-tools?cat=…`) sits after these links and before *Competitor Analysis*; it is part of the app shell, like *Home*, so it is not part of this list |
 | **Blog posts** | post body — new posts and existing articles |
 | **Pages** | the whole page body — one rich-text document per page (pages saved with the old block editor are converted automatically on load) |
 | **Tools** | the optional "About" copy that replaces the shared template |
