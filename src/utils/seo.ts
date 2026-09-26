@@ -1,5 +1,6 @@
 import { useEffect, type FC } from 'react';
 import { useCms, type CmsState } from '../cms/store';
+import { routeSlugForStored, storedSlugForRoute } from '../router';
 
 export const DEFAULT_ORIGIN = 'https://seoaudittools.pk';
 export const DEFAULT_OG_PATH = '/og.jpg';
@@ -51,12 +52,26 @@ const originOf = (cms: CmsState): string => {
   return `https://${host}`;
 };
 
+/**
+ * Build the absolute canonical/OG URL for a path.
+ *
+ * The site uses clean History-API URLs, so canonical and social URLs must be
+ * clean too — `https://seoaudittools.pk/#/about` is a different URL to
+ * `https://seoaudittools.pk/about` as far as search engines are concerned, and
+ * hash URLs never index. Legacy hash-style values (from an older CMS entry or
+ * an old override) are converted to their clean path, and the legacy
+ * `/tools` directory collapses to `/free-tools`.
+ */
 const absoluteUrl = (origin: string, path: string): string => {
   if (!path || path === '/' || path === '#/' || path === '#') return `${origin}/`;
   if (/^https?:\/\//i.test(path)) return path;
-  if (path.startsWith('#')) return `${origin}/${path}`;
-  const clean = path.startsWith('/') ? path : `/${path}`;
-  return `${origin}/#${clean}`;
+  let clean = path.startsWith('#') ? path.slice(1) : path;
+  if (!clean.startsWith('/')) clean = `/${clean}`;
+  clean = clean.replace(/^\/p(?=\/|$)/, '').replace(/\/{2,}/g, '/');
+  if (clean === '/tools' || clean === '/tool') clean = '/free-tools';
+  if (clean === '' || clean === '/') return `${origin}/`;
+  if (clean.length > 1) clean = clean.replace(/\/+$/, '');
+  return `${origin}${clean}`;
 };
 
 const defaultOg = (origin: string) => `${origin}${DEFAULT_OG_PATH}`;
@@ -64,18 +79,10 @@ const defaultOg = (origin: string) => `${origin}${DEFAULT_OG_PATH}`;
 const orgNode = (origin: string, brand: string) => ({
   '@type': 'Organization',
   '@id': `${origin}/#organization`,
-  name: 'EKSTRUH LTD',
-  alternateName: brand,
+  name: brand,
   url: `${origin}/`,
   email: 'help@seoaudittools.pk',
   areaServed: 'Pakistan',
-  address: {
-    '@type': 'PostalAddress',
-    streetAddress: 'Victoria Grove',
-    addressLocality: 'Bolton',
-    postalCode: 'BL1 4JW',
-    addressCountry: 'GB',
-  },
 });
 
 const websiteNode = (origin: string, brand: string) => ({
@@ -117,8 +124,8 @@ export const resolvePageSeo = (route: string, cms: CmsState): PageSeo => {
 
   if (route === 'home') {
     const seo = cms.seo.home;
-    const title = seo?.title || `SEO Audit Tools — Free Website SEO Checker | EKSTRUH LTD`;
-    const description = seo?.description || 'Free SEO audit tool plus 150+ practical SEO, speed, IP, PDF, calculator and converter tools from EKSTRUH LTD — built for website owners in Pakistan and worldwide.';
+    const title = seo?.title || `${brand} — Free Website SEO Checker & 150+ Online Tools`;
+    const description = seo?.description || 'Free SEO audit tool plus 150+ practical SEO, speed, IP, PDF, calculator and converter tools — built for website owners in Pakistan and worldwide.';
     return {
       title,
       description,
@@ -142,7 +149,7 @@ export const resolvePageSeo = (route: string, cms: CmsState): PageSeo => {
     const live = cms.tools.filter(t => t.status === 'live');
     const seo = cms.seo.tools;
     const title = seo?.title || `${live.length}+ Free SEO Tools — Audit, Speed, Calculator & Converter Tools`;
-    const description = seo?.description || `Browse ${live.length}+ free tools from EKSTRUH LTD for Pakistan and worldwide: website SEO audit, page speed, keyword research, backlinks, IP lookup, PDF tools, calculators and unit converters.`;
+    const description = seo?.description || `Browse ${live.length}+ free tools for Pakistan and worldwide: website SEO audit, page speed, keyword research, backlinks, IP lookup, PDF tools, calculators and unit converters.`;
     return {
       title,
       description,
@@ -261,13 +268,14 @@ export const resolvePageSeo = (route: string, cms: CmsState): PageSeo => {
   }
 
   if (route.startsWith('p/')) {
-    const slug = route.slice(2);
+    // Short legal URLs (/privacy) map onto the stored CMS slugs.
+    const slug = storedSlugForRoute(route.slice(2));
     const page = cms.pages.find(p => p.slug === slug);
     if (!page || page.status !== 'live') {
       return {
         title: `Page not available | ${brand}`,
         description: 'This page has not been published yet.',
-        path: `/${slug}`,
+        path: `/${routeSlugForStored(slug)}`,
         origin,
         noindex: true,
         image: og,
@@ -279,7 +287,7 @@ export const resolvePageSeo = (route: string, cms: CmsState): PageSeo => {
     return {
       title,
       description,
-      path: `/${page.slug}`,
+      path: `/${routeSlugForStored(page.slug)}`,
       origin,
       noindex: seo?.noindex,
       canonicalOverride: seo?.slug,
@@ -290,7 +298,7 @@ export const resolvePageSeo = (route: string, cms: CmsState): PageSeo => {
         '@type': 'WebPage',
         name: page.title,
         description,
-        url: `${origin}/${page.slug}`,
+        url: `${origin}/${routeSlugForStored(page.slug)}`,
         isPartOf: { '@id': `${origin}/#website` },
         publisher: { '@id': `${origin}/#organization` },
       },
@@ -326,15 +334,18 @@ export const resolvePageSeo = (route: string, cms: CmsState): PageSeo => {
   }
 
   return {
-    title: `${brand} | EKSTRUH LTD`,
-    description: cms.settings.tagline || 'Free SEO audit and online tools from EKSTRUH LTD.',
+    title: brand,
+    description: cms.settings.tagline || `Free SEO audit and online tools from ${brand}.`,
     path: '/',
     origin,
     image: og,
   };
 };
 
-export const applyPageSeo = (page: PageSeo) => {
+/** The author/site name used across meta tags — always the CMS brand. */
+const FALLBACK_BRAND = 'SEO Audit Tools';
+
+export const applyPageSeo = (page: PageSeo, brandName: string = FALLBACK_BRAND) => {
   const canonical = page.canonicalOverride
     ? (/^https?:\/\//i.test(page.canonicalOverride)
       ? page.canonicalOverride
@@ -346,10 +357,10 @@ export const applyPageSeo = (page: PageSeo) => {
   document.title = page.title;
   setMeta('name', 'description', page.description);
   setMeta('name', 'robots', robots);
-  setMeta('name', 'author', 'EKSTRUH LTD');
+  setMeta('name', 'author', brandName);
   setLink('canonical', canonical);
 
-  setMeta('property', 'og:site_name', 'SEO Audit Tools');
+  setMeta('property', 'og:site_name', brandName);
   setMeta('property', 'og:locale', 'en_GB');
   setMeta('property', 'og:type', page.type || 'website');
   setMeta('property', 'og:url', canonical);
@@ -386,7 +397,7 @@ export const applyPageSeo = (page: PageSeo) => {
 export const SeoManager: FC<{ route: string }> = ({ route }) => {
   const { state } = useCms();
   useEffect(() => {
-    applyPageSeo(resolvePageSeo(route, state));
+    applyPageSeo(resolvePageSeo(route, state), state.settings.name || FALLBACK_BRAND);
   }, [route, state]);
   return null;
 };

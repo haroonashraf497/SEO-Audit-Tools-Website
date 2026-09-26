@@ -1,0 +1,182 @@
+/**
+ * Source-level audit of the user's feature checklist. Each entry names the
+ * feature, where it lives, and what must be true in the current tree.
+ */
+import { readFileSync, existsSync } from 'node:fs';
+
+const read = p => (existsSync(p) ? readFileSync(p, 'utf8') : '');
+const admin = read('src/cms/Admin.tsx');
+const store = read('src/cms/store.tsx');
+const app = read('src/App.tsx');
+const css = read('src/index.css');
+const seo = read('src/utils/seo.ts');
+const router = read('src/router.ts');
+const htaccess = read('public/.htaccess');
+const sitemap = read('public/sitemap.xml');
+const tools = read('src/tools/data.tsx');
+const dist = read('dist/index.html');
+
+const results = [];
+const check = (name, ok, detail = '') => {
+  results.push({ name, ok });
+  console.log(`${ok ? 'PASS' : 'FAIL'}  ${name}${ok ? '' : `  → ${detail}`}`);
+};
+
+console.log('\n=== 🔴 Header Verification & Ads ===');
+check('textarea for verification/ads code', /Header Verification &amp; Ads[\s\S]{0,900}headerVerificationAds/.test(admin));
+check('purple Save Changes button on that card', /SaveButton label="Save Changes" onSave=\{\(\) => \{[\s\S]{0,220}injectHeadCode\(code\)/.test(admin));
+check('SaveButton renders "Saved ✓" for 2.5 s', /setTimeout\(\(\) => setSaved\(false\), 2500\)/.test(admin) && /saved \? 'Saved ✓' : label/.test(admin));
+check('button uses the purple style', /bg-purple-600 hover:bg-purple-700/.test(admin));
+check('save persists to localStorage', /localStorage\.setItem\(KEY, JSON\.stringify\(state\)\)/.test(store) && /KEY = 'seoaudittool:cms:v1'/.test(store));
+check('code injected into <head>', /document\.head\.appendChild\(out\)/.test(store) && /HEAD_CODE_ATTR = 'data-cms-header-code'/.test(store));
+check('scripts execute (createElement rebuild)', /document\.createElement\('script'\)/.test(store) && /script\.text = original\.textContent/.test(store));
+check('injection runs on every load', /useEffect\(\(\) => \{\s*injectHeadCode\(state\.settings\.headerVerificationAds\)/.test(store));
+
+console.log('\n=== 🔵 Navigation Menu ===');
+check('editor with label + URL inputs', /aria-label="Link label"/.test(admin) && /aria-label="Link URL"/.test(admin)
+  && /Navigation menu[\s\S]{0,900}<MenuRowEditor/.test(admin));
+check('+ Add button', /\+ Add<\/Btn>/.test(admin) && /label: 'New link', href: '\/', visible: true/.test(admin));
+check('Remove button', /<Btn tone="ghost" onClick=\{onRemove\}>Remove<\/Btn>/.test(admin));
+check('Visible/Hidden toggle', /\{visible \? 'Visible' : 'Hidden'\}/.test(admin));
+check('Save with "Saved ✓"', /<SaveButton onSave=\{\(\) => setNav\(state\.nav\.map\(n => \(\{ \.\.\.n \}\)\)\)\} \/>/.test(admin));
+check('header renders saved nav live (desktop + mobile)', (app.match(/cms\.state\.nav\.filter\(n => n\.visible/g) || []).length === 2);
+check('nav persisted in the CMS store', /nav: NavItem\[\]/.test(store) && /setNav: \(nav\) => setState\(s => \(\{ \.\.\.s, nav \}\)\)/.test(store));
+
+console.log('\n=== 🟢 Brand & Footer ===');
+check('Site name field + save', /Field label="Site name"[\s\S]{0,200}setSettings\(\{ name: e\.target\.value \}\)/.test(admin));
+check('Domain field + save', /Field label="Domain"[\s\S]{0,200}setSettings\(\{ domain: e\.target\.value \}\)/.test(admin));
+check('Footer note field + save', /Field label="Footer note"[\s\S]{0,260}setSettings\(\{ footerNote: e\.target\.value \}\)/.test(admin));
+check('footer note renders on the public site', /\{footerNote && \(/.test(app) && /footerNote = \(cms\.state\.settings\.footerNote \|\| ''\)\.trim\(\)/.test(app));
+check('Footer copyright text field', /Field label="Copyright line"[\s\S]{0,200}footerCopyright/.test(admin));
+check('{year} {name} {domain} placeholder chips', /\['\{year\}', '\{name\}', '\{domain\}'\]\.map/.test(admin));
+check('live preview of the copyright line', /Live preview:[\s\S]{0,160}renderCopyright\(settings\.footerCopyright/.test(admin));
+check('placeholders substituted at render', /replace\(\/\\\{year\\\}\/gi, String\(new Date\(\)\.getFullYear\(\)\)\)/.test(store));
+check('footer logo URL field', /Field label="Logo URL"[\s\S]{0,200}footerLogoUrl: e\.target\.value/.test(admin));
+check('footer logo upload button + file input', /⬆ Upload logo'}<\/Btn>/.test(admin) && /type="file"/.test(admin) && /aria-label="Upload footer logo"/.test(admin));
+check('upload validates + optimises the image', /validateUpload\(file\)/.test(admin) && /optimizeImageFile\(file\)/.test(admin));
+check('uploaded/external logo replaces the default icon', /\{footerLogo \? \([\s\S]{0,420}img\s+src=\{footerLogo\}/.test(app));
+check('four separate footer-column editors', (admin.match(/<FooterColumnEditor/g) || []).length === 1
+  && /footerColumns\.map\(\(column, i\) => \([\s\S]{0,200}<FooterColumnEditor/.test(admin)
+  && /all four footer columns are editable/i.test(admin));
+check('each editor has title + rows + Add + Save', /const FooterColumnEditor[\s\S]{0,3000}<Field label="Section title"><input[^>]*value=\{title\}/.test(admin)
+  && /const FooterColumnEditor[\s\S]{0,3500}MenuRowEditor[\s\S]{0,2000}label: 'New link', href: '\/', visible: true[\s\S]{0,700}<SaveButton onSave=\{\(\) => onSave\(/.test(admin));
+check('each column saves independently', /onSave=\{saved => setFooterColumns\(footerColumns\.map\(\(c, j\) => \(j === i \? saved : c\)\)\)\}/.test(admin));
+check('columns are labelled Column 1-4', /Column \{index \+ 1\} — \{column\.title/.test(admin) && /aria-label=\{`Footer column \$\{index \+ 1\}`\}/.test(admin));
+check('live footer renders every stored column', /const footerColumns = cms\.state\.footerColumns\?\.length \? cms\.state\.footerColumns : defaultFooterColumns/.test(app)
+  && /\{footerColumns\.map\(col => \{[\s\S]{0,500}<nav key=\{col\.id\} aria-label=\{col\.title\}>/.test(app));
+check('hidden rows stay saved but are not rendered', /const links = col\.links\.filter\(link => link\.visible && link\.label\.trim\(\)\)/.test(app));
+check('footer column headings use the requested CSS', /<h3 className="text-\[18px\] font-bold capitalize tracking-\[0px\] text-slate-400 mb-4">\{col\.title\}<\/h3>/.test(app)
+  && !/<h3 className="text-xs font-bold uppercase/.test(app));
+check('footer column titles editable per column', /<Field label="Section title"><input className=\{inputCls \+ ' max-w-xs'\} value=\{title\} onChange=\{e => setTitle\(e\.target\.value\)\}/.test(admin));
+check('store owns the four columns + a dedicated setter', /export interface FooterColumn \{ id: string; title: string; links: FooterLink\[\] \}/.test(store)
+  && /export const defaultFooterColumns: FooterColumn\[\] = \[/.test(store)
+  && /setFooterColumns: \(columns\) => setState\(s => \(\{ \.\.\.s, footerColumns:/.test(store));
+check('older saved state migrates column 1 into footerColumns', /const migrateFooterColumns = \(stored: unknown, settings: SiteSettings\): FooterColumn\[\] => \{/.test(store)
+  && /title: \(settings\.footerMenuTitle \|\| ''\)\.trim\(\) \|\| col\.title/.test(store));
+check('social URLs: FB, X, LinkedIn, IG, YouTube', /\['facebook', 'Facebook URL'\], \['x', 'X \(Twitter\) URL'\], \['linkedin', 'LinkedIn URL'\], \['instagram', 'Instagram URL'\], \['youtube', 'YouTube URL'\]/.test(admin));
+check('social icons render only when filled', /\.filter\(entry => entry\.href\)/.test(app));
+check('all five icons defined', ['facebook', 'x', 'linkedin', 'instagram', 'youtube'].every(k => new RegExp(`key: '${k}'`).test(app)));
+check('"Saved ✓" on every brand/footer card', (admin.match(/<SaveButton /g) || []).length >= 5, String((admin.match(/<SaveButton /g) || []).length));
+
+console.log('\n=== 🦶 Footer redesign ===');
+check('four equal footer columns defined (Quick Links, SEO Tools, Resources, Company)',
+  /export const defaultFooterColumns: FooterColumn\[\] = \[[\s\S]{0,1400}title: 'Quick links'[\s\S]{0,700}title: 'SEO Tools'[\s\S]{0,700}title: 'Resources'[\s\S]{0,700}title: 'Company'/.test(store));
+check('Quick Links column = audit, tools, blog, about, contact',
+  /title: 'Quick links', links: \[[\s\S]{0,420}footerLink\('Free SEO Audit', '\/'\)[\s\S]{0,200}footerLink\('Free SEO Tools', '\/free-tools'\)[\s\S]{0,200}footerLink\('Blog', '\/blog'\)[\s\S]{0,200}footerLink\('About', '\/about'\)[\s\S]{0,200}footerLink\('Contact', '\/contact'\)/.test(store));
+check('SEO Tools column = audit, tools, competitor analysis',
+  /title: 'SEO Tools', links: \[[\s\S]{0,320}footerLink\('Free SEO Audit', '\/'\)[\s\S]{0,200}footerLink\('Free SEO Tools', '\/free-tools'\)[\s\S]{0,200}footerLink\('Competitor Analysis', '\/competitor-analysis'\)/.test(store));
+check('Resources column = blog, FAQ, who it\'s for',
+  /title: 'Resources', links: \[[\s\S]{0,320}footerLink\('Blog', '\/blog'\)[\s\S]{0,200}footerLink\('FAQ', '\/faq'\)[\s\S]{0,200}footerLink\("Who It's For", '\/#audiences'\)/.test(store));
+check('Company column = about, contact',
+  /title: 'Company', links: \[[\s\S]{0,220}footerLink\('About', '\/about'\)[\s\S]{0,200}footerLink\('Contact', '\/contact'\)/.test(store));
+check('columns render in a four-up equal-width grid', /grid grid-cols-2 gap-8 py-10 md:grid-cols-4/.test(app)
+  && !/lg:grid-cols-5/.test(app));
+check('no separate Legal column any more', !/aria-label="Legal"/.test(app) && !/FOOTER_LEGAL_LINKS\.map\(l => \(\s*<li/.test(app));
+check('legal links live in the bottom bar on short URLs', /const FOOTER_LEGAL_LINKS[\s\S]{0,400}href: '\/privacy'[\s\S]{0,200}href: '\/cookies'[\s\S]{0,200}href: '\/terms'/.test(app)
+  && /aria-label="Legal documents"[\s\S]{0,900}href=\{l\.href\}/.test(app));
+check('Terms link labelled "Terms & Conditions"', /label: 'Terms & Conditions', short: 'Terms', href: '\/terms'/.test(app));
+check('bottom bar: copyright left, legal links right', /sm:flex-row sm:items-center sm:justify-between[\s\S]{0,600}aria-label="Legal documents"[\s\S]{0,200}sm:justify-end/.test(app));
+check('bottom bar reuses renderCopyright (still editable)', /sm:justify-between[\s\S]{0,400}renderCopyright\(cms\.state\.settings\.footerCopyright/.test(app));
+check('cookie preferences button kept', /onClick=\{\(\) => setCookiePrefsOpen\(true\)\}[^>]*>Cookie preferences/.test(app));
+check('bottom bar uses the short labels', /short: 'Privacy', href: '\/privacy'/.test(app)
+  && /short: 'Cookie', href: '\/cookies'/.test(app)
+  && /short: 'Terms', href: '\/terms'/.test(app)
+  && /className="hover:text-white transition-colors">\{l\.short\}<\/a>/.test(app));
+check('short links keep the full name for a11y/tooltip', /title=\{l\.label\} aria-label=\{l\.label\}/.test(app));
+check('bottom bar offers Cookie preferences', /sm:justify-end"[\s\S]{0,700}onClick=\{\(\) => setCookiePrefsOpen\(true\)\}[^>]*>Cookie preferences<\/button>/.test(app));
+check('exactly one Cookie preferences control in the footer',
+  (app.match(/setCookiePrefsOpen\(true\)/g) || []).length === 1,
+  String((app.match(/setCookiePrefsOpen\(true\)/g) || []).length));
+check('no long legal URL left in the app shell', !/href="\/privacy-policy"|href="\/cookie-policy"|href="\/terms-of-service"/.test(app));
+check('router maps short legal routes to stored slugs', /privacy: 'privacy-policy'/.test(router) && /cookies: 'cookie-policy'/.test(router) && /terms: 'terms-of-service'/.test(router));
+check('router upgrades long legal paths to short ones', /canonicalLegalPath\(cleanPath\(u\.pathname\)\)/.test(router) && /next = canonicalLegalPath\(next\)/.test(router));
+check('CMS view resolves the short slug', /findPage\(state, storedSlugForRoute\(slug\)\)/.test(app));
+check('canonical/json-ld emit the short path', /routeSlugForStored\(page\.slug\)/.test(seo));
+check('.htaccess 301 /privacy-policy → /privacy', /RewriteRule \^privacy-policy\/\?\$ \/privacy \[R=301,L\]/.test(htaccess));
+check('.htaccess 301 /cookie-policy → /cookies', /RewriteRule \^cookie-policy\/\?\$ \/cookies \[R=301,L\]/.test(htaccess));
+check('.htaccess 301 /terms-of-service → /terms', /RewriteRule \^terms-of-service\/\?\$ \/terms \[R=301,L\]/.test(htaccess));
+check('sitemap lists the short legal URLs only', sitemap.includes('<loc>https://seoaudittools.pk/privacy</loc>')
+  && sitemap.includes('<loc>https://seoaudittools.pk/cookies</loc>')
+  && sitemap.includes('<loc>https://seoaudittools.pk/terms</loc>')
+  && !/seoaudittools\.pk\/(privacy-policy|cookie-policy|terms-of-service)</.test(sitemap));
+
+console.log('\n=== 📱 Text Analysis Tools (layout + mobile) ===');
+const toolsSrc = read('src/tools/Tools.tsx');
+const grammar = read('src/tools/GrammarChecker.tsx');
+const plag = read('src/tools/PlagiarismChecker.tsx');
+const rewriter = read('src/tools/ArticleRewriter.tsx');
+const engines = read('src/tools/engines.tsx');
+check('text category flagged for the stacked layout', /const stacked = tool\.category === 'text';/.test(toolsSrc));
+check('stacked layout renders the panel full width above the grid',
+  /if \(stacked\) \{[\s\S]{0,320}\{header\}[\s\S]{0,200}\{featuredImage\}[\s\S]{0,200}\{panel\}[\s\S]{0,300}grid lg:grid-cols-\[minmax\(0,1fr\)_minmax\(0,300px\)\]/.test(toolsSrc));
+check('sidebar starts level with the About column', /<ToolRelatedContent tool=\{tool\} related=\{related\} \/>[\s\S]{0,200}<div className="mt-10 min-w-0">[\s\S]{0,120}<Sidebar/.test(toolsSrc));
+check('other categories keep the classic two-column layout',
+  /if \(stacked\) \{[\s\S]{0,1400}return \(\s*<div className="pt-10 pb-20 px-4 min-h-screen">/.test(toolsSrc));
+check('text tools use tighter mobile page padding', /<>pt-8 sm:pt-10 pb-16 sm:pb-20 px-3 sm:px-4 min-h-screen<|className="pt-8 sm:pt-10 pb-16 sm:pb-20 px-3 sm:px-4 min-h-screen"/.test(toolsSrc)
+  || /pt-8 sm:pt-10 pb-16 sm:pb-20 px-3 sm:px-4/.test(toolsSrc));
+check('text-tool heading scales from 26px on phones', /stacked \? 'text-\[26px\] leading-\[1\.15\] sm:text-3xl md:text-5xl'/.test(toolsSrc));
+check('grammar checker editor shrinks on phones', /min-h-\[300px\] sm:min-h-\[420px\] p-4 sm:p-6 md:p-8/.test(grammar));
+check('grammar checker selects fill the row on phones', /flex flex-1 min-w-0 sm:flex-none items-center rounded-lg/.test(grammar)
+  && /appearance-none w-full bg-transparent px-3 sm:px-4 py-3 text-slate-800 text-sm sm:text-\[15px\]/.test(grammar)
+  && /w-full sm:w-auto sm:ml-auto bg-gradient-to-r/.test(grammar));
+check('grammar stat cards shrink on phones', /border-2 rounded-lg py-3 sm:py-4 px-2 sm:px-3 text-center/.test(grammar));
+check('plagiarism editor + toolbar stack on phones', /min-h-\[280px\] sm:min-h-\[380px\] p-4 sm:p-6/.test(plag)
+  && /w-full sm:w-auto sm:mr-auto text-sm sm:text-base/.test(plag)
+  && /flex overflow-x-auto border-t border-slate-200 px-3 sm:px-5/.test(plag));
+check('article rewriter steps + editor scale down on phones', /w-11 h-11 sm:w-14 sm:h-14 rounded-full/.test(rewriter)
+  && /min-h-\[300px\] sm:min-h-\[440px\] p-4 sm:p-6 md:p-8/.test(rewriter)
+  && /w-full appearance-none bg-white border border-slate-300/.test(rewriter)
+  && !/(?<!sm:)min-w-\[240px\]/.test(rewriter));
+check('text outputs wrap long tokens', /break-words/.test(engines) && /break-all/.test(engines));
+check('text-to-speech survives browsers without the speech API', /const supported = typeof window !== 'undefined' && 'speechSynthesis' in window;/.test(engines)
+  && /if \(!supported\) return;/.test(engines));
+
+console.log('\n=== 🔗 URLs ===');
+check('.htaccess 301 /tools → /free-tools', /RewriteRule \^tools\/\?\$ \/free-tools \[R=301,L\]/.test(htaccess));
+check('.htaccess 301 /tool → /free-tools', /RewriteRule \^tool\/\?\$ \/free-tools \[R=301,L\]/.test(htaccess));
+check('router normalises /tools', /if \(next === '\/tools' \|\| next === '\/tool'\) next = '\/free-tools'/.test(router));
+check('route alias maps tools → free-tools', /seg === 'free-tools' \|\| seg === 'tools'/.test(router));
+check('stored content rewrites /tools', /if \(value === '\/tools' \|\| value === '\/tool'\) return '\/free-tools'/.test(store));
+check('nav default points at /free-tools', /label: 'Free SEO Tools', href: '\/free-tools', visible: true/.test(store));
+check('canonical uses clean path (no #/)', /return `\$\{origin\}\$\{clean\}`/.test(seo) && !/return `\$\{origin\}\/#\$\{clean\}`/.test(seo));
+check('sitemap uses /free-tools', sitemap.includes('<loc>https://seoaudittools.pk/free-tools</loc>') && !/seoaudittools\.pk\/tools</.test(sitemap));
+
+console.log('\n=== ✅ Preserved ===');
+check('no "Loading page" anywhere in src', !/Loading page/.test(read('src/App.tsx') + read('src/components/ErrorBoundary.tsx') + read('src/tools/Tools.tsx')));
+const codeOnly = src => src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+check('no Suspense / lazyRoute in the app', !/<Suspense|React\.lazy\(|lazyRoute\(/.test(codeOnly(app) + codeOnly(read('src/tools/Tools.tsx')))
+  && !existsSync('src/utils/lazyRetry.ts'));
+check('no loading state in the built file', !/Loading page|Loading PDF engine/.test(dist));
+check('content-shell min-height for the footer', /\.content-shell \{[\s\S]{0,120}min-height: calc\(100vh - 4rem\)/.test(css) && /@supports \(height: 100dvh\)/.test(css));
+check('main uses content-shell', /<main id="main-content" tabIndex=\{-1\} className="content-shell">/.test(app));
+check('154 built-in tools intact', (tools.match(/slug: '/g) || []).length === 154, String((tools.match(/slug: '/g) || []).length));
+check('admin login page + default creds intact', /AdminLoginPage/.test(app) && /passcode: 'admin123'/.test(store) && /export const AdminLoginPage/.test(read('src/cms/AdminLogin.tsx')));
+check('no EKSTRUH in src/public/index.html', !/EKSTRUH/.test(read('src/App.tsx') + store + admin + seo + read('index.html') + htaccess));
+check('no EKSTRUH in the built file', !/EKSTRUH/.test(dist));
+check('single file: no external chunk reference', !/<script[^>]*src="\/assets\//.test(dist));
+check('no assets/ directory in dist', !existsSync('dist/assets'));
+check('design/CSS present (tailwind inline)', /\.content-shell/.test(dist) && /--tw-/.test(dist));
+
+const failed = results.filter(r => !r.ok);
+console.log(`\n${results.length - failed.length}/${results.length} feature checks passed`);
+process.exit(failed.length ? 1 : 0);

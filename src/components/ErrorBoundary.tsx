@@ -1,22 +1,19 @@
-import React, { useEffect, useState } from 'react';
-import { RouteRetryContext, useRouteRetry, ChunkLoadError, type RouteRetry } from '../utils/lazyRetry';
+import React from 'react';
 
 /**
- * The site renders routes from lazily fetched chunks. Before this, a chunk that
- * failed to arrive — or a component that threw while rendering — took the whole
- * page down: the spinner stayed on screen forever, or the visitor was left with
- * a blank white document. These two pieces make both outcomes recoverable.
+ * Render-error handling for a single-file, eagerly-loaded app.
  *
- *  - `RouteBoundary` catches anything thrown below it and replaces the subtree
- *    with an actionable message. "Try again" clears the error and bumps the
- *    retry token, which makes every `lazyRoute` child re-issue its import.
- *  - `LoadingFallback` is the Suspense fallback. It shows the normal loading
- *    notice first, but if the chunk still has not arrived after
- *    `LOAD_TIMEOUT_MS` it stops pretending and offers the same two actions.
+ * Every route is a static import inside dist/index.html, so there is no chunk
+ * request that can fail, stall or resolve late — nothing on the site can show a
+ * loading state, and `<Suspense>` is not used anywhere. What can still happen is
+ * a component throwing while it renders, so this boundary stays as the last line
+ * of defence: instead of a blank document the visitor gets a message and a
+ * working way out.
+ *
+ * "Try again" clears the error and bumps the retry token; the token keys the
+ * children, which remounts the failed subtree so a transient error is genuinely
+ * retried rather than replayed from React's cached state.
  */
-
-/** How long the fallback waits before declaring the load stalled. */
-export const LOAD_TIMEOUT_MS = 12_000;
 
 interface PanelAction { label: string; onClick: () => void }
 
@@ -41,36 +38,6 @@ const Panel: React.FC<{ title: string; detail: string; actions: PanelAction[] }>
 
 const reload = () => { window.location.reload(); };
 
-/**
- * Suspense fallback with a hard deadline. The `role="status"` notice and its
- * wording are unchanged while the load is still plausible, so crawlers, screen
- * readers and the existing tests keep seeing exactly what they saw before.
- */
-export const LoadingFallback: React.FC<{ label?: React.ReactNode; timeoutMs?: number }> = ({
-  label = 'Loading page…',
-  timeoutMs = LOAD_TIMEOUT_MS,
-}) => {
-  const { token, retry } = useRouteRetry();
-  const [stalled, setStalled] = useState(false);
-
-  useEffect(() => {
-    setStalled(false);
-    const id = window.setTimeout(() => setStalled(true), timeoutMs);
-    return () => window.clearTimeout(id);
-  }, [token, timeoutMs]);
-
-  if (!stalled) {
-    return <div role="status" className="py-16 text-center text-slate-600">{label}</div>;
-  }
-  return (
-    <Panel
-      title="This page is taking too long to load"
-      detail="The connection stalled before the page finished downloading. Check your connection, then try again."
-      actions={[{ label: 'Try again', onClick: retry }, { label: 'Reload page', onClick: reload }]}
-    />
-  );
-};
-
 interface RouteBoundaryProps {
   /** Human-readable name for the subtree, used in the console report. */
   label: string;
@@ -82,7 +49,7 @@ interface RouteBoundaryState {
   token: number;
 }
 
-/** Catches render/import failures below it and offers a working way out. */
+/** Catches render failures below it and offers a working way out. */
 export class RouteBoundary extends React.Component<RouteBoundaryProps, RouteBoundaryState> {
   override state: RouteBoundaryState = { error: null, token: 0 };
 
@@ -101,21 +68,16 @@ export class RouteBoundary extends React.Component<RouteBoundaryProps, RouteBoun
 
   override render() {
     const { error, token } = this.state;
-    const value: RouteRetry = { token, retry: this.retry };
-    return (
-      <RouteRetryContext.Provider value={value}>
-        {error
-          ? (
-            <Panel
-              title="Something went wrong on this page"
-              detail={error instanceof ChunkLoadError
-                ? 'Part of the page could not be downloaded. Your connection may have dropped, or the site was updated while the page was open.'
-                : 'The page hit an unexpected error while rendering. Trying again usually clears it.'}
-              actions={[{ label: 'Try again', onClick: this.retry }, { label: 'Reload page', onClick: reload }]}
-            />
-          )
-          : this.props.children}
-      </RouteRetryContext.Provider>
-    );
+    if (error) {
+      return (
+        <Panel
+          title="Something went wrong on this page"
+          detail="The page hit an unexpected error while rendering. Trying again usually clears it."
+          actions={[{ label: 'Try again', onClick: this.retry }, { label: 'Reload page', onClick: reload }]}
+        />
+      );
+    }
+    // Keying the subtree on the retry token means "Try again" builds it fresh.
+    return <React.Fragment key={token}>{this.props.children}</React.Fragment>;
   }
 }

@@ -25,9 +25,10 @@ for (const [path, heading] of [
     await expect(page.locator('main')).toHaveCount(1);
     await page.reload();
     await expect(page.locator('h1')).toHaveText(heading);
-    // Canonicals are explicitly protected: preserve the existing hash values.
+    // Clean-URL canonicals: the site uses History-API routes, so the canonical
+    // must be the real path (a hash URL would canonicalise to a different page).
     if (!path.startsWith('/admin')) {
-      await expect(page.locator('link[rel="canonical"]')).toHaveAttribute('href', `https://seoaudittools.pk/#${path.split('?')[0]}`);
+      await expect(page.locator('link[rel="canonical"]')).toHaveAttribute('href', `https://seoaudittools.pk${path.split('?')[0]}`);
     }
   });
 }
@@ -147,38 +148,106 @@ test('homepage accessibility, including below-fold sections', async ({ page }) =
   await expect(page.getByRole('button', { name: 'Close cookie preferences' })).toBeVisible();
 });
 
-test('code-split build: homepage first, other routes load on demand', async ({ page }) => {
+test('navigation is instant: content swaps within a single frame', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Decline', exact: true }).click();
+
+  // Sample the content area on every animation frame. A blank intermediate
+  // state — the flash this test exists to prevent — would be recorded here.
+  await page.evaluate(() => {
+    const w = window as unknown as { __frames: { text: number; height: number }[]; __raf: number };
+    w.__frames = [];
+    const main = document.querySelector('main') as HTMLElement;
+    const tick = () => {
+      w.__frames.push({ text: (main.textContent || '').trim().length, height: main.getBoundingClientRect().height });
+      w.__raf = requestAnimationFrame(tick);
+    };
+    tick();
+  });
+
+  await page.locator('a[href="/blog"]').first().click();
+  await expect(page.locator('h1')).toContainText('Blog');
+  await page.locator('a[href="/free-tools"]').first().click();
+  await expect(page.locator('h1')).toContainText('Tools');
+  await page.waitForTimeout(120);
+
+  const frames = await page.evaluate(() => (window as unknown as { __frames: { text: number; height: number }[] }).__frames);
+  expect(frames.length).toBeGreaterThan(2);
+  expect(frames.filter(f => f.text === 0)).toEqual([]);
+  // No frame where the content area collapsed to nothing.
+  expect(frames.filter(f => f.height < 200)).toEqual([]);
+  await expect(page.locator('main')).not.toContainText('Loading page');
+});
+
+test('the content area always fills the viewport, so the footer never touches the header', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  for (const path of ['/admin-login', '/free-tools', '/about']) {
+    await page.goto(path);
+    const { minHeight, height, footerTop } = await page.evaluate(() => {
+      const main = document.querySelector('main') as HTMLElement;
+      const footer = document.querySelector('footer') as HTMLElement;
+      return {
+        minHeight: getComputedStyle(main).minHeight,
+        height: main.getBoundingClientRect().height,
+        footerTop: footer.getBoundingClientRect().top + window.scrollY,
+      };
+    });
+    // The 4rem header is excluded from the minimum, per the design rule.
+    expect(minHeight).toMatch(/calc\(|7[0-9][0-9]px/);
+    expect(height).toBeGreaterThanOrEqual(700); // 800px viewport - 64px header
+    expect(footerTop).toBeGreaterThanOrEqual(700);
+  }
+});
+
+test('a click opens the new page at the top; history keeps the reader in place', async ({ page }) => {
+  await page.goto('/blog');
+  await page.getByRole('button', { name: 'Decline', exact: true }).click();
+  await page.evaluate(() => window.scrollTo(0, 1200));
+  expect(await page.evaluate(() => window.scrollY)).toBeGreaterThan(0);
+
+  // A link click is a new page: it starts at the top, immediately.
+  await page.locator('a[href="/free-tools"]').first().click();
+  await expect(page.locator('h1')).toContainText('Tools');
+  expect(await page.evaluate(() => window.scrollY)).toBe(0);
+
+  // Back/forward is not a new page, so the browser's own restoration is left
+  // alone instead of being overridden by a forced jump to the top.
+  await page.goBack();
+  await expect(page.locator('h1')).toContainText('Blog');
+  expect(await page.evaluate(() => history.scrollRestoration)).toBe('auto');
+});
+
+test('single-file build: one document, no chunks to fetch', async ({ page }) => {
   const html = readFileSync('dist/index.html', 'utf8');
-  // The document is prerendered homepage markup + inline CSS; the application
-  // graph is external, content-hashed and loaded without blocking the paint.
-  expect(html).toMatch(/<script[^>]+src="\/assets\/index-[^"]+\.js"/);
+  // Every route — tools, blog, CMS, admin, editors — lives inside the one
+  // document: no external application script, no preload markers, no chunked
+  // module graph to fetch.
+  expect(html).not.toMatch(/<script[^>]+src="\/assets\//);
   expect(html).not.toContain('__VITE_PRELOAD__');
   expect(html).not.toContain('id="app-modules"');
-  expect(html.length).toBeLessThan(220 * 1024); // was a 1.3 MB single file
-
-  // Every protected surface remains its own lazily-fetched chunk.
-  const assets = readdirSync('dist/assets');
-  for (const prefix of ['Tools-', 'Admin-', 'AdminLogin-', 'Blog-', 'CompetitorAnalysis-', 'PdfTools-']) {
-    expect(assets.some(f => f.startsWith(prefix) && f.endsWith('.js'))).toBe(true);
-  }
-  // The homepage document must not reference or preload any route chunk.
-  expect(html).not.toMatch(/assets\/(?:Tools|Admin|AdminLogin|Blog|CompetitorAnalysis|ConvertTools|PdfTools|Sidebar|ui)-[^"']+\.js/);
+  expect(html).toMatch(/<script type="module"/);
+  // Route code really is inside the document.
+  expect(html).toContain('Percentage Calculator');
+  expect(html).toContain('Admin login');
+  // Nothing in the build can show a loading state.
+  expect(html).not.toContain('Loading page');
+  expect(html).not.toContain('Loading PDF engine');
+  expect(html).toContain('content-shell');
+  // Nothing is emitted next to index.html except the public hosting files.
+  const entries = readdirSync('dist', { withFileTypes: true });
+  expect(entries.filter(entry => entry.isDirectory()).map(entry => entry.name)).toEqual([]);
 
   const requests: string[] = [];
   page.on('request', r => requests.push(r.url()));
-  await page.coverage.startJSCoverage();
   await page.goto('/');
   await expect.poll(() => page.evaluate(() => localStorage.getItem('seoaudittool:cms:v1'))).not.toBeNull();
-  const coverage = await page.coverage.stopJSCoverage();
-  // Only the entry chunk is compiled on home; tool/editor/PDF code is not
-  // even fetched, let alone parsed.
-  expect(coverage.map(entry => entry.url).filter(url => url.includes('/assets/')))
-    .toEqual([expect.stringMatching(/\/assets\/index-[^/]+\.js$/)]);
-  expect(requests.filter(url => /\/assets\/(?!index-)[^/]+\.js/.test(url))).toEqual([]);
+  // Not a single JavaScript or stylesheet request: all of it was in the HTML.
+  expect(requests.filter(url => /\.(?:js|css)(?:\?|$)/.test(url))).toEqual([]);
+  await expect(page.locator('main')).not.toContainText('Loading page');
 
+  // Opening a route is instant — nothing is fetched, so nothing can stall.
   await page.getByRole('button', { name: 'Decline', exact: true }).click();
   await page.locator('a[href="/tool/percentage-calculator"]').first().click();
   await expect(page.locator('h1')).toHaveText('Percentage Calculator');
-  // Visiting a tool is exactly when its code is fetched.
-  expect(requests.filter(url => /\/assets\/Tools-[^/]+\.js/.test(url)).length).toBeGreaterThan(0);
+  expect(requests.filter(url => url.includes('/assets/'))).toEqual([]);
 });

@@ -1,130 +1,131 @@
-# Mobile performance — code-split build (2026-09-22)
+# Build, caching and mobile notes — single-file build
 
-## What changed and why
+## What ships
 
-The previous build embedded **every** route (154 tools, CMS/admin, editors,
-blog, competitor analysis) inside one `dist/index.html`. Lighthouse
-reproduced the reported field issue exactly:
+`npm run build` produces **one document**: `dist/index.html` contains the
+application, all 154 tools, the blog, the CMS/admin UI, the rich-text editors
+and the stylesheet inline. There are no `assets/` chunks and no lazy network
+request between routes.
 
-> Reduce unused JavaScript — **181 KiB** — estimated savings, mobile,
-> on every visit. FCP/LCP on the same lab run: **7.5 s** (production PSI
-> reported 3.0 s).
+| File | Role |
+| --- | --- |
+| `index.html` | the whole app — prerendered homepage markup, inline CSS, inline application script |
+| `.htaccess` | Apache/LiteSpeed rules (legacy `/tools` and `/p/…` redirects, security headers, caching) |
+| `404.html`, `favicon.svg`, `og.jpg`, `robots.txt`, `sitemap.xml` | static files crawlers and browsers request directly |
 
-The document is now prerendered homepage markup + inline CSS only, and the
-application graph ships as content-hashed external chunks that React.lazy
-fetches **when a route is opened**:
+The single-file build is a deliberate product decision: opening any route is
+instant and no screen ever shows a loading placeholder, because nothing is
+fetched on demand. The cost is the trade-off described below — first visit
+downloads the whole app instead of just the homepage.
 
-| File | Role | Home visit |
-| --- | --- | --- |
-| `index.html` (140 KB raw / **24 KB gz**) | Prerendered homepage + inline stylesheet + bootstrapping tag | only document downloaded |
-| `assets/index-*.js` | React + homepage + shared CMS store | fetched (deferred, preloaded) |
-| `assets/Tools-*.js` | All 154 tool UIs/engines | **not fetched** |
-| `assets/Admin-*.js`, `AdminLogin-*.js`, `Blog-*.js`, `CompetitorAnalysis-*.js`, `PdfTools-*.js`, `ConvertTools-*.js`, `ui-*.js`, `Sidebar-*.js` | Editors, blog, analysis, PDF engines | **not fetched** |
+## Instant navigation
 
-Hashed `/assets/*` responses now send `Cache-Control: public, max-age=31536000,
-immutable` (see `public/.htaccess`), so repeat visits load **no application JS
-from the network at all** — they revalidate the small HTML shell only.
+Route changes are synchronous — there is no Suspense boundary, no fallback and
+no fetched chunk anywhere in the app:
 
-## Local A/B (Lighthouse 13.5, Chromium 153, mobile preset, simulated
-throttling, same sandbox and server class for both builds)
+| Mechanism | Where |
+| --- | --- |
+| Routes are **static imports** (no `React.lazy`, no dynamic `import()` for app code) | `src/App.tsx`, `src/tools/Tools.tsx` |
+| PDF tool pages no longer sit behind a Suspense fallback — the UI renders in the same commit; only the PDF *libraries* still stream from their CDN inside the tool | `src/tools/Tools.tsx`, `src/tools/pdf/engine.ts` |
+| `<main class="content-shell">` is at least `calc(100vh - 4rem)` tall, so the footer always sits below the fold instead of touching the header on short pages | `src/index.css` |
+| Scroll handling runs in a **layout effect**: a link click lands at the top of the new page before the browser paints, while back/forward and reloads keep the position the browser restores. `html { scroll-behavior: smooth }` is bypassed so the jump can never animate | `src/App.tsx`, `src/router.ts` (`lastNavigationKind()`) |
 
-| Metric | Old single-file build | Code-split build |
-| --- | ---: | ---: |
-| Performance | 58 | **99** |
-| First Contentful Paint | 7.5 s | **1.7 s** |
-| Largest Contentful Paint | 7.5 s | **1.7 s** |
-| Total Blocking Time | 110 ms | **0 ms** |
-| Speed Index | 7.5 s | **1.7 s** |
-| Total transfer | 1,336 KiB | **185 KiB** |
-| Estimated unused JS | 181 KiB | **56 KiB** |
+In a single-file build eager imports are free: the code was already inside the
+document, so removing the asynchronous boundary changes nothing about what is
+downloaded — only about when it can render. React flushes a click
+synchronously, so the new page is on screen in the same task as the click: no
+empty frame, no spinner, no flash of the previous page's scroll offset.
 
-The sandbox reports slower absolute times than production (no CDN, no
-keep-alive tuning), so production FCP/LCP should be faster than the 1.7 s lab
-number; the **<1.8 s target is met in the lab**, and field numbers depend on
-the host's TTFB (previously measured 714 ms — see deployment notes below).
+## What that means for visitors
 
-The remaining 56 KiB "unused on home" is **not route code**: it is the CMS
-seed data (default blog article bodies and default page copy) that the CMS
-provider requires synchronously to keep admin/editors/export-import byte-for-
-byte unchanged. Splitting it would change CMS data-flow behaviour, which was
-out of scope ("keep CMS, admin, editors unchanged").
+- **No loading state anywhere.** Every route renders from code that arrived
+  with the document — there is no `LoadingFallback`, no `role="status"`
+  placeholder and no "Loading page…" string left in the build.
+- **Repeat visits revalidate only.** Apache sends
+  `Cache-Control: public, max-age=0, must-revalidate` for HTML, so an unchanged
+  deploy answers with a cheap `304 Not Modified` and no body transfer. A new
+  deploy is picked up immediately on the next visit.
+- **Crawlers** get the prerendered homepage markup plus the inline app script;
+  `favicon.svg`, `og.jpg`, `robots.txt` and `sitemap.xml` are served as files.
+- The prerender gate (`scripts/prerender.mjs`) still decides whether to hydrate
+  the prerendered homepage or render fresh: a saved CMS state, an admin session
+  or a cookie choice makes the visitor skip hydration and render from their own
+  browser content.
 
-## Explicitly unchanged
-
-- Desktop design, layout and behaviour — no markup, styling or component
-  changes. Desktop now caches hashed chunks, so repeat desktop visits are
-  lighter too (previously the full 1.3 MB HTML was revalidated every visit).
-- All 154 tools, their URLs, the PDF engines' on-demand CDN loading, the CMS,
-  admin, both rich-text editors, drafts, media library and export/import.
-- Clean-URL routing, legacy hash/`/p/` rewrites, canonical tags, sitemap,
-  robots, structured data.
-- The prerender/hydration gate (fresh home visits paint prerendered markup,
-  then hydrate; saved CMS settings, admin sessions and cookie choices still
-  bypass it).
-
-## Images (mobile)
-
-- The homepage hero is pure CSS/gradient — no bitmap is rendered, so no hero
-  image is downloaded on mobile.
-- The one bundled bitmap is `og.jpg` (1200×630 social image, 47 KB, fetched
-  only by crawlers/social platforms). It is already efficiently encoded;
-  recompressing yielded <1 KB savings, so it is untouched.
-- Content/hero images inside CMS rich text now get `loading="lazy"` +
-  `decoding="async"` defaults at render time if an editor or import omitted
-  them (loading hints only — no layout or markup-visible change).
-- Featured-image slots (blog/tool/page/sidebar) already had
-  `width`/`height`/`loading="lazy"`; they now also decode asynchronously.
-- Images uploaded through the CMS media library are already downscaled to
-  1600 px and re-encoded as WebP at insert time.
-- Remote featured-image URLs (external hosts) can only be resized at their
-  host/CDN — the browser cannot rewrite another origin's image.
-
-## Tests
+## Verification
 
 ```sh
 npm ci
 npm run build
 npm run typecheck
-npm test          # needs Chromium; see playwright.config.ts (CHROME_PATH)
+npm test                                    # needs Chromium (see playwright.config.ts)
+node scripts/verify-single-file.mjs         # optional: jsdom smoke test of dist/index.html
 ```
 
-23 Playwright tests pass, including:
+`npm test` runs the Playwright suite: direct visit/reload of pages, tools, PDF
+UIs, blog, login and competitor analysis; legacy hash and `/p/` URLs; fragments;
+back/forward; the noindex not-found view; a 154-tool render sweep; the CMS
+login with both editors; the CMS panels (navigation, brand & footer, footer
+logo upload, header verification & ads); accessibility on the homepage; and the
+single-file build contract (no external script, no CSS/JS request at runtime,
+no loading placeholder).
 
-- Direct load/reload of pages, tools, PDF UIs, blog, login and competitor
-  analysis; legacy hashes; fragments; back/forward; noindex not-found.
-- Smoke-render **all 154 built-in tool URLs**, plus a calculator result change.
-- Blog article reload; admin login; typing in both rich-text editors.
-- Saved CMS settings override defaults after reload.
-- Axe homepage accessibility with no violations.
-- New: the code-split contract — the document ships no route code, home
-  compiles only the entry chunk, and opening a tool fetches the Tools chunk
-  at exactly that moment.
+Navigation timing has its own coverage:
 
-## Hosting deployment and verification
+- **Per-frame sampling** — the content area is sampled on every
+  `requestAnimationFrame` while two links are clicked; no frame may be empty or
+  collapsed (`site.spec.ts`, "navigation is instant").
+- **Same-task render** — a click is dispatched inside the page and `<main>` is
+  read in the next statement; the new route must already be there
+  (`resilience.spec.ts`).
+- **Sticky footer** — computed `min-height` and the footer's offset are checked
+  on short pages (`site.spec.ts`).
+- **Scroll rules** — a click returns `scrollY` to 0 while
+  `history.scrollRestoration` stays `auto` for back/forward (`site.spec.ts`).
+- **Headless** — `scripts/verify-single-file.mjs` boots the built file in jsdom
+  and asserts the same swap synchronously, with no browser required.
 
-Deploy the **whole `dist/` folder** — `index.html`, `.htaccess` **and** the
-`assets/` directory. `index.html` alone is no longer the whole app:
+`scripts/verify-single-file.mjs` boots the built `dist/index.html` in jsdom and
+checks the same behaviours without a browser:
+
+```sh
+npm i --no-save jsdom
+node scripts/verify-single-file.mjs
+```
+
+## Where the build is configured
+
+`vite.config.ts` wires `vite-plugin-singlefile` with
+`useRecommendedBuildConfig: false` (so the public base path stays absolute) and
+sets the equivalent options explicitly: `cssCodeSplit: false`,
+`assetsInlineLimit: () => true`, `rollupOptions.output.inlineDynamicImports:
+true`, `modulePreload: false`. `scripts/prerender.mjs` then renders the real
+homepage into the document and inserts the hydration gate — using the **last**
+`</head>` / `<div id="root"></div>` landmarks, because the inline application
+script itself contains those strings inside JavaScript literals.
+
+## Images (mobile)
+
+- The homepage hero is pure CSS/gradient — no bitmap is rendered.
+- `og.jpg` (1200×630, 47 KB) is only fetched by crawlers and social platforms.
+- CMS-uploaded images are downscaled to 1600 px and re-encoded as WebP/JPEG
+  before being embedded as data URLs; content images get `loading="lazy"` and
+  `decoding="async"` at render time.
+
+## Deployment
+
+Deploy the whole `dist/` folder (index.html, `.htaccess` and the public files):
 
 ```sh
 npm run build
-# sync the tracked deployment copies
 rm -rf public_html/assets && cp -r dist/. public_html/
-# upload public_html/* (including assets/) to the web host
 node scripts/check-hosting.mjs https://YOUR-STAGING-HOST
 ```
 
-Apache/LiteSpeed must have `mod_rewrite`, `mod_deflate`, `mod_headers` and
+Apache/LiteSpeed needs `mod_rewrite`, `mod_deflate`, `mod_headers` and
 `mod_expires` with AllowOverride. Verify on staging:
 
-- `curl --compressed -I https://YOUR-HOST/assets/<entry>.js` → 200,
-  `text/javascript`, `Cache-Control: ... immutable`.
+- `curl --compressed -I https://YOUR-HOST/` → 200, `text/html`.
+- `curl --compressed -I https://YOUR-HOST/tools` → **301** to `/free-tools`.
 - `curl --compressed -I https://YOUR-HOST/about` → 200 (not redirected to `/`).
-- Run PageSpeed Insights on `/`, a tool, a blog article and a CMS page after
-  deployment.
-
-## Protected canonical behavior: pre-existing issue
-
-The SEO helper still emits hash-style canonical/OG URLs (for example
-`https://seoaudittools.pk/#/about`) despite clean browser routes. It remains
-deliberately unchanged because canonical tags were marked protected; tests
-assert their existing values.
+- `https://YOUR-HOST/assets/` → 404/403 (nothing should be deployed there).

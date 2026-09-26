@@ -91,7 +91,37 @@ export interface SectionFlags {
   whyAudit: boolean; whoBenefits: boolean; freeTools: boolean; fromBlog: boolean; cta: boolean; footer: boolean;
 }
 
-export interface SiteSettings { name: string; domain: string; tagline: string; footerNote: string; headerVerificationAds: string }
+/** One editable link in the footer menu. */
+export interface FooterLink { id: string; label: string; href: string; visible: boolean }
+
+/** One of the four footer link columns. Title, links, order and visibility
+ *  are all editable from Admin → Sections & Nav → Brand & footer. */
+export interface FooterColumn { id: string; title: string; links: FooterLink[] }
+
+/** Footer social profiles. An empty string hides that icon on the public site. */
+export interface SocialLinks {
+  facebook: string;
+  x: string;
+  linkedin: string;
+  instagram: string;
+  youtube: string;
+}
+
+export interface SiteSettings {
+  name: string;
+  domain: string;
+  tagline: string;
+  footerNote: string;
+  headerVerificationAds: string;
+  /** Footer copyright line. Supports {year}, {name} and {domain} placeholders. */
+  footerCopyright: string;
+  /** Replaces the default footer mark when set (URL or uploaded data URL). */
+  footerLogoUrl: string;
+  /** Heading above the footer menu links. */
+  footerMenuTitle: string;
+  footerLinks: FooterLink[];
+  social: SocialLinks;
+}
 
 export interface CmsState {
   version: number;
@@ -103,6 +133,8 @@ export interface CmsState {
   sections: SectionFlags;
   settings: SiteSettings;
   nav: NavItem[];
+  /** The four footer link columns (Quick Links, SEO Tools, Resources, Company). */
+  footerColumns: FooterColumn[];
   passcode: string;
 }
 
@@ -130,19 +162,46 @@ const defaultPosts: CmsPost[] = allArticles.map(a => ({
   author: a.author, keywords: a.keywords, featuredImage: a.featuredImage, featuredImageAlt: a.featuredImageAlt, status: 'live' as Status, builtin: true,
 }));
 
+const footerLink = (label: string, href: string): FooterLink => ({ id: uid(), label, href, visible: true });
+
+/** The four footer columns every visitor sees until the admin edits them. */
+export const defaultFooterColumns: FooterColumn[] = [
+  { id: uid(), title: 'Quick links', links: [
+    footerLink('Free SEO Audit', '/'),
+    footerLink('Free SEO Tools', '/free-tools'),
+    footerLink('Blog', '/blog'),
+    footerLink('About', '/about'),
+    footerLink('Contact', '/contact'),
+  ] },
+  { id: uid(), title: 'SEO Tools', links: [
+    footerLink('Free SEO Audit', '/'),
+    footerLink('Free SEO Tools', '/free-tools'),
+    footerLink('Competitor Analysis', '/competitor-analysis'),
+  ] },
+  { id: uid(), title: 'Resources', links: [
+    footerLink('Blog', '/blog'),
+    footerLink('FAQ', '/faq'),
+    footerLink("Who It's For", '/#audiences'),
+  ] },
+  { id: uid(), title: 'Company', links: [
+    footerLink('About', '/about'),
+    footerLink('Contact', '/contact'),
+  ] },
+];
+
 export const defaultState: CmsState = {
-  version: 12,
+  version: 13,
   tools: defaultTools,
   posts: defaultPosts,
   pages: [
     {
       id: uid(), slug: 'about', title: 'About SEO Audit Tools', status: 'live',
-      metaTitle: 'About SEO Audit Tools | Free SEO Analysis Platform — EKSTRUH LTD', metaDescription: 'About SEO Audit Tools: a free platform from EKSTRUH LTD for website SEO audits, competitor analysis and instant PDF reports — built for website owners in Pakistan and worldwide.',
+      metaTitle: 'About SEO Audit Tools | Free SEO Analysis Platform', metaDescription: 'About SEO Audit Tools: a free platform for website SEO audits, competitor analysis and instant PDF reports — built for website owners in Pakistan and worldwide.',
       blocks: [
         { id: uid(), type: 'text', text: 'SEO Audit Tools is a free online platform built to help website owners, business owners, bloggers, digital marketers, and web developers understand and improve their website\'s performance in search engines. We built this tool to make professional SEO analysis accessible to everyone, without the need for expensive software or technical expertise.' },
         { id: uid(), type: 'text', text: 'Our platform is built to serve website owners in Pakistan and around the world, backed by fast, reliable hosting infrastructure. Every report we generate reflects real data from your website, presented in plain English with clear, prioritised recommendations you can act on immediately.' },
         { id: uid(), type: 'heading', text: 'Who We Are', level: 2 },
-        { id: uid(), type: 'text', text: 'SEO Audit Tools is operated by EKSTRUH LTD, a company registered in England and Wales and based in Bolton, England. Our team serves website owners across Pakistan — Karachi, Lahore, Islamabad, Peshawar and beyond — as well as users around the world, and we specialise in building practical web tools that help businesses grow their online presence through better search engine optimisation.' },
+        { id: uid(), type: 'text', text: 'SEO Audit Tools is an independent web platform built and maintained by a small distributed team. Our team serves website owners across Pakistan — Karachi, Lahore, Islamabad, Peshawar and beyond — as well as users around the world, and we specialise in building practical web tools that help businesses grow their online presence through better search engine optimisation.' },
         { id: uid(), type: 'text', text: 'We built this platform because most SEO tools are either too expensive, too complicated, or designed for large agencies rather than everyday website owners. Our goal is to change that by giving every website owner access to the same quality of SEO analysis that professionals use.' },
         { id: uid(), type: 'heading', text: 'What We Offer', level: 2 },
         { id: uid(), type: 'text', text: 'Our tools give you strong analysis features to help you:' },
@@ -159,17 +218,17 @@ export const defaultState: CmsState = {
     },
     {
       id: uid(), slug: 'privacy-policy', title: 'Privacy Policy', status: 'live',
-      metaTitle: 'Privacy Policy | SEO Audit Tools — EKSTRUH LTD', metaDescription: 'Privacy Policy for SEO Audit Tools (seoaudittools.pk), operated by EKSTRUH LTD: the data we collect, our lawful bases under the UK GDPR and Data Protection Act 2018, Google AdSense and affiliate cookies, and your legal rights.',
+      metaTitle: 'Privacy Policy | SEO Audit Tools', metaDescription: 'Privacy Policy for SEO Audit Tools (seoaudittools.pk): the data we collect, our lawful bases under the UK GDPR and Data Protection Act 2018, Google AdSense and affiliate cookies, and your legal rights.',
       blocks: [
         { id: uid(), type: 'text', text: 'Last Updated: 23 SEP 2026' },
         { id: uid(), type: 'heading', text: '1. Introduction', level: 2 },
         { id: uid(), type: 'text', text: 'Welcome to SEO Audit Tools. We respect your privacy and are committed to protecting your personal data. This privacy policy will inform you about how we handle data when you visit our website, use our free online SEO Audit Tools, and interact with our advertisements or affiliate links. Our services are entirely free to use and do not require you to create an account, register, or provide any login credentials to access any report features.' },
         { id: uid(), type: 'heading', text: '2. Who We Are (Data Controller)', level: 2 },
-        { id: uid(), type: 'text', text: 'The website and SEO Audit Tools are operated by EKSTRUH LTD, a company registered in England and Wales.' },
-        { id: uid(), type: 'list', items: ['Company Name: EKSTRUH LTD', 'Company Registration Number: 16905290', 'Registered Office Address: Victoria Grove, Bolton, United Kingdom, BL1 4JW', 'Contact Email: help@seoaudittools.pk'] },
+        { id: uid(), type: 'text', text: 'The website and the SEO Audit Tools service are operated by the SEO Audit Tools team.' },
+        { id: uid(), type: 'list', items: ['Site Name: SEO Audit Tools', 'Website: https://seoaudittools.pk', 'Contact Email: help@seoaudittools.pk'] },
         { id: uid(), type: 'text', text: 'Because we operate in the United Kingdom, we handle data in accordance with the UK General Data Protection Regulation (UK GDPR) and the Data Protection Act 2018. If you have concerns, you have the right to lodge a complaint with the UK Information Commissioner\'s Office (ICO) at https://ico.org.uk.' },
-        { id: uid(), type: 'text', text: 'EKSTRUH LTD has not appointed a Data Protection Officer as we do not meet the threshold requiring one under UK GDPR Article 37.' },
-        { id: uid(), type: 'text', text: 'Although our registered office is in the United Kingdom, seoaudittools.pk is built for website owners in Pakistan and worldwide. This policy, and the UK data-protection standards it describes, apply equally to every visitor regardless of where you live.' },
+        { id: uid(), type: 'text', text: 'We have not appointed a Data Protection Officer as we do not meet the threshold requiring one under UK GDPR Article 37.' },
+        { id: uid(), type: 'text', text: 'Although our base is in the United Kingdom, seoaudittools.pk is built for website owners in Pakistan and worldwide. This policy, and the UK data-protection standards it describes, apply equally to every visitor regardless of where you live.' },
         { id: uid(), type: 'heading', text: '3. The Data We Collect and Process', level: 2 },
         { id: uid(), type: 'text', text: 'Because our platform requires no user registration, we do not collect identity information like your name, home address, or phone number. However, to run our tool and display ads, we automatically process the following information:' },
         { id: uid(), type: 'list', items: ['Technical Data: This includes your Internet Protocol (IP) address, your browser type and version, operating system, and the time/date of your visit.', 'Audit Query Data: This includes the third-party website URLs you paste into our search bar to run an SEO analysis. Our backend script must temporarily process this parameter to deliver your score and PDF report.', 'Tracking & Interaction Data: Data regarding how you navigate our pages, click on affiliate links, or interact with displayed advertisements.'] },
@@ -184,7 +243,7 @@ export const defaultState: CmsState = {
         { id: uid(), type: 'list', items: ['Google and its partner vendors use tracking cookies to serve personalised ads to you based on your previous visits to this website or other platforms across the internet.', 'These advertising providers may process technical and online identifiers, including IP addresses, browser information, device identifiers, and interaction data, to measure advertising performance and deliver personalised advertisements.', 'Your Choices: You can completely opt-out of personalised Google advertising tracking by modifying your preferences at https://adssettings.google.com', 'Google Privacy Policy: https://policies.google.com/privacy', 'Google AdSense Policy: https://policies.google.com/technologies/ads'] },
         { id: uid(), type: 'heading', text: '7. Affiliate Link Disclosures and Tracking Cookies', level: 2 },
         { id: uid(), type: 'text', text: 'This website contains affiliate links recommending premium external SEO software, web hosting providers, or digital marketing platforms.' },
-        { id: uid(), type: 'list', items: ['If you click on an affiliate link and subsequently make a purchase on that external vendor\'s website, a dedicated tracking cookie is placed in your browser by that third-party affiliate network.', 'This tracking cookie is used solely to assign referral credit to EKSTRUH LTD so we can earn a small commission at no extra cost to you. We do not have access to your personal billing details or external account details during this transaction.'] },
+        { id: uid(), type: 'list', items: ['If you click on an affiliate link and subsequently make a purchase on that external vendor\'s website, a dedicated tracking cookie is placed in your browser by that third-party affiliate network.', 'This tracking cookie is used solely to assign referral credit to us so we can earn a small commission at no extra cost to you. We do not have access to your personal billing details or external account details during this transaction.'] },
         { id: uid(), type: 'heading', text: '8. Cookie Policy', level: 2 },
         { id: uid(), type: 'text', text: 'Our website uses cookies to operate correctly, display advertisements, and track affiliate referrals. Cookies are small text files stored on your device by your browser.' },
         { id: uid(), type: 'text', text: 'We use the following categories of cookies:' },
@@ -217,14 +276,14 @@ export const defaultState: CmsState = {
     },
     {
       id: uid(), slug: 'contact', title: 'Contact', status: 'live',
-      metaTitle: 'Contact SEO Audit Tools | EKSTRUH LTD Support', metaDescription: 'Get in touch with EKSTRUH LTD about SEO Audit Tools: support, bug reports, data protection queries, partnerships and feedback. We usually reply within one business day.',
+      metaTitle: 'Contact SEO Audit Tools | Support', metaDescription: 'Get in touch with the SEO Audit Tools team: support, bug reports, data protection queries, partnerships and feedback. We usually reply within one business day.',
       blocks: [
         { id: uid(), type: 'heading', text: 'Talk to us', level: 2 },
         { id: uid(), type: 'text', text: 'Found a bug, need a tool we do not have yet, or want to work with us? Email <a href="mailto:help@seoaudittools.pk">help@seoaudittools.pk</a> and we will get back to you, usually within one business day. There is no ticket system and no phone menu — your email goes straight to the people who build the site.' },
         { id: uid(), type: 'heading', text: 'Response Time', level: 2 },
         { id: uid(), type: 'text', text: 'Within one business day (Monday to Friday, Pakistan Standard Time). Urgent data-protection requests are prioritised.' },
         { id: uid(), type: 'heading', text: 'Before You Write', level: 2 },
-        { id: uid(), type: 'text', text: 'Check our <a href="#/p/privacy-policy">Privacy Policy</a> and <a href="#/p/cookie-policy">Cookie Policy</a> for data-related questions.' },
+        { id: uid(), type: 'text', text: 'Check our <a href="/privacy">Privacy Policy</a> and <a href="/cookies">Cookie Policy</a> for data-related questions.' },
         { id: uid(), type: 'text', text: 'For tool issues, describe the IP or domain you tried and the error you saw — it helps us fix things faster.' },
         { id: uid(), type: 'heading', text: 'Reporting a bug', level: 2 },
         { id: uid(), type: 'text', text: 'The more you tell us, the faster we can fix it. Helpful things to include: the address of the tool page, the input you gave it, your browser and device, and what you expected to happen versus what actually did. A screenshot never hurts.' },
@@ -235,11 +294,11 @@ export const defaultState: CmsState = {
     },
     {
       id: uid(), slug: 'faq', title: 'FAQ', status: 'live',
-      metaTitle: 'FAQ | SEO Audit Tools — EKSTRUH LTD', metaDescription: 'Answers to common questions about SEO Audit Tools: free tools, browser-side processing, where domain data comes from, cookies and who runs the site.',
+      metaTitle: 'FAQ | SEO Audit Tools', metaDescription: 'Answers to common questions about SEO Audit Tools: free tools, browser-side processing, where domain data comes from, cookies and who runs the site.',
       blocks: [
         { id: uid(), type: 'heading', text: 'Your questions, answered', level: 2 },
         { id: uid(), type: 'heading', text: 'Are the tools really free?', level: 3 },
-        { id: uid(), type: 'text', text: 'Yes — all 150+ of them. No accounts, no paywalls, no "free trial" that asks for a card. EKSTRUH LTD runs the site, and the tools that need revenue to keep the lights on say so honestly rather than hiding it.' },
+        { id: uid(), type: 'text', text: 'Yes — all 150+ of them. No accounts, no paywalls, no "free trial" that asks for a card. The SEO Audit Tools team runs the site, and the tools that need revenue to keep the lights on say so honestly rather than hiding it.' },
         { id: uid(), type: 'heading', text: 'Do you upload my files or text anywhere?', level: 3 },
         { id: uid(), type: 'text', text: 'No. Every tool on this site does its work in your browser. When you compress a PDF, the file is read and written by your own device. When you paste text into the grammar or plagiarism checker, it is analysed locally. There is no upload step, because there is no server on our side receiving one.' },
         { id: uid(), type: 'heading', text: 'What happens to the URL I audit?', level: 3 },
@@ -253,18 +312,18 @@ export const defaultState: CmsState = {
         { id: uid(), type: 'heading', text: 'How accurate are the audits?', level: 3 },
         { id: uid(), type: 'text', text: 'Honest answer: they are a strong diagnostic, not a crystal ball. The checks reflect well-established on-page, technical, mobile, security and performance signals, but no score guarantees rankings — search engines weigh relevance, backlinks and intent in ways no auditor can fully see. Treat the report as a prioritised to-do list, not a verdict.' },
         { id: uid(), type: 'heading', text: 'Who is behind the site?', level: 3 },
-        { id: uid(), type: 'text', text: 'EKSTRUH LTD, a company registered in England and Wales. You can read more on the About page, including our company details.' },
+        { id: uid(), type: 'text', text: 'SEO Audit Tools is run by a small, independent team that builds and maintains the tools in the open. You can read more on the About page.' },
         { id: uid(), type: 'heading', text: 'Something looks wrong — who do I tell?', level: 3 },
         { id: uid(), type: 'text', text: 'Email help@seoaudittools.pk with the tool\'s address, what you entered and what happened. Bug reports genuinely make the site better, and we read all of them.' },
       ],
     },
     {
       id: uid(), slug: 'cookie-policy', title: 'Cookie Policy', status: 'live',
-      metaTitle: 'Cookie Policy | SEO Audit Tools — EKSTRUH LTD', metaDescription: 'Cookie Policy for SEO Audit Tools (seoaudittools.pk): the cookies we use, including Google Analytics, Google AdSense and affiliate tracking cookies, how to manage your consent, and your rights under the UK GDPR and PECR.',
+      metaTitle: 'Cookie Policy | SEO Audit Tools', metaDescription: 'Cookie Policy for SEO Audit Tools (seoaudittools.pk): the cookies we use, including Google Analytics, Google AdSense and affiliate tracking cookies, how to manage your consent, and your rights under the UK GDPR and PECR.',
       blocks: [
         { id: uid(), type: 'text', text: 'Last updated: 20 SEP 2026' },
         { id: uid(), type: 'heading', text: '1. Introduction', level: 2 },
-        { id: uid(), type: 'text', text: 'This Cookie Policy explains how EKSTRUH LTD ("we", "us", or "our"), the company behind seoaudittools.pk, uses cookies and similar tracking technologies when you visit our website. It should be read alongside our Privacy Policy.' },
+        { id: uid(), type: 'text', text: 'This Cookie Policy explains how SEO Audit Tools ("we", "us", or "our") uses cookies and similar tracking technologies when you visit seoaudittools.pk. It should be read alongside our Privacy Policy.' },
         { id: uid(), type: 'text', text: 'By clicking "Accept All" on our cookie banner, you consent to the use of all cookies described below. You can withdraw or change your consent at any time by using the Manage Preferences button at the bottom of this page.' },
         { id: uid(), type: 'heading', text: '2. What Are Cookies?', level: 2 },
         { id: uid(), type: 'text', text: 'Cookies are small text files placed on your device (computer, tablet, or smartphone) when you visit a website. They help the website remember your actions and preferences over a period of time, so you don\'t have to keep re-entering them whenever you come back to the site or browse from one page to another.' },
@@ -291,7 +350,7 @@ export const defaultState: CmsState = {
           ['IDE', 'Google DoubleClick', 'Used to serve targeted advertisements relevant to users', '1 year', 'Advertising'],
         ] },
         { id: uid(), type: 'heading', text: '3.4 Affiliate Tracking Cookies', level: 3 },
-        { id: uid(), type: 'text', text: 'These cookies are placed by third-party affiliate networks when you click an affiliate link on our website (for example, a link to SEO software or hosting providers). They track referral credit so EKSTRUH LTD can earn a commission at no extra cost to you. These require your consent before being placed.' },
+        { id: uid(), type: 'text', text: 'These cookies are placed by third-party affiliate networks when you click an affiliate link on our website (for example, a link to SEO software or hosting providers). They track referral credit so we can earn a commission at no extra cost to you. These require your consent before being placed.' },
         { id: uid(), type: 'table', head: ['Cookie name', 'Provider', 'Purpose', 'Duration', 'Type'], rows: [
           ['affiliate_ref', 'Third-party affiliate network (varies by advertiser)', 'Assigns referral credit for commission tracking', 'Up to 90 days', 'Advertising'],
         ] },
@@ -305,7 +364,7 @@ export const defaultState: CmsState = {
         { id: uid(), type: 'heading', text: '6. Legal Basis', level: 2 },
         { id: uid(), type: 'text', text: 'We rely on the following legal bases under the UK GDPR and the Privacy and Electronic Communications Regulations (PECR) to set cookies:' },
         { id: uid(), type: 'list', items: ['Strictly necessary cookies — Legitimate interests (and exempted from consent under PECR Regulation 6(4)).', 'Analytics, advertising, and affiliate cookies — Your consent, which you can withdraw at any time.'] },
-        { id: uid(), type: 'text', text: 'Where you are visiting from outside the UK, including from Pakistan, we still apply UK GDPR and PECR consent standards to cookies placed by this website, since EKSTRUH LTD is the UK-based data controller.' },
+        { id: uid(), type: 'text', text: 'Where you are visiting from outside the UK, including from Pakistan, we still apply UK GDPR and PECR consent standards to cookies placed by this website, since we are the data controller for this website.' },
         { id: uid(), type: 'heading', text: '7. Changes to This Policy', level: 2 },
         { id: uid(), type: 'text', text: 'We may update this Cookie Policy from time to time to reflect changes in the cookies we use or for other operational, legal, or regulatory reasons. The date at the top of this page indicates when the policy was last revised. We recommend checking back periodically.' },
         { id: uid(), type: 'heading', text: '8. Contact Us', level: 2 },
@@ -314,20 +373,20 @@ export const defaultState: CmsState = {
     },
     {
       id: uid(), slug: 'terms-of-service', title: 'Terms & Conditions', status: 'live',
-      metaTitle: 'Terms & Conditions | SEO Audit Tools — EKSTRUH LTD', metaDescription: 'Terms & Conditions for SEO Audit Tools (seoaudittools.pk), operated by EKSTRUH LTD: acceptable use, intellectual property, disclaimers, liability limits, UK GDPR rights, cookies and refunds, governed by the laws of England and Wales.',
+      metaTitle: 'Terms & Conditions | SEO Audit Tools', metaDescription: 'Terms & Conditions for SEO Audit Tools (seoaudittools.pk): acceptable use, intellectual property, disclaimers, liability limits, UK GDPR rights, cookies and refunds, governed by the laws of England and Wales.',
       blocks: [
         { id: uid(), type: 'text', text: 'Last Updated: 20 SEP 2026' },
         { id: uid(), type: 'heading', text: 'AGREEMENT TO OUR LEGAL TERMS', level: 2 },
-        { id: uid(), type: 'text', text: 'We are EKSTRUH LTD ("Company," "we," "us," "our").' },
+        { id: uid(), type: 'text', text: 'We are SEO Audit Tools ("Company," "we," "us," "our").' },
         { id: uid(), type: 'text', text: 'We operate https://seoaudittools.pk/, as well as any other related products and services that refer or link to these legal terms (the "Legal Terms") (collectively, the "Services").' },
-        { id: uid(), type: 'text', text: 'You can contact us by email at help@seoaudittools.pk or by mail to EKSTRUH LTD, Victoria Grove, Bolton, England, United Kingdom, BL1 4JW.' },
-        { id: uid(), type: 'text', text: 'These Legal Terms constitute a legally binding agreement made between you, whether personally or on behalf of an entity ("you"), and EKSTRUH LTD, concerning your access to and use of the Services. You agree that by accessing the Services, you have read, understood, and agreed to be bound by all of these Legal Terms. IF YOU DO NOT AGREE WITH ALL OF THESE LEGAL TERMS, THEN YOU ARE EXPRESSLY PROHIBITED FROM USING THE SERVICES AND YOU MUST DISCONTINUE USE IMMEDIATELY.' },
+        { id: uid(), type: 'text', text: 'You can contact us by email at help@seoaudittools.pk.' },
+        { id: uid(), type: 'text', text: 'These Legal Terms constitute a legally binding agreement made between you, whether personally or on behalf of an entity ("you"), and SEO Audit Tools, concerning your access to and use of the Services. You agree that by accessing the Services, you have read, understood, and agreed to be bound by all of these Legal Terms. IF YOU DO NOT AGREE WITH ALL OF THESE LEGAL TERMS, THEN YOU ARE EXPRESSLY PROHIBITED FROM USING THE SERVICES AND YOU MUST DISCONTINUE USE IMMEDIATELY.' },
         { id: uid(), type: 'text', text: 'Supplemental terms and conditions or documents that may be posted on the Services from time to time are hereby expressly incorporated herein by reference. We reserve the right, in our sole discretion, to make changes or modifications to these Legal Terms at any time and for any reason. We will alert you about any changes by updating the "Last updated" date of these Legal Terms, and you waive any right to receive specific notice of each such change. It is your responsibility to periodically review these Legal Terms to stay informed of updates. You will be subject to, and will be deemed to have been made aware of and to have accepted, the changes in any revised Legal Terms by your continued use of the Services after the date such revised Legal Terms are posted.' },
         { id: uid(), type: 'text', text: 'We recommend that you print a copy of these Legal Terms for your records.' },
         { id: uid(), type: 'heading', text: 'TABLE OF CONTENTS', level: 2 },
         { id: uid(), type: 'list', items: ['1. Our Services', '2. Intellectual Property Rights', '3. User Representations', '4. Prohibited Activities', '5. User Generated Contributions', '6. Contribution License', '7. Services Management', '8. Term and Termination', '9. Modifications and Interruptions', '10. Governing Law', '11. Dispute Resolution', '12. Corrections', '13. Disclaimer', '14. Limitations of Liability', '15. Indemnification', '16. User Data', '17. Electronic Communications, Transactions, and Signatures', '18. Miscellaneous', '19. UK GDPR and Data Protection', '20. Cookie Policy', '21. Refund and Cancellation Policy', '22. Contact Us'] },
         { id: uid(), type: 'heading', text: '1. OUR SERVICES', level: 2 },
-        { id: uid(), type: 'text', text: 'EKSTRUH LTD provides an online SEO audit and website analysis platform available at seoaudittools.pk/. Our tools help users check website SEO health, identify technical issues, monitor keyword rankings, analyse page speed, and compare websites with competitors.' },
+        { id: uid(), type: 'text', text: 'SEO Audit Tools provides an online SEO audit and website analysis platform available at seoaudittools.pk/. Our tools help users check website SEO health, identify technical issues, monitor keyword rankings, analyse page speed, and compare websites with competitors.' },
         { id: uid(), type: 'text', text: 'The information provided when using the Services is not intended for distribution to or use by any person or entity in any jurisdiction or country where such distribution or use would be contrary to law or regulation or which would subject us to any registration requirement within such jurisdiction or country. Accordingly, those persons who choose to access the Services from other locations do so on their own initiative and are solely responsible for compliance with local laws, if and to the extent local laws are applicable.' },
         { id: uid(), type: 'heading', text: '2. INTELLECTUAL PROPERTY RIGHTS', level: 2 },
         { id: uid(), type: 'heading', text: 'Our intellectual property', level: 3 },
@@ -372,7 +431,7 @@ export const defaultState: CmsState = {
         { id: uid(), type: 'text', text: 'We reserve the right to change, modify, or remove the contents of the Services at any time or for any reason at our sole discretion without notice. However, we have no obligation to update any information on our Services. We will not be liable to you or any third party for any modification, price change, suspension, or discontinuance of the Services.' },
         { id: uid(), type: 'text', text: 'We cannot guarantee the Services will be available at all times. We may experience hardware, software, or other problems or need to perform maintenance related to the Services, resulting in interruptions, delays, or errors. We reserve the right to change, revise, update, suspend, discontinue, or otherwise modify the Services at any time or for any reason without notice to you. You agree that we have no liability whatsoever for any loss, damage, or inconvenience caused by your inability to access or use the Services during any downtime or discontinuance of the Services. Nothing in these Legal Terms will be construed to obligate us to maintain and support the Services or to supply any corrections, updates, or releases in connection therewith.' },
         { id: uid(), type: 'heading', text: '10. GOVERNING LAW', level: 2 },
-        { id: uid(), type: 'text', text: 'These Legal Terms shall be governed by and defined following the laws of England and Wales. EKSTRUH LTD and yourself irrevocably consent that the courts of England and Wales shall have exclusive jurisdiction to resolve any dispute which may arise in connection with these Legal Terms.' },
+        { id: uid(), type: 'text', text: 'These Legal Terms shall be governed by and defined following the laws of England and Wales. SEO Audit Tools and yourself irrevocably consent that the courts of England and Wales shall have exclusive jurisdiction to resolve any dispute which may arise in connection with these Legal Terms.' },
         { id: uid(), type: 'heading', text: '11. DISPUTE RESOLUTION', level: 2 },
         { id: uid(), type: 'text', text: 'We will always try to resolve any dispute or complaint informally first. If you have a concern, please contact us at help@seoaudittools.pk and we will do our best to resolve it within 30 days.' },
         { id: uid(), type: 'text', text: 'If a dispute cannot be resolved informally, both parties agree to submit to the exclusive jurisdiction of the courts of England and Wales.' },
@@ -393,7 +452,7 @@ export const defaultState: CmsState = {
         { id: uid(), type: 'text', text: 'These Legal Terms and any policies or operating rules posted by us on the Services or in respect to the Services constitute the entire agreement and understanding between you and us. Our failure to exercise or enforce any right or provision of these Legal Terms shall not operate as a waiver of such right or provision. These Legal Terms operate to the fullest extent permissible by law. We may assign any or all of our rights and obligations to others at any time. We shall not be responsible or liable for any loss, damage, delay, or failure to act caused by any cause beyond our reasonable control. If any provision or part of a provision of these Legal Terms is determined to be unlawful, void, or unenforceable, that provision or part of the provision is deemed severable from these Legal Terms and does not affect the validity and enforceability of any remaining provisions. There is no joint venture, partnership, employment or agency relationship created between you and us as a result of these Legal Terms or use of the Services. You agree that these Legal Terms will not be construed against us by virtue of having drafted them. You hereby waive any and all defenses you may have based on the electronic form of these Legal Terms and the lack of signing by the parties hereto to execute these Legal Terms.' },
         { id: uid(), type: 'heading', text: '19. UK GDPR AND DATA PROTECTION', level: 2 },
         { id: uid(), type: 'text', text: 'This section is required under UK law and has been added to ensure compliance with the UK General Data Protection Regulation (UK GDPR) and the Data Protection Act 2018.' },
-        { id: uid(), type: 'text', text: 'EKSTRUH LTD is committed to protecting your personal data and complying with all applicable data protection laws in the United Kingdom, including the UK GDPR and the Data Protection Act 2018.' },
+        { id: uid(), type: 'text', text: 'SEO Audit Tools is committed to protecting your personal data and complying with all applicable data protection laws in the United Kingdom, including the UK GDPR and the Data Protection Act 2018.' },
         { id: uid(), type: 'text', text: 'We collect and process your personal data only for lawful, specified, and legitimate purposes. Your rights as a data subject include:' },
         { id: uid(), type: 'list', items: ['The right to access the personal data we hold about you', 'The right to correct any inaccurate or incomplete personal data', 'The right to request deletion of your personal data ("right to be forgotten")', 'The right to restrict or object to the processing of your personal data', 'The right to data portability', 'The right to withdraw consent at any time where processing is based on consent'] },
         { id: uid(), type: 'text', text: 'To exercise any of these rights, please contact us at help@seoaudittools.pk.' },
@@ -408,7 +467,7 @@ export const defaultState: CmsState = {
         { id: uid(), type: 'text', text: 'You can control or disable cookies at any time through your browser settings. Please note that disabling certain cookies may affect the functionality of our website. For guidance on managing cookies in your browser, visit https://www.aboutcookies.org.' },
         { id: uid(), type: 'heading', text: '21. REFUND AND CANCELLATION POLICY', level: 2 },
         { id: uid(), type: 'text', text: 'This section is required under UK consumer law, specifically the Consumer Rights Act 2015 and the Consumer Contracts Regulations 2013, and has been added to ensure full legal compliance.' },
-        { id: uid(), type: 'text', text: 'The following refund and cancellation terms apply to any paid plans or premium features offered by EKSTRUH LTD through seoaudittools.pk' },
+        { id: uid(), type: 'text', text: 'The following refund and cancellation terms apply to any paid plans or premium features offered through seoaudittools.pk' },
         { id: uid(), type: 'text', text: 'Free Tools: No payment is required for our free SEO audit tools and no refund applies.' },
         { id: uid(), type: 'text', text: 'Paid Plans or Premium Features:' },
         { id: uid(), type: 'list', items: ['You may cancel your subscription at any time by contacting us at help@seoaudittools.pk', 'If you cancel within 14 days of purchase and have not used the premium features, you are entitled to a full refund under the UK statutory cooling-off period', 'If you have accessed or used the paid features within the 14-day period, we reserve the right to apply a pro-rata deduction before issuing a refund', 'Refunds will be processed within 10 business days to your original payment method', 'We do not offer refunds for partial months or unused portions of a subscription beyond the 14-day period'] },
@@ -419,8 +478,8 @@ export const defaultState: CmsState = {
     },
   ],
   seo: {
-    home: { title: 'SEO Audit Tools — Free Website SEO Checker | EKSTRUH LTD', description: 'Free SEO audit tool plus 150+ practical SEO, speed, IP, PDF, calculator and converter tools from EKSTRUH LTD — built for website owners in Pakistan and worldwide.' },
-    tools: { title: 'Free SEO Tools (150+) — Audit, Speed, Calculator & Converter Tools', description: 'Browse 150+ free tools from EKSTRUH LTD for Pakistan and worldwide: website SEO audit, page speed, keyword research, backlinks, IP lookup, PDF tools, calculators and unit converters.' },
+    home: { title: 'SEO Audit Tools — Free Website SEO Checker & 150+ Online Tools', description: 'Free SEO audit tool plus 150+ practical SEO, speed, IP, PDF, calculator and converter tools — built for website owners in Pakistan and worldwide.' },
+    tools: { title: 'Free SEO Tools (150+) — Audit, Speed, Calculator & Converter Tools', description: 'Browse 150+ free tools for Pakistan and worldwide: website SEO audit, page speed, keyword research, backlinks, IP lookup, PDF tools, calculators and unit converters.' },
     blog: { title: 'SEO Blog: Core Web Vitals, PageSpeed & WordPress Guides', description: 'Practical SEO guides on fixing INP, LCP and CLS, PageSpeed problems, WordPress performance, indexing issues and Google core updates.' },
     'competitor-analysis': { title: 'SEO Competitor Analysis — Compare Two Websites Free | SEO Audit Tools', description: 'Compare your website with a competitor: overall SEO scores, domain registration, on-page checks, Google-style SERP previews and a two-column full audit. Free, no sign-up.' },
   },
@@ -433,10 +492,31 @@ export const defaultState: CmsState = {
     widgets: [],
   },
   sections: { hero: true, auditTool: true, results: true, features: true, howItWorks: true, whyAudit: true, whoBenefits: true, freeTools: true, fromBlog: true, cta: true, footer: true },
-  settings: { name: 'SEO Audit Tools', domain: 'seoaudittools.pk', tagline: 'Pakistan’s free SEO audit + 150 tools', footerNote: 'SEO Audit Tools — free online SEO, calculator and unit converter tools for website owners in Pakistan and worldwide, provided by EKSTRUH LTD.', headerVerificationAds: '' },
+  settings: {
+    name: 'SEO Audit Tools',
+    domain: 'seoaudittools.pk',
+    tagline: 'Pakistan’s free SEO audit + 150 tools',
+    footerNote: 'SEO Audit Tools — free online SEO, calculator and unit converter tools for website owners in Pakistan and worldwide.',
+    headerVerificationAds: '',
+    footerCopyright: '© {year} {name} · {domain} · Free SEO tools for Pakistan & worldwide. All rights reserved.',
+    footerLogoUrl: '',
+    // Column 1 of the footer used to be stored here (kept so older saved
+    // state and exported JSON still migrate cleanly); the admin now edits all
+    // four columns through state.footerColumns.
+    footerMenuTitle: 'Quick links',
+    footerLinks: [
+      { id: uid(), label: 'Free SEO Audit', href: '/', visible: true },
+      { id: uid(), label: 'Free SEO Tools', href: '/free-tools', visible: true },
+      { id: uid(), label: 'Blog', href: '/blog', visible: true },
+      { id: uid(), label: 'About', href: '/about', visible: true },
+      { id: uid(), label: 'Contact', href: '/contact', visible: true },
+    ],
+    social: { facebook: 'https://www.facebook.com/', x: 'https://x.com/', linkedin: '', instagram: '', youtube: '' },
+  },
   nav: [
     { id: uid(), label: 'Free SEO Tools', href: '/free-tools', visible: true },
   ],
+  footerColumns: defaultFooterColumns.map(col => ({ ...col, links: col.links.map(l => ({ ...l })) })),
   passcode: 'admin123',
 };
 
@@ -526,13 +606,55 @@ export const withPageContent = (page: CmsPage): CmsPage => {
   return { ...page, content: cleanStoredHtml(html) };
 };
 
+/** Replace the {year} {name} {domain} placeholders in the footer copyright line. */
+export const renderCopyright = (template: string, name: string, domain: string): string =>
+  (template || '')
+    .replace(/\{year\}/gi, String(new Date().getFullYear()))
+    .replace(/\{name\}/gi, name)
+    .replace(/\{domain\}/gi, domain);
+
+/* ---------------- head snippets (verification & ads) ---------------- */
+
+const HEAD_CODE_ATTR = 'data-cms-header-code';
+
+/**
+ * Put the admin's verification/ads snippet into <head> and remove the copy
+ * that was injected before.
+ *
+ * Snippets pasted as HTML are cloned node by node. A `<script>` created by
+ * parsing markup is flagged "already started", so it would never run once
+ * moved into the document — AdSense and analytics tags would silently do
+ * nothing. Scripts are therefore rebuilt with `document.createElement` and
+ * copied attributes/text so the browser executes them.
+ */
+export const injectHeadCode = (code: string | undefined): void => {
+  if (typeof document === 'undefined') return;
+  document.head.querySelectorAll(`[${HEAD_CODE_ATTR}]`).forEach(node => node.remove());
+  const snippet = (code || '').trim();
+  if (!snippet) return;
+  const template = document.createElement('template');
+  template.innerHTML = snippet;
+  Array.from(template.content.childNodes).forEach(node => {
+    let out = node;
+    if (node.nodeType === Node.ELEMENT_NODE && node.nodeName === 'SCRIPT') {
+      const original = node as HTMLScriptElement;
+      const script = document.createElement('script');
+      Array.from(original.attributes).forEach(attr => script.setAttribute(attr.name, attr.value));
+      script.text = original.textContent || '';
+      out = script;
+    }
+    if (out.nodeType === Node.ELEMENT_NODE) (out as Element).setAttribute(HEAD_CODE_ATTR, 'true');
+    document.head.appendChild(out);
+  });
+};
+
 /* ---------------- persistence ---------------- */
 const KEY = 'seoaudittool:cms:v1';
 
 /** One-time content migration for browsers that already have CMS data in
  *  localStorage. Version 2 rewrote the original About, Privacy and Contact
  *  pages and added FAQ, Cookie Policy and Terms of Service; version 3 filled
- *  in the real EKSTRUH LTD company details and documented Google Analytics,
+ *  in the company details and documented Google Analytics,
  *  Google AdSense and affiliate links; version 4 replaced the Privacy Policy
  *  with the new 14-section policy; version 5 replaced the Terms of Service
  *  with the new 22-section Terms & Conditions; version 6 replaced the About
@@ -545,7 +667,10 @@ const KEY = 'seoaudittool:cms:v1';
  *  "SEO Audit Tool" brand strings in Contact/FAQ/home metadata, unified the
  *  Contact response time, corrected the Privacy Policy's stale "PHP-based"
  *  tool description, and refreshed the Pakistan-focused About/footer copy.
- *  Pages the admin created themselves are always preserved. */
+ *  Version 13 removed the former trading-company name from every seeded
+ *  string and added the editable footer (copyright line, logo, footer menu
+ *  links and social profiles). Pages the admin created themselves are always
+ *  preserved. */
 const migratePages = (pages: CmsPage[]): CmsPage[] => {
   const bySlug = new Map(pages.map(p => [p.slug, p]));
   const known = defaultState.pages.map(d => (bySlug.has(d.slug) ? { ...d, id: bySlug.get(d.slug)!.id } : d));
@@ -560,19 +685,102 @@ const migratePages = (pages: CmsPage[]): CmsPage[] => {
  *  set via Admin are always preserved. */
 const LEGACY_BRAND_NAME = 'SEO Audit Tool';
 const LEGACY_DOMAINS = ['seoaudittool.pk', 'seoaudittool.co.uk'];
-const migrateSettings = (stored: Partial<SiteSettings> | undefined): SiteSettings => {
-  const merged = { ...defaultState.settings, ...(stored || {}) };
+
+/** Normalise the editable footer fields so a hand-edited or imported JSON
+ *  blob can never crash the public footer. */
+const normaliseFooterLinks = (value: unknown): FooterLink[] => {
+  if (!Array.isArray(value)) return defaultState.settings.footerLinks;
+  return value
+    .filter((link): link is Partial<FooterLink> => !!link && typeof link === 'object')
+    .map(link => ({
+      id: String(link.id || uid()),
+      label: String(link.label ?? ''),
+      href: String(link.href ?? '/'),
+      visible: link.visible !== false,
+    }));
+};
+
+const cloneDefaultColumns = (): FooterColumn[] =>
+  defaultFooterColumns.map(col => ({ id: uid(), title: col.title, links: col.links.map(l => ({ ...l, id: uid() })) }));
+
+/** Coerce a stored/imported value into exactly four usable footer columns:
+ *  the design is a fixed four-up grid, so a malformed blob can never collapse
+ *  it. Missing columns are filled from the built-in defaults. */
+const normaliseFooterColumns = (value: unknown): FooterColumn[] => {
+  if (!Array.isArray(value) || value.length === 0) return cloneDefaultColumns();
+  const columns: FooterColumn[] = value
+    .filter((col): col is Partial<FooterColumn> => !!col && typeof col === 'object')
+    .slice(0, defaultFooterColumns.length)
+    .map((col, i) => ({
+      id: String(col.id || uid()),
+      title: typeof col.title === 'string' && col.title.trim() ? col.title : defaultFooterColumns[i].title,
+      links: normaliseFooterLinks(col.links),
+    }));
+  for (let i = columns.length; i < defaultFooterColumns.length; i += 1) {
+    columns.push({ id: uid(), title: defaultFooterColumns[i].title, links: defaultFooterColumns[i].links.map(l => ({ ...l, id: uid() })) });
+  }
+  return columns;
+};
+
+/** Footer columns, including the upgrade path from the old single editable
+ *  column (settings.footerMenuTitle + settings.footerLinks → column 1). */
+const migrateFooterColumns = (stored: unknown, settings: SiteSettings): FooterColumn[] => {
+  const columns = normaliseFooterColumns(stored);
+  if (Array.isArray(stored) && stored.length) return columns;
+  const legacyLinks = normaliseFooterLinks(settings.footerLinks);
+  return columns.map((col, i) => (i === 0
+    ? {
+        ...col,
+        title: (settings.footerMenuTitle || '').trim() || col.title,
+        links: legacyLinks.length ? legacyLinks : col.links,
+      }
+    : col));
+};
+
+const normaliseSocial = (value: unknown): SocialLinks => {
+  const stored = (value && typeof value === 'object' ? value : {}) as Partial<SocialLinks>;
+  return {
+    facebook: String(stored.facebook || ''),
+    x: String(stored.x || ''),
+    linkedin: String(stored.linkedin || ''),
+    instagram: String(stored.instagram || ''),
+    youtube: String(stored.youtube || ''),
+  };
+};
+
+const migrateSettings = (stored: Partial<SiteSettings> | undefined, fromVersion: number): SiteSettings => {
+  // Version 13 removed the former trading-company name from every seeded
+  // string. Stored settings from an older build are therefore re-seeded from
+  // the cleaned defaults — except the pasted head/ads snippet, which only the
+  // admin can recreate. Browser-local customisations made after v13 are kept.
+  const base = fromVersion < 13
+    ? { ...defaultState.settings, headerVerificationAds: stored?.headerVerificationAds || '' }
+    : { ...defaultState.settings, ...(stored || {}) };
+  const merged = { ...base };
   if (merged.name === LEGACY_BRAND_NAME) merged.name = defaultState.settings.name;
   if (LEGACY_DOMAINS.includes(merged.domain)) merged.domain = defaultState.settings.domain;
+  merged.footerLinks = normaliseFooterLinks(merged.footerLinks);
+  merged.social = normaliseSocial(merged.social);
+  if (typeof merged.footerCopyright !== 'string' || !merged.footerCopyright.trim()) {
+    merged.footerCopyright = defaultState.settings.footerCopyright;
+  }
+  if (typeof merged.footerLogoUrl !== 'string') merged.footerLogoUrl = '';
+  if (typeof merged.footerMenuTitle !== 'string' || !merged.footerMenuTitle.trim()) {
+    merged.footerMenuTitle = defaultState.settings.footerMenuTitle;
+  }
   return merged;
 };
 
 /** SEO entries still carrying the pre-rebrand home title (singular brand)
- *  are upgraded to the new defaults; admin-edited entries are preserved. */
-const LEGACY_SEO_HOME_TITLE = 'SEO Audit Tool — Free Website SEO Checker | EKSTRUH LTD';
-const migrateSeo = (stored: Record<string, SeoEntry> | undefined): Record<string, SeoEntry> => {
-  const merged = { ...defaultState.seo, ...(stored || {}) };
-  if (merged.home?.title === LEGACY_SEO_HOME_TITLE) merged.home = defaultState.seo.home;
+ *  are upgraded to the new defaults; admin-edited entries are preserved.
+ *  Version 13 also re-seeds the four built-in entries, because the pre-13
+ *  defaults carried the removed company name in their titles/descriptions. */
+const LEGACY_SEO_HOME_TITLE_PREFIX = 'SEO Audit Tool — Free Website SEO Checker';
+const migrateSeo = (stored: Record<string, SeoEntry> | undefined, fromVersion: number): Record<string, SeoEntry> => {
+  const merged = fromVersion < 13
+    ? { ...(stored || {}), ...defaultState.seo }
+    : { ...defaultState.seo, ...(stored || {}) };
+  if ((merged.home?.title || '').startsWith(LEGACY_SEO_HOME_TITLE_PREFIX)) merged.home = defaultState.seo.home;
   return merged;
 };
 
@@ -614,6 +822,7 @@ const load = (): CmsState => {
       : oldItems.length
         ? [{ id: uid(), title: 'Featured links', type: 'links', visible: true, source: 'manual', links: oldItems.map(item => ({ ...item })) }]
         : [];
+    const settings = migrateSettings(parsed.settings, parsedVersion);
     return {
       ...defaultState, ...parsed,
       version: Math.max(defaultState.version, parsedVersion),
@@ -621,11 +830,12 @@ const load = (): CmsState => {
       // without overwriting the admin's edits, visibility or custom tools.
       tools: Array.from(new Map([...defaultState.tools, ...(parsed.tools || [])].map(tool => [tool.slug, tool])).values()),
       pages: (parsedVersion < defaultState.version ? migratePages(parsed.pages || []) : (parsed.pages || defaultState.pages)).map(withPageContent),
-      settings: migrateSettings(parsed.settings),
+      settings,
       nav: migrateNav(parsed.nav),
+      footerColumns: migrateFooterColumns(parsed.footerColumns, settings),
       sidebar: { ...migrateSidebar(oldSidebar), widgets: migratedWidgets },
       sections: { ...defaultState.sections, ...(parsed.sections || {}) },
-      seo: migrateSeo(parsed.seo),
+      seo: migrateSeo(parsed.seo, parsedVersion),
     };
   } catch { return defaultState; }
 };
@@ -656,6 +866,8 @@ interface Ctx {
   setSidebar: (patch: Partial<SidebarConfig>) => void;
   setSettings: (patch: Partial<SiteSettings>) => void;
   setNav: (nav: NavItem[]) => void;
+  /* footer columns */
+  setFooterColumns: (columns: FooterColumn[]) => void;
   /* data */
   reset: () => void;
   importJson: (json: string) => boolean;
@@ -679,18 +891,9 @@ export const CmsProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // Content is persisted in this browser. Uploaded images are embedded as
   // data URLs, so a full quota is the one failure mode worth surfacing loudly
   // instead of losing an edit silently.
+  // Replace only CMS-managed head snippets; leave the rest of the document untouched.
   useEffect(() => {
-    // Replace only CMS-managed head snippets; leave the rest of the document untouched.
-    document.head.querySelectorAll('[data-cms-header-code]').forEach(node => node.remove());
-    if (state.settings.headerVerificationAds?.trim()) {
-      const template = document.createElement('template');
-      template.innerHTML = state.settings.headerVerificationAds;
-      Array.from(template.content.childNodes).forEach(node => {
-        const clone = node.cloneNode(true) as HTMLElement;
-        if (clone.nodeType === Node.ELEMENT_NODE) clone.setAttribute('data-cms-header-code', 'true');
-        document.head.appendChild(clone);
-      });
-    }
+    injectHeadCode(state.settings.headerVerificationAds);
   }, [state.settings.headerVerificationAds]);
 
   useEffect(() => {
@@ -727,10 +930,11 @@ export const CmsProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setSidebar: (patch) => setState(s => ({ ...s, sidebar: { ...s.sidebar, ...patch } })),
     setSettings: (patch) => setState(s => ({ ...s, settings: { ...s.settings, ...patch } })),
     setNav: (nav) => setState(s => ({ ...s, nav })),
+    setFooterColumns: (columns) => setState(s => ({ ...s, footerColumns: columns.map(col => ({ ...col, links: col.links.map(l => ({ ...l })) })) })),
 
     reset: () => setState({ ...defaultState }),
     exportJson: () => JSON.stringify({ ...state, pages: state.pages.map(pg => { const { blocks: _blocks, ...rest } = pg; return rest; }) }, null, 2),
-    importJson: (json) => { try { const parsed = JSON.parse(json) as CmsState; if (!parsed.tools || !parsed.posts) return false; const legacyItems = parsed.sidebar?.customItems || []; const widgets = parsed.sidebar?.widgets || (legacyItems.length ? [{ id: uid(), title: 'Featured links', type: 'links' as SidebarWidgetType, visible: true, source: 'manual' as SidebarLinkSource, links: legacyItems }] : []); const parsedVersion = typeof parsed.version === 'number' ? parsed.version : 1; setState({ ...defaultState, ...parsed, version: Math.max(defaultState.version, parsedVersion), pages: (parsedVersion < defaultState.version ? migratePages(parsed.pages || []) : (parsed.pages || defaultState.pages)).map(withPageContent), settings: migrateSettings(parsed.settings), nav: migrateNav(parsed.nav), sidebar: { ...defaultState.sidebar, ...parsed.sidebar, widgets } }); return true; } catch { return false; } },
+    importJson: (json) => { try { const parsed = JSON.parse(json) as CmsState; if (!parsed.tools || !parsed.posts) return false; const legacyItems = parsed.sidebar?.customItems || []; const widgets = parsed.sidebar?.widgets || (legacyItems.length ? [{ id: uid(), title: 'Featured links', type: 'links' as SidebarWidgetType, visible: true, source: 'manual' as SidebarLinkSource, links: legacyItems }] : []); const parsedVersion = typeof parsed.version === 'number' ? parsed.version : 1; setState({ ...defaultState, ...parsed, version: Math.max(defaultState.version, parsedVersion), pages: (parsedVersion < defaultState.version ? migratePages(parsed.pages || []) : (parsed.pages || defaultState.pages)).map(withPageContent), settings: migrateSettings(parsed.settings, parsedVersion), nav: migrateNav(parsed.nav), footerColumns: migrateFooterColumns(parsed.footerColumns, migrateSettings(parsed.settings, parsedVersion)), seo: migrateSeo(parsed.seo, parsedVersion), sidebar: { ...defaultState.sidebar, ...parsed.sidebar, widgets } }); return true; } catch { return false; } },
 
     storageWarning,
     loggedIn,

@@ -348,9 +348,9 @@ export const GrammarChecker: React.FC = () => {
       green: 'border-green-500 bg-green-50 text-green-500', amber: 'border-amber-400 bg-amber-50 text-amber-500',
     }[color];
     return (
-      <div className={`border-2 rounded-lg py-4 px-3 text-center ${c}`}>
-        <p className="text-slate-800 font-bold text-lg leading-tight">{label}</p>
-        <p className="text-2xl font-extrabold mt-1">{value}</p>
+      <div className={`border-2 rounded-lg py-3 sm:py-4 px-2 sm:px-3 text-center ${c}`}>
+        <p className="text-slate-800 font-bold text-sm sm:text-lg leading-tight">{label}</p>
+        <p className="text-xl sm:text-2xl font-extrabold mt-1">{value}</p>
       </div>
     );
   };
@@ -358,7 +358,7 @@ export const GrammarChecker: React.FC = () => {
   return (
     <div className="space-y-4">
       {/* Stat cards */}
-      <div className="bg-slate-50 rounded-2xl p-4 grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="bg-slate-50 rounded-2xl p-3 sm:p-4 grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         <StatCard label="Read Time" value={`${stats.read} Min`} color="red" />
         <StatCard label="Words" value={String(stats.words)} color="blue" />
         <StatCard label="Characters" value={String(stats.chars)} color="green" />
@@ -368,7 +368,7 @@ export const GrammarChecker: React.FC = () => {
       {/* Editor / highlighted view */}
       <div className="relative bg-white rounded-2xl border border-slate-200 shadow-sm">
         {issues ? (
-          <div className="min-h-[420px] p-6 md:p-8 text-[17px] md:text-[19px] leading-[1.9] text-slate-900 whitespace-pre-wrap break-words">
+          <div className="min-h-[300px] sm:min-h-[420px] p-4 sm:p-6 md:p-8 text-[16px] sm:text-[17px] md:text-[19px] leading-[1.9] text-slate-900 whitespace-pre-wrap break-words">
             {highlighted}
           </div>
         ) : (
@@ -378,7 +378,7 @@ export const GrammarChecker: React.FC = () => {
             placeholder={'Paste your text here and click the "Check Grammar" button. Click the colored phrases for details on potential errors.'}
             spellCheck={false}
             aria-label="Text to check"
-            className="w-full min-h-[420px] p-6 md:p-8 text-[17px] md:text-[19px] leading-[1.9] text-slate-900 outline-none resize-y rounded-2xl placeholder:text-slate-900 placeholder:font-normal bg-transparent"
+            className="w-full min-h-[300px] sm:min-h-[420px] p-4 sm:p-6 md:p-8 text-[16px] sm:text-[17px] md:text-[19px] leading-[1.9] text-slate-900 outline-none resize-y rounded-2xl placeholder:text-slate-900 placeholder:font-normal bg-transparent"
           />
         )}
         {text && (
@@ -425,19 +425,19 @@ export const GrammarChecker: React.FC = () => {
       )}
 
       {/* Language selectors + check button */}
-      <div className="flex flex-wrap items-center gap-3">
-        <div className="flex items-center rounded-lg border border-slate-300 bg-white overflow-hidden">
+      <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+        <div className="flex flex-1 min-w-0 sm:flex-none items-center rounded-lg border border-slate-300 bg-white overflow-hidden">
           <select value={language} onChange={e => setLanguage(e.target.value)} aria-label="Language"
-            className="appearance-none bg-transparent px-4 py-3 text-slate-800 text-[15px] outline-none pr-2 min-w-[150px]">
+            className="appearance-none w-full bg-transparent px-3 sm:px-4 py-3 text-slate-800 text-sm sm:text-[15px] outline-none pr-2 sm:min-w-[150px]">
             <option>English</option>
           </select>
           <span className="w-12 h-12 flex items-center justify-center bg-slate-100 border-l border-slate-300 text-slate-700 pointer-events-none">
             <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9" /></svg>
           </span>
         </div>
-        <div className="flex items-center rounded-lg border border-slate-300 bg-white overflow-hidden">
+        <div className="flex flex-1 min-w-0 sm:flex-none items-center rounded-lg border border-slate-300 bg-white overflow-hidden">
           <select value={dialect} onChange={e => { setDialect(e.target.value as 'american' | 'british'); if (issues) setIssues(analyze(text, e.target.value as 'american' | 'british')); }} aria-label="Dialect"
-            className="appearance-none bg-transparent px-4 py-3 text-slate-800 text-[15px] outline-none pr-2 min-w-[150px]">
+            className="appearance-none w-full bg-transparent px-3 sm:px-4 py-3 text-slate-800 text-sm sm:text-[15px] outline-none pr-2 sm:min-w-[150px]">
             <option value="american">American</option>
             <option value="british">British</option>
           </select>
@@ -446,7 +446,7 @@ export const GrammarChecker: React.FC = () => {
           </span>
         </div>
         <button type="button" onClick={run} disabled={checking || !text.trim()}
-          className="ml-auto bg-gradient-to-r from-indigo-500 to-purple-600 text-white px-8 py-3.5 rounded-xl font-bold hover:shadow-lg hover:shadow-indigo-500/25 transition-all disabled:opacity-50 disabled:cursor-not-allowed">
+          className="w-full sm:w-auto sm:ml-auto bg-gradient-to-r from-indigo-500 to-purple-600 text-white px-8 py-3.5 rounded-xl font-bold hover:shadow-lg hover:shadow-indigo-500/25 transition-all disabled:opacity-50 disabled:cursor-not-allowed">
           {checking ? 'Checking…' : issues ? 'Re-check Grammar' : 'Check Grammar'}
         </button>
       </div>
@@ -455,8 +455,8 @@ export const GrammarChecker: React.FC = () => {
       <div className="grid md:grid-cols-[1fr_auto] gap-3">
         <div className="flex items-center rounded-lg border border-slate-300 bg-white p-2 gap-3">
           <input ref={fileRef} type="file" accept=".txt,.md,.html,.htm,.csv,text/plain" className="hidden" onChange={e => onFile(e.target.files?.[0] || null)} />
-          <button type="button" onClick={() => fileRef.current?.click()} className="px-6 py-2.5 rounded-lg border border-slate-300 bg-slate-100 hover:bg-slate-200 text-slate-800 font-medium text-[15px]">Choose File</button>
-          <span className="text-slate-600 text-[15px] truncate">{fileName || 'No File Chosen'}</span>
+          <button type="button" onClick={() => fileRef.current?.click()} className="flex-shrink-0 px-4 sm:px-6 py-2.5 rounded-lg border border-slate-300 bg-slate-100 hover:bg-slate-200 text-slate-800 font-medium text-sm sm:text-[15px]">Choose File</button>
+          <span className="text-slate-600 text-sm sm:text-[15px] truncate">{fileName || 'No File Chosen'}</span>
         </div>
         <button type="button" onClick={() => setNotice('Cloud import is a Pro feature. Upload a .txt file or paste your text instead.')}
           className="flex items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 px-6 py-3 text-slate-800 text-[15px]">
@@ -470,7 +470,7 @@ export const GrammarChecker: React.FC = () => {
       {/* Results summary */}
       {issues && (
         <div className="grid lg:grid-cols-3 gap-4 animate-fade-in">
-          <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
+          <div className="bg-white rounded-2xl border border-slate-200 p-4 sm:p-6 shadow-sm">
             <p className="text-xs font-semibold uppercase tracking-wide text-slate-400 mb-2">Writing score</p>
             <div className="flex items-end gap-2">
               <span className={`text-5xl font-extrabold ${score !== null && score >= 85 ? 'text-emerald-600' : score !== null && score >= 60 ? 'text-amber-500' : 'text-red-500'}`}>{score}</span>
@@ -494,10 +494,10 @@ export const GrammarChecker: React.FC = () => {
             )}
           </div>
 
-          <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
-            <div className="flex items-center justify-between mb-4">
+          <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-200 p-4 sm:p-6 shadow-sm">
+            <div className="flex flex-wrap items-center justify-between gap-1 mb-4">
               <h4 className="font-bold text-slate-900">All issues</h4>
-              <span className="text-xs text-slate-400">Click any row or highlighted phrase to review</span>
+              <span className="text-xs text-slate-400">Tap any row or highlighted phrase to review</span>
             </div>
             {issues.length === 0 ? (
               <div className="py-10 text-center text-emerald-600 font-semibold">✓ Your text looks clean in {dialect === 'american' ? 'American' : 'British'} English.</div>
@@ -521,22 +521,22 @@ export const GrammarChecker: React.FC = () => {
             )}
           </div>
 
-          <div className="lg:col-span-3 grid sm:grid-cols-4 gap-3">
-            <div className="bg-slate-50 rounded-xl p-4 border border-slate-100"><p className="text-xs text-slate-500">Sentences</p><p className="text-xl font-bold text-slate-800">{stats.sentences}</p></div>
-            <div className="bg-slate-50 rounded-xl p-4 border border-slate-100"><p className="text-xs text-slate-500">Paragraphs</p><p className="text-xl font-bold text-slate-800">{stats.paragraphs}</p></div>
-            <div className="bg-slate-50 rounded-xl p-4 border border-slate-100"><p className="text-xs text-slate-500">Avg. words / sentence</p><p className="text-xl font-bold text-slate-800">{stats.sentences ? Math.round(stats.words / stats.sentences) : 0}</p></div>
-            <div className="bg-slate-50 rounded-xl p-4 border border-slate-100"><p className="text-xs text-slate-500">Readability (Flesch)</p><p className={`text-xl font-bold ${stats.flesch >= 60 ? 'text-emerald-600' : stats.flesch >= 30 ? 'text-amber-600' : 'text-red-500'}`}>{stats.flesch} <span className="text-xs font-normal text-slate-400">{stats.flesch >= 70 ? 'Easy' : stats.flesch >= 50 ? 'Fairly easy' : stats.flesch >= 30 ? 'Difficult' : 'Very difficult'}</span></p></div>
+          <div className="lg:col-span-3 grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div className="bg-slate-50 rounded-xl p-3 sm:p-4 border border-slate-100"><p className="text-xs text-slate-500">Sentences</p><p className="text-xl font-bold text-slate-800">{stats.sentences}</p></div>
+            <div className="bg-slate-50 rounded-xl p-3 sm:p-4 border border-slate-100"><p className="text-xs text-slate-500">Paragraphs</p><p className="text-xl font-bold text-slate-800">{stats.paragraphs}</p></div>
+            <div className="bg-slate-50 rounded-xl p-3 sm:p-4 border border-slate-100"><p className="text-xs text-slate-500">Avg. words / sentence</p><p className="text-xl font-bold text-slate-800">{stats.sentences ? Math.round(stats.words / stats.sentences) : 0}</p></div>
+            <div className="bg-slate-50 rounded-xl p-3 sm:p-4 border border-slate-100"><p className="text-xs text-slate-500">Readability (Flesch)</p><p className={`text-xl font-bold ${stats.flesch >= 60 ? 'text-emerald-600' : stats.flesch >= 30 ? 'text-amber-600' : 'text-red-500'}`}>{stats.flesch} <span className="text-xs font-normal text-slate-400">{stats.flesch >= 70 ? 'Easy' : stats.flesch >= 50 ? 'Fairly easy' : stats.flesch >= 30 ? 'Difficult' : 'Very difficult'}</span></p></div>
           </div>
         </div>
       )}
 
       {/* Legend */}
-      <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-slate-500 px-1">
+      <div className="flex flex-wrap items-center gap-x-4 sm:gap-x-5 gap-y-2 text-xs text-slate-500 px-1">
         <span className="font-semibold text-slate-600">Highlight legend:</span>
         {(Object.keys(SEVERITY_META) as Severity[]).map(k => (
           <span key={k} className="flex items-center gap-1.5"><span className={`w-3 h-3 rounded ${SEVERITY_META[k].dot}`} />{SEVERITY_META[k].label}</span>
         ))}
-        <span className="ml-auto">Checks run 100% in your browser — nothing is uploaded.</span>
+        <span className="w-full sm:w-auto sm:ml-auto">Checks run 100% in your browser — nothing is uploaded.</span>
       </div>
     </div>
   );

@@ -1,28 +1,30 @@
-import React, { Suspense, useState, useCallback, useMemo, useEffect, useRef } from 'react';
+import React, { useState, useCallback, useMemo, useEffect, useLayoutEffect, useRef } from 'react';
 import { categoryDescriptions, categoryLabels, ToolIcon } from './tools/data';
 import { fetchPageData, type LivePageData } from './utils/pageFetch';
 import { fetchDomainInfo, type DomainInfo } from './utils/domainLookup';
 import { sanitizeRichHtml } from './utils/sanitize';
-import { CmsProvider, useCms, liveTools, livePosts, findPage, blocksToHtml } from './cms/store';
+import { CmsProvider, useCms, liveTools, livePosts, findPage, blocksToHtml, renderCopyright, defaultFooterColumns, type SocialLinks } from './cms/store';
 import SerpPreview from './components/SerpPreview';
 import { SeoManager } from './utils/seo';
-import { cleanHref, getRoute, navigate, rewriteLegacyLinks, subscribe } from './router';
-import { lazyRoute } from './utils/lazyRetry';
-import { LoadingFallback, RouteBoundary } from './components/ErrorBoundary';
+import { cleanHref, getRoute, lastNavigationKind, navigate, rewriteLegacyLinks, storedSlugForRoute, subscribe } from './router';
+import { RouteBoundary } from './components/ErrorBoundary';
+import { BlogList, BlogArticlePage } from './blog/Blog';
+import { ToolsList, ToolPage } from './tools/Tools';
+import CompetitorAnalysis, { CompetitorToolContent } from './tools/CompetitorAnalysis';
+import { AdminApp } from './cms/Admin';
+import { AdminLoginPage, AdminResetPage } from './cms/AdminLogin';
 
-// Route modules are evaluated only when visited. The production build keeps
-// them as separate chunks, so each one is a network request that can fail or
-// stall: `lazyRoute` retries the import and hands a permanent failure to
-// <RouteBoundary> instead of leaving the fallback spinner on screen forever.
-const BlogList = lazyRoute(() => import('./blog/Blog').then(m => ({ default: m.BlogList })));
-const BlogArticlePage = lazyRoute(() => import('./blog/Blog').then(m => ({ default: m.BlogArticlePage })));
-const ToolsList = lazyRoute(() => import('./tools/Tools').then(m => ({ default: m.ToolsList })));
-const ToolPage = lazyRoute(() => import('./tools/Tools').then(m => ({ default: m.ToolPage })));
-const CompetitorAnalysis = lazyRoute(() => import('./tools/CompetitorAnalysis'));
-const CompetitorToolContent = lazyRoute(() => import('./tools/CompetitorAnalysis').then(m => ({ default: m.CompetitorToolContent })));
-const AdminApp = lazyRoute(() => import('./cms/Admin').then(m => ({ default: m.AdminApp })));
-const AdminLoginPage = lazyRoute(() => import('./cms/AdminLogin').then(m => ({ default: m.AdminLoginPage })));
-const AdminResetPage = lazyRoute(() => import('./cms/AdminLogin').then(m => ({ default: m.AdminResetPage })));
+/* ---------------- route modules (all eager) ----------------
+   Every route is a plain static import, so all of them are evaluated as part
+   of the initial script and render synchronously on the very first click:
+   there is no `React.lazy`, no `<Suspense>` and no fallback anywhere in the
+   app. Switching routes swaps the content in a single React commit, so the
+   visitor never sees an empty frame, a spinner or a "Loading…" state.
+
+   Normally eager imports would mean a bigger first download — but the build is
+   one self-contained dist/index.html with `inlineDynamicImports`, so this code
+   was already part of the document. Removing the asynchronous boundary is
+   therefore free: nothing extra is downloaded, and nothing is deferred. */
 
 // Inline SVG icons for critical UI (no JS overhead)
 const InlineIcons = {
@@ -1279,14 +1281,43 @@ const AudienceIcon: React.FC<{ type: string }> = ({ type }) => {
 };
 
 // Routing lives in src/router.ts — the route is derived from the clean URL
-// pathname (/tools, /blog/slug, /about, …). Legacy #/ hash links are rewritten
-// to it before the first render, and .htaccess 301s the old /p/… paths.
+// pathname (/free-tools, /blog/slug, /about, …). Legacy #/ hash links are
+// rewritten to it before the first render, and .htaccess 301s both the old
+// /p/… paths and /tools → /free-tools.
 
-// Footer social links — placeholder platform URLs, replace with real profiles.
-const footerSocials = [
-  { label: 'X (Twitter)', href: 'https://x.com/', icon: () => (<svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zM17.083 19.77h1.833L7.084 4.126H5.117z" /></svg>) },
-  { label: 'Facebook', href: 'https://www.facebook.com/', icon: () => (<svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" /></svg>) },
+/** The five social profiles the CMS can fill in (Admin → Sections & Nav →
+ *  Brand & footer). A blank URL hides that icon, so the footer only ever
+ *  links to profiles the site owner actually configured. */
+const SOCIAL_META: { key: keyof SocialLinks; label: string; icon: React.FC }[] = [
+  { key: 'facebook', label: 'Facebook', icon: () => (<svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" /></svg>) },
+  { key: 'x', label: 'X (Twitter)', icon: () => (<svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zM17.083 19.77h1.833L7.084 4.126H5.117z" /></svg>) },
+  { key: 'linkedin', label: 'LinkedIn', icon: () => (<svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M20.45 20.45h-3.55v-5.57c0-1.33-.02-3.04-1.85-3.04-1.85 0-2.13 1.45-2.13 2.94v5.67H9.36V9h3.41v1.56h.05c.47-.9 1.63-1.85 3.36-1.85 3.6 0 4.27 2.37 4.27 5.45v6.29zM5.34 7.43a2.06 2.06 0 1 1 0-4.12 2.06 2.06 0 0 1 0 4.12zm1.78 13.02H3.56V9h3.56v11.45zM22.22 0H1.77C.79 0 0 .77 0 1.72v20.56C0 23.23.79 24 1.77 24h20.45c.98 0 1.78-.77 1.78-1.72V1.72C24 .77 23.2 0 22.22 0z" /></svg>) },
+  { key: 'instagram', label: 'Instagram', icon: () => (<svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2.16c3.2 0 3.58.01 4.85.07 1.17.05 1.8.25 2.23.41.56.22.96.48 1.38.9.42.42.68.82.9 1.38.16.42.36 1.06.41 2.23.06 1.27.07 1.65.07 4.85s-.01 3.58-.07 4.85c-.05 1.17-.25 1.8-.41 2.23-.22.56-.48.96-.9 1.38-.42.42-.82.68-1.38.9-.42.16-1.06.36-2.23.41-1.27.06-1.65.07-4.85.07s-3.58-.01-4.85-.07c-1.17-.05-1.8-.25-2.23-.41a3.7 3.7 0 0 1-1.38-.9 3.7 3.7 0 0 1-.9-1.38c-.16-.42-.36-1.06-.41-2.23C2.17 15.58 2.16 15.2 2.16 12s.01-3.58.07-4.85c.05-1.17.25-1.8.41-2.23.22-.56.48-.96.9-1.38.42-.42.82-.68 1.38-.9.42-.16 1.06-.36 2.23-.41C8.42 2.17 8.8 2.16 12 2.16Zm0 3.68a6.16 6.16 0 1 0 0 12.32 6.16 6.16 0 0 0 0-12.32Zm0 10.16a4 4 0 1 1 0-8 4 4 0 0 1 0 8Zm7.85-10.4a1.44 1.44 0 1 1-2.88 0 1.44 1.44 0 0 1 2.88 0Z" /></svg>) },
+  { key: 'youtube', label: 'YouTube', icon: () => (<svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M23.5 6.2a3.02 3.02 0 0 0-2.12-2.14C19.5 3.55 12 3.55 12 3.55s-7.5 0-9.38.51A3.02 3.02 0 0 0 .5 6.2C0 8.09 0 12 0 12s0 3.91.5 5.8a3.02 3.02 0 0 0 2.12 2.14c1.88.51 9.38.51 9.38.51s7.5 0 9.38-.51a3.02 3.02 0 0 0 2.12-2.14C24 15.91 24 12 24 12s0-3.91-.5-5.8ZM9.55 15.57V8.43L15.82 12l-6.27 3.57Z" /></svg>) },
 ];
+
+/** The three legal documents on their canonical short URLs, as shown in the
+ *  footer's bottom bar. `short` is the compact label; the full title stays as
+ *  the tooltip / accessible name. */
+const FOOTER_LEGAL_LINKS: { label: string; short: string; href: string }[] = [
+  { label: 'Privacy Policy', short: 'Privacy', href: '/privacy' },
+  { label: 'Cookie Policy', short: 'Cookie', href: '/cookies' },
+  { label: 'Terms & Conditions', short: 'Terms', href: '/terms' },
+];
+
+/**
+ * Jump to a scroll offset without animating. `html { scroll-behavior: smooth }`
+ * is set for in-page anchors, but a route change must land instantly — an
+ * animated scroll just after a page swap reads as a flash of the wrong
+ * position.
+ */
+const scrollInstantly = (top: number): void => {
+  const root = document.documentElement;
+  const previous = root.style.scrollBehavior;
+  root.style.scrollBehavior = 'auto';
+  window.scrollTo(0, Math.max(0, top));
+  root.style.scrollBehavior = previous;
+};
 
 type Crumb = { label: string; href?: string };
 const SiteBreadcrumbs: React.FC<{ route: string }> = ({ route }) => {
@@ -1308,7 +1339,7 @@ const SiteBreadcrumbs: React.FC<{ route: string }> = ({ route }) => {
     }
     if (route === 'competitor-analysis') return [home, { label: 'Competitor Analysis' }];
     if (route.startsWith('p/')) {
-      const page = findPage(state, route.slice(2));
+      const page = findPage(state, storedSlugForRoute(route.slice(2)));
       return [home, { label: page?.title || 'Page' }];
     }
     if (route === 'admin') return [home, { label: 'Admin' }];
@@ -1390,22 +1421,40 @@ const SiteApp: React.FC = () => {
     return () => document.removeEventListener('keydown', onKey);
   }, [mobileMenuOpen]);
 
-  useEffect(() => {
-    // Plain in-page fragments (#features, #audiences) scroll to their section;
-    // every other navigation starts from the top.
+  // Scroll handling runs in a layout effect, so it happens in the same frame as
+  // the route swap: the new page is never painted at the previous page's offset
+  // and then yanked to the top.
+  useLayoutEffect(() => {
+    const kind = lastNavigationKind();
+    // A fragment (#features, #audiences) jumps straight to its section.
     const frag = window.location.hash.slice(1);
     if (frag) {
       const el = document.getElementById(frag);
       if (el) {
-        el.scrollIntoView();
+        scrollInstantly(window.scrollY + el.getBoundingClientRect().top - 96); // 96px = scroll-padding-top
         return;
       }
     }
-    window.scrollTo(0, 0);
+    // Back/forward and the first paint keep the reader's position — the browser
+    // restores it, and forcing the top would throw it away.
+    if (kind === 'pop' || kind === 'init') return;
+    // A link click opens the new page at the top, immediately.
+    scrollInstantly(0);
   }, [route]);
 
   const isBlog = route === 'blog' || route.startsWith('blog/');
   const isTools = route === 'free-tools' || route === 'tools' || route.startsWith('tool/');
+
+  // Footer content is live: every value below is read straight from the CMS
+  // store, so a save in Admin → Sections & Nav → Brand & footer updates the
+  // rendered footer immediately (and persists across reloads).
+  const footerLogo = (cms.state.settings.footerLogoUrl || '').trim();
+  const footerNote = (cms.state.settings.footerNote || '').trim();
+  // All four footer columns are CMS-driven (Admin → Sections & Nav → Brand & footer).
+  const footerColumns = cms.state.footerColumns?.length ? cms.state.footerColumns : defaultFooterColumns;
+  const footerSocials = SOCIAL_META
+    .map(meta => ({ ...meta, href: (cms.state.settings.social?.[meta.key] || '').trim() }))
+    .filter(entry => entry.href);
 
   const handleAnalyze = useCallback(async () => {
     const trimmed = url.trim();
@@ -1565,12 +1614,14 @@ const SiteApp: React.FC = () => {
         </div>
       </nav>
       <div className="h-16 shrink-0" aria-hidden="true" />
-      <main id="main-content" tabIndex={-1}>
+      {/* content-shell keeps the content column at least one viewport tall
+          (minus the 4rem header), so the footer always sits below the fold
+          instead of touching the navigation on short pages. */}
+      <main id="main-content" tabIndex={-1} className="content-shell">
       <SiteBreadcrumbs route={route} />
-      {/* keyed by route: navigating away from a failed chunk gets a fresh
-          boundary instead of keeping the error panel on screen */}
+      {/* keyed by route: if a page ever fails to render, navigating elsewhere
+          gets a fresh boundary instead of keeping the error panel on screen */}
       <RouteBoundary key={route} label={`route ${route}`}>
-      <Suspense fallback={<LoadingFallback />}>
 
       {/* Blog routes */}
       {route === 'blog' && <BlogList />}
@@ -2020,74 +2071,87 @@ const SiteApp: React.FC = () => {
       </section>
       </>)}
 
-      </Suspense>
       </RouteBoundary>
       </main>
 
       {/* Footer — simple, lightweight */}
       <footer className={`bg-slate-900 text-white pt-10 pb-6 px-4 ${cms.state.sections.footer ? '' : 'hidden'}`}>
         <div className="max-w-7xl mx-auto">
-          {/* Brand + social icons */}
+          {/* Brand + social icons — every value here comes from the CMS */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-5 pb-8 border-b border-slate-800">
             <a href="/" className="flex items-center gap-2.5">
-              <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center text-white">
-                <InlineIcons.BarChart3 />
-              </div>
+              {footerLogo ? (
+                <img
+                  src={footerLogo}
+                  alt={`${cms.state.settings.name} logo`}
+                  width={40}
+                  height={40}
+                  loading="lazy"
+                  decoding="async"
+                  className="w-10 h-10 rounded-xl object-cover bg-white/5"
+                />
+              ) : (
+                <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center text-white">
+                  <InlineIcons.BarChart3 />
+                </div>
+              )}
               <span>
                 <span className="block text-lg font-bold leading-tight">{cms.state.settings.name}</span>
                 <span className="block text-xs text-slate-400">{cms.state.settings.tagline}</span>
               </span>
             </a>
-            <div className="flex items-center gap-2">
-              {footerSocials.map(s => (
-                <a key={s.label} href={s.href} target="_blank" rel="noopener noreferrer" aria-label={s.label} title={s.label} className="w-9 h-9 rounded-lg bg-slate-800 hover:bg-indigo-600 flex items-center justify-center text-slate-400 hover:text-white transition-colors">
-                  <s.icon />
-                </a>
+            {footerSocials.length > 0 && (
+              <div className="flex items-center gap-2">
+                {footerSocials.map(s => (
+                  <a key={s.key} href={s.href} target="_blank" rel="noopener noreferrer" aria-label={s.label} title={s.label} className="w-9 h-9 rounded-lg bg-slate-800 hover:bg-indigo-600 flex items-center justify-center text-slate-400 hover:text-white transition-colors">
+                    <s.icon />
+                  </a>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {footerNote && (
+            <p className="pt-8 text-sm text-slate-400 leading-relaxed max-w-3xl">{footerNote}</p>
+          )}
+
+          {/* Four equal columns: Quick Links, SEO Tools, Resources, Company —
+              all four editable from Admin → Sections & Nav → Brand & footer
+              (title + links per column). The legal links live in the bottom bar
+              below, next to the cookie-preferences control. */}
+          <div className="grid grid-cols-2 gap-8 py-10 md:grid-cols-4">
+            {footerColumns.map(col => {
+              const links = col.links.filter(link => link.visible && link.label.trim());
+              return (
+                <nav key={col.id} aria-label={col.title}>
+                  <h3 className="text-[18px] font-bold capitalize tracking-[0px] text-slate-400 mb-4">{col.title}</h3>
+                  <ul className="space-y-2.5">
+                    {links.map(l => (
+                      <li key={l.id}><a href={cleanHref(l.href) || l.href} className="text-sm text-slate-400 hover:text-white transition-colors">{l.label}</a></li>
+                    ))}
+                  </ul>
+                </nav>
+              );
+            })}
+          </div>
+
+          {/* Bottom bar — copyright on the left, the short legal links and the
+              cookie-preferences control on the right:
+                Privacy · Cookie · Terms · Cookie preferences
+              The copyright line stays editable (Admin → Brand & footer); the
+              links carry their full name as the accessible name / tooltip. */}
+          <div className="border-t border-slate-800 pt-6 flex flex-col gap-3 text-xs text-slate-400 sm:flex-row sm:items-center sm:justify-between">
+            <p>{renderCopyright(cms.state.settings.footerCopyright, cms.state.settings.name, cms.state.settings.domain)}</p>
+            <nav aria-label="Legal documents" className="flex flex-wrap items-center gap-x-2 gap-y-1 sm:justify-end">
+              {FOOTER_LEGAL_LINKS.map((l, i) => (
+                <React.Fragment key={l.label}>
+                  {i > 0 && <span aria-hidden="true" className="text-slate-600">·</span>}
+                  <a href={l.href} title={l.label} aria-label={l.label} className="hover:text-white transition-colors">{l.short}</a>
+                </React.Fragment>
               ))}
-            </div>
-          </div>
-
-          {/* Four link columns */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-8 py-10">
-            {[
-              { title: 'SEO Tools', links: [
-                { label: 'Free SEO Audit', href: '/' },
-                { label: 'Free SEO Tools', href: '/free-tools' },
-                { label: 'Competitor Analysis', href: '/competitor-analysis' },
-              ] },
-              { title: 'Resources', links: [
-                { label: 'Blog', href: '/blog' },
-                { label: 'FAQ', href: '/faq' },
-                { label: "Who It's For", href: '/#audiences' },
-              ] },
-              { title: 'Company', links: [
-                { label: 'About', href: '/about' },
-                { label: 'Contact', href: '/contact' },
-              ] },
-            ].map(col => (
-              <nav key={col.title} aria-label={col.title}>
-                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-4">{col.title}</h3>
-                <ul className="space-y-2.5">
-                  {col.links.map(l => (
-                    <li key={l.label}><a href={l.href} className="text-sm text-slate-400 hover:text-white transition-colors">{l.label}</a></li>
-                  ))}
-                </ul>
-              </nav>
-            ))}
-            <nav aria-label="Legal">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-4">Legal</h3>
-              <ul className="space-y-2.5">
-                <li><a href="/privacy-policy" className="text-sm text-slate-400 hover:text-white transition-colors">Privacy Policy</a></li>
-                <li><a href="/cookie-policy" className="text-sm text-slate-400 hover:text-white transition-colors">Cookie Policy</a></li>
-                <li><a href="/terms-of-service" className="text-sm text-slate-400 hover:text-white transition-colors">Terms &amp; Conditions</a></li>
-                <li><button type="button" onClick={() => setCookiePrefsOpen(true)} className="text-sm text-slate-400 hover:text-white transition-colors underline decoration-dotted underline-offset-4">Cookie preferences</button></li>
-              </ul>
+              <span aria-hidden="true" className="text-slate-600">·</span>
+              <button type="button" onClick={() => setCookiePrefsOpen(true)} className="hover:text-white transition-colors">Cookie preferences</button>
             </nav>
-          </div>
-
-          {/* Bottom bar */}
-          <div className="border-t border-slate-800 pt-6 text-xs text-slate-400">
-            <p>© {new Date().getFullYear()} EKSTRUH LTD · Trading as {cms.state.settings.name} ({cms.state.settings.domain}) · Free SEO tools for Pakistan &amp; worldwide. All rights reserved.</p>
           </div>
         </div>
       </footer>
@@ -2105,7 +2169,9 @@ const SiteApp: React.FC = () => {
 // #/… links are rewritten to clean paths at render time.
 const CmsPageView: React.FC<{ slug: string }> = ({ slug }) => {
   const { state } = useCms();
-  const page = findPage(state, slug);
+  // Short legal URLs (/privacy) render the page stored under its CMS slug
+  // (privacy-policy) — see LEGAL_PAGE_ALIASES in router.ts.
+  const page = findPage(state, storedSlugForRoute(slug));
   useEffect(() => {
     window.scrollTo(0, 0);
   }, [page]);
@@ -2222,7 +2288,7 @@ const CookieConsent: React.FC<{ prefsOpen: boolean; onPrefsOpen: (v: boolean) =>
             <CookieToggle title="Affiliate tracking" description="Credits referrals when you click partner links, at no cost to you." checked={draft.affiliate} onChange={v => setDraft(d => ({ ...d, affiliate: v }))} />
           </div>
           <div className="px-5 py-4 border-t border-slate-100 bg-slate-50 flex flex-col sm:flex-row items-center justify-between gap-3">
-            <a href="/cookie-policy" onClick={() => onPrefsOpen(false)} className="text-xs font-semibold text-indigo-600 hover:underline">Read our Cookie Policy</a>
+            <a href="/cookies" onClick={() => onPrefsOpen(false)} className="text-xs font-semibold text-indigo-600 hover:underline">Read our Cookie Policy</a>
             <button type="button" autoFocus onClick={() => save(draft)} className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-bold text-sm hover:shadow-lg transition-shadow">Save Preferences</button>
           </div>
         </div>
@@ -2236,7 +2302,7 @@ const CookieConsent: React.FC<{ prefsOpen: boolean; onPrefsOpen: (v: boolean) =>
               <h2 className="text-sm font-bold text-slate-900">We use cookies</h2>
               <p className="text-xs sm:text-[13px] text-slate-600 mt-1 leading-relaxed">
                 We use essential cookies to make our site work. With your consent, we may also use analytics, advertising, and affiliate tracking cookies to improve your experience and understand how visitors use our site.{' '}
-                <a href="/cookie-policy" className="font-semibold text-indigo-600 hover:underline">Read our Cookie Policy</a>.
+                <a href="/cookies" className="font-semibold text-indigo-600 hover:underline">Read our Cookie Policy</a>.
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-2 flex-shrink-0">

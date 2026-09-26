@@ -191,11 +191,11 @@ export const PlagiarismChecker: React.FC = () => {
           <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M3 7l4.5 4L12 4l4.5 7L21 7l-2 12H5L3 7z" /></svg>
           Premium
         </span>
-        <div className="flex flex-col lg:flex-row lg:items-center gap-3 lg:gap-5 px-5 pt-6 pb-4">
-          <p className="font-bold text-slate-900 text-lg whitespace-nowrap">Plagiarism Checker Offers:</p>
+        <div className="flex flex-col lg:flex-row lg:items-center gap-3 lg:gap-5 px-4 sm:px-5 pt-6 pb-4">
+          <p className="font-bold text-slate-900 text-base sm:text-lg sm:whitespace-nowrap">Plagiarism Checker Offers:</p>
           <div className="flex flex-wrap items-center gap-2.5 min-w-0">
             {[['Deep Search', 'M21 21l-4.3-4.3M11 19a8 8 0 100-16 8 8 0 000 16z'], ['Accurate Results', 'M12 22a10 10 0 100-20 10 10 0 000 20zm0-18v8l6 3'], ['Check 30K Words', 'M22 11.08V12a10 10 0 11-5.93-9.14M22 4L12 14.01l-3-3']].map(([label, d]) => (
-              <span key={label} className="inline-flex items-center gap-2 bg-slate-100 text-slate-800 font-semibold text-sm px-4 py-2.5 rounded-xl whitespace-nowrap">
+              <span key={label} className="inline-flex items-center gap-2 bg-slate-100 text-slate-800 font-semibold text-[13px] sm:text-sm px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl sm:whitespace-nowrap">
                 <svg className="w-4 h-4 text-indigo-600 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={d} /></svg>
                 {label}
               </span>
@@ -204,10 +204,10 @@ export const PlagiarismChecker: React.FC = () => {
         </div>
 
         {/* Mode tabs */}
-        <div className="flex border-t border-slate-200 px-5">
+        <div className="flex overflow-x-auto border-t border-slate-200 px-3 sm:px-5">
           {(['text', 'url'] as const).map(t => (
             <button key={t} type="button" onClick={() => setTab(t)}
-              className={`px-4 py-3 text-sm font-semibold border-b-2 -mb-px transition-colors ${tab === t ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-slate-500 hover:text-slate-800'}`}>
+              className={`flex-shrink-0 px-3 sm:px-4 py-3 text-sm font-semibold whitespace-nowrap border-b-2 -mb-px transition-colors ${tab === t ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-slate-500 hover:text-slate-800'}`}>
               {t === 'text' ? 'Paste Text' : 'Check by URL'}
             </button>
           ))}
@@ -217,7 +217,7 @@ export const PlagiarismChecker: React.FC = () => {
         {tab === 'text' ? (
           <div className="relative border-t border-slate-200">
             {!text && (
-              <p className="pointer-events-none absolute inset-0 flex items-center justify-center text-2xl md:text-4xl font-extrabold text-slate-200 text-center px-6 select-none" aria-hidden="true">
+              <p className="pointer-events-none absolute inset-0 flex items-center justify-center text-lg sm:text-2xl md:text-4xl font-extrabold text-slate-200 text-center px-4 sm:px-6 select-none" aria-hidden="true">
                 Enter text here to check for Plagiarism
               </p>
             )}
@@ -226,7 +226,7 @@ export const PlagiarismChecker: React.FC = () => {
               onChange={e => { setText(e.target.value); setResult(null); }}
               aria-label="Text to check for plagiarism"
               spellCheck={false}
-              className={`relative w-full min-h-[380px] p-6 text-[15px] leading-relaxed text-slate-800 outline-none resize-y rounded-b-2xl bg-transparent ${over ? 'ring-2 ring-inset ring-red-300' : ''}`}
+              className={`relative w-full min-h-[280px] sm:min-h-[380px] p-4 sm:p-6 text-[15px] leading-relaxed text-slate-800 outline-none resize-y rounded-b-2xl bg-transparent ${over ? 'ring-2 ring-inset ring-red-300' : ''}`}
             />
             {text && (
               <button type="button" onClick={() => { setText(''); setResult(null); }} title="Clear text"
@@ -236,13 +236,13 @@ export const PlagiarismChecker: React.FC = () => {
             )}
           </div>
         ) : (
-          <div className="border-t border-slate-200 p-6">
+          <div className="border-t border-slate-200 p-4 sm:p-6">
             <label className="text-sm font-bold text-slate-800 block mb-2">Check Plagiarism by URL</label>
             <div className="flex flex-col sm:flex-row gap-3">
               <input value={url} onChange={e => setUrl(e.target.value)} onKeyDown={e => e.key === 'Enter' && checkUrl()} placeholder="Insert URL here"
                 className="flex-1 px-4 py-3.5 rounded-xl border border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 outline-none text-sm" />
               <button type="button" onClick={checkUrl} disabled={busy || !url.trim()}
-                className="bg-gradient-to-r from-indigo-500 to-purple-600 text-white px-6 py-3.5 rounded-xl font-semibold disabled:opacity-50">Fetch &amp; Check</button>
+                className="w-full sm:w-auto bg-gradient-to-r from-indigo-500 to-purple-600 text-white px-6 py-3.5 rounded-xl font-semibold disabled:opacity-50">Fetch &amp; Check</button>
             </div>
             <p className="text-xs text-slate-400 mt-2">We fetch the live page, extract its readable text and run the check.</p>
           </div>
@@ -250,22 +250,22 @@ export const PlagiarismChecker: React.FC = () => {
       </div>
 
       {/* Toolbar row */}
-      <div className="flex flex-wrap items-center gap-3">
-        <p className={`font-bold text-slate-800 mr-auto ${over ? 'text-red-600' : ''}`}>
+      <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+        <p className={`font-bold text-slate-800 w-full sm:w-auto sm:mr-auto text-sm sm:text-base ${over ? 'text-red-600' : ''}`}>
           Total Words: <span className={over ? 'text-red-600' : 'text-indigo-600'}>{words}</span> /{WORD_LIMIT}
           <span className="text-xs font-normal text-slate-400 ml-2">{chars} characters</span>
         </p>
         <input ref={fileRef} type="file" accept=".txt,.md,.html,.htm,.csv,text/plain" className="hidden" onChange={e => onFile(e.target.files?.[0] || null)} />
-        <button type="button" onClick={() => fileRef.current?.click()} className="px-5 py-3 rounded-xl border border-slate-300 bg-white hover:bg-slate-50 text-sm font-semibold text-slate-700">Upload File</button>
+        <button type="button" onClick={() => fileRef.current?.click()} className="flex-1 sm:flex-none px-4 sm:px-5 py-3 rounded-xl border border-slate-300 bg-white hover:bg-slate-50 text-sm font-semibold text-slate-700">Upload File</button>
         <button type="button" onClick={() => setError('Cloud import is a Pro feature. Upload a .txt file or paste your text instead.')}
-          className="px-5 py-3 rounded-xl border border-slate-300 bg-white hover:bg-slate-50 text-sm font-semibold text-slate-700 inline-flex items-center gap-2">
+          className="flex-1 sm:flex-none justify-center px-4 sm:px-5 py-3 rounded-xl border border-slate-300 bg-white hover:bg-slate-50 text-sm font-semibold text-slate-700 inline-flex items-center gap-2 whitespace-nowrap">
           <svg className="w-4 h-4 text-blue-500" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M6 2L0 6l6 4-6 4 6 4 6-4-6-4 6-4-6-4zm12 0l-6 4 6 4-6 4 6 4 6-4-6-4 6-4-6-4zM6 19l6 4 6-4-6-4-6 4z" /></svg>
           Choose from Dropbox
         </button>
       </div>
 
       {/* Exclude URLs */}
-      <div className="bg-slate-100 rounded-2xl p-5 grid md:grid-cols-2 gap-5">
+      <div className="bg-slate-100 rounded-2xl p-4 sm:p-5 grid md:grid-cols-2 gap-4 sm:gap-5">
         <div>
           <p className="font-bold text-slate-800 mb-2">Exclude URLs <span className="text-slate-500 font-semibold">(Max 5)</span></p>
           <div className="flex gap-2">
@@ -287,7 +287,7 @@ export const PlagiarismChecker: React.FC = () => {
         </div>
         <div className="flex flex-col justify-end">
           <button type="button" onClick={checkText} disabled={busy || !text.trim() || tab !== 'text'}
-            className="w-full bg-gradient-to-r from-indigo-500 to-purple-600 text-white py-4 rounded-xl font-bold text-lg hover:shadow-lg hover:shadow-indigo-500/25 transition-all disabled:opacity-50 disabled:cursor-not-allowed">
+            className="w-full bg-gradient-to-r from-indigo-500 to-purple-600 text-white py-4 rounded-xl font-bold text-base sm:text-lg hover:shadow-lg hover:shadow-indigo-500/25 transition-all disabled:opacity-50 disabled:cursor-not-allowed">
             {busy ? 'Checking…' : 'Check Plagiarism'}
           </button>
           <p className="text-xs text-slate-500 text-center mt-2">Free · No sign-up · Text is processed in your browser session only</p>
@@ -297,8 +297,8 @@ export const PlagiarismChecker: React.FC = () => {
       {error && <div className="bg-red-50 border border-red-100 rounded-xl p-4 text-sm text-red-700">{error}</div>}
 
       {busy && (
-        <div className="bg-white rounded-2xl border border-slate-200 p-6">
-          <div className="flex justify-between text-sm text-slate-600 mb-2"><span>{stage}</span><span>{progress}%</span></div>
+        <div className="bg-white rounded-2xl border border-slate-200 p-4 sm:p-6">
+          <div className="flex justify-between gap-3 text-sm text-slate-600 mb-2"><span className="min-w-0 truncate">{stage}</span><span className="flex-shrink-0">{progress}%</span></div>
           <div className="h-2 bg-slate-200 rounded-full overflow-hidden"><div className="h-full bg-gradient-to-r from-indigo-500 to-purple-600 transition-all" style={{ width: `${progress}%` }} /></div>
         </div>
       )}
@@ -307,22 +307,22 @@ export const PlagiarismChecker: React.FC = () => {
       {result && (
         <div className="space-y-5 animate-fade-in">
           <div className="grid md:grid-cols-3 gap-4">
-            <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
+            <div className="bg-white rounded-2xl border border-slate-200 p-4 sm:p-6 shadow-sm">
               <Gauge unique={result.unique} />
             </div>
-            <div className="md:col-span-2 bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
+            <div className="md:col-span-2 bg-white rounded-2xl border border-slate-200 p-4 sm:p-6 shadow-sm">
               <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
-                <div>
-                  <h3 className="text-xl font-bold text-slate-900">Plagiarism Report</h3>
+                <div className="min-w-0">
+                  <h3 className="text-lg sm:text-xl font-bold text-slate-900">Plagiarism Report</h3>
                   <p className="text-xs text-slate-400">Checked {result.checkedAt} · {result.duration}</p>
                 </div>
-                <button type="button" onClick={download} className="px-4 py-2 rounded-lg bg-slate-900 text-white text-sm font-semibold hover:bg-slate-700">Download Report</button>
+                <button type="button" onClick={download} className="w-full sm:w-auto px-4 py-2 rounded-lg bg-slate-900 text-white text-sm font-semibold hover:bg-slate-700">Download Report</button>
               </div>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-4"><p className="text-xs text-emerald-700">Unique</p><p className="text-2xl font-bold text-emerald-700">{result.unique}%</p></div>
-                <div className={`rounded-xl p-4 border ${result.plagiarized > 15 ? 'bg-red-50 border-red-100' : 'bg-slate-50 border-slate-100'}`}><p className={`text-xs ${result.plagiarized > 15 ? 'text-red-700' : 'text-slate-500'}`}>Plagiarized</p><p className={`text-2xl font-bold ${result.plagiarized > 15 ? 'text-red-600' : 'text-slate-800'}`}>{result.plagiarized}%</p></div>
-                <div className="bg-slate-50 border border-slate-100 rounded-xl p-4"><p className="text-xs text-slate-500">Words Scanned</p><p className="text-2xl font-bold text-slate-800">{result.words}</p></div>
-                <div className="bg-slate-50 border border-slate-100 rounded-xl p-4"><p className="text-xs text-slate-500">Sources Found</p><p className="text-2xl font-bold text-slate-800">{result.sources.length}</p></div>
+                <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-3 sm:p-4"><p className="text-xs text-emerald-700">Unique</p><p className="text-2xl font-bold text-emerald-700">{result.unique}%</p></div>
+                <div className={`rounded-xl p-3 sm:p-4 border ${result.plagiarized > 15 ? 'bg-red-50 border-red-100' : 'bg-slate-50 border-slate-100'}`}><p className={`text-xs ${result.plagiarized > 15 ? 'text-red-700' : 'text-slate-500'}`}>Plagiarized</p><p className={`text-2xl font-bold ${result.plagiarized > 15 ? 'text-red-600' : 'text-slate-800'}`}>{result.plagiarized}%</p></div>
+                <div className="bg-slate-50 border border-slate-100 rounded-xl p-3 sm:p-4"><p className="text-xs text-slate-500">Words Scanned</p><p className="text-2xl font-bold text-slate-800">{result.words}</p></div>
+                <div className="bg-slate-50 border border-slate-100 rounded-xl p-3 sm:p-4"><p className="text-xs text-slate-500">Sources Found</p><p className="text-2xl font-bold text-slate-800">{result.sources.length}</p></div>
               </div>
               <div className="mt-4 h-3 rounded-full overflow-hidden flex bg-slate-100">
                 <div className="bg-emerald-500 h-full" style={{ width: `${result.unique}%` }} />
@@ -337,15 +337,15 @@ export const PlagiarismChecker: React.FC = () => {
           </div>
 
           <div className="grid lg:grid-cols-3 gap-5">
-            <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
-              <div className="flex items-center justify-between mb-4">
+            <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-200 p-4 sm:p-6 shadow-sm">
+              <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
                 <h4 className="font-bold text-slate-900">Sentence-level analysis</h4>
                 <div className="flex items-center gap-4 text-xs text-slate-500">
                   <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-emerald-100 border border-emerald-300" /> Unique</span>
                   <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-red-100 border border-red-300" /> Matched</span>
                 </div>
               </div>
-              <div className="text-[15px] leading-8 text-slate-800 max-h-[420px] overflow-y-auto pr-2">
+              <div className="text-sm sm:text-[15px] leading-7 sm:leading-8 text-slate-800 max-h-[320px] sm:max-h-[420px] overflow-y-auto pr-1 sm:pr-2">
                 {result.sentences.map((s, i) => (
                   <span key={i} title={s.matched ? `${s.similarity}% match — ${s.source}` : 'Unique'}
                     className={`rounded px-1 ${s.matched ? 'bg-red-100 text-red-900 border-b-2 border-red-300 cursor-help' : 'bg-emerald-50/60'}`}>
@@ -354,7 +354,7 @@ export const PlagiarismChecker: React.FC = () => {
                 ))}
               </div>
             </div>
-            <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
+            <div className="bg-white rounded-2xl border border-slate-200 p-4 sm:p-6 shadow-sm">
               <h4 className="font-bold text-slate-900 mb-4">Matched sources</h4>
               {result.sources.length === 0 ? (
                 <p className="text-sm text-emerald-600 font-semibold">No matching sources found.</p>
@@ -385,7 +385,7 @@ export const PlagiarismChecker: React.FC = () => {
           ['Multiple inputs', 'Paste text, upload a .txt/.md/.html file, or check any live URL directly.'],
           ['Private by design', 'Your text never leaves your browser session and is not stored anywhere.'],
         ].map(([t, d]) => (
-          <div key={t} className="bg-white rounded-2xl border border-slate-200 p-5">
+          <div key={t} className="bg-white rounded-2xl border border-slate-200 p-4 sm:p-5">
             <p className="font-bold text-slate-900 mb-1">{t}</p>
             <p className="text-sm text-slate-600 leading-relaxed">{d}</p>
           </div>
