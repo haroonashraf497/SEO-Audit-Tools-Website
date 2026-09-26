@@ -93,6 +93,10 @@ All eleven text tools are mobile-first: single column, full-width controls, `min
 staircases from phone to desktop, horizontally scrollable tab strips and long-token wrapping,
 so nothing overflows a 320-390 px viewport.
 
+The **Case Converter** results (UPPERCASE, lowercase, Title Case, Sentence case, aLtErNaTiNg,
+Capitalize Each Word, Hyphen-case, snake_case) render as a two-up grid of dark cards from the
+`sm` breakpoint (single column on phones), so all eight conversions stay visible at a glance.
+
 Every panel saves to `localStorage` (so it survives a refresh) and updates the
 public site immediately. Content is per-browser: use **Settings → Export JSON**
 to move or version it. See `CMS.md` for the full CMS reference.
@@ -101,9 +105,9 @@ to move or version it. See `CMS.md` for the full CMS reference.
 
 ```bash
 npm run typecheck                  # tsc --noEmit
-node scripts/feature-audit.mjs     # 99 checks: CMS controls, footer redesign, legal URLs, /free-tools, text-tool layout/mobile, no EKSTRUH, 154 tools
+node scripts/feature-audit.mjs     # 100 checks: CMS controls, footer redesign, legal URLs, /free-tools, text-tool layout/mobile/case-converter grid, no EKSTRUH, 154 tools
 npm install --no-save jsdom
-node scripts/verify-single-file.mjs  # 92 checks: boots the built file, instant swap, footer, legal URLs, head injection, text-tool layout
+node scripts/verify-single-file.mjs  # 93 checks: boots the built file, instant swap, footer, legal URLs, head injection, text-tool + case-converter layout
 npm test                           # 34 Playwright tests (needs Chromium)
 ```
 

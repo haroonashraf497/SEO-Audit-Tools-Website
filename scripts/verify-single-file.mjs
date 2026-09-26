@@ -498,6 +498,18 @@ for (const [short, long, heading] of [['/privacy', '/privacy-policy', 'Privacy P
   check('every other category keeps the classic layout',
     others.every(r => r.kind === 'classic'), JSON.stringify(others.map(r => [r.slug, r.kind])));
 
+  // Case Converter: the eight dark result cards form a two-column grid
+  {
+    const bootCase = await boot('', '/tool/case-converter');
+    const doc = bootCase.dom.window.document;
+    const darkCards = [...doc.querySelectorAll('main div.bg-slate-900')];
+    const grid = darkCards[0]?.parentElement;
+    check('case converter renders its results as a two-column grid',
+      darkCards.length === 8 && /grid grid-cols-1 sm:grid-cols-2 gap-3/.test(grid?.className || ''),
+      `${darkCards.length} cards, parent="${grid?.className}"`);
+    bootCase.dom.window.close();
+  }
+
   // mobile hardening present in the built file
   const compactHtml = rawHtml.replace(/\s+/g, ' ');
   check('text-tool controls are mobile-first in the built file',

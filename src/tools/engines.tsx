@@ -95,10 +95,10 @@ const CaseConverter: React.FC<{ input: string }> = ({ input }) => {
     ] as [string, string][];
   }, [input]);
   return (
-    <div className="space-y-3">
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
       {variants.map(([label, value]) => (
-        <div key={label} className="bg-slate-900 rounded-xl p-3">
-          <div className="flex items-center justify-between mb-1">
+        <div key={label} className="min-w-0 bg-slate-900 rounded-xl p-3">
+          <div className="flex items-center justify-between gap-2 mb-1">
             <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">{label}</span>
             <CopyBtn text={value} />
           </div>

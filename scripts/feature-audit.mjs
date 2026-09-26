@@ -148,6 +148,8 @@ check('article rewriter steps + editor scale down on phones', /w-11 h-11 sm:w-14
   && /w-full appearance-none bg-white border border-slate-300/.test(rewriter)
   && !/(?<!sm:)min-w-\[240px\]/.test(rewriter));
 check('text outputs wrap long tokens', /break-words/.test(engines) && /break-all/.test(engines));
+check('case converter results sit in two columns',
+  /const CaseConverter[\s\S]{0,1600}<div className="grid grid-cols-1 sm:grid-cols-2 gap-3">[\s\S]{0,200}<div key=\{label\} className="min-w-0 bg-slate-900 rounded-xl p-3">/.test(engines));
 check('text-to-speech survives browsers without the speech API', /const supported = typeof window !== 'undefined' && 'speechSynthesis' in window;/.test(engines)
   && /if \(!supported\) return;/.test(engines));
 
