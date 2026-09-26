@@ -1,4 +1,4 @@
-import React, { Suspense, useState, useCallback, useMemo, useEffect, useRef } from 'react';
+import React, { useState, useCallback, useMemo, useEffect, useLayoutEffect, useRef } from 'react';
 import { categoryDescriptions, categoryLabels, ToolIcon } from './tools/data';
 import { fetchPageData, type LivePageData } from './utils/pageFetch';
 import { fetchDomainInfo, type DomainInfo } from './utils/domainLookup';
@@ -6,24 +6,25 @@ import { sanitizeRichHtml } from './utils/sanitize';
 import { CmsProvider, useCms, liveTools, livePosts, findPage, blocksToHtml, renderCopyright, type SocialLinks } from './cms/store';
 import SerpPreview from './components/SerpPreview';
 import { SeoManager } from './utils/seo';
-import { cleanHref, getRoute, navigate, rewriteLegacyLinks, subscribe } from './router';
-import { lazyRoute } from './utils/lazyRetry';
-import { LoadingFallback, RouteBoundary } from './components/ErrorBoundary';
+import { cleanHref, getRoute, lastNavigationKind, navigate, rewriteLegacyLinks, subscribe } from './router';
+import { RouteBoundary } from './components/ErrorBoundary';
+import { BlogList, BlogArticlePage } from './blog/Blog';
+import { ToolsList, ToolPage } from './tools/Tools';
+import CompetitorAnalysis, { CompetitorToolContent } from './tools/CompetitorAnalysis';
+import { AdminApp } from './cms/Admin';
+import { AdminLoginPage, AdminResetPage } from './cms/AdminLogin';
 
-// Route modules are declared lazily so the app graph stays readable, but the
-// production build is a single file: every module is inlined into
-// dist/index.html, so opening a route never waits on a network request and no
-// route ever shows a loading placeholder. `lazyRoute` keeps its retry wrapper
-// in case a component throws while rendering.
-const BlogList = lazyRoute(() => import('./blog/Blog').then(m => ({ default: m.BlogList })));
-const BlogArticlePage = lazyRoute(() => import('./blog/Blog').then(m => ({ default: m.BlogArticlePage })));
-const ToolsList = lazyRoute(() => import('./tools/Tools').then(m => ({ default: m.ToolsList })));
-const ToolPage = lazyRoute(() => import('./tools/Tools').then(m => ({ default: m.ToolPage })));
-const CompetitorAnalysis = lazyRoute(() => import('./tools/CompetitorAnalysis'));
-const CompetitorToolContent = lazyRoute(() => import('./tools/CompetitorAnalysis').then(m => ({ default: m.CompetitorToolContent })));
-const AdminApp = lazyRoute(() => import('./cms/Admin').then(m => ({ default: m.AdminApp })));
-const AdminLoginPage = lazyRoute(() => import('./cms/AdminLogin').then(m => ({ default: m.AdminLoginPage })));
-const AdminResetPage = lazyRoute(() => import('./cms/AdminLogin').then(m => ({ default: m.AdminResetPage })));
+/* ---------------- route modules (all eager) ----------------
+   Every route is a plain static import, so all of them are evaluated as part
+   of the initial script and render synchronously on the very first click:
+   there is no `React.lazy`, no `<Suspense>` and no fallback anywhere in the
+   app. Switching routes swaps the content in a single React commit, so the
+   visitor never sees an empty frame, a spinner or a "Loading…" state.
+
+   Normally eager imports would mean a bigger first download — but the build is
+   one self-contained dist/index.html with `inlineDynamicImports`, so this code
+   was already part of the document. Removing the asynchronous boundary is
+   therefore free: nothing extra is downloaded, and nothing is deferred. */
 
 // Inline SVG icons for critical UI (no JS overhead)
 const InlineIcons = {
@@ -1295,6 +1296,20 @@ const SOCIAL_META: { key: keyof SocialLinks; label: string; icon: React.FC }[] =
   { key: 'youtube', label: 'YouTube', icon: () => (<svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M23.5 6.2a3.02 3.02 0 0 0-2.12-2.14C19.5 3.55 12 3.55 12 3.55s-7.5 0-9.38.51A3.02 3.02 0 0 0 .5 6.2C0 8.09 0 12 0 12s0 3.91.5 5.8a3.02 3.02 0 0 0 2.12 2.14c1.88.51 9.38.51 9.38.51s7.5 0 9.38-.51a3.02 3.02 0 0 0 2.12-2.14C24 15.91 24 12 24 12s0-3.91-.5-5.8ZM9.55 15.57V8.43L15.82 12l-6.27 3.57Z" /></svg>) },
 ];
 
+/**
+ * Jump to a scroll offset without animating. `html { scroll-behavior: smooth }`
+ * is set for in-page anchors, but a route change must land instantly — an
+ * animated scroll just after a page swap reads as a flash of the wrong
+ * position.
+ */
+const scrollInstantly = (top: number): void => {
+  const root = document.documentElement;
+  const previous = root.style.scrollBehavior;
+  root.style.scrollBehavior = 'auto';
+  window.scrollTo(0, Math.max(0, top));
+  root.style.scrollBehavior = previous;
+};
+
 type Crumb = { label: string; href?: string };
 const SiteBreadcrumbs: React.FC<{ route: string }> = ({ route }) => {
   const { state } = useCms();
@@ -1397,18 +1412,25 @@ const SiteApp: React.FC = () => {
     return () => document.removeEventListener('keydown', onKey);
   }, [mobileMenuOpen]);
 
-  useEffect(() => {
-    // Plain in-page fragments (#features, #audiences) scroll to their section;
-    // every other navigation starts from the top.
+  // Scroll handling runs in a layout effect, so it happens in the same frame as
+  // the route swap: the new page is never painted at the previous page's offset
+  // and then yanked to the top.
+  useLayoutEffect(() => {
+    const kind = lastNavigationKind();
+    // A fragment (#features, #audiences) jumps straight to its section.
     const frag = window.location.hash.slice(1);
     if (frag) {
       const el = document.getElementById(frag);
       if (el) {
-        el.scrollIntoView();
+        scrollInstantly(window.scrollY + el.getBoundingClientRect().top - 96); // 96px = scroll-padding-top
         return;
       }
     }
-    window.scrollTo(0, 0);
+    // Back/forward and the first paint keep the reader's position — the browser
+    // restores it, and forcing the top would throw it away.
+    if (kind === 'pop' || kind === 'init') return;
+    // A link click opens the new page at the top, immediately.
+    scrollInstantly(0);
   }, [route]);
 
   const isBlog = route === 'blog' || route.startsWith('blog/');
@@ -1582,12 +1604,14 @@ const SiteApp: React.FC = () => {
         </div>
       </nav>
       <div className="h-16 shrink-0" aria-hidden="true" />
-      <main id="main-content" tabIndex={-1}>
+      {/* content-shell keeps the content column at least one viewport tall
+          (minus the 4rem header), so the footer always sits below the fold
+          instead of touching the navigation on short pages. */}
+      <main id="main-content" tabIndex={-1} className="content-shell">
       <SiteBreadcrumbs route={route} />
-      {/* keyed by route: navigating away from a failed chunk gets a fresh
-          boundary instead of keeping the error panel on screen */}
+      {/* keyed by route: if a page ever fails to render, navigating elsewhere
+          gets a fresh boundary instead of keeping the error panel on screen */}
       <RouteBoundary key={route} label={`route ${route}`}>
-      <Suspense fallback={<LoadingFallback />}>
 
       {/* Blog routes */}
       {route === 'blog' && <BlogList />}
@@ -2037,7 +2061,6 @@ const SiteApp: React.FC = () => {
       </section>
       </>)}
 
-      </Suspense>
       </RouteBoundary>
       </main>
 

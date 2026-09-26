@@ -96,7 +96,7 @@ npm run build          # → dist/index.html (app + CSS + JS inline) + the publi
 Copy the **whole `dist/` folder** to the web host: `index.html`, `.htaccess`, `404.html`,
 `favicon.svg`, `og.jpg`, `robots.txt` and `sitemap.xml`. There is no `assets/` directory — every route,
 tool, editor and admin screen is inside the document, so navigating fetches nothing extra and no screen
-shows a loading placeholder. `public/.htaccess` handles the legacy `/tools` → `/free-tools` and `/p/…`
+shows a loading placeholder — route switches are synchronous, so a click swaps the page in the same frame. `public/.htaccess` handles the legacy `/tools` → `/free-tools` and `/p/…`
 301s, security headers and caching. Content entered in one browser is not visible in another unless the
 JSON is imported, so export before publishing from a different machine.
 

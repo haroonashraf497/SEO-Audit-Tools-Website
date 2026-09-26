@@ -18,11 +18,29 @@ instant and no screen ever shows a loading placeholder, because nothing is
 fetched on demand. The cost is the trade-off described below — first visit
 downloads the whole app instead of just the homepage.
 
+## Instant navigation
+
+Route changes are synchronous — there is no Suspense boundary, no fallback and
+no fetched chunk anywhere in the app:
+
+| Mechanism | Where |
+| --- | --- |
+| Routes are **static imports** (no `React.lazy`, no dynamic `import()` for app code) | `src/App.tsx`, `src/tools/Tools.tsx` |
+| PDF tool pages no longer sit behind a Suspense fallback — the UI renders in the same commit; only the PDF *libraries* still stream from their CDN inside the tool | `src/tools/Tools.tsx`, `src/tools/pdf/engine.ts` |
+| `<main class="content-shell">` is at least `calc(100vh - 4rem)` tall, so the footer always sits below the fold instead of touching the header on short pages | `src/index.css` |
+| Scroll handling runs in a **layout effect**: a link click lands at the top of the new page before the browser paints, while back/forward and reloads keep the position the browser restores. `html { scroll-behavior: smooth }` is bypassed so the jump can never animate | `src/App.tsx`, `src/router.ts` (`lastNavigationKind()`) |
+
+In a single-file build eager imports are free: the code was already inside the
+document, so removing the asynchronous boundary changes nothing about what is
+downloaded — only about when it can render. React flushes a click
+synchronously, so the new page is on screen in the same task as the click: no
+empty frame, no spinner, no flash of the previous page's scroll offset.
+
 ## What that means for visitors
 
 - **No loading state anywhere.** Every route renders from code that arrived
-  with the document, so the "Loading page…" placeholder no longer exists in the
-  build (`LoadingFallback` renders nothing).
+  with the document — there is no `LoadingFallback`, no `role="status"`
+  placeholder and no "Loading page…" string left in the build.
 - **Repeat visits revalidate only.** Apache sends
   `Cache-Control: public, max-age=0, must-revalidate` for HTML, so an unchanged
   deploy answers with a cheap `304 Not Modified` and no body transfer. A new
@@ -51,6 +69,21 @@ login with both editors; the CMS panels (navigation, brand & footer, footer
 logo upload, header verification & ads); accessibility on the homepage; and the
 single-file build contract (no external script, no CSS/JS request at runtime,
 no loading placeholder).
+
+Navigation timing has its own coverage:
+
+- **Per-frame sampling** — the content area is sampled on every
+  `requestAnimationFrame` while two links are clicked; no frame may be empty or
+  collapsed (`site.spec.ts`, "navigation is instant").
+- **Same-task render** — a click is dispatched inside the page and `<main>` is
+  read in the next statement; the new route must already be there
+  (`resilience.spec.ts`).
+- **Sticky footer** — computed `min-height` and the footer's offset are checked
+  on short pages (`site.spec.ts`).
+- **Scroll rules** — a click returns `scrollY` to 0 while
+  `history.scrollRestoration` stays `auto` for back/forward (`site.spec.ts`).
+- **Headless** — `scripts/verify-single-file.mjs` boots the built file in jsdom
+  and asserts the same swap synchronously, with no browser required.
 
 `scripts/verify-single-file.mjs` boots the built `dist/index.html` in jsdom and
 checks the same behaviours without a browser:

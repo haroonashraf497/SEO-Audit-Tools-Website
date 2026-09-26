@@ -148,6 +148,75 @@ test('homepage accessibility, including below-fold sections', async ({ page }) =
   await expect(page.getByRole('button', { name: 'Close cookie preferences' })).toBeVisible();
 });
 
+test('navigation is instant: content swaps within a single frame', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Decline', exact: true }).click();
+
+  // Sample the content area on every animation frame. A blank intermediate
+  // state — the flash this test exists to prevent — would be recorded here.
+  await page.evaluate(() => {
+    const w = window as unknown as { __frames: { text: number; height: number }[]; __raf: number };
+    w.__frames = [];
+    const main = document.querySelector('main') as HTMLElement;
+    const tick = () => {
+      w.__frames.push({ text: (main.textContent || '').trim().length, height: main.getBoundingClientRect().height });
+      w.__raf = requestAnimationFrame(tick);
+    };
+    tick();
+  });
+
+  await page.locator('a[href="/blog"]').first().click();
+  await expect(page.locator('h1')).toContainText('Blog');
+  await page.locator('a[href="/free-tools"]').first().click();
+  await expect(page.locator('h1')).toContainText('Tools');
+  await page.waitForTimeout(120);
+
+  const frames = await page.evaluate(() => (window as unknown as { __frames: { text: number; height: number }[] }).__frames);
+  expect(frames.length).toBeGreaterThan(2);
+  expect(frames.filter(f => f.text === 0)).toEqual([]);
+  // No frame where the content area collapsed to nothing.
+  expect(frames.filter(f => f.height < 200)).toEqual([]);
+  await expect(page.locator('main')).not.toContainText('Loading page');
+});
+
+test('the content area always fills the viewport, so the footer never touches the header', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  for (const path of ['/admin-login', '/free-tools', '/about']) {
+    await page.goto(path);
+    const { minHeight, height, footerTop } = await page.evaluate(() => {
+      const main = document.querySelector('main') as HTMLElement;
+      const footer = document.querySelector('footer') as HTMLElement;
+      return {
+        minHeight: getComputedStyle(main).minHeight,
+        height: main.getBoundingClientRect().height,
+        footerTop: footer.getBoundingClientRect().top + window.scrollY,
+      };
+    });
+    // The 4rem header is excluded from the minimum, per the design rule.
+    expect(minHeight).toMatch(/calc\(|7[0-9][0-9]px/);
+    expect(height).toBeGreaterThanOrEqual(700); // 800px viewport - 64px header
+    expect(footerTop).toBeGreaterThanOrEqual(700);
+  }
+});
+
+test('a click opens the new page at the top; history keeps the reader in place', async ({ page }) => {
+  await page.goto('/blog');
+  await page.getByRole('button', { name: 'Decline', exact: true }).click();
+  await page.evaluate(() => window.scrollTo(0, 1200));
+  expect(await page.evaluate(() => window.scrollY)).toBeGreaterThan(0);
+
+  // A link click is a new page: it starts at the top, immediately.
+  await page.locator('a[href="/free-tools"]').first().click();
+  await expect(page.locator('h1')).toContainText('Tools');
+  expect(await page.evaluate(() => window.scrollY)).toBe(0);
+
+  // Back/forward is not a new page, so the browser's own restoration is left
+  // alone instead of being overridden by a forced jump to the top.
+  await page.goBack();
+  await expect(page.locator('h1')).toContainText('Blog');
+  expect(await page.evaluate(() => history.scrollRestoration)).toBe('auto');
+});
+
 test('single-file build: one document, no chunks to fetch', async ({ page }) => {
   const html = readFileSync('dist/index.html', 'utf8');
   // Every route — tools, blog, CMS, admin, editors — lives inside the one
@@ -160,6 +229,10 @@ test('single-file build: one document, no chunks to fetch', async ({ page }) => 
   // Route code really is inside the document.
   expect(html).toContain('Percentage Calculator');
   expect(html).toContain('Admin login');
+  // Nothing in the build can show a loading state.
+  expect(html).not.toContain('Loading page');
+  expect(html).not.toContain('Loading PDF engine');
+  expect(html).toContain('content-shell');
   // Nothing is emitted next to index.html except the public hosting files.
   const entries = readdirSync('dist', { withFileTypes: true });
   expect(entries.filter(entry => entry.isDirectory()).map(entry => entry.name)).toEqual([]);

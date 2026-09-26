@@ -8,6 +8,8 @@
    • Back/forward (popstate) re-renders the matching view.
    • In-page anchors (#features, #audiences) stay plain browser
      fragments — the native scroll behaviour is kept.
+   • Each navigation records how it happened (`lastNavigationKind`), which the
+     app uses to decide whether to reset the scroll position.
    • Legacy URLs are rewritten automatically on load:
        /#/p/about        → /about    (hash URLs never reach the
                                  server, so the app rewrites them
@@ -23,6 +25,16 @@
    ============================================================ */
 
 export type RouteListener = (route: string) => void;
+
+/** How the current route was reached. Drives scroll behaviour: a click starts
+ *  at the top of the new page, while back/forward and the first paint keep the
+ *  position the browser restored. */
+export type NavigationKind = 'init' | 'push' | 'replace' | 'pop';
+
+let navigationKind: NavigationKind = 'init';
+
+/** The kind of the most recent navigation (see `NavigationKind`). */
+export const lastNavigationKind = (): NavigationKind => navigationKind;
 
 const listeners = new Set<RouteListener>();
 
@@ -114,6 +126,7 @@ export const navigate = (to: string, opts: { replace?: boolean } = {}): void => 
   if (url === null) return;
   if (opts.replace) window.history.replaceState(null, '', url);
   else window.history.pushState(null, '', url);
+  navigationKind = opts.replace ? 'replace' : 'push';
   emit();
 };
 
@@ -148,7 +161,12 @@ let started = false;
 export const startRouter = (): void => {
   if (started) return;
   started = true;
-  window.addEventListener('popstate', emit);
+  window.addEventListener('popstate', () => {
+    // Back/forward: the browser restores the scroll position, so the app must
+    // not force the top.
+    navigationKind = 'pop';
+    emit();
+  });
   document.addEventListener(
     'click',
     (e: MouseEvent) => {

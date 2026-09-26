@@ -19,30 +19,21 @@ import { HtmlFormatterTool, XmlFormatterTool, PhpFormatterTool, HtmlEditorTool, 
 import { Sidebar } from './Sidebar';
 import { PdfGuide } from './pdf/PdfGuide';
 import { ToolRelatedContent } from './toolContent';
-import { importWithRetry } from '../utils/lazyRetry';
-import { LoadingFallback, RouteBoundary } from '../components/ErrorBoundary';
+import { RouteBoundary } from '../components/ErrorBoundary';
+import { MergePdf, SplitPdf, RotatePdf, LockPdf, UnlockPdf, CompressPdf } from './pdf/PdfTools';
+import { TextToPdf, WordToPdf, PdfToWord, PdfToJpg, JpgToPdf, PptToPdf, ExcelToPdf } from './pdf/ConvertTools';
 
-// PDF tools are code-split so the PDF libraries load only when a PDF tool page opens.
-const PdfLoadingLabel: React.FC = () => (
-  <span className="flex flex-col items-center gap-3 text-sm text-slate-600"><span className="w-8 h-8 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />Loading PDF engine (one-time, then cached)…</span>
-);
-// The PDF engine is the heaviest chunk on the site, so it gets a longer
-// deadline than a normal route before the fallback admits it has stalled.
-const PDF_LOAD_TIMEOUT_MS = 20_000;
+// PDF tool UIs are plain static imports too — they are part of the single-file
+// build, so a PDF tool page renders in the same commit as any other route with
+// no spinner in between. The PDF *libraries* (pdf-lib, pdf.js) still load from
+// their CDN on demand inside the tool, which is what the in-tool progress bar
+// reports; the page itself is never blank.
 type AnyComp = React.ComponentType<Record<string, unknown>>;
-const lazyCache = new Map<string, React.LazyExoticComponent<AnyComp>>();
-const pickLazy = (mod: 'pdf' | 'convert', name: string) => {
-  const key = `${mod}:${name}`;
-  if (!lazyCache.has(key)) {
-    // A dropped request for this chunk used to strand the spinner forever;
-    // importWithRetry re-issues it before the failure reaches the boundary.
-    lazyCache.set(key, React.lazy(() => importWithRetry(async () => {
-      const m = (mod === 'pdf' ? await import('./pdf/PdfTools') : await import('./pdf/ConvertTools')) as unknown as Record<string, AnyComp>;
-      return { default: m[name] };
-    })));
-  }
-  return lazyCache.get(key)!;
+const PDF_COMPONENTS: Record<string, AnyComp> = {
+  MergePdf, SplitPdf, RotatePdf, LockPdf, UnlockPdf, CompressPdf,
+  TextToPdf, WordToPdf, PdfToWord, PdfToJpg, JpgToPdf, PptToPdf, ExcelToPdf,
 };
+const pickEngine = (name: string): AnyComp | null => PDF_COMPONENTS[name] || null;
 const PDF_ENGINES: Record<string, ['pdf' | 'convert', string]> = {
   'pdf-merge': ['pdf', 'MergePdf'], 'pdf-split': ['pdf', 'SplitPdf'], 'pdf-rotate': ['pdf', 'RotatePdf'], 'pdf-lock': ['pdf', 'LockPdf'], 'pdf-unlock': ['pdf', 'UnlockPdf'], 'pdf-compress': ['pdf', 'CompressPdf'],
   'text-to-pdf': ['convert', 'TextToPdf'], 'word-to-pdf': ['convert', 'WordToPdf'], 'pdf-to-word': ['convert', 'PdfToWord'], 'pdf-to-jpg': ['convert', 'PdfToJpg'], 'jpg-to-pdf': ['convert', 'JpgToPdf'], 'ppt-to-pdf': ['convert', 'PptToPdf'], 'excel-to-pdf': ['convert', 'ExcelToPdf'],
@@ -51,14 +42,13 @@ const PdfSwitch: React.FC<{ engine: string }> = ({ engine }) => {
   const isTarget = engine.startsWith('pdf-compress-');
   const entry = isTarget ? PDF_ENGINES['pdf-compress'] : PDF_ENGINES[engine];
   if (!entry) return null;
-  const C = pickLazy(entry[0], entry[1]);
+  const C = pickEngine(entry[1]);
+  if (!C) return null;
   const props = isTarget ? { targetKb: Number(engine.split('-').pop()) } : {};
   return (
     <RouteBoundary key={engine} label={`PDF tool ${engine}`}>
-      <React.Suspense fallback={<LoadingFallback label={<PdfLoadingLabel />} timeoutMs={PDF_LOAD_TIMEOUT_MS} />}>
-        <C {...props} />
-        <PdfGuide engine={engine} />
-      </React.Suspense>
+      <C {...props} />
+      <PdfGuide engine={engine} />
     </RouteBoundary>
   );
 };

@@ -148,6 +148,63 @@ const wait = () => new Promise(resolve => setTimeout(resolve, 250));
   dom.window.close();
 }
 
+/* 5. instant navigation: no empty frame, no loading state, no blank swap */
+{
+  const { dom, errors } = await boot();
+  const doc = dom.window.document;
+  const main = doc.querySelector('main');
+  const compact = rawHtml.replace(/\s+/g, ' ').replace(/\s*\{\s*/g, '{');
+  check('content shell reserves the height between header and footer',
+    /content-shell/.test(main.className) && compact.includes('.content-shell{min-height:calc(100vh - 4rem)}'),
+    main.className);
+  check('no status/spinner placeholder in the shell', doc.querySelectorAll('[role="status"]').length === 0);
+
+  // Watch every DOM change inside <main>: an empty intermediate state — the
+  // "blank between clicks" — would be recorded here.
+  dom.window.eval(`
+    window.__frameLog = [];
+    window.__recordNow = () => window.__frameLog.push((document.querySelector('main').textContent || '').trim().length);
+    window.__watch = new MutationObserver(() => window.__recordNow());
+    window.__watch.observe(document.querySelector('main'), { childList: true, subtree: true, characterData: true });
+    window.__recordNow();
+  `);
+
+  const clickLink = href => {
+    const link = doc.querySelector(`a[href="${href}"]`);
+    if (!link) throw new Error(`no link to ${href}`);
+    link.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true, cancelable: true }));
+  };
+
+  clickLink('/blog');
+  // Deliberately no await: a discrete click is flushed synchronously by React,
+  // so the new route must already be on screen when the dispatch returns.
+  const blogNow = (main.textContent || '').trim();
+  check('click on /blog renders the blog in the same task (zero delay)',
+    blogNow.includes('Blog') && !/Loading page|Loading PDF engine/i.test(blogNow), blogNow.slice(0, 60));
+  check('the URL has already changed with the content', dom.window.location.pathname === '/blog', dom.window.location.pathname);
+
+  clickLink('/free-tools');
+  const toolsNow = (main.textContent || '').trim();
+  check('click on /free-tools renders the tools list in the same task',
+    toolsNow.includes('Tools') && !/Loading page|Loading PDF engine/i.test(toolsNow), toolsNow.slice(0, 60));
+
+  const frames = dom.window.__frameLog;
+  check('no empty frame between the two pages',
+    frames.length > 0 && frames.every(len => len > 0), JSON.stringify(frames.slice(0, 12)));
+  dom.window.close();
+}
+
+/* 6. every heavy route renders straight away — the PDF pages used to show a
+      "Loading PDF engine…" Suspense fallback */
+for (const [path, expected] of [['/tool/merge-pdf', 'Merge PDF'], ['/admin-login', 'Admin login'], ['/competitor-analysis', 'Competitor Analysis']]) {
+  const { dom, errors } = await boot('', path);
+  const mainText = (dom.window.document.querySelector('main').textContent || '').trim();
+  check(`${path} renders immediately with no loading state`,
+    mainText.includes(expected) && !/Loading (page|PDF engine)/i.test(mainText) && errors.length === 0,
+    errors.join(' | ') + ' ' + mainText.slice(0, 60));
+  dom.window.close();
+}
+
 /* 4. legacy /tools URLs are normalised to /free-tools client-side */
 {
   const { dom, errors } = await boot('', '/tools');

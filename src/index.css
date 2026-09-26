@@ -34,6 +34,21 @@ body {
   overflow: hidden;
 }
 
+/* The content column always fills at least the space between the fixed 4rem
+   header and the bottom of the viewport, so the footer can never ride up and
+   touch the navigation on a short page. The dvh value keeps that correct on
+   mobile browsers whose toolbars shrink the visible height. */
+.content-shell {
+  min-height: calc(100vh - 4rem);
+}
+/* dvh is the more accurate unit on mobile (its toolbars shrink the visible
+   height), so browsers that support it get the tighter guarantee. */
+@supports (height: 100dvh) {
+  .content-shell {
+    min-height: calc(100dvh - 4rem);
+  }
+}
+
 /* Content visibility for performance - off-screen sections skip rendering */
 .cv-auto {
   content-visibility: auto;
