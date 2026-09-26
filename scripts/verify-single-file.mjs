@@ -543,6 +543,22 @@ for (const [short, long, heading] of [['/privacy', '/privacy-policy', 'Privacy P
     bootNav.dom.window.close();
   }
 
+  // top-nav text weight: selected items are indigo but never bold
+  {
+    const bootNavWeight = await boot('', '/free-tools');
+    const doc = bootNavWeight.dom.window.document;
+    const navLinks = [...doc.querySelectorAll('nav.fixed a, nav.fixed button')];
+    const bold = navLinks.filter(el => /font-(semibold|bold|extrabold|black)/.test(el.className));
+    const selected = navLinks.filter(el => /text-indigo-600/.test(el.className) && !/hover:text-indigo-600/.test(el.className.replace(/hover:text-indigo-600/g, 'HOVER')));
+    check('no top-nav link turns bold, on hover or when selected',
+      bold.length === 0,
+      `bold nav items: ${bold.map(el => el.textContent.trim()).join(', ')}`);
+    check('the selected nav item is still marked with indigo text',
+      selected.length > 0,
+      `selected: ${selected.map(el => el.textContent.trim()).join(', ')}`);
+    bootNavWeight.dom.window.close();
+  }
+
   // same categories inside the mobile burger menu
   {
     const bootMobile = await boot('', '/');

@@ -140,6 +140,13 @@ check('every category link points at the filtered tools page',
 check('counts come from the live CMS tool list', /cms\.state\.tools\.forEach\(t => \{[\s\S]{0,80}if \(t\.status !== 'live'\) return;/.test(menuSrc)
   && /categoryLabels\[cat\]\} <span className="text-slate-400">\(\{counts\.get\(cat\) \|\| 0\}\)/.test(menuSrc));
 check('menu offers a browse-all link to /free-tools', /Browse all \{total\} free tools/.test(menuSrc));
+check('top-nav text is never bold on hover or when selected',
+  (() => {
+    const navRegion = appSrc.slice(appSrc.indexOf('hidden md:flex items-center gap-7'), appSrc.indexOf('</nav>'));
+    return !/font-(semibold|bold|extrabold|black)/.test(navRegion)
+      && /'text-indigo-600' : 'text-slate-600 hover:text-indigo-600'/.test(navRegion)
+      && !/font-(semibold|bold)/.test(/<button[\s\S]*?Tool Categories[\s\S]*?<\/button>/.exec(menuSrc)?.[0] || '');
+  })());
 check('mega panel repeats no heading — the nav item is the label',
   /No heading inside the panel/.test(menuSrc)
   && !/<h[1-6][^>]*>Tool Categories<\/h[1-6]>/.test(menuSrc)

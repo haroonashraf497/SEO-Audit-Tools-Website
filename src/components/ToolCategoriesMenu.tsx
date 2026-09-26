@@ -88,7 +88,7 @@ export const ToolCategoriesMenu: React.FC<{ route?: string }> = ({ route }) => {
         aria-expanded={open}
         aria-controls="tool-categories-menu"
         onClick={() => setOpen(o => !o)}
-        className={`flex items-center gap-1.5 rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 ${open ? 'text-indigo-600 font-semibold' : 'text-slate-600 hover:text-indigo-600'}`}
+        className={`flex items-center gap-1.5 rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 ${open ? 'text-indigo-600' : 'text-slate-600 hover:text-indigo-600'}`}
       >
         Tool Categories
         <Chevron up={open} />
@@ -119,7 +119,7 @@ export const ToolCategoriesMenu: React.FC<{ route?: string }> = ({ route }) => {
           </div>
 
           <div className="mt-4 pt-4 border-t border-slate-100 flex items-center justify-between gap-4">
-            <a href="/free-tools" onClick={close} className="text-sm font-semibold text-indigo-600 hover:text-indigo-700 transition-colors">
+            <a href="/free-tools" onClick={close} className="text-sm text-indigo-600 hover:text-indigo-700 transition-colors">
               Browse all {total} free tools →
             </a>
             <span className="text-xs text-slate-400">{categoryOrder.length} categories</span>
@@ -142,7 +142,7 @@ export const ToolCategoriesMobileSection: React.FC<{ onNavigate: () => void }> =
         aria-expanded={open}
         aria-controls="tool-categories-mobile"
         onClick={() => setOpen(o => !o)}
-        className={`w-full flex items-center justify-between rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 ${open ? 'text-indigo-600 font-semibold' : 'text-slate-600 hover:text-indigo-600'}`}
+        className={`w-full flex items-center justify-between rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 ${open ? 'text-indigo-600' : 'text-slate-600 hover:text-indigo-600'}`}
       >
         Tool Categories
         <Chevron up={open} />
@@ -158,7 +158,7 @@ export const ToolCategoriesMobileSection: React.FC<{ onNavigate: () => void }> =
             {categoryLabels[cat]} <span className="text-slate-400">({counts.get(cat) || 0})</span>
           </a>
         ))}
-        <a href="/free-tools" onClick={onNavigate} className="py-2 text-sm font-semibold text-indigo-600 hover:text-indigo-700 transition-colors">
+        <a href="/free-tools" onClick={onNavigate} className="py-2 text-sm text-indigo-600 hover:text-indigo-700 transition-colors">
           Browse all free tools →
         </a>
       </div>
