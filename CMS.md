@@ -41,7 +41,7 @@ Editing surfaces use the same WordPress-style editor:
 | **Sections & Nav → Navigation menu** | header links — add, rename, hide or remove. The fixed *Tool Categories* mega menu (the panel itself carries no repeated heading) (all eleven categories with live counts, each linking to its own page, e.g. `/website-checker-tools`) sits after these links and before *Competitor Analysis*; it is part of the app shell, like *Home*, so it is not part of this list. Top-nav labels are never bold — hover and the selected page only change the text colour |
 | **Blog posts** | post body — new posts and existing articles |
 | **Pages** | the whole page body — one rich-text document per page (pages saved with the old block editor are converted automatically on load) |
-| **Tools** | the optional "About" copy that replaces the shared template; tool names, descriptions, categories and visibility drive both the /free-seo-tools grid and the top-nav **Tool Categories** menu (counts included) |
+| **Tools** | the optional "About" copy that replaces the shared template; tool names, descriptions, categories and visibility drive both the /free-seo-tools grid and the top-nav **Tool Categories** menu (counts included). Card taglines and the category introduction paragraphs are built-in copy (`toolTaglines` / `categoryIntros` in `src/tools/data.tsx`) — CMS tools without a tagline fall back to their own description |
 | **Sidebar** | *Text section* widgets (sidebar notes) |
 
 Short fields stay **plain text** on purpose — SEO titles, meta descriptions, excerpts, card descriptions,

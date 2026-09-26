@@ -159,6 +159,11 @@ builder + stored CMS hrefs upgraded on load, so content saved against an old URL
 - each **category heading is a link** to that category's own page (`/ip-tools`,
   `/website-checker-tools`, …) and is set at **1.35rem**; on a category page the heading is plain
   text, so it never links to itself;
+- under every heading sits a **category introduction** (`categoryIntros` in `src/tools/data.tsx`) —
+  a 230–300 character, category-specific paragraph naming the tools in that group and who they help.
+  It appears identically on the index and on the category page itself, so the copy search engines
+  read on `/ip-tools` is the same SEO copy visitors see. The one-line `categoryDescriptions` stay
+  for the home-page cards and meta descriptions;
 - a legacy filtered URL (e.g. `/free-seo-tools?cat=pdf`) 301s to its category page, `?q=` still
   searches the index, and the status line carries a **Show all N tools** link that clears it;
 - search, grouping, "Instant" badges and the empty state are unchanged.
@@ -215,9 +220,9 @@ to move or version it. See `CMS.md` for the full CMS reference.
 
 ```bash
 npm run typecheck                  # tsc --noEmit
-node scripts/feature-audit.mjs     # 168 checks: CMS controls, footer redesign, legal URLs, /free-seo-tools index, text-tool layout/mobile, case-converter grid, Tool Categories mega menu, no-bold top nav, top-level tool URLs (/<slug>), category pages (/ip-tools), Merge PDF compressor, no EKSTRUH, 154 tools
+node scripts/feature-audit.mjs     # 172 checks: CMS controls, footer redesign, legal URLs, /free-seo-tools index, text-tool layout/mobile, case-converter grid, Tool Categories mega menu, no-bold top nav, top-level tool URLs (/<slug>), category pages (/ip-tools), Merge PDF compressor, no EKSTRUH, 154 tools
 npm install --no-save jsdom
-node scripts/verify-single-file.mjs  # 149 checks: boots the built file, instant swap, footer, legal + category URLs, top-level tool pages, legacy redirects, head injection, text-tool layout, mega-menu navigation
+node scripts/verify-single-file.mjs  # 152 checks: boots the built file, instant swap, footer, legal + category URLs, top-level tool pages, legacy redirects, head injection, text-tool layout, mega-menu navigation
 npm test                           # 34 Playwright tests (needs Chromium)
 ```
 

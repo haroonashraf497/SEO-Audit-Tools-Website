@@ -263,6 +263,29 @@ export const categoryFromSlug = (slug: string): ToolCategory | null => {
 export const categoryFromKey = (key: string): ToolCategory | null =>
   (categoryOrder as string[]).includes(key) ? (key as ToolCategory) : null;
 
+/**
+ * SEO introduction shown under a category heading — on the tools index and on
+ * that category's own page (/ip-tools, /website-checker-tools, …).
+ *
+ * Written per category, not templated: it names the tools in the group, what
+ * each one does for the visitor and why it is worth using, which is the copy
+ * search engines read on the category URL. `categoryDescriptions` above stays
+ * the one-line summary used on the home-page cards and in meta descriptions.
+ */
+export const categoryIntros: Record<ToolCategory, string> = {
+  text: 'Check every piece of writing before it goes live: run plagiarism and grammar checks, rewrite articles, count words and characters, generate hashes and clean up formatting. All eleven Text Analysis Tools are free, need no sign-up, and your text never leaves your browser.',
+  keyword: 'Find the exact phrases your audience types into Google. Research keyword density, generate short and long-tail ideas, discover the terms a site already ranks for, and measure how hard a term is to win before you write a single word. Eight free keyword research tools, instant results.',
+  backlink: 'Build and audit the links that lift your pages up the rankings. Inspect any site\'s backlink profile and anchor text, check whether your links are still live and indexed, value a sponsored link, and find the broken links wasting your crawl budget. Eight free backlink tools, no account needed.',
+  management: 'The day-to-day utilities of running a website: generate meta tags, XML sitemaps and robots.txt files, test page speed and page size, read HTTP headers, fix redirects, build QR codes, short URLs and Open Graph tags, and minify the code you ship. 45 free website management tools that work on any site.',
+  checker: 'Audit any URL in seconds. Check Google indexing and caching, SSL certificates, redirect chains, GZIP compression, malware flags, code-to-text ratio and server status, then compare two pages or two websites side by side. 24 free website checking tools, with live results straight from your browser.',
+  domain: 'Everything you need before you register or buy a domain: age and expiry dates, WHOIS ownership, authority scores, DNS records, hosting and nameservers, spam blacklist status and recently expired domains worth registering. Eight free domain lookup tools with instant results.',
+  ip: 'See what the internet sees when it looks at your connection. Find your public IPv4 and IPv6 address, trace any IP\'s location on a map, discover other websites on the same server, and check Class C ranges or a freshly updated proxy list. All six IP tools are free and run in your browser.',
+  pdf: 'Work with PDFs without uploading your documents to a stranger\'s server. Merge, split, rotate, compress, lock and unlock files, or convert between PDF, Word, Excel, PowerPoint, JPG and plain text — 18 free PDF tools that process every file locally on your device.',
+  image: 'Compress, resize and read images right in your browser. Shrink JPG and PNG files for faster-loading pages, resize photos to exact pixel dimensions, or pull readable text out of screenshots and photos with OCR. Three free image tools with no watermark and no sign-up.',
+  calculator: 'Fast, accurate answers for everyday maths and business numbers: percentages, averages, age, BMI, GST and sales tax, profit margins, discounts, CPM, customer lifetime value, PayPal fees, earnings per share and probability. 14 free calculators that update as you type.',
+  converter: 'Convert units without hunting through conversion tables. Length, weight, temperature, speed, area, pressure, voltage, power and time zones — ten free converters with instant, accurate results in both directions and no page reloads.',
+};
+
 export const categoryOrder: ToolCategory[] = ['text', 'keyword', 'backlink', 'management', 'checker', 'domain', 'ip', 'pdf', 'image', 'calculator', 'converter'];
 
 export const categoryStyles: Record<ToolCategory, string> = {

@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  categoryDescriptions, categoryHref, categoryLabels, categoryOrder, categoryStyles, toolTagline, ToolIcon,
+  categoryDescriptions, categoryHref, categoryIntros, categoryLabels, categoryOrder, categoryStyles, toolTagline, ToolIcon,
   type ToolDef, type ToolCategory,
 } from './data';
 import { useCms } from '../cms/store';
@@ -576,7 +576,7 @@ export const ToolsList: React.FC<{ category?: ToolCategory }> = ({ category }) =
           if (!list?.length) return null;
           return (
             <section key={cat} className="mb-12">
-              <div className="flex items-center gap-3 mb-5">
+              <div className="flex items-center gap-3 mb-3">
                 {/* On the index the heading opens that category's own page; on a
                     category page it is the current page, so it stays plain text. */}
                 {category ? (
@@ -599,6 +599,9 @@ export const ToolsList: React.FC<{ category?: ToolCategory }> = ({ category }) =
                 )}
                 <span className="text-sm text-slate-400">({list.length})</span>
               </div>
+              {/* SEO introduction for this category — the copy search engines read
+                  on the category URL, shown on the index and on its own page. */}
+              <p className="text-[15px] sm:text-base text-slate-600 leading-relaxed mb-6">{categoryIntros[cat]}</p>
               <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 {list.map(t => (
                   <a key={t.slug} href={`/${t.slug}`}

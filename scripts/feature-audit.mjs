@@ -268,6 +268,24 @@ check('router upgrades a mixed ?cat=&q= query without dropping the search',
   /export const canonicalCategoryQuery = \(pathname: string, search: string\): string \| null => \{/.test(routerSrcT)
   && /const category = canonicalCategoryQuery\(next, search\);/.test(routerSrcT)
   && /return `\$\{categoryHref\(key\)\}\$\{qs \? `\?\$\{qs\}` : ''\}`;/.test(routerSrcT));
+const introBlock = dataSrc.slice(dataSrc.indexOf('export const categoryIntros'), dataSrc.indexOf('export const categoryOrder'));
+const intros = [...introBlock.matchAll(/^  ([a-z]+): '((?:[^'\\]|\\.)*)',$/gm)].map(m => ({ key: m[1], text: m[2].replace(/\\'/g, "'") }));
+check('every category has its own SEO introduction',
+  intros.length === 11
+  && ['text', 'keyword', 'backlink', 'management', 'checker', 'domain', 'ip', 'pdf', 'image', 'calculator', 'converter'].every(k => intros.some(i => i.key === k)),
+  `${intros.length} intros`);
+check('each introduction is a substantial, unique, category-specific paragraph',
+  intros.every(i => i.text.length >= 200 && i.text.length <= 340)
+  && new Set(intros.map(i => i.text)).size === intros.length,
+  intros.filter(i => i.text.length < 200 || i.text.length > 340).map(i => `${i.key}:${i.text.length}`).join(', '));
+check('the introduction is rendered under the heading on the index and on the category page',
+  /\{categoryIntros\[cat\]\}/.test(read('src/tools/Tools.tsx'))
+  && /text-\[15px\] sm:text-base text-slate-600 leading-relaxed mb-6/.test(read('src/tools/Tools.tsx')));
+check('the short one-liner stays for the home cards and meta description',
+  /export const categoryDescriptions: Record<ToolCategory, string> = \{/.test(dataSrc)
+  && /categoryDescriptions\[cat\]/.test(appSrcTools)
+  && /`\$\{categoryDescriptions\[cat\]\} \$\{list\.length\} free/.test(seoUtil));
+
 check('sitemap lists all eleven category pages',
   ['text-analysis-tools', 'keyword-tools', 'backlink-tools', 'website-management-tools', 'website-checker-tools',
     'domain-tools', 'ip-tools', 'pdf-tools', 'image-tools', 'calculator-tools', 'unit-converter-tools']

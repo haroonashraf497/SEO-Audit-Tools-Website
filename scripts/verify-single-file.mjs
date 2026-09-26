@@ -317,6 +317,28 @@ for (const [slug, label, count] of [['/ip-tools', 'IP Tools', 6], ['/website-che
   dom.window.close();
 }
 {
+  const introOf = doc => [...doc.querySelectorAll('main section > p')]
+    .map(p => p.textContent.trim())
+    .filter(t => t.length >= 200);
+  const { dom, errors } = await boot('', '/free-seo-tools');
+  const intros = introOf(dom.window.document);
+  check('the index shows a category introduction under every one of the eleven headings',
+    intros.length === 11 && new Set(intros).size === 11 && errors.length === 0,
+    `${intros.length} intros (${new Set(intros).size} unique)`);
+  const ipIntro = intros.find(t => /public IPv4 and IPv6/.test(t)) || '';
+  check('the introductions name the tools in that category (not templated)',
+    /IPv4 and IPv6/.test(ipIntro) && intros.some(t => /backlink profile/.test(t)) && intros.some(t => /plagiarism and grammar/.test(t)),
+    ipIntro.slice(0, 60));
+  const { dom: catDom } = await boot('', '/ip-tools');
+  const catIntros = introOf(catDom.window.document);
+  check('the category page shows its own introduction above the tool cards',
+    catIntros.length === 1 && catIntros[0] === ipIntro,
+    `${catIntros.length} intros`);
+  dom.window.close();
+  catDom.window.close();
+}
+
+{
   const { dom } = await boot('', '/ip-tools');
   const heads = [...dom.window.document.querySelectorAll('main section h2')];
   check('a category page keeps its own heading unlinked (no self-link)',
