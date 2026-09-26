@@ -148,6 +148,15 @@ const wait = () => new Promise(resolve => setTimeout(resolve, 250));
   dom.window.close();
 }
 
+/* 4. legacy /tools URLs are normalised to /free-tools client-side */
+{
+  const { dom, errors } = await boot('', '/tools');
+  check('legacy /tools boot has no script errors', errors.length === 0, errors.join(' | '));
+  check('/tools normalises to /free-tools', dom.window.location.pathname === '/free-tools', dom.window.location.pathname);
+  check('tools page renders its heading', /Tools/.test(dom.window.document.querySelector('h1')?.textContent || ''));
+  dom.window.close();
+}
+
 const failed = results.filter(result => !result.ok);
 console.log(`\n${results.length - failed.length}/${results.length} checks passed`);
 process.exit(failed.length ? 1 : 0);
