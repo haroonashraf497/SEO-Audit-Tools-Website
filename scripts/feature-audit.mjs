@@ -273,6 +273,40 @@ check('sitemap lists all eleven category pages',
     'domain-tools', 'ip-tools', 'pdf-tools', 'image-tools', 'calculator-tools', 'unit-converter-tools']
     .every(slug => sitemapT.includes(`<loc>https://seoaudittools.pk/${slug}</loc>`)));
 
+console.log('\n=== 🃏 Tool cards (four-up, two-line copy) ===');
+const listSrcCards = read('src/tools/Tools.tsx');
+const dataSrcCards = read('src/tools/data.tsx');
+check('the tools listing is four-up on desktop (two-up on phones, one-up on mobile)',
+  /grid sm:grid-cols-2 lg:grid-cols-4 gap-4/.test(listSrcCards));
+check('category section headings are 1.35rem',
+  /const CATEGORY_HEADING_SIZE = \{ fontSize: '1\.35rem' \} as const;/.test(listSrcCards)
+  && /style=\{CATEGORY_HEADING_SIZE\}/.test(listSrcCards));
+check('tool names on the cards are 1rem',
+  /const TOOL_NAME_SIZE = \{ fontSize: '1rem' \} as const;/.test(listSrcCards)
+  && /style=\{TOOL_NAME_SIZE\}/.test(listSrcCards));
+check('the category heading links to that category page on the index',
+  /href=\{categoryHref\(cat\)\}/.test(listSrcCards)
+  && /group-hover\/heading:text-indigo-600/.test(listSrcCards));
+check('a category page does not link its own heading back to itself',
+  /\{category \? \([\s\S]{0,400}<h2 className="font-bold text-slate-900" style=\{CATEGORY_HEADING_SIZE\}>/.test(listSrcCards));
+check('every card description is clamped to exactly two lines',
+  /line-clamp-2 min-h-\[2\.5rem\]/.test(listSrcCards) && /toolTagline\(t\)/.test(listSrcCards));
+const taglineBlock = dataSrcCards.slice(dataSrcCards.indexOf('export const toolTaglines'), dataSrcCards.indexOf('export const toolTagline ='));
+const taglines = [...taglineBlock.matchAll(/^  '([a-z0-9-]+)': '((?:[^'\\]|\\.)*)',$/gm)];
+const toolSlugs = [...dataSrcCards.matchAll(/slug: '([^']+)'/g)].map(m => m[1]);
+const taglineTexts = taglines.map(m => m[2].replace(/\\'/g, "'"));
+check('all 154 built-in tools have their own card tagline',
+  taglines.length === 155 && toolSlugs.every(slug => taglines.some(m => m[1] === slug)),
+  `${taglines.length} taglines for ${toolSlugs.length} tools`);
+check('every tagline is a complete two-line sentence (60-108 characters)',
+  taglineTexts.every(t => t.length >= 60 && t.length <= 108),
+  taglineTexts.filter(t => t.length < 60 || t.length > 108).join(' | '));
+check('no two tools share a tagline',
+  new Set(taglineTexts).size === taglineTexts.length);
+check('the tagline is card-only — descriptions keep serving SEO and tool pages',
+  /toolTagline = \(tool: \{ slug: string; description: string \}\): string =>\s*toolTaglines\[tool\.slug\] \|\| tool\.description;/.test(dataSrcCards)
+  && /const description = seo\?\.description \|\| tool\.description;/.test(seoUtil));
+
 console.log('\n=== 🧭 Tool Categories mega menu ===');
 const appSrc = read('src/App.tsx');
 const menuSrc = read('src/components/ToolCategoriesMenu.tsx');

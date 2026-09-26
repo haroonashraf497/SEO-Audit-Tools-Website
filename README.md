@@ -151,6 +151,14 @@ builder + stored CMS hrefs upgraded on load, so content saved against an old URL
   the description and the search box; the tool grid then continues on the page background;
 - the **category filter chips are gone** — categories now live only in the top-nav mega menu, so
   the page shows one section per category (heading + count) with all its tool cards;
+- the cards run **four-up on desktop** (two-up on tablets, one-up on phones), each with its tool
+  name at **1rem** and a **two-line description** — every card carries a hand-written tagline
+  (`toolTaglines` in `src/tools/data.tsx`, 60–108 characters) clamped to exactly two lines with a
+  reserved two-line height, so the grid stays perfectly even. The longer, keyword-rich
+  `description` is untouched and still serves the meta description and the tool-page intro;
+- each **category heading is a link** to that category's own page (`/ip-tools`,
+  `/website-checker-tools`, …) and is set at **1.35rem**; on a category page the heading is plain
+  text, so it never links to itself;
 - a legacy filtered URL (e.g. `/free-seo-tools?cat=pdf`) 301s to its category page, `?q=` still
   searches the index, and the status line carries a **Show all N tools** link that clears it;
 - search, grouping, "Instant" badges and the empty state are unchanged.
@@ -207,9 +215,9 @@ to move or version it. See `CMS.md` for the full CMS reference.
 
 ```bash
 npm run typecheck                  # tsc --noEmit
-node scripts/feature-audit.mjs     # 158 checks: CMS controls, footer redesign, legal URLs, /free-seo-tools index, text-tool layout/mobile, case-converter grid, Tool Categories mega menu, no-bold top nav, top-level tool URLs (/<slug>), category pages (/ip-tools), Merge PDF compressor, no EKSTRUH, 154 tools
+node scripts/feature-audit.mjs     # 168 checks: CMS controls, footer redesign, legal URLs, /free-seo-tools index, text-tool layout/mobile, case-converter grid, Tool Categories mega menu, no-bold top nav, top-level tool URLs (/<slug>), category pages (/ip-tools), Merge PDF compressor, no EKSTRUH, 154 tools
 npm install --no-save jsdom
-node scripts/verify-single-file.mjs  # 143 checks: boots the built file, instant swap, footer, legal + category URLs, top-level tool pages, legacy redirects, head injection, text-tool layout, mega-menu navigation
+node scripts/verify-single-file.mjs  # 149 checks: boots the built file, instant swap, footer, legal + category URLs, top-level tool pages, legacy redirects, head injection, text-tool layout, mega-menu navigation
 npm test                           # 34 Playwright tests (needs Chromium)
 ```
 

@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  categoryDescriptions, categoryHref, categoryLabels, categoryOrder, categoryStyles, ToolIcon,
+  categoryDescriptions, categoryHref, categoryLabels, categoryOrder, categoryStyles, toolTagline, ToolIcon,
   type ToolDef, type ToolCategory,
 } from './data';
 import { useCms } from '../cms/store';
@@ -426,6 +426,11 @@ const DomainAvail: React.FC<{ tool: ToolDef }> = ({ tool }) => {
 };
 
 // ---------- Tools listing page ----------
+/** Card and heading type scale, exactly as specified by the design:
+ *  category heading 1.35rem, tool name 1rem. */
+const CATEGORY_HEADING_SIZE = { fontSize: '1.35rem' } as const;
+const TOOL_NAME_SIZE = { fontSize: '1rem' } as const;
+
 /** The search term is the only filter that lives in the query string now:
  *  a category is a real page with its own URL (/ip-tools), so `?cat=` no longer
  *  exists — the router moves it onto the category page before the first paint. */
@@ -572,13 +577,29 @@ export const ToolsList: React.FC<{ category?: ToolCategory }> = ({ category }) =
           return (
             <section key={cat} className="mb-12">
               <div className="flex items-center gap-3 mb-5">
-                <div className={`w-9 h-9 rounded-lg flex items-center justify-center border ${categoryStyles[cat]}`}>
-                  <ToolIcon category={cat} />
-                </div>
-                <h2 className="text-xl font-bold text-slate-900">{categoryLabels[cat]}</h2>
+                {/* On the index the heading opens that category's own page; on a
+                    category page it is the current page, so it stays plain text. */}
+                {category ? (
+                  <>
+                    <span className={`w-9 h-9 rounded-lg flex items-center justify-center border ${categoryStyles[cat]}`}>
+                      <ToolIcon category={cat} />
+                    </span>
+                    <h2 className="font-bold text-slate-900" style={CATEGORY_HEADING_SIZE}>{categoryLabels[cat]}</h2>
+                  </>
+                ) : (
+                  <a
+                    href={categoryHref(cat)}
+                    className="group/heading flex items-center gap-3 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2"
+                  >
+                    <span className={`w-9 h-9 rounded-lg flex items-center justify-center border ${categoryStyles[cat]}`}>
+                      <ToolIcon category={cat} />
+                    </span>
+                    <h2 className="font-bold text-slate-900 group-hover/heading:text-indigo-600 transition-colors" style={CATEGORY_HEADING_SIZE}>{categoryLabels[cat]}</h2>
+                  </a>
+                )}
                 <span className="text-sm text-slate-400">({list.length})</span>
               </div>
-              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 {list.map(t => (
                   <a key={t.slug} href={`/${t.slug}`}
                     className="group bg-white rounded-2xl border border-slate-200 p-5 shadow-sm hover:shadow-lg hover:border-indigo-200 transition-all flex flex-col">
@@ -590,8 +611,10 @@ export const ToolsList: React.FC<{ category?: ToolCategory }> = ({ category }) =
                         <span className="text-[10px] font-bold uppercase tracking-wide text-emerald-600 bg-emerald-50 border border-emerald-100 px-2 py-0.5 rounded-full">Instant</span>
                       )}
                     </div>
-                    <h3 className="font-bold text-slate-900 mb-1.5 group-hover:text-indigo-600 transition-colors text-sm">{t.name}</h3>
-                    <p className="text-xs text-slate-500 leading-relaxed flex-1">{t.description}</p>
+                    <h3 className="font-bold text-slate-900 mb-1.5 group-hover:text-indigo-600 transition-colors" style={TOOL_NAME_SIZE}>{t.name}</h3>
+                    {/* line-clamp-2 + a reserved two-line height: every card shows the
+                        same two-line description block, whatever the tagline length. */}
+                    <p className="text-xs text-slate-500 leading-relaxed line-clamp-2 min-h-[2.5rem]">{toolTagline(t)}</p>
                   </a>
                 ))}
               </div>

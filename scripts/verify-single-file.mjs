@@ -284,6 +284,47 @@ for (const [slug, label, count] of [['/ip-tools', 'IP Tools', 6], ['/website-che
     `h1=${(doc.querySelector('main h1')?.textContent || '').trim()} | canonical=${canonical} | cards=${cards.length}`);
   dom.window.close();
 }
+/* 3b-iii. the tool cards themselves: four columns, 1rem names, 1.35rem
+      headings linked to their category page, and a two-line description */
+{
+  const { dom, errors } = await boot('', '/free-seo-tools');
+  const doc = dom.window.document;
+  const grids = [...doc.querySelectorAll('main section > div.grid')].map(g => g.className);
+  check('the tool grid is four-up on desktop',
+    grids.length > 0 && grids.every(c => c.includes('lg:grid-cols-4')), [...new Set(grids)].join(' | '));
+
+  const names = [...doc.querySelectorAll('main section a h3')];
+  const heads = [...doc.querySelectorAll('main section h2')];
+  check('every tool name is 1rem',
+    names.length > 0 && names.every(h => (h.getAttribute('style') || '').includes('font-size: 1rem')),
+    [...new Set(names.map(h => h.getAttribute('style')))].join(' | '));
+  check('every category heading is 1.35rem and links to its category page',
+    heads.length === 11
+    && heads.every(h => (h.getAttribute('style') || '').includes('font-size: 1.35rem'))
+    && heads.every(h => (h.closest('a')?.getAttribute('href') || '').endsWith('-tools')),
+    [...new Set(heads.map(h => h.closest('a')?.getAttribute('href') || 'unlinked'))].join(' '));
+
+  const descriptions = [...doc.querySelectorAll('main section a p')];
+  check('every card description is a two-line clamp with a reserved two-line height',
+    descriptions.length === names.length
+    && descriptions.every(p => /line-clamp-2/.test(p.className) && /min-h-\[2\.5rem\]/.test(p.className)),
+    `${descriptions.length} descriptions, ${descriptions.filter(p => /line-clamp-2/.test(p.className)).length} clamped`);
+  check('every description is a real, tool-specific, two-line-length sentence',
+    descriptions.every(p => p.textContent.trim().length >= 60 && p.textContent.trim().length <= 108)
+    && new Set(descriptions.map(p => p.textContent.trim())).size === descriptions.length
+    && errors.length === 0,
+    descriptions.filter(p => p.textContent.trim().length < 60 || p.textContent.trim().length > 108).map(p => p.textContent).join(' | '));
+  dom.window.close();
+}
+{
+  const { dom } = await boot('', '/ip-tools');
+  const heads = [...dom.window.document.querySelectorAll('main section h2')];
+  check('a category page keeps its own heading unlinked (no self-link)',
+    heads.length === 1 && !heads[0].closest('a'),
+    `${heads.length} headings, linked=${heads.filter(h => h.closest('a')).length}`);
+  dom.window.close();
+}
+
 for (const [old, expected] of [['/free-seo-tools?cat=ip', '/ip-tools'], ['/free-tools?cat=checker', '/website-checker-tools'], ['/tools?cat=pdf', '/pdf-tools'], ['/free-seo-tools?cat=management', '/website-management-tools']]) {
   const { dom } = await boot('', old);
   check(`${old} lands on the ${expected} category page`,
