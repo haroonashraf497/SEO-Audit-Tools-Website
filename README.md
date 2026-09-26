@@ -101,9 +101,9 @@ to move or version it. See `CMS.md` for the full CMS reference.
 
 ```bash
 npm run typecheck                  # tsc --noEmit
-node scripts/feature-audit.mjs     # 99 checks: every CMS control, footer redesign, legal URLs, /free-tools, no EKSTRUH, 154 tools
+node scripts/feature-audit.mjs     # 99 checks: CMS controls, footer redesign, legal URLs, /free-tools, text-tool layout/mobile, no EKSTRUH, 154 tools
 npm install --no-save jsdom
-node scripts/verify-single-file.mjs  # 92 checks: boots the built file, instant swap, footer, legal URLs, head injection
+node scripts/verify-single-file.mjs  # 92 checks: boots the built file, instant swap, footer, legal URLs, head injection, text-tool layout
 npm test                           # 34 Playwright tests (needs Chromium)
 ```
 
