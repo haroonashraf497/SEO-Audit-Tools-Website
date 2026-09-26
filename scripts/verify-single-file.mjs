@@ -94,7 +94,7 @@ const wait = () => new Promise(resolve => setTimeout(resolve, 250));
       footerLogoUrl: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
       footerMenuTitle: 'Footer Menu',
       footerLinks: [
-        { id: 'a', label: 'Privacy Policy', href: '/privacy-policy', visible: true },
+        { id: 'a', label: 'Privacy Policy', href: '/privacy', visible: true },
         { id: 'b', label: 'Hidden Link', href: '/hidden', visible: false },
       ],
       social: { facebook: '', x: '', linkedin: 'https://linkedin.com/company/arena', instagram: '', youtube: 'https://youtube.com/@arena' },
@@ -169,28 +169,47 @@ const wait = () => new Promise(resolve => setTimeout(resolve, 250));
     window.__recordNow();
   `);
 
-  const clickLink = href => {
-    const link = doc.querySelector(`a[href="${href}"]`);
+  // Click the real header/footer links, then prove the content is swapped in
+  // the next microtask — before the browser can paint, so there is no visible
+  // gap — and that every rendered <main> state had content (no blank frame).
+  const clickIn = (selector, href) => {
+    const link = doc.querySelector(`${selector} a[href="${href}"]`) || doc.querySelector(`a[href="${href}"]`);
     if (!link) throw new Error(`no link to ${href}`);
+    const before = dom.window.__frameLog.length;
     link.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true, cancelable: true }));
+    return { urlNow: dom.window.location.pathname, framesAfterClick: dom.window.__frameLog.length, before };
   };
+  const swapDelay = async marker => dom.window.eval(`(async () => {
+    const heading = () => ((document.querySelector('main h1') || {}).textContent || '');
+    for (let i = 0; i < 500; i++) {
+      if (heading().includes(${JSON.stringify(marker)})) return i;
+      await Promise.resolve();
+    }
+    return -1;
+  })()`);
 
-  clickLink('/blog');
-  // Deliberately no await: a discrete click is flushed synchronously by React,
-  // so the new route must already be on screen when the dispatch returns.
+  const framesBefore = dom.window.__frameLog.length;
+  const blog = clickIn('nav.fixed', '/blog');
+  check('click on /blog updates the URL immediately', blog.urlNow === '/blog', blog.urlNow);
+  check('click on /blog leaves the old page on screen in the same task', blog.framesAfterClick === blog.before, blog.framesAfterClick);
+  const blogTicks = await swapDelay('Blog');
+  check('click on /blog swaps the content within a microtask (no paint in between)',
+    blogTicks >= 0 && blogTicks < 50, `microtasks: ${blogTicks}`);
   const blogNow = (main.textContent || '').trim();
-  check('click on /blog renders the blog in the same task (zero delay)',
-    blogNow.includes('Blog') && !/Loading page|Loading PDF engine/i.test(blogNow), blogNow.slice(0, 60));
-  check('the URL has already changed with the content', dom.window.location.pathname === '/blog', dom.window.location.pathname);
+  check('click on /blog renders the blog, never a loading placeholder',
+    blogNow.includes('The SEO Audit Tool Blog') && !/Loading page|Loading PDF engine/i.test(blogNow), blogNow.slice(0, 60));
 
-  clickLink('/free-tools');
-  const toolsNow = (main.textContent || '').trim();
-  check('click on /free-tools renders the tools list in the same task',
-    toolsNow.includes('Tools') && !/Loading page|Loading PDF engine/i.test(toolsNow), toolsNow.slice(0, 60));
+  const toolsSwap = clickIn('footer', '/free-tools');
+  check('footer click on /free-tools updates the URL immediately', toolsSwap.urlNow === '/free-tools', toolsSwap.urlNow);
+  const toolsTicks = await swapDelay('Free SEO Tools');
+  check('footer click swaps the tools page within a microtask',
+    toolsTicks >= 0 && toolsTicks < 50, `microtasks: ${toolsTicks}`);
 
   const frames = dom.window.__frameLog;
-  check('no empty frame between the two pages',
-    frames.length > 0 && frames.every(len => len > 0), JSON.stringify(frames.slice(0, 12)));
+  check('exactly one new <main> render per navigation, never an empty frame',
+    frames.length === framesBefore + 2 && frames.every(entry => entry > 0),
+    JSON.stringify(frames.slice(0, 12)));
+
   dom.window.close();
 }
 
@@ -211,6 +230,89 @@ for (const [path, expected] of [['/tool/merge-pdf', 'Merge PDF'], ['/admin-login
   check('legacy /tools boot has no script errors', errors.length === 0, errors.join(' | '));
   check('/tools normalises to /free-tools', dom.window.location.pathname === '/free-tools', dom.window.location.pathname);
   check('tools page renders its heading', /Tools/.test(dom.window.document.querySelector('h1')?.textContent || ''));
+  dom.window.close();
+}
+
+/* 7. footer redesign — four equal columns + a separate Legal column, and a
+      bottom bar with the editable copyright on the left and the legal links
+      on the right; legal pages answer on the short canonical URLs */
+{
+  const { dom, errors } = await boot();
+  const doc = dom.window.document;
+  const footer = doc.querySelector('footer');
+  const click = element => element.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true, cancelable: true }));
+  check('footer redesign boots with no script errors', errors.length === 0, errors.join(' | '));
+
+  const column = title => [...footer.querySelectorAll('nav')].find(nav => nav.getAttribute('aria-label') === title);
+  const titles = ['Quick links', 'SEO Tools', 'Resources', 'Company', 'Legal'];
+  check('five footer columns render', titles.every(column), [...footer.querySelectorAll('nav')].map(nav => nav.getAttribute('aria-label')).join(', '));
+  check('Quick Links column = audit, tools, blog, about, contact',
+    ['Free SEO Audit', 'Free SEO Tools', 'Blog', 'About', 'Contact'].every(label => column('Quick links').textContent.includes(label)));
+  check('SEO Tools column = audit, tools, competitor analysis',
+    ['Free SEO Audit', 'Free SEO Tools', 'Competitor Analysis'].every(label => column('SEO Tools').textContent.includes(label)));
+  check('Resources column = blog, FAQ, who it\'s for',
+    ['Blog', 'FAQ', "Who It's For"].every(label => column('Resources').textContent.includes(label)));
+  check('Company column = about, contact',
+    ['About', 'Contact'].every(label => column('Company').textContent.includes(label)));
+
+  const legal = column('Legal');
+  check('Legal column = privacy, cookies, terms',
+    legal.textContent.includes('Privacy Policy') && legal.textContent.includes('Cookie Policy') && legal.textContent.includes('Terms & Conditions'));
+  const legalHref = label => [...legal.querySelectorAll('a')].find(a => a.textContent.trim() === label)?.getAttribute('href');
+  check('Legal links use /privacy, /cookies, /terms',
+    legalHref('Privacy Policy') === '/privacy' && legalHref('Cookie Policy') === '/cookies' && legalHref('Terms & Conditions') === '/terms',
+    [legalHref('Privacy Policy'), legalHref('Cookie Policy'), legalHref('Terms & Conditions')].join(', '));
+  check('Legal column keeps the Cookie preferences button',
+    [...legal.querySelectorAll('button')].some(button => button.textContent.includes('Cookie preferences')));
+
+  const bottom = footer.querySelector('nav[aria-label="Legal documents"]');
+  check('bottom bar pairs the copyright with the legal links',
+    !!bottom && /sm:justify-between/.test(bottom.parentElement.className) && /sm:justify-end/.test(bottom.className),
+    bottom ? bottom.className : 'no bottom nav');
+  check('bottom-bar legal links mirror the column',
+    [...bottom.querySelectorAll('a')].map(a => a.getAttribute('href')).join(',') === '/privacy,/cookies,/terms');
+  check('bottom bar keeps the editable copyright on the left',
+    footer.textContent.includes(`© ${new Date().getFullYear()} SEO Audit Tools · seoaudittools.pk`));
+
+  // The preference dialog is still reachable from the footer button.
+  click([...legal.querySelectorAll('button')].find(button => button.textContent.includes('Cookie preferences')));
+  await wait();
+  check('footer Cookie preferences button opens the dialog',
+    !!doc.querySelector('[role="dialog"][aria-label="Cookie preferences"]'));
+  dom.window.close();
+}
+
+/* 8. the legal pages render on their short URLs, and the old long URLs are
+      upgraded client-side (the .htaccess 301 covers real hosting) */
+for (const [short, long, heading] of [['/privacy', '/privacy-policy', 'Privacy Policy'], ['/cookies', '/cookie-policy', 'Cookie Policy'], ['/terms', '/terms-of-service', 'Terms & Conditions']]) {
+  const shortBoot = await boot('', short);
+  const shortMain = (shortBoot.dom.window.document.querySelector('main').textContent || '');
+  const canonical = shortBoot.dom.window.document.head.querySelector('link[rel="canonical"]')?.getAttribute('href') || '';
+  check(`${short} renders ${heading}`, shortMain.includes(heading) && !/not found|not available/i.test(shortMain), shortMain.slice(0, 80));
+  check(`${short} canonical points at the short URL`, canonical.endsWith(`${short}`), canonical);
+  check(`${short} boots with no script errors`, shortBoot.errors.length === 0, shortBoot.errors.join(' | '));
+  shortBoot.dom.window.close();
+
+  const longBoot = await boot('', long);
+  check(`${long} normalises to ${short}`, longBoot.dom.window.location.pathname === short, longBoot.dom.window.location.pathname);
+  check(`${long} then renders ${heading}`,
+    (longBoot.dom.window.document.querySelector('main').textContent || '').includes(heading),
+    (longBoot.dom.window.document.querySelector('main').textContent || '').slice(0, 80));
+  longBoot.dom.window.close();
+}
+
+/* 9. clicking a footer legal link navigates instantly on the short URL */
+{
+  const { dom, errors } = await boot();
+  const doc = dom.window.document;
+  const main = doc.querySelector('main');
+  const link = [...doc.querySelectorAll('footer a')].find(a => a.textContent.trim() === 'Privacy Policy');
+  link.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true, cancelable: true }));
+  check('footer legal click updates the URL to /privacy immediately', dom.window.location.pathname === '/privacy', dom.window.location.pathname);
+  await wait();
+  const now = (main.textContent || '').trim();
+  check('footer legal click renders the policy right away', now.includes('Privacy Policy') && !/Loading page/i.test(now), now.slice(0, 80));
+  check('footer legal click has no script errors', errors.length === 0, errors.join(' | '));
   dom.window.close();
 }
 

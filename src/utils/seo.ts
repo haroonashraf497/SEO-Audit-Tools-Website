@@ -1,5 +1,6 @@
 import { useEffect, type FC } from 'react';
 import { useCms, type CmsState } from '../cms/store';
+import { routeSlugForStored, storedSlugForRoute } from '../router';
 
 export const DEFAULT_ORIGIN = 'https://seoaudittools.pk';
 export const DEFAULT_OG_PATH = '/og.jpg';
@@ -267,13 +268,14 @@ export const resolvePageSeo = (route: string, cms: CmsState): PageSeo => {
   }
 
   if (route.startsWith('p/')) {
-    const slug = route.slice(2);
+    // Short legal URLs (/privacy) map onto the stored CMS slugs.
+    const slug = storedSlugForRoute(route.slice(2));
     const page = cms.pages.find(p => p.slug === slug);
     if (!page || page.status !== 'live') {
       return {
         title: `Page not available | ${brand}`,
         description: 'This page has not been published yet.',
-        path: `/${slug}`,
+        path: `/${routeSlugForStored(slug)}`,
         origin,
         noindex: true,
         image: og,
@@ -285,7 +287,7 @@ export const resolvePageSeo = (route: string, cms: CmsState): PageSeo => {
     return {
       title,
       description,
-      path: `/${page.slug}`,
+      path: `/${routeSlugForStored(page.slug)}`,
       origin,
       noindex: seo?.noindex,
       canonicalOverride: seo?.slug,
@@ -296,7 +298,7 @@ export const resolvePageSeo = (route: string, cms: CmsState): PageSeo => {
         '@type': 'WebPage',
         name: page.title,
         description,
-        url: `${origin}/${page.slug}`,
+        url: `${origin}/${routeSlugForStored(page.slug)}`,
         isPartOf: { '@id': `${origin}/#website` },
         publisher: { '@id': `${origin}/#organization` },
       },

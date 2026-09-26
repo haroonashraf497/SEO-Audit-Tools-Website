@@ -250,7 +250,7 @@ export const defaultState: CmsState = {
         { id: uid(), type: 'heading', text: 'Response Time', level: 2 },
         { id: uid(), type: 'text', text: 'Within one business day (Monday to Friday, Pakistan Standard Time). Urgent data-protection requests are prioritised.' },
         { id: uid(), type: 'heading', text: 'Before You Write', level: 2 },
-        { id: uid(), type: 'text', text: 'Check our <a href="#/p/privacy-policy">Privacy Policy</a> and <a href="#/p/cookie-policy">Cookie Policy</a> for data-related questions.' },
+        { id: uid(), type: 'text', text: 'Check our <a href="/privacy">Privacy Policy</a> and <a href="/cookies">Cookie Policy</a> for data-related questions.' },
         { id: uid(), type: 'text', text: 'For tool issues, describe the IP or domain you tried and the error you saw — it helps us fix things faster.' },
         { id: uid(), type: 'heading', text: 'Reporting a bug', level: 2 },
         { id: uid(), type: 'text', text: 'The more you tell us, the faster we can fix it. Helpful things to include: the address of the tool page, the input you gave it, your browser and device, and what you expected to happen versus what actually did. A screenshot never hurts.' },

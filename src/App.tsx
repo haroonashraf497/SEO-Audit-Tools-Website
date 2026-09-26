@@ -6,7 +6,7 @@ import { sanitizeRichHtml } from './utils/sanitize';
 import { CmsProvider, useCms, liveTools, livePosts, findPage, blocksToHtml, renderCopyright, type SocialLinks } from './cms/store';
 import SerpPreview from './components/SerpPreview';
 import { SeoManager } from './utils/seo';
-import { cleanHref, getRoute, lastNavigationKind, navigate, rewriteLegacyLinks, subscribe } from './router';
+import { cleanHref, getRoute, lastNavigationKind, navigate, rewriteLegacyLinks, storedSlugForRoute, subscribe } from './router';
 import { RouteBoundary } from './components/ErrorBoundary';
 import { BlogList, BlogArticlePage } from './blog/Blog';
 import { ToolsList, ToolPage } from './tools/Tools';
@@ -1296,6 +1296,39 @@ const SOCIAL_META: { key: keyof SocialLinks; label: string; icon: React.FC }[] =
   { key: 'youtube', label: 'YouTube', icon: () => (<svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M23.5 6.2a3.02 3.02 0 0 0-2.12-2.14C19.5 3.55 12 3.55 12 3.55s-7.5 0-9.38.51A3.02 3.02 0 0 0 .5 6.2C0 8.09 0 12 0 12s0 3.91.5 5.8a3.02 3.02 0 0 0 2.12 2.14c1.88.51 9.38.51 9.38.51s7.5 0 9.38-.51a3.02 3.02 0 0 0 2.12-2.14C24 15.91 24 12 24 12s0-3.91-.5-5.8ZM9.55 15.57V8.43L15.82 12l-6.27 3.57Z" /></svg>) },
 ];
 
+/** Footer link columns — the four equal columns beside the Legal column. */
+const FOOTER_COLUMNS: { title: string; links: { label: string; href: string }[] }[] = [
+  { title: 'Quick Links', links: [
+    { label: 'Free SEO Audit', href: '/' },
+    { label: 'Free SEO Tools', href: '/free-tools' },
+    { label: 'Blog', href: '/blog' },
+    { label: 'About', href: '/about' },
+    { label: 'Contact', href: '/contact' },
+  ] },
+  { title: 'SEO Tools', links: [
+    { label: 'Free SEO Audit', href: '/' },
+    { label: 'Free SEO Tools', href: '/free-tools' },
+    { label: 'Competitor Analysis', href: '/competitor-analysis' },
+  ] },
+  { title: 'Resources', links: [
+    { label: 'Blog', href: '/blog' },
+    { label: 'FAQ', href: '/faq' },
+    { label: "Who It's For", href: '/#audiences' },
+  ] },
+  { title: 'Company', links: [
+    { label: 'About', href: '/about' },
+    { label: 'Contact', href: '/contact' },
+  ] },
+];
+
+/** The three legal documents on their canonical short URLs — shared by the
+ *  Legal column and the bottom bar so both always agree. */
+const FOOTER_LEGAL_LINKS: { label: string; href: string }[] = [
+  { label: 'Privacy Policy', href: '/privacy' },
+  { label: 'Cookie Policy', href: '/cookies' },
+  { label: 'Terms & Conditions', href: '/terms' },
+];
+
 /**
  * Jump to a scroll offset without animating. `html { scroll-behavior: smooth }`
  * is set for in-page anchors, but a route change must land instantly — an
@@ -1330,7 +1363,7 @@ const SiteBreadcrumbs: React.FC<{ route: string }> = ({ route }) => {
     }
     if (route === 'competitor-analysis') return [home, { label: 'Competitor Analysis' }];
     if (route.startsWith('p/')) {
-      const page = findPage(state, route.slice(2));
+      const page = findPage(state, storedSlugForRoute(route.slice(2)));
       return [home, { label: page?.title || 'Page' }];
     }
     if (route === 'admin') return [home, { label: 'Admin' }];
@@ -2105,57 +2138,52 @@ const SiteApp: React.FC = () => {
             <p className="pt-8 text-sm text-slate-400 leading-relaxed max-w-3xl">{footerNote}</p>
           )}
 
-          {/* Link columns (Editable footer menu + the built-in site columns) */}
-          <div className={`grid grid-cols-2 gap-8 py-10 ${footerMenuLinks.length ? 'md:grid-cols-4 lg:grid-cols-5' : 'md:grid-cols-4'}`}>
-            {footerMenuLinks.length > 0 && (
-              <nav aria-label={cms.state.settings.footerMenuTitle || 'Footer menu'}>
-                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-4">{cms.state.settings.footerMenuTitle}</h3>
-                <ul className="space-y-2.5">
-                  {footerMenuLinks.map(l => (
-                    <li key={l.id}><a href={cleanHref(l.href) || l.href} className="text-sm text-slate-400 hover:text-white transition-colors">{l.label}</a></li>
-                  ))}
-                </ul>
-              </nav>
-            )}
-            {[
-              { title: 'SEO Tools', links: [
-                { label: 'Free SEO Audit', href: '/' },
-                { label: 'Free SEO Tools', href: '/free-tools' },
-                { label: 'Competitor Analysis', href: '/competitor-analysis' },
-              ] },
-              { title: 'Resources', links: [
-                { label: 'Blog', href: '/blog' },
-                { label: 'FAQ', href: '/faq' },
-                { label: "Who It's For", href: '/#audiences' },
-              ] },
-              { title: 'Company', links: [
-                { label: 'About', href: '/about' },
-                { label: 'Contact', href: '/contact' },
-              ] },
-            ].map(col => (
-              <nav key={col.title} aria-label={col.title}>
-                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-4">{col.title}</h3>
-                <ul className="space-y-2.5">
-                  {col.links.map(l => (
-                    <li key={l.label}><a href={l.href} className="text-sm text-slate-400 hover:text-white transition-colors">{l.label}</a></li>
-                  ))}
-                </ul>
-              </nav>
-            ))}
+          {/* Link columns — four equal columns (Quick Links, SEO Tools,
+              Resources, Company) plus a separate Legal column. The first
+              column IS the editable footer menu (Admin → Brand & footer); it
+              falls back to the built-in Quick Links when that menu is empty. */}
+          <div className="grid grid-cols-2 gap-8 py-10 md:grid-cols-3 lg:grid-cols-5">
+            {FOOTER_COLUMNS.map((col, index) => {
+              const editable = index === 0 && footerMenuLinks.length > 0;
+              const title = editable ? (cms.state.settings.footerMenuTitle || col.title) : col.title;
+              const links = editable ? footerMenuLinks.map(l => ({ label: l.label, href: cleanHref(l.href) || l.href })) : col.links;
+              return (
+                <nav key={title} aria-label={title}>
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-4">{title}</h3>
+                  <ul className="space-y-2.5">
+                    {links.map(l => (
+                      <li key={l.label}><a href={l.href} className="text-sm text-slate-400 hover:text-white transition-colors">{l.label}</a></li>
+                    ))}
+                  </ul>
+                </nav>
+              );
+            })}
+            {/* Legal column — same styling as the others; keeps the
+                cookie-preferences control, as before. */}
             <nav aria-label="Legal">
               <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-4">Legal</h3>
               <ul className="space-y-2.5">
-                <li><a href="/privacy-policy" className="text-sm text-slate-400 hover:text-white transition-colors">Privacy Policy</a></li>
-                <li><a href="/cookie-policy" className="text-sm text-slate-400 hover:text-white transition-colors">Cookie Policy</a></li>
-                <li><a href="/terms-of-service" className="text-sm text-slate-400 hover:text-white transition-colors">Terms &amp; Conditions</a></li>
+                {FOOTER_LEGAL_LINKS.map(l => (
+                  <li key={l.label}><a href={l.href} className="text-sm text-slate-400 hover:text-white transition-colors">{l.label}</a></li>
+                ))}
                 <li><button type="button" onClick={() => setCookiePrefsOpen(true)} className="text-sm text-slate-400 hover:text-white transition-colors underline decoration-dotted underline-offset-4">Cookie preferences</button></li>
               </ul>
             </nav>
           </div>
 
-          {/* Bottom bar — copyright text is editable (Admin → Brand & footer) */}
-          <div className="border-t border-slate-800 pt-6 text-xs text-slate-400">
+          {/* Bottom bar — copyright on the left, the legal documents on the
+              right. The copyright line stays editable (Admin → Brand & footer)
+              and the cookie-preferences button keeps its bottom-right spot. */}
+          <div className="border-t border-slate-800 pt-6 flex flex-col gap-3 text-xs text-slate-400 sm:flex-row sm:items-center sm:justify-between">
             <p>{renderCopyright(cms.state.settings.footerCopyright, cms.state.settings.name, cms.state.settings.domain)}</p>
+            <nav aria-label="Legal documents" className="flex flex-wrap items-center gap-x-2 gap-y-1 sm:justify-end">
+              {FOOTER_LEGAL_LINKS.map((l, i) => (
+                <React.Fragment key={l.label}>
+                  {i > 0 && <span aria-hidden="true" className="text-slate-600">·</span>}
+                  <a href={l.href} className="hover:text-white transition-colors">{l.label}</a>
+                </React.Fragment>
+              ))}
+            </nav>
           </div>
         </div>
       </footer>
@@ -2173,7 +2201,9 @@ const SiteApp: React.FC = () => {
 // #/… links are rewritten to clean paths at render time.
 const CmsPageView: React.FC<{ slug: string }> = ({ slug }) => {
   const { state } = useCms();
-  const page = findPage(state, slug);
+  // Short legal URLs (/privacy) render the page stored under its CMS slug
+  // (privacy-policy) — see LEGAL_PAGE_ALIASES in router.ts.
+  const page = findPage(state, storedSlugForRoute(slug));
   useEffect(() => {
     window.scrollTo(0, 0);
   }, [page]);
@@ -2290,7 +2320,7 @@ const CookieConsent: React.FC<{ prefsOpen: boolean; onPrefsOpen: (v: boolean) =>
             <CookieToggle title="Affiliate tracking" description="Credits referrals when you click partner links, at no cost to you." checked={draft.affiliate} onChange={v => setDraft(d => ({ ...d, affiliate: v }))} />
           </div>
           <div className="px-5 py-4 border-t border-slate-100 bg-slate-50 flex flex-col sm:flex-row items-center justify-between gap-3">
-            <a href="/cookie-policy" onClick={() => onPrefsOpen(false)} className="text-xs font-semibold text-indigo-600 hover:underline">Read our Cookie Policy</a>
+            <a href="/cookies" onClick={() => onPrefsOpen(false)} className="text-xs font-semibold text-indigo-600 hover:underline">Read our Cookie Policy</a>
             <button type="button" autoFocus onClick={() => save(draft)} className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-bold text-sm hover:shadow-lg transition-shadow">Save Preferences</button>
           </div>
         </div>
@@ -2304,7 +2334,7 @@ const CookieConsent: React.FC<{ prefsOpen: boolean; onPrefsOpen: (v: boolean) =>
               <h2 className="text-sm font-bold text-slate-900">We use cookies</h2>
               <p className="text-xs sm:text-[13px] text-slate-600 mt-1 leading-relaxed">
                 We use essential cookies to make our site work. With your consent, we may also use analytics, advertising, and affiliate tracking cookies to improve your experience and understand how visitors use our site.{' '}
-                <a href="/cookie-policy" className="font-semibold text-indigo-600 hover:underline">Read our Cookie Policy</a>.
+                <a href="/cookies" className="font-semibold text-indigo-600 hover:underline">Read our Cookie Policy</a>.
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-2 flex-shrink-0">

@@ -57,12 +57,39 @@ check('upload validates + optimises the image', /validateUpload\(file\)/.test(ad
 check('uploaded/external logo replaces the default icon', /\{footerLogo \? \([\s\S]{0,420}img\s+src=\{footerLogo\}/.test(app));
 check('Footer menu links + Add', /Footer menu links/.test(admin)
   && /footerLinks: \[\.\.\.footerLinks, \{ id: [\s\S]{0,80}label: 'New link', href: '\/', visible: true \}\]/.test(admin));
-check('footer menu column renders as its own nav', /aria-label=\{cms\.state\.settings\.footerMenuTitle \|\| 'Footer menu'\}/.test(app));
+check('footer menu is the first footer column (still its own nav)', /editable = index === 0 && footerMenuLinks\.length > 0/.test(app)
+  && /title = editable \? \(cms\.state\.settings\.footerMenuTitle \|\| col\.title\) : col\.title/.test(app));
 check('footerMenuTitle editable', /Field label="Section title"/.test(admin) && /footerMenuTitle/.test(admin));
 check('social URLs: FB, X, LinkedIn, IG, YouTube', /\['facebook', 'Facebook URL'\], \['x', 'X \(Twitter\) URL'\], \['linkedin', 'LinkedIn URL'\], \['instagram', 'Instagram URL'\], \['youtube', 'YouTube URL'\]/.test(admin));
 check('social icons render only when filled', /\.filter\(entry => entry\.href\)/.test(app));
 check('all five icons defined', ['facebook', 'x', 'linkedin', 'instagram', 'youtube'].every(k => new RegExp(`key: '${k}'`).test(app)));
 check('"Saved ✓" on every brand/footer card', (admin.match(/<SaveButton /g) || []).length >= 5, String((admin.match(/<SaveButton /g) || []).length));
+
+console.log('\n=== 🦶 Footer redesign ===');
+check('four equal footer columns defined', /const FOOTER_COLUMNS[\s\S]{0,900}title: 'Quick Links'[\s\S]{0,900}title: 'SEO Tools'[\s\S]{0,900}title: 'Resources'[\s\S]{0,900}title: 'Company'/.test(app));
+check('Quick Links column = audit, tools, blog, about, contact', /title: 'Quick Links', links: \[[\s\S]{0,420}Free SEO Audit[\s\S]{0,200}Free SEO Tools[\s\S]{0,200}Blog[\s\S]{0,200}About[\s\S]{0,200}Contact/.test(app));
+check('SEO Tools column = audit, tools, competitor analysis', /title: 'SEO Tools', links: \[[\s\S]{0,320}Free SEO Audit[\s\S]{0,200}Free SEO Tools[\s\S]{0,200}Competitor Analysis/.test(app));
+check('Resources column = blog, FAQ, who it\'s for', /title: 'Resources', links: \[[\s\S]{0,320}Blog[\s\S]{0,200}FAQ[\s\S]{0,200}Who It's For/.test(app));
+check('Company column = about, contact', /title: 'Company', links: \[[\s\S]{0,220}About[\s\S]{0,200}Contact/.test(app));
+check('columns render in an equal-width grid', /grid grid-cols-2 gap-8 py-10 md:grid-cols-3 lg:grid-cols-5/.test(app));
+check('separate Legal column beside them', /aria-label="Legal"[\s\S]{0,240}Legal<\/h3>/.test(app));
+check('Legal column = privacy, cookies, terms on short URLs', /const FOOTER_LEGAL_LINKS[\s\S]{0,400}href: '\/privacy'[\s\S]{0,200}href: '\/cookies'[\s\S]{0,200}href: '\/terms'/.test(app));
+check('Terms link labelled "Terms & Conditions"', /label: 'Terms & Conditions', href: '\/terms'/.test(app));
+check('bottom bar: copyright left, legal links right', /sm:flex-row sm:items-center sm:justify-between[\s\S]{0,600}aria-label="Legal documents"[\s\S]{0,200}sm:justify-end/.test(app));
+check('bottom bar reuses renderCopyright (still editable)', /sm:justify-between[\s\S]{0,400}renderCopyright\(cms\.state\.settings\.footerCopyright/.test(app));
+check('cookie preferences button kept', /onClick=\{\(\) => setCookiePrefsOpen\(true\)\}[^>]*>Cookie preferences/.test(app));
+check('no long legal URL left in the app shell', !/href="\/privacy-policy"|href="\/cookie-policy"|href="\/terms-of-service"/.test(app));
+check('router maps short legal routes to stored slugs', /privacy: 'privacy-policy'/.test(router) && /cookies: 'cookie-policy'/.test(router) && /terms: 'terms-of-service'/.test(router));
+check('router upgrades long legal paths to short ones', /canonicalLegalPath\(cleanPath\(u\.pathname\)\)/.test(router) && /next = canonicalLegalPath\(next\)/.test(router));
+check('CMS view resolves the short slug', /findPage\(state, storedSlugForRoute\(slug\)\)/.test(app));
+check('canonical/json-ld emit the short path', /routeSlugForStored\(page\.slug\)/.test(seo));
+check('.htaccess 301 /privacy-policy → /privacy', /RewriteRule \^privacy-policy\/\?\$ \/privacy \[R=301,L\]/.test(htaccess));
+check('.htaccess 301 /cookie-policy → /cookies', /RewriteRule \^cookie-policy\/\?\$ \/cookies \[R=301,L\]/.test(htaccess));
+check('.htaccess 301 /terms-of-service → /terms', /RewriteRule \^terms-of-service\/\?\$ \/terms \[R=301,L\]/.test(htaccess));
+check('sitemap lists the short legal URLs only', sitemap.includes('<loc>https://seoaudittools.pk/privacy</loc>')
+  && sitemap.includes('<loc>https://seoaudittools.pk/cookies</loc>')
+  && sitemap.includes('<loc>https://seoaudittools.pk/terms</loc>')
+  && !/seoaudittools\.pk\/(privacy-policy|cookie-policy|terms-of-service)</.test(sitemap));
 
 console.log('\n=== 🔗 URLs ===');
 check('.htaccess 301 /tools → /free-tools', /RewriteRule \^tools\/\?\$ \/free-tools \[R=301,L\]/.test(htaccess));

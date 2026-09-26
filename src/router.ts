@@ -10,6 +10,9 @@
      fragments — the native scroll behaviour is kept.
    • Each navigation records how it happened (`lastNavigationKind`), which the
      app uses to decide whether to reset the scroll position.
+   • Legal pages answer on the short canonical URL (/privacy, /cookies,
+     /terms). The CMS keeps its original slugs, so the long form is upgraded
+     on load and by .htaccess instead of 404-ing.
    • Legacy URLs are rewritten automatically on load:
        /#/p/about        → /about    (hash URLs never reach the
                                  server, so the app rewrites them
@@ -17,6 +20,7 @@
        /#/tools?cat=x    → /free-tools?cat=x
        /#/free-tools?cat=x → /free-tools?cat=x
        /tools            → /free-tools
+       /privacy-policy   → /privacy  (.htaccess 301s it as well)
        /p/about          → /about    (.htaccess issues a 301 for
                                  this; this is the client fallback)
        /index.html       → /
@@ -35,6 +39,35 @@ let navigationKind: NavigationKind = 'init';
 
 /** The kind of the most recent navigation (see `NavigationKind`). */
 export const lastNavigationKind = (): NavigationKind => navigationKind;
+
+/** Legal pages are published at short URLs. The CMS keeps the original page
+ *  slugs, so `/privacy` renders the `privacy-policy` page — the address bar,
+ *  the canonical tag and every footer link use the short URL, and .htaccess
+ *  301s the long form for links that arrive from outside the app. */
+export const LEGAL_PAGE_ALIASES: Record<string, string> = {
+  privacy: 'privacy-policy',
+  cookies: 'cookie-policy',
+  terms: 'terms-of-service',
+};
+
+/** Long legal paths → their canonical short URL. */
+const LEGACY_LEGAL_PATHS: Record<string, string> = {
+  '/privacy-policy': '/privacy',
+  '/cookie-policy': '/cookies',
+  '/terms-of-service': '/terms',
+};
+
+/** CMS slug that stores the page behind a route slug (identity by default). */
+export const storedSlugForRoute = (routeSlug: string): string =>
+  LEGAL_PAGE_ALIASES[routeSlug] || routeSlug;
+
+/** Public URL slug for a stored CMS slug (identity by default). */
+export const routeSlugForStored = (storedSlug: string): string =>
+  Object.keys(LEGAL_PAGE_ALIASES).find(alias => LEGAL_PAGE_ALIASES[alias] === storedSlug) || storedSlug;
+
+/** Upgrade a legacy legal path to its canonical short URL. */
+export const canonicalLegalPath = (pathname: string): string =>
+  LEGACY_LEGAL_PATHS[pathname] || pathname;
 
 const listeners = new Set<RouteListener>();
 
@@ -74,8 +107,9 @@ export const getRoute = (): string => {
 
 /**
  * Convert any stored href (new clean path or legacy hash link) into a
- * clean same-origin URL. Returns null when the browser should handle
- * the link natively (external URLs, mailto:, bare in-page #anchors).
+ * clean same-origin URL, upgrading legacy legal paths to their canonical
+ * short form. Returns null when the browser should handle the link natively
+ * (external URLs, mailto:, bare in-page #anchors).
  */
 export const cleanHref = (href: string): string | null => {
   const h = (href ?? '').trim();
@@ -88,7 +122,7 @@ export const cleanHref = (href: string): string | null => {
     return null;
   }
   if (u.origin !== window.location.origin || !/^https?:$/.test(u.protocol)) return null;
-  return cleanPath(u.pathname) + u.search + u.hash;
+  return canonicalLegalPath(cleanPath(u.pathname)) + u.search + u.hash;
 };
 
 /** Rewrite legacy hash links inside stored HTML to clean URLs
@@ -146,11 +180,12 @@ export const normalizeLegacyUrl = (): void => {
     const legacy = new URL(hash.slice(1), window.location.origin);
     let p = cleanPath(legacy.pathname);
     if (p === '/tools' || p === '/tool') p = '/free-tools';
-    window.history.replaceState(null, '', p + (legacy.search || search) + legacy.hash);
+    window.history.replaceState(null, '', canonicalLegalPath(p) + (legacy.search || search) + legacy.hash);
     return;
   }
   let next = cleanPath(pathname);
   if (next === '/tools' || next === '/tool') next = '/free-tools';
+  next = canonicalLegalPath(next);
   next = next + search + hash;
   if (next !== pathname + search + hash) window.history.replaceState(null, '', next);
 };
