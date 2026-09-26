@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { useCms, injectHeadCode, renderCopyright, type CmsPage, type CmsPost, type CmsTool, type SeoEntry, type SidebarLinkSource, type SidebarWidget, type SidebarWidgetType, type Status } from './store';
+import { useCms, injectHeadCode, renderCopyright, type CmsPage, type CmsPost, type CmsTool, type FooterColumn, type FooterLink, type SeoEntry, type SidebarLinkSource, type SidebarWidget, type SidebarWidgetType, type Status } from './store';
 import { categoryLabels, categoryOrder, ToolIcon, type ToolCategory } from '../tools/data';
 import { RichTextEditor } from './RichTextEditor';
 import { clearDraft, draftId, formatDraftTime, listDrafts, clearAllDrafts } from './drafts';
@@ -596,14 +596,65 @@ const MenuRowEditor: React.FC<{
   </div>
 );
 
+const newLinkId = () => Math.random().toString(36).slice(2, 9);
+
+/** One footer column: its own section title, unlimited links (label + URL +
+ *  visible/hide + remove), its own + Add and its own Save Changes button. */
+const FooterColumnEditor: React.FC<{
+  index: number;
+  column: FooterColumn;
+  onSave: (column: FooterColumn) => void;
+}> = ({ index, column, onSave }) => {
+  const [title, setTitle] = useState(column.title);
+  const [links, setLinks] = useState<FooterLink[]>(() => column.links.map(l => ({ ...l })));
+
+  // Re-sync when the stored column changes (import, reset, save elsewhere).
+  useEffect(() => {
+    setTitle(column.title);
+    setLinks(column.links.map(l => ({ ...l })));
+  }, [column]);
+
+  const patch = (i: number, changes: Partial<FooterLink>) =>
+    setLinks(links.map((link, j) => (j === i ? { ...link, ...changes } : link)));
+
+  return (
+    <div role="group" aria-label={`Footer column ${index + 1}`} className="space-y-4 rounded-xl border border-slate-100 bg-slate-50/60 p-4">
+      <div>
+        <h4 className="font-bold text-slate-800 text-sm">Column {index + 1} — {column.title || 'Footer column'}</h4>
+        <p className="text-xs text-slate-500">Its heading and links in the public footer. Hidden rows stay saved but are not rendered.</p>
+      </div>
+      <Field label="Section title"><input className={inputCls + ' max-w-xs'} value={title} onChange={e => setTitle(e.target.value)} /></Field>
+      <div className="space-y-2">
+        {links.map((link, i) => (
+          <MenuRowEditor
+            key={link.id}
+            label={link.label}
+            href={link.href}
+            visible={link.visible}
+            onLabel={value => patch(i, { label: value })}
+            onHref={value => patch(i, { href: value })}
+            onToggle={() => patch(i, { visible: !link.visible })}
+            onRemove={() => setLinks(links.filter((_, j) => j !== i))}
+          />
+        ))}
+        {links.length === 0 && <p className="text-sm text-slate-500">No links in this column yet — add one below.</p>}
+      </div>
+      <div className="flex flex-wrap items-center gap-3">
+        <Btn tone="ghost" onClick={() => setLinks([...links, { id: newLinkId(), label: 'New link', href: '/', visible: true }])}>+ Add</Btn>
+        <SaveButton onSave={() => onSave({ ...column, title: title.trim() || column.title, links: links.map(l => ({ ...l })) })} />
+      </div>
+    </div>
+  );
+};
+
 const SectionsPane: React.FC = () => {
-  const { state, setSections, setNav, setSettings } = useCms();
+  const { state, setSections, setNav, setSettings, setFooterColumns } = useCms();
+  const footerColumns = state.footerColumns || [];
   const [logoError, setLogoError] = useState('');
   const [logoBusy, setLogoBusy] = useState(false);
   const logoInput = useRef<HTMLInputElement>(null);
   const settings = state.settings;
   const social = settings.social || { facebook: '', x: '', linkedin: '', instagram: '', youtube: '' };
-  const footerLinks = settings.footerLinks || [];
   const labels: Record<keyof typeof state.sections, [string, string]> = {
     hero: ['Hero + URL audit box', 'The headline, sub-headline and the audit form at the top'],
     auditTool: ['Hero tool form', 'The URL input and Analyze button'],
@@ -731,28 +782,20 @@ const SectionsPane: React.FC = () => {
         </div>
 
         {/* Footer menu */}
-        <div className="space-y-4 rounded-xl border border-slate-100 bg-slate-50/60 p-4">
-          <h4 className="font-bold text-slate-800 text-sm">Footer menu links</h4>
-          <Field label="Section title"><input className={inputCls + ' max-w-xs'} value={settings.footerMenuTitle} onChange={e => setSettings({ footerMenuTitle: e.target.value })} /></Field>
-          <div className="space-y-2">
-            {footerLinks.map((link, i) => (
-              <MenuRowEditor
-                key={link.id}
-                label={link.label}
-                href={link.href}
-                visible={link.visible}
-                onLabel={value => setSettings({ footerLinks: footerLinks.map((x, j) => j === i ? { ...x, label: value } : x) })}
-                onHref={value => setSettings({ footerLinks: footerLinks.map((x, j) => j === i ? { ...x, href: value } : x) })}
-                onToggle={() => setSettings({ footerLinks: footerLinks.map((x, j) => j === i ? { ...x, visible: !x.visible } : x) })}
-                onRemove={() => setSettings({ footerLinks: footerLinks.filter((_, j) => j !== i) })}
-              />
-            ))}
-            {footerLinks.length === 0 && <p className="text-sm text-slate-500">No footer links — the extra footer column is hidden until you add one.</p>}
+        {/* Footer columns — four separate, independently saveable editors */}
+        <div className="space-y-4">
+          <div>
+            <h4 className="font-bold text-slate-800 text-sm">Footer columns</h4>
+            <p className="text-xs text-slate-500">All four footer columns are editable: set each heading and its links (label, URL, visible/hidden, remove), then save that column. Changes appear on the live site immediately.</p>
           </div>
-          <div className="flex flex-wrap items-center gap-3">
-            <Btn tone="ghost" onClick={() => setSettings({ footerLinks: [...footerLinks, { id: Math.random().toString(36).slice(2, 9), label: 'New link', href: '/', visible: true }] })}>+ Add</Btn>
-            <SaveButton onSave={() => setSettings({ footerMenuTitle: settings.footerMenuTitle, footerLinks: footerLinks.map(l => ({ ...l })) })} />
-          </div>
+          {footerColumns.map((column, i) => (
+            <FooterColumnEditor
+              key={column.id}
+              index={i}
+              column={column}
+              onSave={saved => setFooterColumns(footerColumns.map((c, j) => (j === i ? saved : c)))}
+            />
+          ))}
         </div>
 
         {/* Social profiles */}

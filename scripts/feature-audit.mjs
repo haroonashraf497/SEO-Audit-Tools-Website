@@ -55,22 +55,38 @@ check('footer logo URL field', /Field label="Logo URL"[\s\S]{0,200}footerLogoUrl
 check('footer logo upload button + file input', /⬆ Upload logo'}<\/Btn>/.test(admin) && /type="file"/.test(admin) && /aria-label="Upload footer logo"/.test(admin));
 check('upload validates + optimises the image', /validateUpload\(file\)/.test(admin) && /optimizeImageFile\(file\)/.test(admin));
 check('uploaded/external logo replaces the default icon', /\{footerLogo \? \([\s\S]{0,420}img\s+src=\{footerLogo\}/.test(app));
-check('Footer menu links + Add', /Footer menu links/.test(admin)
-  && /footerLinks: \[\.\.\.footerLinks, \{ id: [\s\S]{0,80}label: 'New link', href: '\/', visible: true \}\]/.test(admin));
-check('footer menu is the first footer column (still its own nav)', /editable = index === 0 && footerMenuLinks\.length > 0/.test(app)
-  && /title = editable \? \(cms\.state\.settings\.footerMenuTitle \|\| col\.title\) : col\.title/.test(app));
-check('footerMenuTitle editable', /Field label="Section title"/.test(admin) && /footerMenuTitle/.test(admin));
+check('four separate footer-column editors', (admin.match(/<FooterColumnEditor/g) || []).length === 1
+  && /footerColumns\.map\(\(column, i\) => \([\s\S]{0,200}<FooterColumnEditor/.test(admin)
+  && /all four footer columns are editable/i.test(admin));
+check('each editor has title + rows + Add + Save', /const FooterColumnEditor[\s\S]{0,3000}<Field label="Section title"><input[^>]*value=\{title\}/.test(admin)
+  && /const FooterColumnEditor[\s\S]{0,3500}MenuRowEditor[\s\S]{0,2000}label: 'New link', href: '\/', visible: true[\s\S]{0,700}<SaveButton onSave=\{\(\) => onSave\(/.test(admin));
+check('each column saves independently', /onSave=\{saved => setFooterColumns\(footerColumns\.map\(\(c, j\) => \(j === i \? saved : c\)\)\)\}/.test(admin));
+check('columns are labelled Column 1-4', /Column \{index \+ 1\} — \{column\.title/.test(admin) && /aria-label=\{`Footer column \$\{index \+ 1\}`\}/.test(admin));
+check('live footer renders every stored column', /const footerColumns = cms\.state\.footerColumns\?\.length \? cms\.state\.footerColumns : defaultFooterColumns/.test(app)
+  && /\{footerColumns\.map\(col => \{[\s\S]{0,500}<nav key=\{col\.id\} aria-label=\{col\.title\}>/.test(app));
+check('hidden rows stay saved but are not rendered', /const links = col\.links\.filter\(link => link\.visible && link\.label\.trim\(\)\)/.test(app));
+check('footer column titles editable per column', /<Field label="Section title"><input className=\{inputCls \+ ' max-w-xs'\} value=\{title\} onChange=\{e => setTitle\(e\.target\.value\)\}/.test(admin));
+check('store owns the four columns + a dedicated setter', /export interface FooterColumn \{ id: string; title: string; links: FooterLink\[\] \}/.test(store)
+  && /export const defaultFooterColumns: FooterColumn\[\] = \[/.test(store)
+  && /setFooterColumns: \(columns\) => setState\(s => \(\{ \.\.\.s, footerColumns:/.test(store));
+check('older saved state migrates column 1 into footerColumns', /const migrateFooterColumns = \(stored: unknown, settings: SiteSettings\): FooterColumn\[\] => \{/.test(store)
+  && /title: \(settings\.footerMenuTitle \|\| ''\)\.trim\(\) \|\| col\.title/.test(store));
 check('social URLs: FB, X, LinkedIn, IG, YouTube', /\['facebook', 'Facebook URL'\], \['x', 'X \(Twitter\) URL'\], \['linkedin', 'LinkedIn URL'\], \['instagram', 'Instagram URL'\], \['youtube', 'YouTube URL'\]/.test(admin));
 check('social icons render only when filled', /\.filter\(entry => entry\.href\)/.test(app));
 check('all five icons defined', ['facebook', 'x', 'linkedin', 'instagram', 'youtube'].every(k => new RegExp(`key: '${k}'`).test(app)));
 check('"Saved ✓" on every brand/footer card', (admin.match(/<SaveButton /g) || []).length >= 5, String((admin.match(/<SaveButton /g) || []).length));
 
 console.log('\n=== 🦶 Footer redesign ===');
-check('four equal footer columns defined', /const FOOTER_COLUMNS[\s\S]{0,900}title: 'Quick Links'[\s\S]{0,900}title: 'SEO Tools'[\s\S]{0,900}title: 'Resources'[\s\S]{0,900}title: 'Company'/.test(app));
-check('Quick Links column = audit, tools, blog, about, contact', /title: 'Quick Links', links: \[[\s\S]{0,420}Free SEO Audit[\s\S]{0,200}Free SEO Tools[\s\S]{0,200}Blog[\s\S]{0,200}About[\s\S]{0,200}Contact/.test(app));
-check('SEO Tools column = audit, tools, competitor analysis', /title: 'SEO Tools', links: \[[\s\S]{0,320}Free SEO Audit[\s\S]{0,200}Free SEO Tools[\s\S]{0,200}Competitor Analysis/.test(app));
-check('Resources column = blog, FAQ, who it\'s for', /title: 'Resources', links: \[[\s\S]{0,320}Blog[\s\S]{0,200}FAQ[\s\S]{0,200}Who It's For/.test(app));
-check('Company column = about, contact', /title: 'Company', links: \[[\s\S]{0,220}About[\s\S]{0,200}Contact/.test(app));
+check('four equal footer columns defined (Quick Links, SEO Tools, Resources, Company)',
+  /export const defaultFooterColumns: FooterColumn\[\] = \[[\s\S]{0,1400}title: 'Quick links'[\s\S]{0,700}title: 'SEO Tools'[\s\S]{0,700}title: 'Resources'[\s\S]{0,700}title: 'Company'/.test(store));
+check('Quick Links column = audit, tools, blog, about, contact',
+  /title: 'Quick links', links: \[[\s\S]{0,420}footerLink\('Free SEO Audit', '\/'\)[\s\S]{0,200}footerLink\('Free SEO Tools', '\/free-tools'\)[\s\S]{0,200}footerLink\('Blog', '\/blog'\)[\s\S]{0,200}footerLink\('About', '\/about'\)[\s\S]{0,200}footerLink\('Contact', '\/contact'\)/.test(store));
+check('SEO Tools column = audit, tools, competitor analysis',
+  /title: 'SEO Tools', links: \[[\s\S]{0,320}footerLink\('Free SEO Audit', '\/'\)[\s\S]{0,200}footerLink\('Free SEO Tools', '\/free-tools'\)[\s\S]{0,200}footerLink\('Competitor Analysis', '\/competitor-analysis'\)/.test(store));
+check('Resources column = blog, FAQ, who it\'s for',
+  /title: 'Resources', links: \[[\s\S]{0,320}footerLink\('Blog', '\/blog'\)[\s\S]{0,200}footerLink\('FAQ', '\/faq'\)[\s\S]{0,200}footerLink\("Who It's For", '\/#audiences'\)/.test(store));
+check('Company column = about, contact',
+  /title: 'Company', links: \[[\s\S]{0,220}footerLink\('About', '\/about'\)[\s\S]{0,200}footerLink\('Contact', '\/contact'\)/.test(store));
 check('columns render in a four-up equal-width grid', /grid grid-cols-2 gap-8 py-10 md:grid-cols-4/.test(app)
   && !/lg:grid-cols-5/.test(app));
 check('no separate Legal column any more', !/aria-label="Legal"/.test(app) && !/FOOTER_LEGAL_LINKS\.map\(l => \(\s*<li/.test(app));

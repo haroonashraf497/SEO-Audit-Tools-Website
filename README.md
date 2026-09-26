@@ -62,11 +62,15 @@ Settings → Password; override the defaults at build time with the variables in
 | --- | --- |
 | **Settings → Header Verification & Ads** | paste AdSense / Search Console / analytics code → purple **Save Changes** → stored, injected into the live `<head>`, flashes **Saved ✓** (script tags are rebuilt so they execute) |
 | **Sections & Nav → Navigation menu** | header links: `+ Add`, `Remove`, `Visible`/`Hidden`, Save |
-| **Sections & Nav → Brand & footer** | site name, domain, tagline, footer note, footer copyright (`{year}` `{name}` `{domain}`), footer logo (URL or upload), footer menu links (the footer's first column), Facebook / X / LinkedIn / Instagram / YouTube URLs |
+| **Sections & Nav → Brand & footer** | site name, domain, tagline, footer note, footer copyright (`{year}` `{name}` `{domain}`), footer logo (URL or upload), **all four footer columns** (each with its own Section title, unlimited label+URL rows, Visible/Hidden, Remove, + Add and its own Save Changes), Facebook / X / LinkedIn / Instagram / YouTube URLs |
 | **Pages, Blog posts, Tools, Sidebar** | page bodies, articles, tool “About” copy and sidebar widgets, edited in the WordPress-style rich-text editor |
 
-The footer is four equal columns: **Quick Links** (the CMS-editable menu above), **SEO
-Tools**, **Resources**, **Company**. There is no separate Legal column — the legal links
+The footer is four equal columns — **Quick Links**, **SEO Tools**, **Resources**,
+**Company** — and every one of them is editable: `state.footerColumns` holds four
+`{ id, title, links[] }` objects, each rendered from the CMS and each saveable on its own.
+Old saved state that kept column 1 in `settings.footerMenuTitle` / `settings.footerLinks`
+is migrated into `footerColumns[0]` on load, and a column with no links still renders its
+heading so the grid never collapses. There is no separate Legal column — the legal links
 live in the bottom bar, which shows the editable copyright line on the left and
 `Privacy · Cookie · Terms · Cookie preferences` on the right. Each short link keeps its full
 name (Privacy Policy / Cookie Policy / Terms & Conditions) as the tooltip and accessible
@@ -82,9 +86,9 @@ to move or version it. See `CMS.md` for the full CMS reference.
 
 ```bash
 npm run typecheck                  # tsc --noEmit
-node scripts/feature-audit.mjs     # 79 checks: every CMS control, footer redesign, legal URLs, /free-tools, no EKSTRUH, 154 tools
+node scripts/feature-audit.mjs     # 85 checks: every CMS control, footer redesign, legal URLs, /free-tools, no EKSTRUH, 154 tools
 npm install --no-save jsdom
-node scripts/verify-single-file.mjs  # 70 checks: boots the built file, instant swap, footer, legal URLs, head injection
+node scripts/verify-single-file.mjs  # 85 checks: boots the built file, instant swap, footer, legal URLs, head injection
 npm test                           # 34 Playwright tests (needs Chromium)
 ```
 

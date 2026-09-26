@@ -3,7 +3,7 @@ import { categoryDescriptions, categoryLabels, ToolIcon } from './tools/data';
 import { fetchPageData, type LivePageData } from './utils/pageFetch';
 import { fetchDomainInfo, type DomainInfo } from './utils/domainLookup';
 import { sanitizeRichHtml } from './utils/sanitize';
-import { CmsProvider, useCms, liveTools, livePosts, findPage, blocksToHtml, renderCopyright, type SocialLinks } from './cms/store';
+import { CmsProvider, useCms, liveTools, livePosts, findPage, blocksToHtml, renderCopyright, defaultFooterColumns, type SocialLinks } from './cms/store';
 import SerpPreview from './components/SerpPreview';
 import { SeoManager } from './utils/seo';
 import { cleanHref, getRoute, lastNavigationKind, navigate, rewriteLegacyLinks, storedSlugForRoute, subscribe } from './router';
@@ -1296,31 +1296,6 @@ const SOCIAL_META: { key: keyof SocialLinks; label: string; icon: React.FC }[] =
   { key: 'youtube', label: 'YouTube', icon: () => (<svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M23.5 6.2a3.02 3.02 0 0 0-2.12-2.14C19.5 3.55 12 3.55 12 3.55s-7.5 0-9.38.51A3.02 3.02 0 0 0 .5 6.2C0 8.09 0 12 0 12s0 3.91.5 5.8a3.02 3.02 0 0 0 2.12 2.14c1.88.51 9.38.51 9.38.51s7.5 0 9.38-.51a3.02 3.02 0 0 0 2.12-2.14C24 15.91 24 12 24 12s0-3.91-.5-5.8ZM9.55 15.57V8.43L15.82 12l-6.27 3.57Z" /></svg>) },
 ];
 
-/** Footer link columns — the four equal columns at the top of the footer. */
-const FOOTER_COLUMNS: { title: string; links: { label: string; href: string }[] }[] = [
-  { title: 'Quick Links', links: [
-    { label: 'Free SEO Audit', href: '/' },
-    { label: 'Free SEO Tools', href: '/free-tools' },
-    { label: 'Blog', href: '/blog' },
-    { label: 'About', href: '/about' },
-    { label: 'Contact', href: '/contact' },
-  ] },
-  { title: 'SEO Tools', links: [
-    { label: 'Free SEO Audit', href: '/' },
-    { label: 'Free SEO Tools', href: '/free-tools' },
-    { label: 'Competitor Analysis', href: '/competitor-analysis' },
-  ] },
-  { title: 'Resources', links: [
-    { label: 'Blog', href: '/blog' },
-    { label: 'FAQ', href: '/faq' },
-    { label: "Who It's For", href: '/#audiences' },
-  ] },
-  { title: 'Company', links: [
-    { label: 'About', href: '/about' },
-    { label: 'Contact', href: '/contact' },
-  ] },
-];
-
 /** The three legal documents on their canonical short URLs, as shown in the
  *  footer's bottom bar. `short` is the compact label; the full title stays as
  *  the tooltip / accessible name. */
@@ -1475,7 +1450,8 @@ const SiteApp: React.FC = () => {
   // rendered footer immediately (and persists across reloads).
   const footerLogo = (cms.state.settings.footerLogoUrl || '').trim();
   const footerNote = (cms.state.settings.footerNote || '').trim();
-  const footerMenuLinks = (cms.state.settings.footerLinks || []).filter(link => link.visible && link.label.trim());
+  // All four footer columns are CMS-driven (Admin → Sections & Nav → Brand & footer).
+  const footerColumns = cms.state.footerColumns?.length ? cms.state.footerColumns : defaultFooterColumns;
   const footerSocials = SOCIAL_META
     .map(meta => ({ ...meta, href: (cms.state.settings.social?.[meta.key] || '').trim() }))
     .filter(entry => entry.href);
@@ -2139,22 +2115,19 @@ const SiteApp: React.FC = () => {
             <p className="pt-8 text-sm text-slate-400 leading-relaxed max-w-3xl">{footerNote}</p>
           )}
 
-          {/* Four equal columns: Quick Links, SEO Tools, Resources, Company.
-              The first column IS the editable footer menu (Admin → Brand &
-              footer); it falls back to the built-in Quick Links when that menu
-              is empty. The legal links live in the bottom bar below, next to
-              the cookie-preferences control. */}
+          {/* Four equal columns: Quick Links, SEO Tools, Resources, Company —
+              all four editable from Admin → Sections & Nav → Brand & footer
+              (title + links per column). The legal links live in the bottom bar
+              below, next to the cookie-preferences control. */}
           <div className="grid grid-cols-2 gap-8 py-10 md:grid-cols-4">
-            {FOOTER_COLUMNS.map((col, index) => {
-              const editable = index === 0 && footerMenuLinks.length > 0;
-              const title = editable ? (cms.state.settings.footerMenuTitle || col.title) : col.title;
-              const links = editable ? footerMenuLinks.map(l => ({ label: l.label, href: cleanHref(l.href) || l.href })) : col.links;
+            {footerColumns.map(col => {
+              const links = col.links.filter(link => link.visible && link.label.trim());
               return (
-                <nav key={title} aria-label={title}>
-                  <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-4">{title}</h3>
+                <nav key={col.id} aria-label={col.title}>
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-4">{col.title}</h3>
                   <ul className="space-y-2.5">
                     {links.map(l => (
-                      <li key={l.label}><a href={l.href} className="text-sm text-slate-400 hover:text-white transition-colors">{l.label}</a></li>
+                      <li key={l.id}><a href={cleanHref(l.href) || l.href} className="text-sm text-slate-400 hover:text-white transition-colors">{l.label}</a></li>
                     ))}
                   </ul>
                 </nav>

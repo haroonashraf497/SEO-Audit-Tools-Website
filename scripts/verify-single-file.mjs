@@ -330,6 +330,118 @@ for (const [short, long, heading] of [['/privacy', '/privacy-policy', 'Privacy P
   dom.window.close();
 }
 
+/* 10. every footer column is editable from Admin → Sections & Nav → Brand &
+       footer: own heading, own link rows, own + Add and own Save Changes */
+{
+  const session = JSON.stringify({ user: 'admin', remember: true, exp: Date.now() + 3_600_000 });
+  const { dom, errors } = await boot(`localStorage.setItem('ekstruh:admin-session:v1', ${JSON.stringify(session)});`, '/admin');
+  const w = dom.window;
+  const doc = w.document;
+  const click = element => element.dispatchEvent(new w.MouseEvent('click', { bubbles: true }));
+  const setValue = (element, value) => {
+    Object.getOwnPropertyDescriptor(w.HTMLInputElement.prototype, 'value').set.call(element, value);
+    element.dispatchEvent(new w.Event('input', { bubbles: true }));
+  };
+  click([...doc.querySelectorAll('button')].find(button => /sections/i.test(button.textContent)));
+  await wait();
+  check('admin boots the footer-column editors with no script errors', errors.length === 0, errors.join(' | '));
+
+  const cards = [...doc.querySelectorAll('[role="group"][aria-label^="Footer column"]')];
+  check('four separate footer-column editors render', cards.length === 4, String(cards.length));
+  const headings = cards.map(card => card.querySelector('h4').textContent.trim());
+  check('the editors are Column 1-4 with the live headings',
+    headings[0].startsWith('Column 1 — Quick links') && headings[1].startsWith('Column 2 — SEO Tools')
+    && headings[2].startsWith('Column 3 — Resources') && headings[3].startsWith('Column 4 — Company'),
+    headings.join(' / '));
+  check('each editor has its own Section title, + Add and Save Changes',
+    cards.every(card => card.querySelector('input')
+      && [...card.querySelectorAll('button')].some(button => button.textContent.trim() === '+ Add')
+      && [...card.querySelectorAll('button')].filter(button => /Save Changes/.test(button.textContent)).length === 1));
+  check('link rows expose label, URL, visible/hidden and remove',
+    cards.every(card => card.querySelectorAll('[aria-label="Link label"]').length === card.querySelectorAll('[aria-label="Link URL"]').length)
+    && [...doc.querySelectorAll('[role="group"][aria-label^="Footer column"] button')].some(button => button.textContent.trim() === 'Visible')
+    && [...doc.querySelectorAll('[role="group"][aria-label^="Footer column"] button')].some(button => button.textContent.trim() === 'Remove'));
+
+  /* column 3: rename the heading, add a link, hide an existing one, save */
+  const card = cards[2];
+  setValue(card.querySelector('input'), 'Guides');
+  click([...card.querySelectorAll('button')].find(button => button.textContent.trim() === '+ Add'));
+  await wait();
+  const labels = [...card.querySelectorAll('[aria-label="Link label"]')];
+  const urls = [...card.querySelectorAll('[aria-label="Link URL"]')];
+  setValue(labels[labels.length - 1], 'Sitemap guide');
+  setValue(urls[urls.length - 1], '/blog/xml-sitemap-guide');
+  // hide the first link of this column
+  click([...card.querySelectorAll('button')].find(button => button.textContent.trim() === 'Visible'));
+  await wait();
+  click([...card.querySelectorAll('button')].find(button => /Save Changes/.test(button.textContent)));
+  await wait();
+  check('saving a column flashes "Saved ✓"',
+    [...card.querySelectorAll('button')].some(button => button.textContent.includes('Saved ✓')));
+
+  const stored = JSON.parse(w.localStorage.getItem('seoaudittool:cms:v1') || '{}');
+  const column3 = stored.footerColumns?.[2];
+  check('the edited column persists to localStorage',
+    column3?.title === 'Guides'
+    && column3.links.some(l => l.label === 'Sitemap guide' && l.href === '/blog/xml-sitemap-guide')
+    && column3.links.filter(l => l.visible === false).length === 1,
+    JSON.stringify(column3 || {}).slice(0, 200));
+  check('the other three columns are untouched',
+    stored.footerColumns?.[0]?.title === 'Quick links' && stored.footerColumns?.[1]?.title === 'SEO Tools'
+    && stored.footerColumns?.[3]?.title === 'Company');
+
+  const footer = doc.querySelector('footer');
+  const navText = [...footer.querySelectorAll('nav')][2].textContent.replace(/\s+/g, ' ').trim();
+  check('the live footer shows the new heading and link immediately',
+    [...footer.querySelectorAll('nav h3')].map(h => h.textContent).join('|') === 'Quick links|SEO Tools|Guides|Company'
+    && navText.includes('Sitemap guide') && !navText.includes('Blog'),
+    navText);
+  check('hidden links stay in the CMS but leave the footer',
+    column3.links.some(l => l.label === 'Blog' && !l.visible) && !navText.includes('Blog'));
+
+  /* column 4: remove a link, save, confirm it is gone */
+  const card4 = cards[3];
+  click([...card4.querySelectorAll('button')].find(button => button.textContent.trim() === 'Remove'));
+  await wait();
+  click([...card4.querySelectorAll('button')].find(button => /Save Changes/.test(button.textContent)));
+  await wait();
+  const stored2 = JSON.parse(w.localStorage.getItem('seoaudittool:cms:v1') || '{}');
+  check('removing a row deletes it from the saved column',
+    (stored2.footerColumns?.[3]?.links || []).length === 1 && stored2.footerColumns[3].links[0].label === 'Contact',
+    JSON.stringify(stored2.footerColumns?.[3]?.links || []).slice(0, 120));
+  dom.window.close();
+}
+
+/* 11. a saved footerColumns array is used as-is (fresh state, no migration) */
+{
+  const state = {
+    version: 13,
+    settings: {},
+    nav: [],
+    sections: {},
+    tools: [], posts: [], pages: [], seo: {},
+    footerColumns: [
+      { id: 'c1', title: 'Guides', links: [{ id: 'l1', label: 'How-to hub', href: '/blog', visible: true }, { id: 'l2', label: 'Draft row', href: '/x', visible: false }] },
+      { id: 'c2', title: 'Tools', links: [{ id: 'l3', label: 'PDF tools', href: '/free-tools', visible: true }] },
+      { id: 'c3', title: 'Company', links: [] },
+      { id: 'c4', title: 'More', links: [{ id: 'l4', label: 'Contact us', href: '/contact', visible: true }] },
+    ],
+  };
+  const preload = `localStorage.setItem('seoaudittool:cms:v1', ${JSON.stringify(JSON.stringify(state))});`;
+  const { dom, errors } = await boot(preload);
+  const footer = dom.window.document.querySelector('footer');
+  const navs = [...footer.querySelectorAll('nav')].slice(0, 4);
+  check('stored footer columns render with their own headings',
+    navs.map(nav => nav.querySelector('h3').textContent).join('|') === 'Guides|Tools|Company|More',
+    navs.map(nav => nav.querySelector('h3').textContent).join('|'));
+  check('stored columns honour per-link visibility',
+    navs[0].textContent.includes('How-to hub') && !navs[0].textContent.includes('Draft row')
+    && navs[1].textContent.includes('PDF tools') && navs[3].textContent.includes('Contact us'));
+  check('an empty column keeps its heading, so the grid stays four-up', navs[2].querySelector('h3').textContent === 'Company' && navs[2].querySelectorAll('li').length === 0);
+  check('custom columns boot with no script errors', errors.length === 0, errors.join(' | '));
+  dom.window.close();
+}
+
 const failed = results.filter(result => !result.ok);
 console.log(`\n${results.length - failed.length}/${results.length} checks passed`);
 process.exit(failed.length ? 1 : 0);

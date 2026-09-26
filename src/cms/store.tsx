@@ -94,6 +94,10 @@ export interface SectionFlags {
 /** One editable link in the footer menu. */
 export interface FooterLink { id: string; label: string; href: string; visible: boolean }
 
+/** One of the four footer link columns. Title, links, order and visibility
+ *  are all editable from Admin → Sections & Nav → Brand & footer. */
+export interface FooterColumn { id: string; title: string; links: FooterLink[] }
+
 /** Footer social profiles. An empty string hides that icon on the public site. */
 export interface SocialLinks {
   facebook: string;
@@ -129,6 +133,8 @@ export interface CmsState {
   sections: SectionFlags;
   settings: SiteSettings;
   nav: NavItem[];
+  /** The four footer link columns (Quick Links, SEO Tools, Resources, Company). */
+  footerColumns: FooterColumn[];
   passcode: string;
 }
 
@@ -155,6 +161,33 @@ const defaultPosts: CmsPost[] = allArticles.map(a => ({
   excerpt: a.excerpt, content: a.content, category: a.category, date: a.date, readTime: a.readTime,
   author: a.author, keywords: a.keywords, featuredImage: a.featuredImage, featuredImageAlt: a.featuredImageAlt, status: 'live' as Status, builtin: true,
 }));
+
+const footerLink = (label: string, href: string): FooterLink => ({ id: uid(), label, href, visible: true });
+
+/** The four footer columns every visitor sees until the admin edits them. */
+export const defaultFooterColumns: FooterColumn[] = [
+  { id: uid(), title: 'Quick links', links: [
+    footerLink('Free SEO Audit', '/'),
+    footerLink('Free SEO Tools', '/free-tools'),
+    footerLink('Blog', '/blog'),
+    footerLink('About', '/about'),
+    footerLink('Contact', '/contact'),
+  ] },
+  { id: uid(), title: 'SEO Tools', links: [
+    footerLink('Free SEO Audit', '/'),
+    footerLink('Free SEO Tools', '/free-tools'),
+    footerLink('Competitor Analysis', '/competitor-analysis'),
+  ] },
+  { id: uid(), title: 'Resources', links: [
+    footerLink('Blog', '/blog'),
+    footerLink('FAQ', '/faq'),
+    footerLink("Who It's For", '/#audiences'),
+  ] },
+  { id: uid(), title: 'Company', links: [
+    footerLink('About', '/about'),
+    footerLink('Contact', '/contact'),
+  ] },
+];
 
 export const defaultState: CmsState = {
   version: 13,
@@ -467,6 +500,9 @@ export const defaultState: CmsState = {
     headerVerificationAds: '',
     footerCopyright: '© {year} {name} · {domain} · Free SEO tools for Pakistan & worldwide. All rights reserved.',
     footerLogoUrl: '',
+    // Column 1 of the footer used to be stored here (kept so older saved
+    // state and exported JSON still migrate cleanly); the admin now edits all
+    // four columns through state.footerColumns.
     footerMenuTitle: 'Quick links',
     footerLinks: [
       { id: uid(), label: 'Free SEO Audit', href: '/', visible: true },
@@ -480,6 +516,7 @@ export const defaultState: CmsState = {
   nav: [
     { id: uid(), label: 'Free SEO Tools', href: '/free-tools', visible: true },
   ],
+  footerColumns: defaultFooterColumns.map(col => ({ ...col, links: col.links.map(l => ({ ...l })) })),
   passcode: 'admin123',
 };
 
@@ -663,6 +700,43 @@ const normaliseFooterLinks = (value: unknown): FooterLink[] => {
     }));
 };
 
+const cloneDefaultColumns = (): FooterColumn[] =>
+  defaultFooterColumns.map(col => ({ id: uid(), title: col.title, links: col.links.map(l => ({ ...l, id: uid() })) }));
+
+/** Coerce a stored/imported value into exactly four usable footer columns:
+ *  the design is a fixed four-up grid, so a malformed blob can never collapse
+ *  it. Missing columns are filled from the built-in defaults. */
+const normaliseFooterColumns = (value: unknown): FooterColumn[] => {
+  if (!Array.isArray(value) || value.length === 0) return cloneDefaultColumns();
+  const columns: FooterColumn[] = value
+    .filter((col): col is Partial<FooterColumn> => !!col && typeof col === 'object')
+    .slice(0, defaultFooterColumns.length)
+    .map((col, i) => ({
+      id: String(col.id || uid()),
+      title: typeof col.title === 'string' && col.title.trim() ? col.title : defaultFooterColumns[i].title,
+      links: normaliseFooterLinks(col.links),
+    }));
+  for (let i = columns.length; i < defaultFooterColumns.length; i += 1) {
+    columns.push({ id: uid(), title: defaultFooterColumns[i].title, links: defaultFooterColumns[i].links.map(l => ({ ...l, id: uid() })) });
+  }
+  return columns;
+};
+
+/** Footer columns, including the upgrade path from the old single editable
+ *  column (settings.footerMenuTitle + settings.footerLinks → column 1). */
+const migrateFooterColumns = (stored: unknown, settings: SiteSettings): FooterColumn[] => {
+  const columns = normaliseFooterColumns(stored);
+  if (Array.isArray(stored) && stored.length) return columns;
+  const legacyLinks = normaliseFooterLinks(settings.footerLinks);
+  return columns.map((col, i) => (i === 0
+    ? {
+        ...col,
+        title: (settings.footerMenuTitle || '').trim() || col.title,
+        links: legacyLinks.length ? legacyLinks : col.links,
+      }
+    : col));
+};
+
 const normaliseSocial = (value: unknown): SocialLinks => {
   const stored = (value && typeof value === 'object' ? value : {}) as Partial<SocialLinks>;
   return {
@@ -748,6 +822,7 @@ const load = (): CmsState => {
       : oldItems.length
         ? [{ id: uid(), title: 'Featured links', type: 'links', visible: true, source: 'manual', links: oldItems.map(item => ({ ...item })) }]
         : [];
+    const settings = migrateSettings(parsed.settings, parsedVersion);
     return {
       ...defaultState, ...parsed,
       version: Math.max(defaultState.version, parsedVersion),
@@ -755,8 +830,9 @@ const load = (): CmsState => {
       // without overwriting the admin's edits, visibility or custom tools.
       tools: Array.from(new Map([...defaultState.tools, ...(parsed.tools || [])].map(tool => [tool.slug, tool])).values()),
       pages: (parsedVersion < defaultState.version ? migratePages(parsed.pages || []) : (parsed.pages || defaultState.pages)).map(withPageContent),
-      settings: migrateSettings(parsed.settings, parsedVersion),
+      settings,
       nav: migrateNav(parsed.nav),
+      footerColumns: migrateFooterColumns(parsed.footerColumns, settings),
       sidebar: { ...migrateSidebar(oldSidebar), widgets: migratedWidgets },
       sections: { ...defaultState.sections, ...(parsed.sections || {}) },
       seo: migrateSeo(parsed.seo, parsedVersion),
@@ -790,6 +866,8 @@ interface Ctx {
   setSidebar: (patch: Partial<SidebarConfig>) => void;
   setSettings: (patch: Partial<SiteSettings>) => void;
   setNav: (nav: NavItem[]) => void;
+  /* footer columns */
+  setFooterColumns: (columns: FooterColumn[]) => void;
   /* data */
   reset: () => void;
   importJson: (json: string) => boolean;
@@ -852,10 +930,11 @@ export const CmsProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setSidebar: (patch) => setState(s => ({ ...s, sidebar: { ...s.sidebar, ...patch } })),
     setSettings: (patch) => setState(s => ({ ...s, settings: { ...s.settings, ...patch } })),
     setNav: (nav) => setState(s => ({ ...s, nav })),
+    setFooterColumns: (columns) => setState(s => ({ ...s, footerColumns: columns.map(col => ({ ...col, links: col.links.map(l => ({ ...l })) })) })),
 
     reset: () => setState({ ...defaultState }),
     exportJson: () => JSON.stringify({ ...state, pages: state.pages.map(pg => { const { blocks: _blocks, ...rest } = pg; return rest; }) }, null, 2),
-    importJson: (json) => { try { const parsed = JSON.parse(json) as CmsState; if (!parsed.tools || !parsed.posts) return false; const legacyItems = parsed.sidebar?.customItems || []; const widgets = parsed.sidebar?.widgets || (legacyItems.length ? [{ id: uid(), title: 'Featured links', type: 'links' as SidebarWidgetType, visible: true, source: 'manual' as SidebarLinkSource, links: legacyItems }] : []); const parsedVersion = typeof parsed.version === 'number' ? parsed.version : 1; setState({ ...defaultState, ...parsed, version: Math.max(defaultState.version, parsedVersion), pages: (parsedVersion < defaultState.version ? migratePages(parsed.pages || []) : (parsed.pages || defaultState.pages)).map(withPageContent), settings: migrateSettings(parsed.settings, parsedVersion), nav: migrateNav(parsed.nav), seo: migrateSeo(parsed.seo, parsedVersion), sidebar: { ...defaultState.sidebar, ...parsed.sidebar, widgets } }); return true; } catch { return false; } },
+    importJson: (json) => { try { const parsed = JSON.parse(json) as CmsState; if (!parsed.tools || !parsed.posts) return false; const legacyItems = parsed.sidebar?.customItems || []; const widgets = parsed.sidebar?.widgets || (legacyItems.length ? [{ id: uid(), title: 'Featured links', type: 'links' as SidebarWidgetType, visible: true, source: 'manual' as SidebarLinkSource, links: legacyItems }] : []); const parsedVersion = typeof parsed.version === 'number' ? parsed.version : 1; setState({ ...defaultState, ...parsed, version: Math.max(defaultState.version, parsedVersion), pages: (parsedVersion < defaultState.version ? migratePages(parsed.pages || []) : (parsed.pages || defaultState.pages)).map(withPageContent), settings: migrateSettings(parsed.settings, parsedVersion), nav: migrateNav(parsed.nav), footerColumns: migrateFooterColumns(parsed.footerColumns, migrateSettings(parsed.settings, parsedVersion)), seo: migrateSeo(parsed.seo, parsedVersion), sidebar: { ...defaultState.sidebar, ...parsed.sidebar, widgets } }); return true; } catch { return false; } },
 
     storageWarning,
     loggedIn,
