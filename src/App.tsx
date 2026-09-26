@@ -1296,7 +1296,7 @@ const SOCIAL_META: { key: keyof SocialLinks; label: string; icon: React.FC }[] =
   { key: 'youtube', label: 'YouTube', icon: () => (<svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M23.5 6.2a3.02 3.02 0 0 0-2.12-2.14C19.5 3.55 12 3.55 12 3.55s-7.5 0-9.38.51A3.02 3.02 0 0 0 .5 6.2C0 8.09 0 12 0 12s0 3.91.5 5.8a3.02 3.02 0 0 0 2.12 2.14c1.88.51 9.38.51 9.38.51s7.5 0 9.38-.51a3.02 3.02 0 0 0 2.12-2.14C24 15.91 24 12 24 12s0-3.91-.5-5.8ZM9.55 15.57V8.43L15.82 12l-6.27 3.57Z" /></svg>) },
 ];
 
-/** Footer link columns — the four equal columns beside the Legal column. */
+/** Footer link columns — the four equal columns at the top of the footer. */
 const FOOTER_COLUMNS: { title: string; links: { label: string; href: string }[] }[] = [
   { title: 'Quick Links', links: [
     { label: 'Free SEO Audit', href: '/' },
@@ -1321,10 +1321,9 @@ const FOOTER_COLUMNS: { title: string; links: { label: string; href: string }[] 
   ] },
 ];
 
-/** The three legal documents on their canonical short URLs — shared by the
- *  Legal column and the bottom bar so both always agree. `short` is what the
- *  compact bottom bar shows; the full title stays as a tooltip / accessible
- *  name. */
+/** The three legal documents on their canonical short URLs, as shown in the
+ *  footer's bottom bar. `short` is the compact label; the full title stays as
+ *  the tooltip / accessible name. */
 const FOOTER_LEGAL_LINKS: { label: string; short: string; href: string }[] = [
   { label: 'Privacy Policy', short: 'Privacy', href: '/privacy' },
   { label: 'Cookie Policy', short: 'Cookie', href: '/cookies' },
@@ -2140,11 +2139,12 @@ const SiteApp: React.FC = () => {
             <p className="pt-8 text-sm text-slate-400 leading-relaxed max-w-3xl">{footerNote}</p>
           )}
 
-          {/* Link columns — four equal columns (Quick Links, SEO Tools,
-              Resources, Company) plus a separate Legal column. The first
-              column IS the editable footer menu (Admin → Brand & footer); it
-              falls back to the built-in Quick Links when that menu is empty. */}
-          <div className="grid grid-cols-2 gap-8 py-10 md:grid-cols-3 lg:grid-cols-5">
+          {/* Four equal columns: Quick Links, SEO Tools, Resources, Company.
+              The first column IS the editable footer menu (Admin → Brand &
+              footer); it falls back to the built-in Quick Links when that menu
+              is empty. The legal links live in the bottom bar below, next to
+              the cookie-preferences control. */}
+          <div className="grid grid-cols-2 gap-8 py-10 md:grid-cols-4">
             {FOOTER_COLUMNS.map((col, index) => {
               const editable = index === 0 && footerMenuLinks.length > 0;
               const title = editable ? (cms.state.settings.footerMenuTitle || col.title) : col.title;
@@ -2160,17 +2160,6 @@ const SiteApp: React.FC = () => {
                 </nav>
               );
             })}
-            {/* Legal column — same styling as the others; keeps the
-                cookie-preferences control, as before. */}
-            <nav aria-label="Legal">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-4">Legal</h3>
-              <ul className="space-y-2.5">
-                {FOOTER_LEGAL_LINKS.map(l => (
-                  <li key={l.label}><a href={l.href} className="text-sm text-slate-400 hover:text-white transition-colors">{l.label}</a></li>
-                ))}
-                <li><button type="button" onClick={() => setCookiePrefsOpen(true)} className="text-sm text-slate-400 hover:text-white transition-colors underline decoration-dotted underline-offset-4">Cookie preferences</button></li>
-              </ul>
-            </nav>
           </div>
 
           {/* Bottom bar — copyright on the left, the short legal links and the

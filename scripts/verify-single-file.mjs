@@ -244,8 +244,17 @@ for (const [path, expected] of [['/tool/merge-pdf', 'Merge PDF'], ['/admin-login
   check('footer redesign boots with no script errors', errors.length === 0, errors.join(' | '));
 
   const column = title => [...footer.querySelectorAll('nav')].find(nav => nav.getAttribute('aria-label') === title);
-  const titles = ['Quick links', 'SEO Tools', 'Resources', 'Company', 'Legal'];
-  check('five footer columns render', titles.every(column), [...footer.querySelectorAll('nav')].map(nav => nav.getAttribute('aria-label')).join(', '));
+  const titles = ['Quick links', 'SEO Tools', 'Resources', 'Company'];
+  const navs = [...footer.querySelectorAll('nav')];
+  check('four footer columns render, plus the bottom bar only',
+    navs.length === 5 && titles.every(column) && navs[4].getAttribute('aria-label') === 'Legal documents',
+    navs.map(nav => nav.getAttribute('aria-label')).join(', '));
+  check('no separate Legal column any more',
+    !navs.some(nav => nav.getAttribute('aria-label') === 'Legal') && !footer.textContent.includes('Terms & Conditions'),
+    navs.map(nav => nav.getAttribute('aria-label')).join(', '));
+  check('legal links are only in the bottom bar',
+    [...footer.querySelectorAll('a[href="/privacy"], a[href="/cookies"], a[href="/terms"]')]
+      .every(a => a.closest('nav')?.getAttribute('aria-label') === 'Legal documents'));
   check('Quick Links column = audit, tools, blog, about, contact',
     ['Free SEO Audit', 'Free SEO Tools', 'Blog', 'About', 'Contact'].every(label => column('Quick links').textContent.includes(label)));
   check('SEO Tools column = audit, tools, competitor analysis',
@@ -255,21 +264,11 @@ for (const [path, expected] of [['/tool/merge-pdf', 'Merge PDF'], ['/admin-login
   check('Company column = about, contact',
     ['About', 'Contact'].every(label => column('Company').textContent.includes(label)));
 
-  const legal = column('Legal');
-  check('Legal column = privacy, cookies, terms',
-    legal.textContent.includes('Privacy Policy') && legal.textContent.includes('Cookie Policy') && legal.textContent.includes('Terms & Conditions'));
-  const legalHref = label => [...legal.querySelectorAll('a')].find(a => a.textContent.trim() === label)?.getAttribute('href');
-  check('Legal links use /privacy, /cookies, /terms',
-    legalHref('Privacy Policy') === '/privacy' && legalHref('Cookie Policy') === '/cookies' && legalHref('Terms & Conditions') === '/terms',
-    [legalHref('Privacy Policy'), legalHref('Cookie Policy'), legalHref('Terms & Conditions')].join(', '));
-  check('Legal column keeps the Cookie preferences button',
-    [...legal.querySelectorAll('button')].some(button => button.textContent.includes('Cookie preferences')));
-
   const bottom = footer.querySelector('nav[aria-label="Legal documents"]');
   check('bottom bar pairs the copyright with the legal links',
     !!bottom && /sm:justify-between/.test(bottom.parentElement.className) && /sm:justify-end/.test(bottom.className),
     bottom ? bottom.className : 'no bottom nav');
-  check('bottom-bar legal links mirror the column',
+  check('bottom-bar legal links use the short URLs',
     [...bottom.querySelectorAll('a')].map(a => a.getAttribute('href')).join(',') === '/privacy,/cookies,/terms');
   check('bottom bar shows the short labels',
     [...bottom.querySelectorAll('a')].map(a => a.textContent.trim()).join(' · ') === 'Privacy · Cookie · Terms',
@@ -287,16 +286,12 @@ for (const [path, expected] of [['/tool/merge-pdf', 'Merge PDF'], ['/admin-login
   check('bottom bar keeps the editable copyright on the left',
     footer.textContent.includes(`© ${new Date().getFullYear()} SEO Audit Tools · seoaudittools.pk`));
 
-  // The preference dialog is still reachable from the footer button.
-  click([...legal.querySelectorAll('button')].find(button => button.textContent.includes('Cookie preferences')));
-  await wait();
-  check('footer Cookie preferences button opens the dialog',
-    !!doc.querySelector('[role="dialog"][aria-label="Cookie preferences"]'));
-  click(doc.querySelector('[aria-label="Close cookie preferences"]'));
-  await wait();
+  // The bottom bar holds the only cookie-preferences control in the footer.
+  check('the footer has exactly one Cookie preferences control',
+    [...footer.querySelectorAll('button')].filter(button => button.textContent.trim() === 'Cookie preferences').length === 1);
   click([...bottom.querySelectorAll('button')].find(button => button.textContent.trim() === 'Cookie preferences'));
   await wait();
-  check('bottom-bar Cookie preferences control opens the dialog too',
+  check('bottom-bar Cookie preferences control opens the dialog',
     !!doc.querySelector('[role="dialog"][aria-label="Cookie preferences"]'));
   dom.window.close();
 }
@@ -325,7 +320,7 @@ for (const [short, long, heading] of [['/privacy', '/privacy-policy', 'Privacy P
   const { dom, errors } = await boot();
   const doc = dom.window.document;
   const main = doc.querySelector('main');
-  const link = [...doc.querySelectorAll('footer a')].find(a => a.textContent.trim() === 'Privacy Policy');
+  const link = doc.querySelector('footer a[href="/privacy"]');
   link.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true, cancelable: true }));
   check('footer legal click updates the URL to /privacy immediately', dom.window.location.pathname === '/privacy', dom.window.location.pathname);
   await wait();

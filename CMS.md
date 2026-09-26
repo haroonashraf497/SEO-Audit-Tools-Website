@@ -33,7 +33,7 @@ Editing surfaces use the same WordPress-style editor:
 
 | Where | Field |
 |---|---|
-| **Sections & Nav → Brand & footer** | site name, domain, tagline, footer note, footer copyright (`{year}` `{name}` `{domain}`), footer logo URL or upload, footer menu links (rendered as the footer's first, Quick Links, column), Facebook/X/LinkedIn/Instagram/YouTube URLs |
+| **Sections & Nav → Brand & footer** | site name, domain, tagline, footer note, footer copyright (`{year}` `{name}` `{domain}`), footer logo URL or upload, footer menu links (rendered as the footer's first column, **Quick Links**), Facebook/X/LinkedIn/Instagram/YouTube URLs |
 | **Sections & Nav → Navigation menu** | header links — add, rename, hide or remove |
 | **Blog posts** | post body — new posts and existing articles |
 | **Pages** | the whole page body — one rich-text document per page (pages saved with the old block editor are converted automatically on load) |

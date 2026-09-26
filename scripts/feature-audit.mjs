@@ -71,9 +71,11 @@ check('Quick Links column = audit, tools, blog, about, contact', /title: 'Quick 
 check('SEO Tools column = audit, tools, competitor analysis', /title: 'SEO Tools', links: \[[\s\S]{0,320}Free SEO Audit[\s\S]{0,200}Free SEO Tools[\s\S]{0,200}Competitor Analysis/.test(app));
 check('Resources column = blog, FAQ, who it\'s for', /title: 'Resources', links: \[[\s\S]{0,320}Blog[\s\S]{0,200}FAQ[\s\S]{0,200}Who It's For/.test(app));
 check('Company column = about, contact', /title: 'Company', links: \[[\s\S]{0,220}About[\s\S]{0,200}Contact/.test(app));
-check('columns render in an equal-width grid', /grid grid-cols-2 gap-8 py-10 md:grid-cols-3 lg:grid-cols-5/.test(app));
-check('separate Legal column beside them', /aria-label="Legal"[\s\S]{0,240}Legal<\/h3>/.test(app));
-check('Legal column = privacy, cookies, terms on short URLs', /const FOOTER_LEGAL_LINKS[\s\S]{0,400}href: '\/privacy'[\s\S]{0,200}href: '\/cookies'[\s\S]{0,200}href: '\/terms'/.test(app));
+check('columns render in a four-up equal-width grid', /grid grid-cols-2 gap-8 py-10 md:grid-cols-4/.test(app)
+  && !/lg:grid-cols-5/.test(app));
+check('no separate Legal column any more', !/aria-label="Legal"/.test(app) && !/FOOTER_LEGAL_LINKS\.map\(l => \(\s*<li/.test(app));
+check('legal links live in the bottom bar on short URLs', /const FOOTER_LEGAL_LINKS[\s\S]{0,400}href: '\/privacy'[\s\S]{0,200}href: '\/cookies'[\s\S]{0,200}href: '\/terms'/.test(app)
+  && /aria-label="Legal documents"[\s\S]{0,900}href=\{l\.href\}/.test(app));
 check('Terms link labelled "Terms & Conditions"', /label: 'Terms & Conditions', short: 'Terms', href: '\/terms'/.test(app));
 check('bottom bar: copyright left, legal links right', /sm:flex-row sm:items-center sm:justify-between[\s\S]{0,600}aria-label="Legal documents"[\s\S]{0,200}sm:justify-end/.test(app));
 check('bottom bar reuses renderCopyright (still editable)', /sm:justify-between[\s\S]{0,400}renderCopyright\(cms\.state\.settings\.footerCopyright/.test(app));
@@ -83,7 +85,10 @@ check('bottom bar uses the short labels', /short: 'Privacy', href: '\/privacy'/.
   && /short: 'Terms', href: '\/terms'/.test(app)
   && /className="hover:text-white transition-colors">\{l\.short\}<\/a>/.test(app));
 check('short links keep the full name for a11y/tooltip', /title=\{l\.label\} aria-label=\{l\.label\}/.test(app));
-check('bottom bar also offers Cookie preferences', /sm:justify-end"[\s\S]{0,700}onClick=\{\(\) => setCookiePrefsOpen\(true\)\}[^>]*>Cookie preferences<\/button>/.test(app));
+check('bottom bar offers Cookie preferences', /sm:justify-end"[\s\S]{0,700}onClick=\{\(\) => setCookiePrefsOpen\(true\)\}[^>]*>Cookie preferences<\/button>/.test(app));
+check('exactly one Cookie preferences control in the footer',
+  (app.match(/setCookiePrefsOpen\(true\)/g) || []).length === 1,
+  String((app.match(/setCookiePrefsOpen\(true\)/g) || []).length));
 check('no long legal URL left in the app shell', !/href="\/privacy-policy"|href="\/cookie-policy"|href="\/terms-of-service"/.test(app));
 check('router maps short legal routes to stored slugs', /privacy: 'privacy-policy'/.test(router) && /cookies: 'cookie-policy'/.test(router) && /terms: 'terms-of-service'/.test(router));
 check('router upgrades long legal paths to short ones', /canonicalLegalPath\(cleanPath\(u\.pathname\)\)/.test(router) && /next = canonicalLegalPath\(next\)/.test(router));

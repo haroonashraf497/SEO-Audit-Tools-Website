@@ -65,13 +65,12 @@ Settings → Password; override the defaults at build time with the variables in
 | **Sections & Nav → Brand & footer** | site name, domain, tagline, footer note, footer copyright (`{year}` `{name}` `{domain}`), footer logo (URL or upload), footer menu links (the footer's first column), Facebook / X / LinkedIn / Instagram / YouTube URLs |
 | **Pages, Blog posts, Tools, Sidebar** | page bodies, articles, tool “About” copy and sidebar widgets, edited in the WordPress-style rich-text editor |
 
-The footer itself is fixed: **Quick Links** (the CMS-editable menu above), **SEO Tools**,
-**Resources**, **Company** as four equal columns, plus a separate **Legal** column
-(Privacy Policy, Cookie Policy, Terms & Conditions) that also holds the cookie-preferences
-button. The bottom bar shows the editable copyright line on the left and, on the right, the
-short legal links plus the cookie-preferences control —
-`Privacy · Cookie · Terms · Cookie preferences` — each short link keeping its full name as
-the tooltip / accessible name. Legal pages answer on `/privacy`, `/cookies` and `/terms`; the old
+The footer is four equal columns: **Quick Links** (the CMS-editable menu above), **SEO
+Tools**, **Resources**, **Company**. There is no separate Legal column — the legal links
+live in the bottom bar, which shows the editable copyright line on the left and
+`Privacy · Cookie · Terms · Cookie preferences` on the right. Each short link keeps its full
+name (Privacy Policy / Cookie Policy / Terms & Conditions) as the tooltip and accessible
+name, and the Cookie preferences control there is the footer's only one. Legal pages answer on `/privacy`, `/cookies` and `/terms`; the old
 `/privacy-policy`, `/cookie-policy` and `/terms-of-service` URLs are 301-redirected and are
 also upgraded client-side for the dev/preview server, which does no rewriting.
 
@@ -83,9 +82,9 @@ to move or version it. See `CMS.md` for the full CMS reference.
 
 ```bash
 npm run typecheck                  # tsc --noEmit
-node scripts/feature-audit.mjs     # 78 checks: every CMS control, footer redesign, legal URLs, /free-tools, no EKSTRUH, 154 tools
+node scripts/feature-audit.mjs     # 79 checks: every CMS control, footer redesign, legal URLs, /free-tools, no EKSTRUH, 154 tools
 npm install --no-save jsdom
-node scripts/verify-single-file.mjs  # 71 checks: boots the built file, instant swap, footer, legal URLs, head injection
+node scripts/verify-single-file.mjs  # 70 checks: boots the built file, instant swap, footer, legal URLs, head injection
 npm test                           # 34 Playwright tests (needs Chromium)
 ```
 
