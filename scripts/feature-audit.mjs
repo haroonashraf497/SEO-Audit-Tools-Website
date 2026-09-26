@@ -120,6 +120,26 @@ check('sitemap lists the short legal URLs only', sitemap.includes('<loc>https://
   && sitemap.includes('<loc>https://seoaudittools.pk/terms</loc>')
   && !/seoaudittools\.pk\/(privacy-policy|cookie-policy|terms-of-service)</.test(sitemap));
 
+console.log('\n=== 🧯 pdf.js buffer detachment (compression ladder) ===');
+const pdfEngine = read('src/tools/pdf/engine.ts');
+const pdfUiSrc = read('src/tools/pdf/ui.tsx');
+check('every buffer handed to pdf.js is copied first',
+  /export const copyBuffer = \(buf: ArrayBuffer\): Uint8Array => \{/.test(pdfEngine)
+  && (pdfEngine.match(/data: copyBuffer\(buf\)/g) || []).length === 2
+  && !/getDocument\(\{ data: new Uint8Array\(buf\)/.test(pdfEngine));
+check('the copy helper explains why it exists',
+  /pdf\.js TRANSFERS the buffer it is given to its worker thread, which detaches/.test(pdfEngine));
+check('the compression ladder survives one failing pass',
+  /dpi failed — trying a lighter one/.test(pdfEngine)
+  && /attempts\.push\(\{ scale, quality, size: best\.byteLength \}\)/.test(pdfEngine));
+check('an unreadable (empty/detached) input is reported, not thrown raw',
+  /if \(buf\.byteLength === 0\) throw new Error\('The file could not be read \(empty buffer\)\.'\)/.test(pdfEngine));
+check('Compress more works on a private copy of the download buffer',
+  /const buf = new Uint8Array\(bytes\)\.buffer as ArrayBuffer;/.test(pdfUiSrc)
+  && /never touch \(or detach\)/.test(pdfUiSrc));
+check('a failed compression tells the user what to try next',
+  /Try again, or pick a lighter level \(Lossless is the most reliable\)/.test(pdfUiSrc));
+
 console.log('\n=== 📄 Merge PDF — optional “Compress more” step ===');
 const pdfUi = read('src/tools/pdf/ui.tsx');
 const pdfTools = read('src/tools/pdf/PdfTools.tsx');

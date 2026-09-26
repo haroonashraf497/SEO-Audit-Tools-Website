@@ -93,6 +93,12 @@ After a merge, the result card offers a **“Compress more”** step next to the
   (`merged-compressed.pdf`), title and size stats follow — and **Use the uncompressed merge instead**
   restores the original. Compressing again compounds on the current file;
 - if no smaller legible version can be produced, the result says so instead of handing you a bigger file.
+- **pdf.js buffer handling:** pdf.js *transfers* the buffer it is given to its worker thread, which
+  detaches it. Every call to `renderPages()` / `extractText()` therefore hands pdf.js a private copy
+  (`copyBuffer()`), so a document can be rendered repeatedly — the compression ladder rendered the
+  same file up to nine times, which previously failed with “Cannot perform Construct on a detached
+  ArrayBuffer”. Individual ladder passes are also wrapped so one failed pass degrades to the next
+  lighter one instead of aborting the run.
 
 ### URL hierarchy
 
@@ -180,7 +186,7 @@ to move or version it. See `CMS.md` for the full CMS reference.
 
 ```bash
 npm run typecheck                  # tsc --noEmit
-node scripts/feature-audit.mjs     # 138 checks: CMS controls, footer redesign, legal URLs, /free-seo-tools, text-tool layout/mobile, case-converter grid, Tool Categories mega menu, no-bold top nav, category chips removed from /free-seo-tools, /free-seo-tools/<slug> tool URLs, Merge PDF compressor, no EKSTRUH, 154 tools
+node scripts/feature-audit.mjs     # 144 checks: CMS controls, footer redesign, legal URLs, /free-seo-tools, text-tool layout/mobile, case-converter grid, Tool Categories mega menu, no-bold top nav, category chips removed from /free-seo-tools, /free-seo-tools/<slug> tool URLs, Merge PDF compressor, no EKSTRUH, 154 tools
 npm install --no-save jsdom
 node scripts/verify-single-file.mjs  # 124 checks: boots the built file, instant swap, footer, legal URLs, head injection, text-tool layout, mega-menu navigation
 npm test                           # 34 Playwright tests (needs Chromium)

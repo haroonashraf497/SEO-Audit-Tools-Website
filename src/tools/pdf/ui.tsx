@@ -143,7 +143,9 @@ export const CompressMore: React.FC<{
       const target = customTarget
         ? customTarget * 1024
         : level === 'lossless' ? null : Math.round(bytes.byteLength * LEVEL_TARGET[level]);
-      const buf = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
+      // Private copy: the compressor and pdf.js must never touch (or detach)
+      // the buffer that is currently offered for download.
+      const buf = new Uint8Array(bytes).buffer as ArrayBuffer;
       const out = await compressToTarget(buf, target, setStatus);
       if (out.bytes.byteLength < bytes.byteLength) {
         const label = customTarget ? `${customTarget} KB target` : COMPRESS_LEVELS.find(l => l[0] === level)![1];
@@ -152,7 +154,8 @@ export const CompressMore: React.FC<{
         setNote(`Already optimal — this file is ${fmtBytes(bytes.byteLength)} and no smaller legible version could be produced.`);
       }
     } catch (e) {
-      setNote(`Compression failed: ${String((e as Error).message || e).slice(0, 160)}`);
+      const detail = String((e as Error).message || e).slice(0, 160);
+      setNote(`Compression failed: ${detail}. Try again, or pick a lighter level (Lossless is the most reliable).`);
     }
     setBusy(false);
   };
