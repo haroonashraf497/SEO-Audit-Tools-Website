@@ -243,6 +243,17 @@ for (const [path, expected] of [['/tool/merge-pdf', 'Merge PDF'], ['/admin-login
   const click = element => element.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true, cancelable: true }));
   check('footer redesign boots with no script errors', errors.length === 0, errors.join(' | '));
 
+  // The column headings' own CSS: 18px, capitalised, no letter-spacing.
+  const compactCss = rawHtml.replace(/\s+/g, '');
+  check('column headings carry the 18px / capitalize / 0 letter-spacing classes',
+    /<h3class="text-\[18px\]font-boldcapitalizetracking-\[0px\]text-slate-400mb-4"/.test(compactCss),
+    (rawHtml.match(/<h3 class="[^"]*">Quick links<\/h3>/) || ['not found'])[0]);
+  check('the built stylesheet declares those three properties',
+    compactCss.includes('.text-\\[18px\\]{font-size:18px}')
+    && compactCss.includes('.capitalize{text-transform:capitalize}')
+    && /\.tracking-\\\[0px\\\]\{--tw-tracking:0px;letter-spacing:0\}/.test(compactCss),
+    compactCss.match(/\.text-\\\[18px\\\]\{[^}]*\}/)?.[0] || 'missing');
+
   const column = title => [...footer.querySelectorAll('nav')].find(nav => nav.getAttribute('aria-label') === title);
   const titles = ['Quick links', 'SEO Tools', 'Resources', 'Company'];
   const navs = [...footer.querySelectorAll('nav')];

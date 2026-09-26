@@ -2124,7 +2124,7 @@ const SiteApp: React.FC = () => {
               const links = col.links.filter(link => link.visible && link.label.trim());
               return (
                 <nav key={col.id} aria-label={col.title}>
-                  <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-4">{col.title}</h3>
+                  <h3 className="text-[18px] font-bold capitalize tracking-[0px] text-slate-400 mb-4">{col.title}</h3>
                   <ul className="space-y-2.5">
                     {links.map(l => (
                       <li key={l.id}><a href={cleanHref(l.href) || l.href} className="text-sm text-slate-400 hover:text-white transition-colors">{l.label}</a></li>
