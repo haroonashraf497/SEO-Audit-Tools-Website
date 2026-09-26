@@ -1976,7 +1976,7 @@ const SiteApp: React.FC = () => {
 
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4 mb-10 items-stretch">
             {visibleTools.filter(t => t.custom ? false : ['plagiarism-checker', 'percentage-calculator', 'bmi-calculator', 'what-is-my-ip', 'keyword-density-checker', 'backlink-checker', 'unit-converter', 'website-seo-score-checker'].includes(t.slug)).slice(0, 8).map(t => (
-              <a key={t.slug} href={`/tool/${t.slug}`}
+              <a key={t.slug} href={`/free-seo-tool/${t.slug}`}
                 className="group h-full flex flex-col bg-white rounded-2xl border border-slate-200 p-5 shadow-sm hover:shadow-lg hover:border-indigo-200 transition-all">
                 <div className="flex items-center gap-3 mb-2 min-h-[1.25rem]">
                   <span className="text-indigo-600 flex-shrink-0"><ToolIcon category={t.category} className="w-5 h-5" /></span>

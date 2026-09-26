@@ -399,7 +399,7 @@ const copy: Record<ToolCategory | 'calculatorLegacy' | 'converterLegacy', Catego
 };
 
 const strip = (value: string) => value.replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim();
-const shortName = (name: string) => name.replace(/\s*(Free Online|Online|Free)\s*/gi, '').replace(/tool/i, '').trim() || name;
+const shortName = (name: string) => name.replace(/\s*(Free Online|Online|Free)\s*/gi, '').replace(/free-seo-tool/i, '').trim() || name;
 
 const Chevron: React.FC<{ open: boolean }> = ({ open }) => (
   <svg className={`w-4 h-4 text-indigo-600 transition-transform ${open ? 'rotate-180' : ''}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9" /></svg>
@@ -515,7 +515,7 @@ export const ToolRelatedContent: React.FC<{ tool: ToolDef; related: ToolDef[] }>
           <p className="text-sm text-slate-500 mb-5">Continue with these related {categoryLabels[tool.category].toLowerCase()}.</p>
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {related.map(t => (
-              <a key={t.slug} href={`/tool/${t.slug}`} className="group rounded-xl border border-slate-200 p-4 hover:border-indigo-300 hover:shadow-md transition-all">
+              <a key={t.slug} href={`/free-seo-tool/${t.slug}`} className="group rounded-xl border border-slate-200 p-4 hover:border-indigo-300 hover:shadow-md transition-all">
                 <h3 className="text-sm font-bold text-slate-800 group-hover:text-indigo-600 mb-1">{t.name}</h3>
                 <p className="text-xs text-slate-500 line-clamp-3 leading-relaxed">{strip(t.description)}</p>
               </a>

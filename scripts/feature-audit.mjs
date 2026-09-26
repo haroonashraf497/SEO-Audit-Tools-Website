@@ -136,6 +136,34 @@ check('mega menu uses /free-seo-tools?cat=', /href=\{`\/free-seo-tools\?cat=\$\{
 check('sitemap lists /free-seo-tools', sitemapXml.includes('<loc>https://seoaudittools.pk/free-seo-tools</loc>'));
 check('SEO canonical collapses the old tools URLs', /clean === '\/free-tools'\) clean = '\/free-seo-tools';/.test(seoUtil));
 
+console.log('\n=== 🔗 Tool page URL hierarchy (/free-seo-tool/<slug>) ===');
+const routerSrcT = read('src/router.ts');
+const htaccessT = read('public/.htaccess');
+const sitemapT = read('public/sitemap.xml');
+const linkSources = appSrcTools + menuSrcTools + read('src/tools/Sidebar.tsx') + read('src/tools/Tools.tsx') + read('src/tools/toolContent.tsx') + store + read('src/utils/seo.ts');
+check('tool page prefix is /free-seo-tool in the router + seo',
+  /export const TOOL_PATH_BASE = '\/free-seo-tool';/.test(routerSrcT)
+  && /path: `\/free-seo-tool\/\$\{slug\}`,/.test(read('src/utils/seo.ts')));
+check('no link in the app still points at the old /tool/<slug> URL',
+  !/href=\{?[`"']\/tool\//.test(linkSources)
+  && !/`\/tool\/\$\{/.test(linkSources));
+check('tool cards, sidebar and related links use /free-seo-tool/<slug>',
+  /href=\{`\/free-seo-tool\/\$\{t\.slug\}`\}/.test(read('src/tools/Tools.tsx'))
+  && /href=\{`\/free-seo-tool\/\$\{t\.slug\}`\}/.test(read('src/tools/Sidebar.tsx'))
+  && /href=\{`\/free-seo-tool\/\$\{t\.slug\}`\}/.test(read('src/tools/toolContent.tsx')));
+check('sitemap lists every tool under /free-seo-tool/',
+  (sitemapT.match(/<loc>https:\/\/seoaudittools\.pk\/free-seo-tool\//g) || []).length === 154
+  && !/seoaudittools\.pk\/tool</.test(sitemapT));
+check('router reads and canonicalises the tool paths',
+  /if \(seg\.startsWith\(`\$\{TOOL_PATH_BASE\.slice\(1\)\}\/`\)\) return `tool\/\$\{seg\.slice\(TOOL_PATH_BASE\.length\)\}`;/.test(routerSrcT)
+  && /if \(pathname\.startsWith\('\/tool\/'\)\) return TOOL_PATH_BASE \+ pathname\.slice\('\/tool'\.length\);/.test(routerSrcT));
+check('.htaccess 301s /tool/<slug> → /free-seo-tool/<slug>',
+  /RewriteRule \^tool\/\(\.\+\?\)\/\?\$ \/free-seo-tool\/\$1 \[R=301,L\]/.test(htaccessT));
+check('.htaccess 301s the bare /free-seo-tool back to the index',
+  /RewriteRule \^free-seo-tool\/\?\$ \/free-seo-tools \[R=301,L\]/.test(htaccessT));
+check('stored CMS hrefs upgrade /tool/<slug>',
+  /if \(value\.startsWith\('\/tool\/'\)\) return `\/free-seo-tool\$\{value\.slice\('\/tool'\.length\)\}`;/.test(store));
+
 console.log('\n=== 🧭 Tool Categories mega menu ===');
 const appSrc = read('src/App.tsx');
 const menuSrc = read('src/components/ToolCategoriesMenu.tsx');
@@ -218,7 +246,8 @@ check('.htaccess 301 /tool → /free-seo-tools', /RewriteRule \^tool\/\?\$ \/fre
 check('router canonicalises /tools, /tool and /free-tools',
   /export const TOOLS_PATH = '\/free-seo-tools';/.test(router)
   && /export const LEGACY_TOOLS_PATHS = \['\/free-tools', '\/tools', '\/tool'\];/.test(router)
-  && /if \(LEGACY_TOOLS_PATHS\.includes\(next\)\) next = TOOLS_PATH;/.test(router));
+  && /next = canonicalToolsPath\(next\);/.test(router)
+  && /p = canonicalToolsPath\(p\);/.test(router));
 check('route alias maps the tools paths to the free-tools route',
   /seg === TOOLS_PATH\.slice\(1\) \|\| LEGACY_TOOLS_PATHS\.some\(p => p\.slice\(1\) === seg\)/.test(router));
 check('stored content rewrites legacy tool paths',

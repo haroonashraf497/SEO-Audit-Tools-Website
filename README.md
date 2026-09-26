@@ -90,7 +90,12 @@ query string:
 | `/free-tools`, `/free-tools?cat=pdf` | 301 → `/free-seo-tools`, `/free-seo-tools?cat=pdf` |
 | `/tools`, `/tools/` | 301 → `/free-seo-tools` |
 | `/tool` | 301 → `/free-seo-tools` |
-| `/tool/<slug>` | served (individual tool pages keep their own slug) |
+| `/tool/<slug>`, `/free-tools/<slug>` | 301 → `/free-seo-tool/<slug>` |
+
+Individual tools answer on **`/free-seo-tool/<slug>`** — e.g.
+`https://seoaudittools.pk/free-seo-tool/plagiarism-checker`. Tool cards, sidebar links,
+breadcrumbs, related tools, the sitemap (154 tool URLs), the CMS slug hints and every CTA use that
+prefix; the old `/tool/<slug>` prefix 301s across with the slug and any query string kept.
 
 The redirects live in three places so no link ever breaks: `public/.htaccess` (server, `[R=301,L]`),
 `src/router.ts` (`TOOLS_PATH` + `LEGACY_TOOLS_PATHS`, rewritten with `replaceState` before the first
@@ -160,9 +165,9 @@ to move or version it. See `CMS.md` for the full CMS reference.
 
 ```bash
 npm run typecheck                  # tsc --noEmit
-node scripts/feature-audit.mjs     # 122 checks: CMS controls, footer redesign, legal URLs, /free-seo-tools, text-tool layout/mobile, case-converter grid, Tool Categories mega menu, no-bold top nav, category chips removed from /free-seo-tools, no EKSTRUH, 154 tools
+node scripts/feature-audit.mjs     # 130 checks: CMS controls, footer redesign, legal URLs, /free-seo-tools, text-tool layout/mobile, case-converter grid, Tool Categories mega menu, no-bold top nav, category chips removed from /free-seo-tools, /free-seo-tool/<slug> tool URLs, no EKSTRUH, 154 tools
 npm install --no-save jsdom
-node scripts/verify-single-file.mjs  # 114 checks: boots the built file, instant swap, footer, legal URLs, head injection, text-tool layout, mega-menu navigation
+node scripts/verify-single-file.mjs  # 119 checks: boots the built file, instant swap, footer, legal URLs, head injection, text-tool layout, mega-menu navigation
 npm test                           # 34 Playwright tests (needs Chromium)
 ```
 
