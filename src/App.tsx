@@ -3,17 +3,18 @@ import { categoryDescriptions, categoryLabels, ToolIcon } from './tools/data';
 import { fetchPageData, type LivePageData } from './utils/pageFetch';
 import { fetchDomainInfo, type DomainInfo } from './utils/domainLookup';
 import { sanitizeRichHtml } from './utils/sanitize';
-import { CmsProvider, useCms, liveTools, livePosts, findPage, blocksToHtml } from './cms/store';
+import { CmsProvider, useCms, liveTools, livePosts, findPage, blocksToHtml, renderCopyright, type SocialLinks } from './cms/store';
 import SerpPreview from './components/SerpPreview';
 import { SeoManager } from './utils/seo';
 import { cleanHref, getRoute, navigate, rewriteLegacyLinks, subscribe } from './router';
 import { lazyRoute } from './utils/lazyRetry';
 import { LoadingFallback, RouteBoundary } from './components/ErrorBoundary';
 
-// Route modules are evaluated only when visited. The production build keeps
-// them as separate chunks, so each one is a network request that can fail or
-// stall: `lazyRoute` retries the import and hands a permanent failure to
-// <RouteBoundary> instead of leaving the fallback spinner on screen forever.
+// Route modules are declared lazily so the app graph stays readable, but the
+// production build is a single file: every module is inlined into
+// dist/index.html, so opening a route never waits on a network request and no
+// route ever shows a loading placeholder. `lazyRoute` keeps its retry wrapper
+// in case a component throws while rendering.
 const BlogList = lazyRoute(() => import('./blog/Blog').then(m => ({ default: m.BlogList })));
 const BlogArticlePage = lazyRoute(() => import('./blog/Blog').then(m => ({ default: m.BlogArticlePage })));
 const ToolsList = lazyRoute(() => import('./tools/Tools').then(m => ({ default: m.ToolsList })));
@@ -1279,13 +1280,19 @@ const AudienceIcon: React.FC<{ type: string }> = ({ type }) => {
 };
 
 // Routing lives in src/router.ts — the route is derived from the clean URL
-// pathname (/tools, /blog/slug, /about, …). Legacy #/ hash links are rewritten
-// to it before the first render, and .htaccess 301s the old /p/… paths.
+// pathname (/free-tools, /blog/slug, /about, …). Legacy #/ hash links are
+// rewritten to it before the first render, and .htaccess 301s both the old
+// /p/… paths and /tools → /free-tools.
 
-// Footer social links — placeholder platform URLs, replace with real profiles.
-const footerSocials = [
-  { label: 'X (Twitter)', href: 'https://x.com/', icon: () => (<svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zM17.083 19.77h1.833L7.084 4.126H5.117z" /></svg>) },
-  { label: 'Facebook', href: 'https://www.facebook.com/', icon: () => (<svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" /></svg>) },
+/** The five social profiles the CMS can fill in (Admin → Sections & Nav →
+ *  Brand & footer). A blank URL hides that icon, so the footer only ever
+ *  links to profiles the site owner actually configured. */
+const SOCIAL_META: { key: keyof SocialLinks; label: string; icon: React.FC }[] = [
+  { key: 'facebook', label: 'Facebook', icon: () => (<svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" /></svg>) },
+  { key: 'x', label: 'X (Twitter)', icon: () => (<svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zM17.083 19.77h1.833L7.084 4.126H5.117z" /></svg>) },
+  { key: 'linkedin', label: 'LinkedIn', icon: () => (<svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M20.45 20.45h-3.55v-5.57c0-1.33-.02-3.04-1.85-3.04-1.85 0-2.13 1.45-2.13 2.94v5.67H9.36V9h3.41v1.56h.05c.47-.9 1.63-1.85 3.36-1.85 3.6 0 4.27 2.37 4.27 5.45v6.29zM5.34 7.43a2.06 2.06 0 1 1 0-4.12 2.06 2.06 0 0 1 0 4.12zm1.78 13.02H3.56V9h3.56v11.45zM22.22 0H1.77C.79 0 0 .77 0 1.72v20.56C0 23.23.79 24 1.77 24h20.45c.98 0 1.78-.77 1.78-1.72V1.72C24 .77 23.2 0 22.22 0z" /></svg>) },
+  { key: 'instagram', label: 'Instagram', icon: () => (<svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2.16c3.2 0 3.58.01 4.85.07 1.17.05 1.8.25 2.23.41.56.22.96.48 1.38.9.42.42.68.82.9 1.38.16.42.36 1.06.41 2.23.06 1.27.07 1.65.07 4.85s-.01 3.58-.07 4.85c-.05 1.17-.25 1.8-.41 2.23-.22.56-.48.96-.9 1.38-.42.42-.82.68-1.38.9-.42.16-1.06.36-2.23.41-1.27.06-1.65.07-4.85.07s-3.58-.01-4.85-.07c-1.17-.05-1.8-.25-2.23-.41a3.7 3.7 0 0 1-1.38-.9 3.7 3.7 0 0 1-.9-1.38c-.16-.42-.36-1.06-.41-2.23C2.17 15.58 2.16 15.2 2.16 12s.01-3.58.07-4.85c.05-1.17.25-1.8.41-2.23.22-.56.48-.96.9-1.38.42-.42.82-.68 1.38-.9.42-.16 1.06-.36 2.23-.41C8.42 2.17 8.8 2.16 12 2.16Zm0 3.68a6.16 6.16 0 1 0 0 12.32 6.16 6.16 0 0 0 0-12.32Zm0 10.16a4 4 0 1 1 0-8 4 4 0 0 1 0 8Zm7.85-10.4a1.44 1.44 0 1 1-2.88 0 1.44 1.44 0 0 1 2.88 0Z" /></svg>) },
+  { key: 'youtube', label: 'YouTube', icon: () => (<svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M23.5 6.2a3.02 3.02 0 0 0-2.12-2.14C19.5 3.55 12 3.55 12 3.55s-7.5 0-9.38.51A3.02 3.02 0 0 0 .5 6.2C0 8.09 0 12 0 12s0 3.91.5 5.8a3.02 3.02 0 0 0 2.12 2.14c1.88.51 9.38.51 9.38.51s7.5 0 9.38-.51a3.02 3.02 0 0 0 2.12-2.14C24 15.91 24 12 24 12s0-3.91-.5-5.8ZM9.55 15.57V8.43L15.82 12l-6.27 3.57Z" /></svg>) },
 ];
 
 type Crumb = { label: string; href?: string };
@@ -1406,6 +1413,16 @@ const SiteApp: React.FC = () => {
 
   const isBlog = route === 'blog' || route.startsWith('blog/');
   const isTools = route === 'free-tools' || route === 'tools' || route.startsWith('tool/');
+
+  // Footer content is live: every value below is read straight from the CMS
+  // store, so a save in Admin → Sections & Nav → Brand & footer updates the
+  // rendered footer immediately (and persists across reloads).
+  const footerLogo = (cms.state.settings.footerLogoUrl || '').trim();
+  const footerNote = (cms.state.settings.footerNote || '').trim();
+  const footerMenuLinks = (cms.state.settings.footerLinks || []).filter(link => link.visible && link.label.trim());
+  const footerSocials = SOCIAL_META
+    .map(meta => ({ ...meta, href: (cms.state.settings.social?.[meta.key] || '').trim() }))
+    .filter(entry => entry.href);
 
   const handleAnalyze = useCallback(async () => {
     const trimmed = url.trim();
@@ -2027,28 +2044,56 @@ const SiteApp: React.FC = () => {
       {/* Footer — simple, lightweight */}
       <footer className={`bg-slate-900 text-white pt-10 pb-6 px-4 ${cms.state.sections.footer ? '' : 'hidden'}`}>
         <div className="max-w-7xl mx-auto">
-          {/* Brand + social icons */}
+          {/* Brand + social icons — every value here comes from the CMS */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-5 pb-8 border-b border-slate-800">
             <a href="/" className="flex items-center gap-2.5">
-              <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center text-white">
-                <InlineIcons.BarChart3 />
-              </div>
+              {footerLogo ? (
+                <img
+                  src={footerLogo}
+                  alt={`${cms.state.settings.name} logo`}
+                  width={40}
+                  height={40}
+                  loading="lazy"
+                  decoding="async"
+                  className="w-10 h-10 rounded-xl object-cover bg-white/5"
+                />
+              ) : (
+                <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center text-white">
+                  <InlineIcons.BarChart3 />
+                </div>
+              )}
               <span>
                 <span className="block text-lg font-bold leading-tight">{cms.state.settings.name}</span>
                 <span className="block text-xs text-slate-400">{cms.state.settings.tagline}</span>
               </span>
             </a>
-            <div className="flex items-center gap-2">
-              {footerSocials.map(s => (
-                <a key={s.label} href={s.href} target="_blank" rel="noopener noreferrer" aria-label={s.label} title={s.label} className="w-9 h-9 rounded-lg bg-slate-800 hover:bg-indigo-600 flex items-center justify-center text-slate-400 hover:text-white transition-colors">
-                  <s.icon />
-                </a>
-              ))}
-            </div>
+            {footerSocials.length > 0 && (
+              <div className="flex items-center gap-2">
+                {footerSocials.map(s => (
+                  <a key={s.key} href={s.href} target="_blank" rel="noopener noreferrer" aria-label={s.label} title={s.label} className="w-9 h-9 rounded-lg bg-slate-800 hover:bg-indigo-600 flex items-center justify-center text-slate-400 hover:text-white transition-colors">
+                    <s.icon />
+                  </a>
+                ))}
+              </div>
+            )}
           </div>
 
-          {/* Four link columns */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-8 py-10">
+          {footerNote && (
+            <p className="pt-8 text-sm text-slate-400 leading-relaxed max-w-3xl">{footerNote}</p>
+          )}
+
+          {/* Link columns (Editable footer menu + the built-in site columns) */}
+          <div className={`grid grid-cols-2 gap-8 py-10 ${footerMenuLinks.length ? 'md:grid-cols-4 lg:grid-cols-5' : 'md:grid-cols-4'}`}>
+            {footerMenuLinks.length > 0 && (
+              <nav aria-label={cms.state.settings.footerMenuTitle || 'Footer menu'}>
+                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-4">{cms.state.settings.footerMenuTitle}</h3>
+                <ul className="space-y-2.5">
+                  {footerMenuLinks.map(l => (
+                    <li key={l.id}><a href={cleanHref(l.href) || l.href} className="text-sm text-slate-400 hover:text-white transition-colors">{l.label}</a></li>
+                  ))}
+                </ul>
+              </nav>
+            )}
             {[
               { title: 'SEO Tools', links: [
                 { label: 'Free SEO Audit', href: '/' },
@@ -2085,9 +2130,9 @@ const SiteApp: React.FC = () => {
             </nav>
           </div>
 
-          {/* Bottom bar */}
+          {/* Bottom bar — copyright text is editable (Admin → Brand & footer) */}
           <div className="border-t border-slate-800 pt-6 text-xs text-slate-400">
-            <p>© {new Date().getFullYear()} EKSTRUH LTD · Trading as {cms.state.settings.name} ({cms.state.settings.domain}) · Free SEO tools for Pakistan &amp; worldwide. All rights reserved.</p>
+            <p>{renderCopyright(cms.state.settings.footerCopyright, cms.state.settings.name, cms.state.settings.domain)}</p>
           </div>
         </div>
       </footer>

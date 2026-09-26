@@ -1,10 +1,10 @@
-import React, { useMemo, useState } from 'react';
-import { useCms, type CmsPage, type CmsPost, type CmsTool, type SeoEntry, type SidebarLinkSource, type SidebarWidget, type SidebarWidgetType, type Status } from './store';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { useCms, injectHeadCode, renderCopyright, type CmsPage, type CmsPost, type CmsTool, type SeoEntry, type SidebarLinkSource, type SidebarWidget, type SidebarWidgetType, type Status } from './store';
 import { categoryLabels, categoryOrder, ToolIcon, type ToolCategory } from '../tools/data';
 import { RichTextEditor } from './RichTextEditor';
 import { clearDraft, draftId, formatDraftTime, listDrafts, clearAllDrafts } from './drafts';
 import { navigate } from '../router';
-import { estimateLocalStorageBytes, formatBytes, BROWSER_QUOTA_BYTES } from './media';
+import { estimateLocalStorageBytes, formatBytes, BROWSER_QUOTA_BYTES, optimizeImageFile, validateUpload } from './media';
 
 /* ---------------- shared bits ---------------- */
 const STATUS_META: Record<Status, { label: string; cls: string }> = {
@@ -558,11 +558,52 @@ const NewPageForm: React.FC<{ onDone: () => void }> = ({ onDone }) => {
   );
 };
 
+/** Purple save button. Runs the save, then shows "Saved ✓" for 2.5 seconds. */
+const SaveButton: React.FC<{ onSave: () => void; label?: string; className?: string }> = ({ onSave, label = 'Save Changes', className = '' }) => {
+  const [saved, setSaved] = useState(false);
+  useEffect(() => {
+    if (!saved) return;
+    const id = window.setTimeout(() => setSaved(false), 2500);
+    return () => window.clearTimeout(id);
+  }, [saved]);
+  return (
+    <button
+      type="button"
+      onClick={() => { onSave(); setSaved(true); }}
+      className={`px-4 py-2.5 rounded-lg text-sm font-bold text-white bg-purple-600 hover:bg-purple-700 active:bg-purple-800 shadow-sm transition-colors ${className}`}
+    >
+      <span role="status" aria-live="polite">{saved ? 'Saved ✓' : label}</span>
+    </button>
+  );
+};
+
+/** Shared row editor for the header nav and the footer menu: label, URL,
+ *  visible/hidden toggle and remove. */
+const MenuRowEditor: React.FC<{
+  label: string;
+  href: string;
+  visible: boolean;
+  onLabel: (value: string) => void;
+  onHref: (value: string) => void;
+  onToggle: () => void;
+  onRemove: () => void;
+}> = ({ label, href, visible, onLabel, onHref, onToggle, onRemove }) => (
+  <div className="flex flex-wrap items-center gap-2">
+    <input className={inputCls + ' max-w-[200px]'} value={label} onChange={e => onLabel(e.target.value)} placeholder="Label" aria-label="Link label" />
+    <input className={inputCls + ' max-w-[240px] font-mono text-xs'} value={href} onChange={e => onHref(e.target.value)} placeholder="/free-tools" aria-label="Link URL" />
+    <Btn tone={visible ? 'ghost' : 'danger'} onClick={onToggle}>{visible ? 'Visible' : 'Hidden'}</Btn>
+    <Btn tone="ghost" onClick={onRemove}>Remove</Btn>
+  </div>
+);
+
 const SectionsPane: React.FC = () => {
   const { state, setSections, setNav, setSettings } = useCms();
-  const [savedNav, setSavedNav] = useState(false);
-  const [savedBrand, setSavedBrand] = useState(false);
-  const confirmSave = (setter: (value: boolean) => void) => { setter(true); window.setTimeout(() => setter(false), 2500); };
+  const [logoError, setLogoError] = useState('');
+  const [logoBusy, setLogoBusy] = useState(false);
+  const logoInput = useRef<HTMLInputElement>(null);
+  const settings = state.settings;
+  const social = settings.social || { facebook: '', x: '', linkedin: '', instagram: '', youtube: '' };
+  const footerLinks = settings.footerLinks || [];
   const labels: Record<keyof typeof state.sections, [string, string]> = {
     hero: ['Hero + URL audit box', 'The headline, sub-headline and the audit form at the top'],
     auditTool: ['Hero tool form', 'The URL input and Analyze button'],
@@ -576,6 +617,23 @@ const SectionsPane: React.FC = () => {
     cta: ['Final CTA', 'Bottom call to action'],
     footer: ['Footer', 'Site footer with links and domain'],
   };
+
+  const pickLogo = async (file: File | undefined) => {
+    if (!file) return;
+    setLogoError('');
+    const problem = validateUpload(file);
+    if (problem) { setLogoError(problem); return; }
+    setLogoBusy(true);
+    try {
+      const image = await optimizeImageFile(file);
+      setSettings({ footerLogoUrl: image.src });
+    } catch (error) {
+      setLogoError(error instanceof Error ? error.message : 'That image could not be read.');
+    } finally {
+      setLogoBusy(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <section className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
@@ -600,30 +658,132 @@ const SectionsPane: React.FC = () => {
           })}
         </div>
       </section>
-      <div className="bg-white rounded-2xl border border-slate-200 p-5">
-        <h3 className="font-bold text-slate-900 mb-3">Navigation menu</h3>
+
+      {/* ---------------- navigation menu ---------------- */}
+      <section className="bg-white rounded-2xl border border-slate-200 p-5 space-y-4">
+        <div>
+          <h3 className="font-bold text-slate-900">Navigation menu</h3>
+          <p className="text-sm text-slate-500 mt-0.5">These links appear in the header (desktop and mobile). Add, remove, hide or rename them, then save.</p>
+        </div>
         <div className="space-y-2">
           {state.nav.map((n, i) => (
-            <div key={n.id} className="flex flex-wrap items-center gap-2">
-              <input className={inputCls + ' max-w-[180px]'} value={n.label} onChange={e => setNav(state.nav.map((x, j) => j === i ? { ...x, label: e.target.value } : x))} />
-              <input className={inputCls + ' max-w-[220px] font-mono text-xs'} value={n.href} onChange={e => setNav(state.nav.map((x, j) => j === i ? { ...x, href: e.target.value } : x))} />
-              <Btn tone="ghost" onClick={() => setNav(state.nav.map((x, j) => j === i ? { ...x, visible: !x.visible } : x))}>{n.visible ? 'Visible' : 'Hidden'}</Btn>
-              <Btn tone="ghost" onClick={() => setNav(state.nav.filter((_, j) => j !== i))}>Remove</Btn>
-            </div>
+            <MenuRowEditor
+              key={n.id}
+              label={n.label}
+              href={n.href}
+              visible={n.visible}
+              onLabel={value => setNav(state.nav.map((x, j) => j === i ? { ...x, label: value } : x))}
+              onHref={value => setNav(state.nav.map((x, j) => j === i ? { ...x, href: value } : x))}
+              onToggle={() => setNav(state.nav.map((x, j) => j === i ? { ...x, visible: !x.visible } : x))}
+              onRemove={() => setNav(state.nav.filter((_, j) => j !== i))}
+            />
           ))}
+          {state.nav.length === 0 && <p className="text-sm text-slate-500">No menu links yet — add one below. “Home” is always shown.</p>}
         </div>
-        <Btn tone="ghost" className="mt-3" onClick={() => setNav([...state.nav, { id: Math.random().toString(36).slice(2, 9), label: 'New link', href: '/', visible: true }])}>+ Add nav link</Btn>
-        <Btn className="ml-2" onClick={() => confirmSave(setSavedNav)}>{savedNav ? '✅ Changes saved' : 'Save Changes'}</Btn>
-      </div>
-      <div className="bg-white rounded-2xl border border-slate-200 p-5 space-y-4">
-        <h3 className="font-bold text-slate-900">Brand &amp; footer</h3>
-        <div className="grid sm:grid-cols-3 gap-4">
-          <Field label="Site name"><input className={inputCls} value={state.settings.name} onChange={e => setSettings({ name: e.target.value })} /></Field>
-          <Field label="Domain"><input className={inputCls} value={state.settings.domain} onChange={e => setSettings({ domain: e.target.value })} /></Field>
-          <Field label="Footer note"><input className={inputCls} value={state.settings.footerNote} onChange={e => setSettings({ footerNote: e.target.value })} /></Field>
+        <div className="flex flex-wrap items-center gap-3">
+          <Btn tone="ghost" onClick={() => setNav([...state.nav, { id: Math.random().toString(36).slice(2, 9), label: 'New link', href: '/', visible: true }])}>+ Add</Btn>
+          <SaveButton onSave={() => setNav(state.nav.map(n => ({ ...n })))} />
+          <a href="/" target="_blank" rel="noopener" className="text-sm font-semibold text-indigo-600 hover:underline">Preview header ↗</a>
         </div>
-        <Btn onClick={() => confirmSave(setSavedBrand)}>{savedBrand ? '✅ Changes saved' : 'Save Changes'}</Btn>
-      </div>
+      </section>
+
+      {/* ---------------- brand & footer ---------------- */}
+      <section className="bg-white rounded-2xl border border-slate-200 p-5 space-y-6">
+        <div>
+          <h3 className="font-bold text-slate-900">Brand &amp; footer</h3>
+          <p className="text-sm text-slate-500 mt-0.5">Every field below is live on the public footer. Saving keeps it in this browser, so it survives a refresh.</p>
+        </div>
+
+        {/* Identity */}
+        <div className="space-y-4 rounded-xl border border-slate-100 bg-slate-50/60 p-4">
+          <h4 className="font-bold text-slate-800 text-sm">Site identity</h4>
+          <div className="grid sm:grid-cols-3 gap-4">
+            <Field label="Site name"><input className={inputCls} value={settings.name} onChange={e => setSettings({ name: e.target.value })} /></Field>
+            <Field label="Domain"><input className={inputCls} value={settings.domain} onChange={e => setSettings({ domain: e.target.value })} /></Field>
+            <Field label="Tagline"><input className={inputCls} value={settings.tagline} onChange={e => setSettings({ tagline: e.target.value })} /></Field>
+          </div>
+          <Field label="Footer note" hint="Shown above the footer link columns."><textarea rows={2} className={inputCls} value={settings.footerNote} onChange={e => setSettings({ footerNote: e.target.value })} /></Field>
+          <SaveButton onSave={() => setSettings({ name: settings.name, domain: settings.domain, tagline: settings.tagline, footerNote: settings.footerNote })} />
+        </div>
+
+        {/* Logo */}
+        <div className="space-y-4 rounded-xl border border-slate-100 bg-slate-50/60 p-4">
+          <h4 className="font-bold text-slate-800 text-sm">Footer logo</h4>
+          <div className="grid lg:grid-cols-[minmax(0,1fr)_120px] gap-4 items-start">
+            <div className="space-y-3">
+              <Field label="Logo URL" hint="Any image URL, or upload a file. Leave blank to keep the default mark.">
+                <input className={inputCls} value={settings.footerLogoUrl} onChange={e => setSettings({ footerLogoUrl: e.target.value })} placeholder="https://example.com/logo.png" />
+              </Field>
+              <div className="flex flex-wrap items-center gap-2">
+                <input ref={logoInput} type="file" accept="image/png,image/jpeg,image/webp,image/gif,image/avif,image/bmp" className="hidden" onChange={e => { void pickLogo(e.target.files?.[0]); e.target.value = ''; }} aria-label="Upload footer logo" />
+                <Btn tone="ghost" disabled={logoBusy} onClick={() => logoInput.current?.click()}>{logoBusy ? 'Optimising…' : '⬆ Upload logo'}</Btn>
+                {settings.footerLogoUrl && <Btn tone="danger" onClick={() => setSettings({ footerLogoUrl: '' })}>Remove logo</Btn>}
+                <SaveButton onSave={() => setSettings({ footerLogoUrl: settings.footerLogoUrl })} />
+              </div>
+              {logoError && <p className="text-sm text-red-600">{logoError}</p>}
+            </div>
+            <div className="w-[120px] h-[120px] rounded-xl border border-dashed border-slate-300 bg-white overflow-hidden flex items-center justify-center text-center">
+              {settings.footerLogoUrl
+                ? <img src={settings.footerLogoUrl} alt="Footer logo preview" className="w-full h-full object-contain" />
+                : <span className="text-[11px] text-slate-400 px-2">Default mark</span>}
+            </div>
+          </div>
+        </div>
+
+        {/* Footer menu */}
+        <div className="space-y-4 rounded-xl border border-slate-100 bg-slate-50/60 p-4">
+          <h4 className="font-bold text-slate-800 text-sm">Footer menu links</h4>
+          <Field label="Section title"><input className={inputCls + ' max-w-xs'} value={settings.footerMenuTitle} onChange={e => setSettings({ footerMenuTitle: e.target.value })} /></Field>
+          <div className="space-y-2">
+            {footerLinks.map((link, i) => (
+              <MenuRowEditor
+                key={link.id}
+                label={link.label}
+                href={link.href}
+                visible={link.visible}
+                onLabel={value => setSettings({ footerLinks: footerLinks.map((x, j) => j === i ? { ...x, label: value } : x) })}
+                onHref={value => setSettings({ footerLinks: footerLinks.map((x, j) => j === i ? { ...x, href: value } : x) })}
+                onToggle={() => setSettings({ footerLinks: footerLinks.map((x, j) => j === i ? { ...x, visible: !x.visible } : x) })}
+                onRemove={() => setSettings({ footerLinks: footerLinks.filter((_, j) => j !== i) })}
+              />
+            ))}
+            {footerLinks.length === 0 && <p className="text-sm text-slate-500">No footer links — the extra footer column is hidden until you add one.</p>}
+          </div>
+          <div className="flex flex-wrap items-center gap-3">
+            <Btn tone="ghost" onClick={() => setSettings({ footerLinks: [...footerLinks, { id: Math.random().toString(36).slice(2, 9), label: 'New link', href: '/', visible: true }] })}>+ Add</Btn>
+            <SaveButton onSave={() => setSettings({ footerMenuTitle: settings.footerMenuTitle, footerLinks: footerLinks.map(l => ({ ...l })) })} />
+          </div>
+        </div>
+
+        {/* Social profiles */}
+        <div className="space-y-4 rounded-xl border border-slate-100 bg-slate-50/60 p-4">
+          <h4 className="font-bold text-slate-800 text-sm">Social profiles</h4>
+          <p className="text-xs text-slate-500">Leave a field empty to hide that icon. Icons appear in the footer, in this order.</p>
+          <div className="grid sm:grid-cols-2 gap-4">
+            {([['facebook', 'Facebook URL'], ['x', 'X (Twitter) URL'], ['linkedin', 'LinkedIn URL'], ['instagram', 'Instagram URL'], ['youtube', 'YouTube URL']] as const).map(([key, label]) => (
+              <Field key={key} label={label}>
+                <input className={inputCls} value={social[key]} onChange={e => setSettings({ social: { ...social, [key]: e.target.value } })} placeholder={`https://${key === 'x' ? 'x.com/yourhandle' : `${key}.com/yourpage`}`} />
+              </Field>
+            ))}
+          </div>
+          <SaveButton onSave={() => setSettings({ social: { ...social } })} />
+        </div>
+
+        {/* Copyright */}
+        <div className="space-y-4 rounded-xl border border-slate-100 bg-slate-50/60 p-4">
+          <h4 className="font-bold text-slate-800 text-sm">Footer copyright text</h4>
+          <Field label="Copyright line" hint="Placeholders: {year} · {name} · {domain}">
+            <input className={inputCls} value={settings.footerCopyright} onChange={e => setSettings({ footerCopyright: e.target.value })} />
+          </Field>
+          <div className="flex flex-wrap items-center gap-2">
+            {['{year}', '{name}', '{domain}'].map(token => (
+              <button key={token} type="button" onClick={() => setSettings({ footerCopyright: `${settings.footerCopyright} ${token}`.trim() })} className="px-2.5 py-1 rounded-md border border-slate-300 bg-white font-mono text-xs text-slate-700 hover:border-purple-400 hover:text-purple-700">{token}</button>
+            ))}
+          </div>
+          <p className="text-xs text-slate-500">Live preview: <span className="text-slate-700">{renderCopyright(settings.footerCopyright, settings.name, settings.domain)}</span></p>
+          <SaveButton onSave={() => setSettings({ footerCopyright: settings.footerCopyright })} />
+        </div>
+      </section>
     </div>
   );
 };
@@ -804,6 +964,14 @@ const SettingsPane: React.FC = () => {
       <section className="lg:col-span-2 bg-white rounded-2xl border border-slate-200 p-5 space-y-3">
         <div><h3 className="font-bold text-slate-900">Header Verification &amp; Ads</h3><p className="text-sm text-slate-500">Paste AdSense, Google Search Console, Bing Webmaster or other verification snippets. They are added inside the document head.</p></div>
         <textarea rows={7} className={inputCls + ' font-mono text-xs'} value={state.settings.headerVerificationAds || ''} onChange={e => setSettings({ headerVerificationAds: e.target.value })} placeholder={'<meta name="google-site-verification" content="…">'} aria-label="Header verification and ads code" />
+        <div className="flex flex-wrap items-center gap-3">
+          <SaveButton label="Save Changes" onSave={() => {
+            const code = state.settings.headerVerificationAds || '';
+            setSettings({ headerVerificationAds: code });
+            injectHeadCode(code);
+          }} />
+          <span className="text-xs text-slate-500">Saved in this browser and injected into <code>&lt;head&gt;</code> immediately.</span>
+        </div>
       </section>
       <div className="bg-white rounded-2xl border border-slate-200 p-5 space-y-4">
         <h3 className="font-bold text-slate-900">Password</h3>

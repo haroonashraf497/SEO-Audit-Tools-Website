@@ -4,7 +4,7 @@ import { fileURLToPath } from "url";
 import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
 import { defineConfig, type Plugin } from "vite";
-import { inlineCriticalCss } from "./scripts/inline-css";
+import { viteSingleFile } from "vite-plugin-singlefile";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -22,7 +22,19 @@ const hostingFiles = (): Plugin => ({
 });
 
 export default defineConfig({
-  plugins: [react(), tailwindcss(), inlineCriticalCss(), hostingFiles()],
+  plugins: [
+    react(),
+    tailwindcss(),
+    // Single-file build: every route module, all of the CMS/admin UI and the
+    // stylesheet are inlined into dist/index.html, so the deployed app is one
+    // document with no chunks to fetch. Opening any route is therefore
+    // instant — there is no lazy network request and no loading placeholder.
+    // `useRecommendedBuildConfig: false` keeps the public base path absolute
+    // (`/favicon.svg`, `/og.jpg`, …); the defaults the plugin would otherwise
+    // apply are set explicitly in `build` below.
+    viteSingleFile({ useRecommendedBuildConfig: false, removeViteModuleLoader: true }),
+    hostingFiles(),
+  ],
   server: {
     host: true,
     allowedHosts: [".e2b.app", ".arena.site"],
@@ -43,15 +55,18 @@ export default defineConfig({
       compress: { passes: 2 },
       format: { comments: false },
     },
-    // One stylesheet for the whole app; it is inlined into <head> so the
-    // prerendered page never waits on a second render-blocking request.
+    // One document, one stylesheet, one script — all inlined.
     cssCodeSplit: false,
-    // Route modules are real external chunks fetched by React.lazy on
-    // demand. The entry and its static imports are preloaded; the polyfill
-    // is unnecessary on the existing Tailwind 4 browser baseline.
-    modulePreload: { polyfill: false },
+    assetsInlineLimit: () => true,
+    chunkSizeWarningLimit: 100_000_000,
+    modulePreload: false,
     reportCompressedSize: false,
     sourcemap: false,
+    rollupOptions: {
+      output: {
+        inlineDynamicImports: true,
+      },
+    },
   },
   esbuild: {
     legalComments: "none",

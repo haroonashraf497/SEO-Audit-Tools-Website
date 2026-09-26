@@ -25,9 +25,10 @@ for (const [path, heading] of [
     await expect(page.locator('main')).toHaveCount(1);
     await page.reload();
     await expect(page.locator('h1')).toHaveText(heading);
-    // Canonicals are explicitly protected: preserve the existing hash values.
+    // Clean-URL canonicals: the site uses History-API routes, so the canonical
+    // must be the real path (a hash URL would canonicalise to a different page).
     if (!path.startsWith('/admin')) {
-      await expect(page.locator('link[rel="canonical"]')).toHaveAttribute('href', `https://seoaudittools.pk/#${path.split('?')[0]}`);
+      await expect(page.locator('link[rel="canonical"]')).toHaveAttribute('href', `https://seoaudittools.pk${path.split('?')[0]}`);
     }
   });
 }
@@ -147,38 +148,33 @@ test('homepage accessibility, including below-fold sections', async ({ page }) =
   await expect(page.getByRole('button', { name: 'Close cookie preferences' })).toBeVisible();
 });
 
-test('code-split build: homepage first, other routes load on demand', async ({ page }) => {
+test('single-file build: one document, no chunks to fetch', async ({ page }) => {
   const html = readFileSync('dist/index.html', 'utf8');
-  // The document is prerendered homepage markup + inline CSS; the application
-  // graph is external, content-hashed and loaded without blocking the paint.
-  expect(html).toMatch(/<script[^>]+src="\/assets\/index-[^"]+\.js"/);
+  // Every route — tools, blog, CMS, admin, editors — lives inside the one
+  // document: no external application script, no preload markers, no chunked
+  // module graph to fetch.
+  expect(html).not.toMatch(/<script[^>]+src="\/assets\//);
   expect(html).not.toContain('__VITE_PRELOAD__');
   expect(html).not.toContain('id="app-modules"');
-  expect(html.length).toBeLessThan(220 * 1024); // was a 1.3 MB single file
-
-  // Every protected surface remains its own lazily-fetched chunk.
-  const assets = readdirSync('dist/assets');
-  for (const prefix of ['Tools-', 'Admin-', 'AdminLogin-', 'Blog-', 'CompetitorAnalysis-', 'PdfTools-']) {
-    expect(assets.some(f => f.startsWith(prefix) && f.endsWith('.js'))).toBe(true);
-  }
-  // The homepage document must not reference or preload any route chunk.
-  expect(html).not.toMatch(/assets\/(?:Tools|Admin|AdminLogin|Blog|CompetitorAnalysis|ConvertTools|PdfTools|Sidebar|ui)-[^"']+\.js/);
+  expect(html).toMatch(/<script type="module"/);
+  // Route code really is inside the document.
+  expect(html).toContain('Percentage Calculator');
+  expect(html).toContain('Admin login');
+  // Nothing is emitted next to index.html except the public hosting files.
+  const entries = readdirSync('dist', { withFileTypes: true });
+  expect(entries.filter(entry => entry.isDirectory()).map(entry => entry.name)).toEqual([]);
 
   const requests: string[] = [];
   page.on('request', r => requests.push(r.url()));
-  await page.coverage.startJSCoverage();
   await page.goto('/');
   await expect.poll(() => page.evaluate(() => localStorage.getItem('seoaudittool:cms:v1'))).not.toBeNull();
-  const coverage = await page.coverage.stopJSCoverage();
-  // Only the entry chunk is compiled on home; tool/editor/PDF code is not
-  // even fetched, let alone parsed.
-  expect(coverage.map(entry => entry.url).filter(url => url.includes('/assets/')))
-    .toEqual([expect.stringMatching(/\/assets\/index-[^/]+\.js$/)]);
-  expect(requests.filter(url => /\/assets\/(?!index-)[^/]+\.js/.test(url))).toEqual([]);
+  // Not a single JavaScript or stylesheet request: all of it was in the HTML.
+  expect(requests.filter(url => /\.(?:js|css)(?:\?|$)/.test(url))).toEqual([]);
+  await expect(page.locator('main')).not.toContainText('Loading page');
 
+  // Opening a route is instant — nothing is fetched, so nothing can stall.
   await page.getByRole('button', { name: 'Decline', exact: true }).click();
   await page.locator('a[href="/tool/percentage-calculator"]').first().click();
   await expect(page.locator('h1')).toHaveText('Percentage Calculator');
-  // Visiting a tool is exactly when its code is fetched.
-  expect(requests.filter(url => /\/assets\/Tools-[^/]+\.js/.test(url)).length).toBeGreaterThan(0);
+  expect(requests.filter(url => url.includes('/assets/'))).toEqual([]);
 });

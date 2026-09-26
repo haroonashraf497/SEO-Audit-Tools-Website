@@ -1,16 +1,14 @@
 import React, { createContext, useContext } from 'react';
 
 /**
- * Route chunks are fetched from /assets on demand. Two things can go wrong on a
- * real network: the request fails (offline, flaky proxy, a 404 for a chunk that
- * a new deploy replaced) or it never settles at all. Both used to leave the
- * visitor staring at the "Loading page…" spinner forever, because a rejected
- * `React.lazy` import had no error boundary to land in and a stalled one simply
- * never resolves.
+ * Routes are declared with dynamic imports, but the production build inlines
+ * every module into the single dist/index.html — so an import resolves from
+ * memory and there is nothing to wait for on the network.
  *
- * This module makes the failure recoverable:
- *  - `importWithRetry` re-attempts a failed import a few times with backoff,
- *    which fixes the transient case with no user interaction;
+ * The retry wrapper stays for two reasons: an import can still throw while the
+ * module body is evaluated, and a component can throw on its first render.
+ * Both are recoverable instead of leaving a blank document:
+ *  - `importWithRetry` re-attempts a failed import a few times with backoff;
  *  - `lazyRoute` hands every route to `React.lazy` through that retrying loader
  *    and rebuilds the lazy component whenever the enclosing `ErrorBoundary`
  *    bumps the retry token, so an explicit "Try again" starts a genuinely new
@@ -19,7 +17,7 @@ import React, { createContext, useContext } from 'react';
  *    as a message with "Try again" / "Reload" instead of a blank page.
  */
 
-/** Total import attempts for one chunk before the failure is surfaced. */
+/** Total import attempts for one module before the failure is surfaced. */
 export const CHUNK_ATTEMPTS = 3;
 /** Delay before attempt 2; each later attempt waits twice as long. */
 export const CHUNK_RETRY_DELAY_MS = 200;
@@ -75,17 +73,16 @@ export function importWithRetry<T>(loader: () => Promise<T>, attempts: number = 
 /**
  * Built lazy components, keyed by loader. A render that suspends is thrown away
  * and re-run by React, so building the lazy component inside render would hand
- * React a brand new (still pending) promise on every retry and the fallback
- * would never resolve — the exact infinite spinner this module exists to
- * remove. One lazy component per loader + retry token preserves React's cached
- * rejection, which is what lets a permanent failure reach the error boundary.
+ * React a brand new (still pending) promise on every retry. One lazy component
+ * per loader + retry token preserves React's cached rejection, which is what
+ * lets a permanent failure reach the error boundary.
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyLazy = React.LazyExoticComponent<React.ComponentType<any>>;
 const lazyCache = new WeakMap<object, { token: number; lazy: AnyLazy }>();
 
 /**
- * Drop-in replacement for `React.lazy` that survives a failed chunk fetch.
+ * Drop-in replacement for `React.lazy` that survives a failed module load.
  * Bumping the retry token (the boundary's "Try again") builds a fresh lazy
  * component, which is the only way to make React issue the import again.
  */

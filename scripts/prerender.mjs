@@ -20,6 +20,22 @@ try {
   const markup = renderToString(React.createElement(App));
   const file = new URL('../dist/index.html', import.meta.url);
   let html = await readFile(file, 'utf8');
+  // The build is a single file: the whole application is inlined as one big
+  // <script> inside <head>. That code contains HTML in string literals —
+  // including the text `</head>` and `<div id="root">` — so a naive
+  // first-match replace would inject this gate *inside the script* and break
+  // it. The real document landmarks are always the LAST occurrence, because
+  // the inline script sits before them.
+  const insertBeforeLast = (source, needle, insert) => {
+    const at = source.lastIndexOf(needle);
+    if (at === -1) throw new Error(`prerender: could not find ${needle} in dist/index.html`);
+    return source.slice(0, at) + insert + source.slice(at);
+  };
+  const replaceLast = (source, needle, replacement) => {
+    const at = source.lastIndexOf(needle);
+    if (at === -1) throw new Error(`prerender: could not find ${needle} in dist/index.html`);
+    return source.slice(0, at) + replacement + source.slice(at + needle.length);
+  };
   // Only a fresh home visit may hydrate defaults. Existing CMS content, admin
   // sessions and consent always use the original client rendering path.
   const gate = `<style>html:not([data-prerender-home]) #root[data-prerender]{display:none}</style>
@@ -35,8 +51,8 @@ try {
   }
 } catch (_) { /* Storage unavailable: retain client rendering. */ }
 </script>`;
-  html = html.replace('</head>', () => `${gate}</head>`);
-  html = html.replace('<div id="root"></div>', () => `<div id="root" data-prerender>${markup}</div>`);
+  html = insertBeforeLast(html, '</head>', gate);
+  html = replaceLast(html, '<div id="root"></div>', `<div id="root" data-prerender>${markup}</div>`);
   await writeFile(file, html);
 } finally {
   await server.close();
