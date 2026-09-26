@@ -67,6 +67,18 @@ const boot = async (preloadJs = '', route = '/') => {
 };
 
 const text = dom => dom.window.document.body.textContent || '';
+/* Tool cards are main-area links to a top-level slug — everything the chrome
+ * (breadcrumbs, nav, category pages, blog, legal pages) points at is excluded. */
+const toolLinks = dom => [...dom.window.document.querySelectorAll('main a[href^="/"]')]
+  .filter(a => {
+    const h = a.getAttribute('href') || '';
+    return h !== '/' && h !== '/free-seo-tools' && !/^\/[a-z-]+-tools$/.test(h)
+      && !/^\/(blog|privacy|cookies|terms|about|contact|faq)(\/|$)/.test(h);
+  }).map(a => a.getAttribute('href'));
+/* Category links, without the "browse all tools" index link. */
+const categoryLinks = scope => [...scope.querySelectorAll('a')]
+  .map(a => a.getAttribute('href') || '')
+  .filter(h => /-tools$/.test(h) && h !== '/free-seo-tools');
 const wait = () => new Promise(resolve => setTimeout(resolve, 250));
 
 /* 1. the default document */
@@ -215,7 +227,7 @@ const wait = () => new Promise(resolve => setTimeout(resolve, 250));
 
 /* 6. every heavy route renders straight away — the PDF pages used to show a
       "Loading PDF engine…" Suspense fallback */
-for (const [path, expected] of [['/free-seo-tools/merge-pdf', 'Merge PDF'], ['/admin-login', 'Admin login'], ['/competitor-analysis', 'Competitor Analysis']]) {
+for (const [path, expected] of [['/merge-pdf', 'Merge PDF'], ['/admin-login', 'Admin login'], ['/competitor-analysis', 'Competitor Analysis']]) {
   const { dom, errors } = await boot('', path);
   const mainText = (dom.window.document.querySelector('main').textContent || '').trim();
   check(`${path} renders immediately with no loading state`,
@@ -224,42 +236,87 @@ for (const [path, expected] of [['/free-seo-tools/merge-pdf', 'Merge PDF'], ['/a
   dom.window.close();
 }
 
-/* 3b. tool pages answer on /free-seo-tools/<slug> (nested under the index) and
-      every older prefix is normalised to it (server 301s them as well) */
+/* 3b. tool pages answer on /<slug> at the top level (free-seo-tools is gone
+      from tool URLs) and every older nesting is normalised to it (the server
+      301s them as well) */
 {
-  const { dom, errors } = await boot('', '/free-seo-tools/plagiarism-checker');
+  const { dom, errors } = await boot('', '/plagiarism-checker');
   const doc = dom.window.document;
-  check('a tool page renders under /free-seo-tools/<slug>',
+  check('a tool page renders on /<slug>',
     errors.length === 0 && /Plagiarism Checker/.test(doc.querySelector('main h1')?.textContent || ''),
     doc.querySelector('main h1')?.textContent || 'no h1');
-  check('its canonical tag points at /free-seo-tools/<slug>',
-    (doc.querySelector('link[rel=canonical]')?.getAttribute('href') || '').endsWith('/free-seo-tools/plagiarism-checker'),
+  check('its canonical tag points at the top-level slug',
+    (doc.querySelector('link[rel=canonical]')?.getAttribute('href') || '').endsWith('/plagiarism-checker'),
     doc.querySelector('link[rel=canonical]')?.getAttribute('href') || '');
-  const cards = [...doc.querySelectorAll('main a[href^="/free-seo-tools/"]')].length;
-  check('its related-tool links use the nested path', cards > 0, `${cards} links`);
+  const cards = toolLinks(dom);
+  check('its related-tool links use top-level slugs too', cards.length > 0, `${cards.length} links`);
   dom.window.close();
 }
-for (const legacy of ['/tool/plagiarism-checker', '/free-seo-tool/plagiarism-checker', '/free-tools/grammar-checker']) {
+for (const legacy of ['/free-seo-tools/plagiarism-checker', '/tool/plagiarism-checker', '/free-seo-tool/plagiarism-checker', '/free-tools/grammar-checker']) {
   const { dom } = await boot('', legacy);
   const h1 = dom.window.document.querySelector('main h1')?.textContent?.trim();
-  const expected = legacy.replace(/^\/(tool|free-tools|free-seo-tool)\//, '/free-seo-tools/');
+  const expected = legacy.replace(/^\/(free-seo-tools|tool|free-tools|free-seo-tool)\//, '/');
   check(`${legacy} normalises to ${expected} and renders the tool`,
     dom.window.location.pathname === expected && !/not found/i.test(h1 || ''),
     `${dom.window.location.pathname} | ${h1}`);
   dom.window.close();
 }
-{
-  const { dom } = await boot('', '/free-seo-tool');
-  check('the bare /free-seo-tool path falls back to the tools index',
+for (const bare of ['/free-seo-tool', '/free-seo-tools', '/tools', '/tool', '/free-tools']) {
+  const { dom } = await boot('', bare);
+  check(`the bare ${bare} path falls back to the tools index`,
     dom.window.location.pathname === '/free-seo-tools',
     dom.window.location.pathname);
+  dom.window.close();
+}
+
+/* 3b-ii. category pages: ?cat=ip is a real URL /ip-tools */
+for (const [slug, label, count] of [['/ip-tools', 'IP Tools', 6], ['/website-checker-tools', 'Website Checker Tools', 24], ['/text-analysis-tools', 'Text Analysis Tools', 11], ['/unit-converter-tools', 'Unit Converter Tools', 10]]) {
+  const { dom, errors } = await boot('', slug);
+  const doc = dom.window.document;
+  const canonical = doc.querySelector('link[rel=canonical]')?.getAttribute('href') || '';
+  const cards = toolLinks(dom);
+  check(`${slug} is a real page with its own H1 and canonical URL`,
+    errors.length === 0
+    && (doc.querySelector('main h1')?.textContent || '').trim() === label
+    && canonical.endsWith(slug)
+    && cards.length === count
+    && /Showing \d+ of \d+ tools in /.test(doc.querySelector('main')?.textContent || ''),
+    `h1=${(doc.querySelector('main h1')?.textContent || '').trim()} | canonical=${canonical} | cards=${cards.length}`);
+  dom.window.close();
+}
+for (const [old, expected] of [['/free-seo-tools?cat=ip', '/ip-tools'], ['/free-tools?cat=checker', '/website-checker-tools'], ['/tools?cat=pdf', '/pdf-tools'], ['/free-seo-tools?cat=management', '/website-management-tools']]) {
+  const { dom } = await boot('', old);
+  check(`${old} lands on the ${expected} category page`,
+    dom.window.location.pathname === expected && dom.window.location.search === '',
+    `${dom.window.location.pathname}${dom.window.location.search}`);
+  dom.window.close();
+}
+{
+  const { dom } = await boot('', '/free-seo-tools?cat=checker&q=ssl');
+  check('a legacy ?cat= filter keeps its search term',
+    dom.window.location.pathname === '/website-checker-tools' && dom.window.location.search === '?q=ssl',
+    `${dom.window.location.pathname}${dom.window.location.search}`);
+  dom.window.close();
+}
+{
+  const { dom } = await boot('', '/website-checker-tools?q=ssl');
+  const doc = dom.window.document;
+  const reset = [...doc.querySelectorAll('main button')].find(b => /^Show all \d+ tools$/.test(b.textContent.trim()));
+  check('searching inside a category page filters that category only',
+    /Showing \d+ of \d+ tools in Website Checker Tools/.test(doc.querySelector('main')?.textContent || '') && !!reset,
+    (doc.querySelector('main p')?.textContent || '').slice(0, 80));
+  reset?.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true, cancelable: true }));
+  await new Promise(r => setTimeout(r, 120));
+  check('"Show all N tools" leaves the category page for the index',
+    dom.window.location.pathname === '/free-seo-tools' && dom.window.location.search === '',
+    `${dom.window.location.pathname}${dom.window.location.search}`);
   dom.window.close();
 }
 
 /* 3c. Merge PDF page loads with its drop zone, and the built file ships the
       optional "Compress more" step for the merge result */
 {
-  const { dom, errors } = await boot('', '/free-seo-tools/merge-pdf');
+  const { dom, errors } = await boot('', '/merge-pdf');
   const doc = dom.window.document;
   const text = doc.querySelector('main')?.textContent || '';
   check('Merge PDF renders its drop zone on the new URL',
@@ -276,9 +333,9 @@ for (const legacy of ['/tool/plagiarism-checker', '/free-seo-tool/plagiarism-che
   dom.window.close();
 }
 
-/* 4. legacy tools URLs — /tools, /tool and the previous /free-tools — are all
+/* 4. legacy tools URLs — /tools, /tool, /free-tools and /free-seo-tool — are all
       normalised to the canonical /free-seo-tools client-side */
-for (const legacy of ['/tools', '/tool', '/free-tools']) {
+for (const legacy of ['/tools', '/tool', '/free-tools', '/free-seo-tool']) {
   const { dom, errors } = await boot('', legacy);
   check(`legacy ${legacy} boot has no script errors`, errors.length === 0, errors.join(' | '));
   check(`${legacy} normalises to /free-seo-tools`, dom.window.location.pathname === '/free-seo-tools', dom.window.location.pathname);
@@ -286,9 +343,9 @@ for (const legacy of ['/tools', '/tool', '/free-tools']) {
   dom.window.close();
 }
 {
-  const { dom } = await boot('', '/free-tools?cat=pdf');
-  check('a filtered old URL keeps its query string',
-    dom.window.location.pathname === '/free-seo-tools' && dom.window.location.search === '?cat=pdf',
+  const { dom } = await boot('', '/free-tools?q=pdf');
+  check('a search-only old URL keeps its query string on the index',
+    dom.window.location.pathname === '/free-seo-tools' && dom.window.location.search === '?q=pdf',
     `${dom.window.location.pathname}${dom.window.location.search}`);
   dom.window.close();
 }
@@ -535,7 +592,7 @@ for (const [short, long, heading] of [['/privacy', '/privacy-policy', 'Privacy P
   const textSlugs = ['grammar-checker', 'plagiarism-checker', 'article-rewriter', 'word-counter', 'spell-checker', 'online-md5-generator', 'case-converter', 'merge-words-online-tool', 'text-to-speech', 'small-text-generator', 'reverse-text-generator'];
   const results12 = [];
   for (const slug of textSlugs) {
-    const boot12 = await boot('', `/free-seo-tools/${slug}`);
+    const boot12 = await boot('', `/${slug}`);
     const info = layout(boot12.dom);
     const main = boot12.dom.window.document.querySelector('main');
     results12.push({ slug, ...info, err: boot12.errors.length, h1: main.querySelector('h1')?.textContent?.trim() || '' });
@@ -551,7 +608,7 @@ for (const [short, long, heading] of [['/privacy', '/privacy-policy', 'Privacy P
   const otherSlugs = ['merge-pdf', 'website-seo-score-checker', 'meta-tag-generator', 'bmi-calculator'];
   const others = [];
   for (const slug of otherSlugs) {
-    const bootOther = await boot('', `/free-seo-tools/${slug}`);
+    const bootOther = await boot('', `/${slug}`);
     others.push({ slug, ...layout(bootOther.dom) });
     bootOther.dom.window.close();
   }
@@ -570,7 +627,7 @@ for (const [short, long, heading] of [['/privacy', '/privacy-policy', 'Privacy P
     await new Promise(r => setTimeout(r, 60));
     const panel = doc.getElementById('tool-categories-menu');
     const links = [...(panel?.querySelectorAll('a') || [])];
-    const categories = links.filter(a => (a.getAttribute('href') || '').startsWith('/free-seo-tools?cat='));
+    const categories = links.filter(a => categoryLinks({ querySelectorAll: () => [a] }).length === 1);
     const expected = [
       'Text Analysis Tools (11)', 'Keyword Tools (8)', 'Backlink Tools (8)', 'Calculator Tools (14)',
       'Website Management Tools (45)', 'Website Checker Tools (24)', 'Domain Tools (8)', 'Unit Converter Tools (10)',
@@ -581,24 +638,26 @@ for (const [short, long, heading] of [['/privacy', '/privacy-policy', 'Privacy P
       && categories.length === 11
       && JSON.stringify(categories.map(a => a.textContent.replace(/\s+/g, ' ').trim())) === JSON.stringify(expected),
       `${categories.length} category links: ${categories.map(a => a.textContent.replace(/\s+/g, ' ').trim()).join(' | ')}`);
-    check('each category links to its filtered tools page',
-      JSON.stringify(categories.map(a => a.getAttribute('href'))) === JSON.stringify(['text', 'keyword', 'backlink', 'calculator', 'management', 'checker', 'domain', 'converter', 'ip', 'pdf', 'image'].map(c => `/free-seo-tools?cat=${c}`)));
+    check('each category links to its own page',
+      JSON.stringify(categories.map(a => a.getAttribute('href'))) === JSON.stringify(['/text-analysis-tools', '/keyword-tools', '/backlink-tools', '/calculator-tools', '/website-management-tools', '/website-checker-tools', '/domain-tools', '/unit-converter-tools', '/ip-tools', '/pdf-tools', '/image-tools']),
+      categories.map(a => a.getAttribute('href')).join(' | '));
     check('panel carries no heading of its own',
       (panel?.querySelectorAll('h1, h2, h3, h4, h5, h6').length || 0) === 0
       && !(panel?.textContent || '').includes('Tool Categories'),
       `headings=${panel?.querySelectorAll('h1, h2, h3, h4, h5, h6').length}`);
     check('panel is a fixed mega panel under the 4rem nav', /fixed left-0 right-0 top-16 z-50/.test(panel?.className || ''));
 
-    // clicking a category navigates and filters the tools list
-    const checker = categories.find(a => a.getAttribute('href') === '/free-seo-tools?cat=checker');
+    // clicking a category opens its own page in the same task
+    const checker = categories.find(a => a.getAttribute('href') === '/website-checker-tools');
     checker?.dispatchEvent(new bootNav.dom.window.MouseEvent('click', { bubbles: true, cancelable: true }));
     await new Promise(r => setTimeout(r, 120));
     const status = [...doc.querySelectorAll('main p')].find(p => /Showing/.test(p.textContent));
-    check('clicking a category filters the tools page in the same task',
-      bootNav.dom.window.location.pathname === '/free-seo-tools' && bootNav.dom.window.location.search === '?cat=checker'
-      && doc.querySelectorAll('main a[href^="/free-seo-tools/"]').length === 24
+    const catCards = toolLinks(bootNav.dom);
+    check('clicking a category opens the category page in the same task',
+      bootNav.dom.window.location.pathname === '/website-checker-tools' && bootNav.dom.window.location.search === ''
+      && catCards.length === 24
       && /Showing 24 of \d+ tools in Website Checker Tools/.test(status?.textContent || ''),
-      `${bootNav.dom.window.location.pathname}${bootNav.dom.window.location.search}, tools=${doc.querySelectorAll('main a[href^="/free-seo-tools/"]').length}, status=${status?.textContent.replace(/\s+/g, ' ').trim()}`);
+      `${bootNav.dom.window.location.pathname}${bootNav.dom.window.location.search}, tools=${catCards.length}, status=${status?.textContent.replace(/\s+/g, ' ').trim()}`);
     check('the menu closes once a category is chosen', doc.getElementById('tool-categories-menu')?.className.includes('hidden'));
     bootNav.dom.window.close();
   }
@@ -627,9 +686,10 @@ for (const [short, long, heading] of [['/privacy', '/privacy-policy', 'Privacy P
     const bootFiltered = await boot('', '/free-seo-tools?cat=pdf');
     const doc = bootFiltered.dom.window.document;
     const reset = [...doc.querySelectorAll('main button')].find(b => /^Show all \d+ tools$/.test(b.textContent.trim()));
-    check('a filtered tools page offers "Show all" to clear the filter',
-      !!reset && doc.querySelectorAll('main a[href^="/free-seo-tools/"]').length === 18,
-      `reset=${!!reset}, cards=${doc.querySelectorAll('main a[href^="/free-seo-tools/"]').length}`);
+    const pdfCards = toolLinks(bootFiltered.dom);
+    check('a legacy ?cat= URL opens the category page with "Show all" to clear it',
+      bootFiltered.dom.window.location.pathname === '/pdf-tools' && !!reset && pdfCards.length === 18,
+      `path=${bootFiltered.dom.window.location.pathname}, reset=${!!reset}, cards=${pdfCards.length}`);
     bootFiltered.dom.window.close();
   }
 
@@ -659,7 +719,7 @@ for (const [short, long, heading] of [['/privacy', '/privacy-policy', 'Privacy P
     const trigger = [...doc.querySelectorAll('#site-mobile-menu button')].find(b => b.textContent.trim().startsWith('Tool Categories'));
     trigger?.dispatchEvent(new bootMobile.dom.window.MouseEvent('click', { bubbles: true }));
     await new Promise(r => setTimeout(r, 60));
-    const links = [...doc.querySelectorAll('#tool-categories-mobile a')].filter(a => (a.getAttribute('href') || '').startsWith('/free-seo-tools?cat='));
+    const links = categoryLinks(doc.getElementById('tool-categories-mobile') || doc);
     check('mobile burger menu lists the same eleven categories', !!trigger && links.length === 11,
       `${links.length} links`);
     bootMobile.dom.window.close();
@@ -667,7 +727,7 @@ for (const [short, long, heading] of [['/privacy', '/privacy-policy', 'Privacy P
 
   // Case Converter: the eight dark result cards form a two-column grid
   {
-    const bootCase = await boot('', '/free-seo-tools/case-converter');
+    const bootCase = await boot('', '/case-converter');
     const doc = bootCase.dom.window.document;
     const darkCards = [...doc.querySelectorAll('main div.bg-slate-900')];
     const grid = darkCards[0]?.parentElement;

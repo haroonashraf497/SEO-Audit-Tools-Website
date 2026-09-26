@@ -3,7 +3,7 @@
 import assert from 'node:assert/strict';
 const origin = process.argv[2];
 if (!origin) throw new Error('Pass your Apache/LiteSpeed staging origin');
-for (const path of ['/about', '/free-seo-tools?cat=calculator', '/free-seo-tools/percentage-calculator', '/blog']) {
+for (const path of ['/about', '/free-seo-tools', '/calculator-tools', '/percentage-calculator', '/blog']) {
   const response = await fetch(new URL(path, origin), { redirect: 'manual' });
   assert.equal(response.status, 200, `${path} must serve the shell, not redirect to /`);
   assert.match(await response.text(), /id="root"/);
@@ -12,17 +12,25 @@ for (const path of ['/about', '/free-seo-tools?cat=calculator', '/free-seo-tools
 for (const [path, destination] of [
   ['/index.html?from=test', '/?from=test'],
   ['/p/about?from=test', '/about?from=test'],
-  ['/tool', '/free-seo-tools'],
   ['/about.html', '/about'],
+  // the tools index answers on /free-seo-tools; every older spelling 301s to it
   ['/tools', '/free-seo-tools'],
   ['/tools/', '/free-seo-tools'],
+  ['/tool', '/free-seo-tools'],
   ['/free-tools', '/free-seo-tools'],
-  ['/free-tools?cat=pdf', '/free-seo-tools?cat=pdf'],
-  ['/free-seo-tools//percentage-calculator', '/free-seo-tools/percentage-calculator'],
-  ['/tool/percentage-calculator', '/free-seo-tools/percentage-calculator'],
-  ['/tool/percentage-calculator/', '/free-seo-tools/percentage-calculator'],
-  ['/free-seo-tool/percentage-calculator', '/free-seo-tools/percentage-calculator'],
   ['/free-seo-tool', '/free-seo-tools'],
+  // a legacy ?cat= filter 301s onto the category page
+  ['/free-seo-tools?cat=pdf', '/pdf-tools'],
+  ['/free-seo-tools?cat=ip', '/ip-tools'],
+  ['/free-seo-tools?cat=checker', '/website-checker-tools'],
+  // tool pages are top level: every older nesting 301s onto the bare slug
+  ['/free-seo-tools//percentage-calculator', '/percentage-calculator'],
+  ['/free-seo-tools/percentage-calculator', '/percentage-calculator'],
+  ['/free-seo-tools/percentage-calculator/', '/percentage-calculator'],
+  ['/tool/percentage-calculator', '/percentage-calculator'],
+  ['/tool/percentage-calculator/', '/percentage-calculator'],
+  ['/free-tools/percentage-calculator', '/percentage-calculator'],
+  ['/free-seo-tool/percentage-calculator', '/percentage-calculator'],
 ]) {
   const response = await fetch(new URL(path, origin), { redirect: 'manual' });
   assert.equal(response.status, 301, path);

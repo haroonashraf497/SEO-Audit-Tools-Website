@@ -47,6 +47,40 @@ export const categoryDescriptions: Record<ToolCategory, string> = {
   converter: 'Length, weight, temperature, speed, area and other unit conversions.',
 };
 
+/**
+ * Public URL slug of every category. The slug is the category name in
+ * lower-case with hyphens — "IP Tools" → /ip-tools,
+ * "Website Checker Tools" → /website-checker-tools. Each category is a real
+ * page (its own canonical URL, title block and tool list), not a ?cat= filter.
+ */
+export const categorySlugs: Record<ToolCategory, string> = {
+  text: 'text-analysis-tools',
+  keyword: 'keyword-tools',
+  backlink: 'backlink-tools',
+  management: 'website-management-tools',
+  checker: 'website-checker-tools',
+  domain: 'domain-tools',
+  ip: 'ip-tools',
+  pdf: 'pdf-tools',
+  image: 'image-tools',
+  calculator: 'calculator-tools',
+  converter: 'unit-converter-tools',
+};
+
+/** Canonical path of a category page, e.g. '/ip-tools'. */
+export const categoryHref = (category: ToolCategory): string => `/${categorySlugs[category]}`;
+
+/** Category behind a URL slug, or null when the slug belongs to another route. */
+export const categoryFromSlug = (slug: string): ToolCategory | null => {
+  const key = (Object.keys(categorySlugs) as ToolCategory[]).find(c => categorySlugs[c] === slug);
+  return key || null;
+};
+
+/** Category behind its internal key (`ip`, `checker`, …), or null when the
+ *  value is not a category. Used by the `cat/<key>` route id. */
+export const categoryFromKey = (key: string): ToolCategory | null =>
+  (categoryOrder as string[]).includes(key) ? (key as ToolCategory) : null;
+
 export const categoryOrder: ToolCategory[] = ['text', 'keyword', 'backlink', 'management', 'checker', 'domain', 'ip', 'pdf', 'image', 'calculator', 'converter'];
 
 export const categoryStyles: Record<ToolCategory, string> = {

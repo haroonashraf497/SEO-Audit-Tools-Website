@@ -26,8 +26,8 @@ test('the built site boots with no code requests and no loading placeholder', as
   await page.getByRole('button', { name: 'Decline', exact: true }).click();
   await page.locator('a[href="/blog"]').first().click();
   await expect(page.locator('h1')).toContainText('Blog');
-  await page.locator('a[href="/free-seo-tools?cat=calculator"]').first().click();
-  await expect(page.locator('h1')).toContainText('Tools');
+  await page.locator('a[href="/calculator-tools"]').first().click();
+  await expect(page.locator('h1')).toContainText('Calculator Tools');
 
   expect(requests.filter(url => /\.(?:js|css)(?:\?|$)/.test(url))).toEqual([]);
   expect(requests.filter(url => url.includes('/assets/'))).toEqual([]);

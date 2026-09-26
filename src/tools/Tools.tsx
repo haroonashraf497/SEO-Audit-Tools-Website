@@ -1,10 +1,10 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  categoryLabels, categoryOrder, categoryStyles, ToolIcon,
+  categoryDescriptions, categoryHref, categoryLabels, categoryOrder, categoryStyles, ToolIcon,
   type ToolDef, type ToolCategory,
 } from './data';
 import { useCms } from '../cms/store';
-import { navigate, subscribe } from '../router';
+import { TOOLS_PATH, navigate, subscribe } from '../router';
 import { buildReport, type SimReport, type RowStatus, Seeded } from './simulator';
 import { fetchPageData } from '../utils/pageFetch';
 import { WhatIsMyIp, IpLocationTool, ReverseIpTool, ProxyListTool, ClassCTool } from './IpTools';
@@ -426,27 +426,37 @@ const DomainAvail: React.FC<{ tool: ToolDef }> = ({ tool }) => {
 };
 
 // ---------- Tools listing page ----------
+/** The search term is the only filter that lives in the query string now:
+ *  a category is a real page with its own URL (/ip-tools), so `?cat=` no longer
+ *  exists — the router moves it onto the category page before the first paint. */
 const readSearchParams = () => {
   const p = new URLSearchParams(window.location.search);
-  return { q: p.get('q') || '', cat: (p.get('cat') || 'all') as 'all' | ToolCategory };
+  return p.get('q') || '';
 };
 
-export const ToolsList: React.FC = () => {
+/**
+ * Tool directory. Rendered twice:
+ *  • `/free-seo-tools` — every category, grouped into sections (the index)
+ *  • `/<category-slug>` (e.g. /ip-tools) — one category, via the `category`
+ *    prop, with its own canonical URL, heading and description.
+ * Search filters within whichever page is open and stays in ?q=.
+ */
+export const ToolsList: React.FC<{ category?: ToolCategory }> = ({ category }) => {
   const { state: cmsState } = useCms();
   const tools = useMemo<ToolDef[]>(() => cmsState.tools.filter(t => t.status === 'live') as unknown as ToolDef[], [cmsState.tools]);
-  const initial = readSearchParams();
-  const [query, setQuery] = useState(initial.q);
-  const [activeCat, setActiveCat] = useState<'all' | ToolCategory>(initial.cat);
+  const basePath = category ? categoryHref(category) : TOOLS_PATH;
+  const activeCat: 'all' | ToolCategory = category || 'all';
+  const [query, setQuery] = useState(readSearchParams);
 
-  // React to sidebar searches / breadcrumb category links while already on the index
+  // React to sidebar searches / breadcrumb links while a tools page is open
   useEffect(() => {
-    const onRoute = () => { const p = readSearchParams(); setQuery(p.q); setActiveCat(p.cat); };
+    const onRoute = () => setQuery(readSearchParams());
     return subscribe(onRoute);
   }, []);
 
   useEffect(() => {
     window.scrollTo(0, 0);
-  }, []);
+  }, [category]);
 
   const filtered = useMemo(() => tools.filter(t =>
     (activeCat === 'all' || t.category === activeCat) &&
@@ -462,18 +472,18 @@ export const ToolsList: React.FC = () => {
     return map;
   }, [filtered]);
 
-  // Keep the URL in step with the active filters so filtered views are
-  // shareable and survive reload. replaceState: filtering is not navigation.
-  const syncUrl = useCallback((q: string, cat: 'all' | ToolCategory) => {
+  // Keep the URL in step with the search term so a filtered view is shareable
+  // and survives reload. replaceState: searching is not navigation.
+  const syncUrl = useCallback((q: string) => {
     const params = new URLSearchParams();
     if (q.trim()) params.set('q', q.trim());
-    if (cat !== 'all') params.set('cat', cat);
     const qs = params.toString();
-    navigate(qs ? `/free-seo-tools?${qs}` : '/free-seo-tools', { replace: true });
-  }, []);
+    navigate(qs ? `${basePath}?${qs}` : basePath, { replace: true });
+  }, [basePath]);
 
-  const onQueryChange = useCallback((q: string) => { setQuery(q); syncUrl(q, activeCat); }, [activeCat, syncUrl]);
-  const clearFilters = useCallback(() => { setQuery(''); setActiveCat('all'); syncUrl('', 'all'); }, [syncUrl]);
+  const onQueryChange = useCallback((q: string) => { setQuery(q); syncUrl(q); }, [syncUrl]);
+  // "Show all N tools" — leaves a category page for the index.
+  const clearFilters = useCallback(() => { setQuery(''); navigate(TOOLS_PATH); }, []);
 
   return (
     <div className="pb-20 min-h-screen">
@@ -481,14 +491,32 @@ export const ToolsList: React.FC = () => {
       <section className="pt-16 pb-16 px-4 bg-gradient-to-br from-indigo-100 via-violet-50 to-purple-100">
         <div className="max-w-7xl mx-auto">
         <header className="text-center mb-8">
-          <h1 className="text-4xl md:text-5xl font-bold text-slate-900 mb-4">
-            Free{' '}
-            <span className="bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">SEO Tools</span>
-          </h1>
-          <p className="text-lg text-slate-600 max-w-2xl mx-auto">
-            {tools.length}+ free tools for text analysis, keyword research, backlinks, website management,
-            security checks and domains. No sign-up, most run instantly in your browser.
-          </p>
+          {category ? (
+            <>
+              <nav aria-label="Breadcrumb" className="text-sm text-slate-500 mb-3">
+                <a href="/free-seo-tools" className="text-indigo-600 hover:text-indigo-700">{tools.length} free SEO tools</a>
+                <span className="mx-2 text-slate-400" aria-hidden="true">/</span>
+                <span className="text-slate-600">{categoryLabels[category]}</span>
+              </nav>
+              <h1 className="text-4xl md:text-5xl font-bold text-slate-900 mb-4">
+                <span className="bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">{categoryLabels[category]}</span>
+              </h1>
+              <p className="text-lg text-slate-600 max-w-2xl mx-auto">
+                {categoryDescriptions[category]} Every tool is free, needs no sign-up and most run instantly in your browser.
+              </p>
+            </>
+          ) : (
+            <>
+              <h1 className="text-4xl md:text-5xl font-bold text-slate-900 mb-4">
+                Free{' '}
+                <span className="bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">SEO Tools</span>
+              </h1>
+              <p className="text-lg text-slate-600 max-w-2xl mx-auto">
+                {tools.length}+ free tools for text analysis, keyword research, backlinks, website management,
+                security checks and domains. No sign-up, most run instantly in your browser.
+              </p>
+            </>
+          )}
         </header>
 
         <div className="max-w-xl mx-auto mb-8">
@@ -499,7 +527,7 @@ export const ToolsList: React.FC = () => {
               onChange={e => onQueryChange(e.target.value)}
               type="search"
               aria-label="Search tools"
-              placeholder="Search tools… e.g. plagiarism, sitemap, SSL"
+              placeholder={category ? `Search ${categoryLabels[category]}…` : 'Search tools… e.g. plagiarism, sitemap, SSL'}
               className="w-full pl-12 pr-11 py-3.5 rounded-xl border border-slate-300 bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 outline-none text-sm"
             />
             {query && (
@@ -524,6 +552,7 @@ export const ToolsList: React.FC = () => {
             <p className="text-sm text-slate-500">
               Showing <strong className="text-slate-700">{filtered.length}</strong> of {tools.length} tools
               {activeCat !== 'all' && <> in {categoryLabels[activeCat]}</>}
+
               {query.trim() && <> matching “{query.trim()}”</>}
               {' · '}
               <button
@@ -551,7 +580,7 @@ export const ToolsList: React.FC = () => {
               </div>
               <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {list.map(t => (
-                  <a key={t.slug} href={`/free-seo-tools/${t.slug}`}
+                  <a key={t.slug} href={`/${t.slug}`}
                     className="group bg-white rounded-2xl border border-slate-200 p-5 shadow-sm hover:shadow-lg hover:border-indigo-200 transition-all flex flex-col">
                     <div className="flex items-center justify-between mb-3">
                       <span className={`w-9 h-9 rounded-lg flex items-center justify-center border ${categoryStyles[t.category]}`}>

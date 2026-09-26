@@ -19,9 +19,10 @@ browser, so it survives a refresh.
 | Username | `admin` |
 | Password | `admin123` |
 
-The site uses clean URL routing (`/free-seo-tools`, `/free-seo-tools/<slug>`, `/blog/<slug>`, `/about`, …) powered by the History API —
-the tools index answers on `/free-seo-tools` and each tool on `/free-seo-tools/<slug>`; `/tools`, `/tool` and the previous
-`/free-tools` all 301 to the index, and `/tool/<slug>` (or `/free-tools/<slug>`) 301s to `/free-seo-tools/<slug>`.
+The site uses clean URL routing (`/free-seo-tools`, `/ip-tools`, `/plagiarism-checker`, `/blog/<slug>`, `/about`, …) powered by the History API —
+the tools index answers on `/free-seo-tools`, each category on its own top-level page (`/ip-tools`, `/website-checker-tools`, …) and each tool on its
+bare slug (`/plagiarism-checker`). `/tools`, `/tool`, `/free-tools` and `/free-seo-tool` all 301 to the index, a legacy
+`?cat=ip` filter 301s to `/ip-tools`, and every nested tool spelling (`/free-seo-tools/<slug>`, `/tool/<slug>`, …) 301s to `/<slug>`.
 Link fields saved with an older spelling are upgraded to the new hierarchy when the CMS loads them.
 see `src/router.ts`. Old hash links (`/#/about`) are rewritten in the browser on load, and
 `public/.htaccess` 301-redirects the old `/p/<slug>` paths to `/<slug>`.
@@ -37,7 +38,7 @@ Editing surfaces use the same WordPress-style editor:
 | Where | Field |
 |---|---|
 | **Sections & Nav → Brand & footer** | site name, domain, tagline, footer note, footer copyright (`{year}` `{name}` `{domain}`), footer logo URL or upload, the **four footer columns** (each with its own Section title, link rows — label + URL + Visible/Hidden + Remove — its own + Add and its own Save Changes), Facebook/X/LinkedIn/Instagram/YouTube URLs |
-| **Sections & Nav → Navigation menu** | header links — add, rename, hide or remove. The fixed *Tool Categories* mega menu (the panel itself carries no repeated heading) (all eleven categories with live counts, each linking to `/free-seo-tools?cat=…`) sits after these links and before *Competitor Analysis*; it is part of the app shell, like *Home*, so it is not part of this list. Top-nav labels are never bold — hover and the selected page only change the text colour |
+| **Sections & Nav → Navigation menu** | header links — add, rename, hide or remove. The fixed *Tool Categories* mega menu (the panel itself carries no repeated heading) (all eleven categories with live counts, each linking to its own page, e.g. `/website-checker-tools`) sits after these links and before *Competitor Analysis*; it is part of the app shell, like *Home*, so it is not part of this list. Top-nav labels are never bold — hover and the selected page only change the text colour |
 | **Blog posts** | post body — new posts and existing articles |
 | **Pages** | the whole page body — one rich-text document per page (pages saved with the old block editor are converted automatically on load) |
 | **Tools** | the optional "About" copy that replaces the shared template; tool names, descriptions, categories and visibility drive both the /free-seo-tools grid and the top-nav **Tool Categories** menu (counts included) |
@@ -99,7 +100,7 @@ npm run build          # → dist/index.html (app + CSS + JS inline) + the publi
 Copy the **whole `dist/` folder** to the web host: `index.html`, `.htaccess`, `404.html`,
 `favicon.svg`, `og.jpg`, `robots.txt` and `sitemap.xml`. There is no `assets/` directory — every route,
 tool, editor and admin screen is inside the document, so navigating fetches nothing extra and no screen
-shows a loading placeholder — route switches are synchronous, so a click swaps the page in the same frame. `public/.htaccess` handles the legacy `/tools`, `/tool` and `/free-tools` → `/free-seo-tools` and `/p/…`
+shows a loading placeholder — route switches are synchronous, so a click swaps the page in the same frame. `public/.htaccess` handles the legacy index spellings → `/free-seo-tools`, the old nested tool URLs → `/<slug>`, `?cat=` → the category page and `/p/…`
 301s, security headers and caching. Content entered in one browser is not visible in another unless the
 JSON is imported, so export before publishing from a different machine.
 

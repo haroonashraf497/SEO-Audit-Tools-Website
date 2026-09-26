@@ -1,6 +1,7 @@
 import { useEffect, type FC } from 'react';
 import { useCms, type CmsState } from '../cms/store';
-import { routeSlugForStored, storedSlugForRoute } from '../router';
+import { TOOLS_PATH, routeSlugForStored, storedSlugForRoute } from '../router';
+import { categoryDescriptions, categoryFromKey, categoryLabels, categorySlugs } from '../tools/data';
 
 export const DEFAULT_ORIGIN = 'https://seoaudittools.pk';
 export const DEFAULT_OG_PATH = '/og.jpg';
@@ -60,8 +61,9 @@ const originOf = (cms: CmsState): string => {
  * `https://seoaudittools.pk/about` as far as search engines are concerned, and
  * hash URLs never index. Legacy hash-style values (from an older CMS entry or
  * an old override) are converted to their clean path, and the legacy
- * `/tools`, `/tool` and `/free-tools` paths collapse to `/free-seo-tools`, and
- * `/tool/<slug>` to `/free-seo-tools/<slug>`.
+ * `/tools`, `/tool`, `/free-tools` and `/free-seo-tool` collapse to the
+ * `/free-seo-tools` index, and every nested tool spelling
+ * (`/free-seo-tools/<slug>`, `/tool/<slug>`, …) to the top-level `/<slug>`.
  */
 const absoluteUrl = (origin: string, path: string): string => {
   if (!path || path === '/' || path === '#/' || path === '#') return `${origin}/`;
@@ -69,10 +71,12 @@ const absoluteUrl = (origin: string, path: string): string => {
   let clean = path.startsWith('#') ? path.slice(1) : path;
   if (!clean.startsWith('/')) clean = `/${clean}`;
   clean = clean.replace(/^\/p(?=\/|$)/, '').replace(/\/{2,}/g, '/');
-  if (clean === '/tools' || clean === '/tool' || clean === '/free-tools') clean = '/free-seo-tools';
-  if (clean.startsWith('/tool/')) clean = `/free-seo-tools${clean.slice('/tool'.length)}`;
-  if (clean.startsWith('/free-tools/')) clean = `/free-seo-tools${clean.slice('/free-tools'.length)}`;
-  if (clean.startsWith('/free-seo-tool/')) clean = `/free-seo-tools${clean.slice('/free-seo-tool'.length)}`;
+  // Tool pages are top level: /free-seo-tools/<slug>, /tool/<slug>,
+  // /free-tools/<slug> and /free-seo-tool/<slug> all canonicalise to /<slug>.
+  for (const prefix of [TOOLS_PATH, '/tool', '/free-tools', '/free-seo-tool']) {
+    if (clean.startsWith(`${prefix}/`)) clean = clean.slice(prefix.length);
+  }
+  if (clean === '/tools' || clean === '/tool' || clean === '/free-tools' || clean === '/free-seo-tool') clean = TOOLS_PATH;
   if (clean === '' || clean === '/') return `${origin}/`;
   if (clean.length > 1) clean = clean.replace(/\/+$/, '');
   return `${origin}${clean}`;
@@ -171,8 +175,64 @@ export const resolvePageSeo = (route: string, cms: CmsState): PageSeo => {
           '@type': 'ListItem',
           position: i + 1,
           name: t.name,
-          url: `${origin}/free-seo-tools/${t.slug}`,
+          url: `${origin}/${t.slug}`,
         })),
+      },
+    };
+  }
+
+  if (route.startsWith('cat/')) {
+    const cat = categoryFromKey(route.slice(4));
+    if (!cat) {
+      return {
+        title: `Tools not found | ${brand}`,
+        description: 'That category is not available. Browse the free SEO tools directory instead.',
+        path: TOOLS_PATH,
+        origin,
+        noindex: true,
+        image: og,
+      };
+    }
+    const list = cms.tools.filter(t => t.status === 'live' && t.category === cat);
+    const label = categoryLabels[cat];
+    const path = `/${categorySlugs[cat]}`;
+    const description = `${categoryDescriptions[cat]} ${list.length} free ${label.toLowerCase()}, no sign-up — most run instantly in your browser.`;
+    return {
+      title: `${label} — ${list.length} Free Online Tools | ${brand}`,
+      description,
+      path,
+      origin,
+      image: og,
+      jsonLd: {
+        '@context': 'https://schema.org',
+        '@graph': [
+          {
+            '@type': 'CollectionPage',
+            name: label,
+            description,
+            url: `${origin}${path}`,
+            isPartOf: { '@id': `${origin}/#website` },
+          },
+          {
+            '@type': 'ItemList',
+            name: label,
+            numberOfItems: list.length,
+            itemListElement: list.map((t, i) => ({
+              '@type': 'ListItem',
+              position: i + 1,
+              name: t.name,
+              url: `${origin}/${t.slug}`,
+            })),
+          },
+          {
+            '@type': 'BreadcrumbList',
+            itemListElement: [
+              { '@type': 'ListItem', position: 1, name: 'Home', item: `${origin}/` },
+              { '@type': 'ListItem', position: 2, name: 'Free SEO Tools', item: `${origin}${TOOLS_PATH}` },
+              { '@type': 'ListItem', position: 3, name: label, item: `${origin}${path}` },
+            ],
+          },
+        ],
       },
     };
   }
@@ -184,7 +244,7 @@ export const resolvePageSeo = (route: string, cms: CmsState): PageSeo => {
       return {
         title: `Tool not found | ${brand}`,
         description: 'That tool is not available. Browse the free SEO tools directory instead.',
-        path: `/free-seo-tools/${slug}`,
+        path: `/${slug}`,
         origin,
         noindex: true,
         image: og,
@@ -193,11 +253,11 @@ export const resolvePageSeo = (route: string, cms: CmsState): PageSeo => {
     const seo = cms.seo[`tool:${tool.slug}`];
     const title = seo?.title || `${tool.name} — Free Online Tool | ${brand}`;
     const description = seo?.description || tool.description;
-    const url = `${origin}/free-seo-tools/${tool.slug}`;
+    const url = `${origin}/${tool.slug}`;
     return {
       title,
       description,
-      path: `/free-seo-tools/${tool.slug}`,
+      path: `/${tool.slug}`,
       origin,
       noindex: seo?.noindex,
       canonicalOverride: seo?.slug,
@@ -272,8 +332,28 @@ export const resolvePageSeo = (route: string, cms: CmsState): PageSeo => {
   }
 
   if (route.startsWith('p/')) {
+    // A top-level slug carries either a tool (/plagiarism-checker) or a CMS
+    // page (/about, /privacy — short legal URLs map onto the stored slugs).
+    const rootSlug = route.slice(2);
+    const tool = cms.tools.find(t => t.slug === rootSlug && t.status === 'live');
+    if (tool && !cms.pages.some(p => p.slug === storedSlugForRoute(rootSlug))) {
+      const toolSeo = cms.seo[`tool:${tool.slug}`];
+      const toolTitle = toolSeo?.title || `${tool.name} — Free Online Tool | ${brand}`;
+      const toolDescription = toolSeo?.description || tool.description;
+      return {
+        title: toolTitle,
+        description: toolDescription,
+        path: `/${tool.slug}`,
+        origin,
+        noindex: toolSeo?.noindex,
+        canonicalOverride: toolSeo?.slug,
+        image: tool.featuredImage || og,
+        imageAlt: tool.featuredImageAlt || tool.name,
+        jsonLd: webAppNode(origin, tool.name, toolDescription, `${origin}/${tool.slug}`),
+      };
+    }
     // Short legal URLs (/privacy) map onto the stored CMS slugs.
-    const slug = storedSlugForRoute(route.slice(2));
+    const slug = storedSlugForRoute(rootSlug);
     const page = cms.pages.find(p => p.slug === slug);
     if (!page || page.status !== 'live') {
       return {

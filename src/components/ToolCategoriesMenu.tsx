@@ -1,14 +1,13 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { categoryLabels, categoryOrder, type ToolCategory } from '../tools/data';
+import { categoryHref, categoryLabels, categoryOrder, type ToolCategory } from '../tools/data';
 import { useCms } from '../cms/store';
 
 /**
  * "Tool Categories" mega menu for the top navigation.
  *
- * Every category shown on the Free SEO Tools page (with its live tool count)
- * is listed here and links straight to the filtered tools page, e.g.
- * /free-seo-tools?cat=management. Counts come from the same CMS source the tools
- * page uses, so the numbers can never drift apart.
+ * Every category (with its live tool count) is listed here and links straight
+ * to its own page, e.g. /website-management-tools. Counts come from the same
+ * CMS source the tools pages use, so the numbers can never drift apart.
  */
 
 /** Three balanced columns, matching the approved dropdown layout. */
@@ -107,7 +106,7 @@ export const ToolCategoriesMenu: React.FC<{ route?: string }> = ({ route }) => {
                 {column.map(cat => (
                   <a
                     key={cat}
-                    href={`/free-seo-tools?cat=${cat}`}
+                    href={categoryHref(cat)}
                     onClick={close}
                     className="py-2 text-[17px] leading-snug text-slate-800 hover:text-indigo-600 transition-colors rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2"
                   >
@@ -151,7 +150,7 @@ export const ToolCategoriesMobileSection: React.FC<{ onNavigate: () => void }> =
         {categoryOrder.map(cat => (
           <a
             key={cat}
-            href={`/free-seo-tools?cat=${cat}`}
+            href={categoryHref(cat)}
             onClick={onNavigate}
             className="py-2 text-[15px] text-slate-700 hover:text-indigo-600 transition-colors rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2"
           >

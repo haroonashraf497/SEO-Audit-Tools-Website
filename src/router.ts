@@ -1,8 +1,9 @@
 /* ============================================================
    Clean-URL router (History API) — replaces the legacy #/ hash router.
 
-   • Routes come from location.pathname: /, /free-seo-tools, /free-seo-tools/slug,
-     /blog, /blog/slug, /about, /admin …
+   • Routes come from location.pathname: /, /free-seo-tools (the tools index),
+     /ip-tools (a category page), /plagiarism-checker (a tool page at the top
+     level), /blog, /blog/slug, /about, /admin …
    • Internal <a> clicks are intercepted → history.pushState,
      so navigation stays instant (no full reload).
    • Back/forward (popstate) re-renders the matching view.
@@ -17,13 +18,12 @@
        /#/p/about        → /about    (hash URLs never reach the
                                  server, so the app rewrites them
                                  client-side)
-       /#/tools?cat=x    → /free-seo-tools?cat=x
-       /#/free-tools?cat=x → /free-seo-tools?cat=x
-       /tools, /tool     → /free-seo-tools   (tools index)
-       /free-tools       → /free-seo-tools   (previous canonical URL)
-       /tool/<slug>      → /free-seo-tools/<slug>
-       /free-tools/<slug>, /free-seo-tool/<slug> → /free-seo-tools/<slug>
-       /free-seo-tool    → /free-seo-tools
+       /#/tools?cat=x    → /x-tools        (the category page)
+       /#/tools          → /free-seo-tools (tools index)
+       /tools, /tool, /free-tools, /free-seo-tool → /free-seo-tools (index)
+       /free-seo-tools/<slug>            → /<slug>   (tool page, top level)
+       /tool/<slug>, /free-tools/<slug>, /free-seo-tool/<slug> → /<slug>
+       /free-seo-tools?cat=ip            → /ip-tools  (category page)
        /privacy-policy   → /privacy  (.htaccess 301s it as well)
        /p/about          → /about    (.htaccess issues a 301 for
                                  this; this is the client fallback)
@@ -32,33 +32,67 @@
      link stays SEO-safe even while it is being rewritten.
    ============================================================ */
 
-/** Canonical URL of the tools index. Internal route id stays `free-tools`. */
+import { categoryFromSlug, categoryFromKey, categoryHref, categoryOrder, type ToolCategory } from './tools/data';
+
+/** Canonical URL of the tools index — the directory listing every tool.
+ *  Internal route id stays `free-tools`. */
 export const TOOLS_PATH = '/free-seo-tools';
 
 /** Every older spelling of the tools index, redirected to `TOOLS_PATH`. */
-export const LEGACY_TOOLS_PATHS = ['/free-tools', '/tools', '/tool'];
+export const LEGACY_TOOLS_PATHS = ['/tools', '/tool', '/free-tools', '/free-seo-tool'];
 
-/** Individual tool pages nest under the index: /free-seo-tools/<slug>. */
-export const TOOL_PATH_BASE = TOOLS_PATH;
+/** Tool pages sit at the top level: /plagiarism-checker, /merge-pdf, …
+ *  `TOOL_PATH_BASE` is the prefix every tool URL is built from — empty, so
+ *  `toolPath(slug)` is `/<slug>`. */
+export const TOOL_PATH_BASE = '';
 
-/** Every older prefix a tool page may still arrive on. */
-export const LEGACY_TOOL_PATHS = ['/tool', '/free-tools', '/free-seo-tool'];
+/** Canonical path of a tool page ('' base → a bare top-level slug). */
+export const toolPath = (slug: string): string => `${TOOL_PATH_BASE}/${slug}`;
+
+/** Every older prefix a tool page may still arrive on — including the
+ *  /free-seo-tools/<slug> spelling that used to be canonical. */
+export const LEGACY_TOOL_PATHS = [TOOLS_PATH, '/free-seo-tool', '/free-tools', '/tool'];
+
+/** The category keys that can appear in a legacy ?cat= filter. */
+const isCategoryKey = (value: string): value is ToolCategory =>
+  (categoryOrder as string[]).includes(value);
 
 /** Upgrade a path to the current hierarchy:
- *    /tool/<slug>, /free-tools/<slug>, /free-seo-tool/<slug>
- *                                       → /free-seo-tools/<slug>
+ *    /free-seo-tools/<slug>, /tool/<slug>, /free-tools/<slug>,
+ *    /free-seo-tool/<slug>              → /<slug>   (top-level tool page)
  *    /tools, /tool, /free-tools, /free-seo-tool (no slug)
- *                                       → /free-seo-tools
- *  Paths that already use the canonical hierarchy are returned untouched. */
+ *                                       → /free-seo-tools (the index)
+ *  Paths that are already canonical — including the category pages
+ *  (/ip-tools, /website-checker-tools, …) — are returned untouched. */
 export const canonicalToolsPath = (pathname: string): string => {
-  if (pathname === TOOLS_PATH || pathname.startsWith(`${TOOLS_PATH}/`)) return pathname;
+  if (pathname === TOOLS_PATH) return pathname;
   for (const prefix of LEGACY_TOOL_PATHS) {
-    if (pathname === prefix) return TOOLS_PATH;
-    if (pathname.startsWith(`${prefix}/`)) return TOOLS_PATH + pathname.slice(prefix.length);
+    if (pathname.startsWith(`${prefix}/`)) return pathname.slice(prefix.length);
   }
-  // /tools (the original directory name) and /free-tools → the tools index
   return LEGACY_TOOLS_PATHS.includes(pathname) ? TOOLS_PATH : pathname;
 };
+
+/**
+ * Move a legacy ?cat=<key> filter onto its category page, keeping any other
+ * query parameter (a search term, for example):
+ *    /free-seo-tools?cat=ip        → /ip-tools
+ *    /free-seo-tools?cat=checker&q=ssl → /website-checker-tools?q=ssl
+ * Returns null when the URL does not need upgrading.
+ */
+export const canonicalCategoryQuery = (pathname: string, search: string): string | null => {
+  const params = new URLSearchParams(search);
+  const raw = params.get('cat') || '';
+  const key = isCategoryKey(raw) ? raw : categoryFromSlug(raw);
+  if (!key) return null;
+  if (pathname !== TOOLS_PATH && !LEGACY_TOOLS_PATHS.includes(pathname)) return null;
+  params.delete('cat');
+  const qs = params.toString();
+  return `${categoryHref(key)}${qs ? `?${qs}` : ''}`;
+};
+
+/** Category key behind a `cat/<key>` route id (`cat/ip` → 'ip'). */
+export const categoryKeyOfRoute = (route: string): ToolCategory | null =>
+  categoryFromKey(route.slice('cat/'.length));
 
 export type RouteListener = (route: string) => void;
 
@@ -119,22 +153,30 @@ export const cleanPath = (pathname: string): string => {
   return p || '/';
 };
 
-/** Derive the app route from the current clean URL. */
+/**
+ * Derive the app route from the current clean URL. The path is canonicalised
+ * first, so a legacy tool URL (/free-seo-tools/x, /tool/x, …) already resolves
+ * to its top-level route even on the very first paint.
+ *
+ *   /free-seo-tools      → free-tools   (index)
+ *   /ip-tools            → cat/ip       (category page)
+ *   /plagiarism-checker  → p/plagiarism-checker
+ *                          (a root slug — CMS page or tool, resolved by the app)
+ */
 export const getRoute = (): string => {
-  const seg = currentPath().slice(1);
+  const seg = canonicalToolsPath(currentPath()).slice(1);
   if (seg === '') return 'home';
-  // /free-seo-tools/<slug> — a tool page (checked before the index itself)
-  if (seg.startsWith(`${TOOLS_PATH.slice(1)}/`)) return `tool/${seg.slice(TOOLS_PATH.length)}`;
   if (seg === TOOLS_PATH.slice(1) || LEGACY_TOOLS_PATHS.some(p => p.slice(1) === seg)) return 'free-tools';
-  // legacy /tool/<slug> (normalised to /free-seo-tools/<slug> before the first paint)
-  if (seg.startsWith('tool/')) return `tool/${seg.slice('tool/'.length)}`;
+  if (seg.startsWith('tool/')) return `p/${seg.slice('tool/'.length)}`;
+  const category = categoryFromSlug(seg);
+  if (category) return `cat/${category}`;
   if (seg === 'blog') return 'blog';
   if (seg.startsWith('blog/')) return `blog/${seg.slice(5)}`;
   if (seg === 'admin') return 'admin';
   if (seg === 'admin-login') return 'admin-login';
   if (seg === 'admin-reset') return 'admin-reset';
   if (seg === 'competitor-analysis') return 'competitor-analysis';
-  // Legacy /p/slug (301 in .htaccess) and the new single-segment pages
+  // Legacy /p/slug (301 in .htaccess), CMS pages and the top-level tool pages
   if (seg.startsWith('p/')) return `p/${seg.slice(2)}`;
   if (!seg.includes('/')) return `p/${seg}`;
   return 'notfound';
@@ -202,10 +244,12 @@ export const navigate = (to: string, opts: { replace?: boolean } = {}): void => 
 /**
  * One-shot legacy-URL normalisation, run before the first render:
  *  - /#/p/about (old hash link)  → /about
- *  - /#/tools?cat=keyword        → /free-seo-tools?cat=keyword
- *  - /tools, /tool, /free-tools, /free-seo-tool → /free-seo-tools
- *  - /tool/<slug>, /free-tools/<slug>, /free-seo-tool/<slug>
- *                                → /free-seo-tools/<slug>
+ *  - /#/tools?cat=keyword        → /keyword-tools   (category page)
+ *  - /free-seo-tools?cat=ip      → /ip-tools
+ *  - /free-seo-tools?cat=x&q=ssl → /x-tools?q=ssl
+ *  - /tools, /tool, /free-tools, /free-seo-tool → /free-seo-tools (index)
+ *  - /free-seo-tools/<slug>, /tool/<slug>, /free-tools/<slug>,
+ *    /free-seo-tool/<slug>       → /<slug>   (top-level tool page)
  *  - /p/about (old clean link)   → /about
  *  - /index.html                 → /
  */
@@ -217,12 +261,19 @@ export const normalizeLegacyUrl = (): void => {
     const legacy = new URL(hash.slice(1), window.location.origin);
     let p = cleanPath(legacy.pathname);
     p = canonicalToolsPath(p);
-    window.history.replaceState(null, '', canonicalLegalPath(p) + (legacy.search || search) + legacy.hash);
+    const q = legacy.search || search;
+    const category = canonicalCategoryQuery(p, q);
+    window.history.replaceState(null, '', (category ? category : canonicalLegalPath(p) + q) + legacy.hash);
     return;
   }
   let next = cleanPath(pathname);
   next = canonicalToolsPath(next);
   next = canonicalLegalPath(next);
+  const category = canonicalCategoryQuery(next, search);
+  if (category) {
+    if (category + hash !== pathname + search + hash) window.history.replaceState(null, '', category + hash);
+    return;
+  }
   next = next + search + hash;
   if (next !== pathname + search + hash) window.history.replaceState(null, '', next);
 };

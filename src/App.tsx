@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useMemo, useEffect, useLayoutEffect, useRef } from 'react';
-import { categoryDescriptions, categoryLabels, ToolIcon } from './tools/data';
+import { categoryDescriptions, categoryHref, categoryLabels, ToolIcon } from './tools/data';
 import { fetchPageData, type LivePageData } from './utils/pageFetch';
 import { fetchDomainInfo, type DomainInfo } from './utils/domainLookup';
 import { sanitizeRichHtml } from './utils/sanitize';
@@ -7,7 +7,7 @@ import { CmsProvider, useCms, liveTools, livePosts, findPage, blocksToHtml, rend
 import { ToolCategoriesMenu, ToolCategoriesMobileSection } from './components/ToolCategoriesMenu';
 import SerpPreview from './components/SerpPreview';
 import { SeoManager } from './utils/seo';
-import { cleanHref, getRoute, lastNavigationKind, navigate, rewriteLegacyLinks, storedSlugForRoute, subscribe } from './router';
+import { categoryKeyOfRoute, cleanHref, getRoute, lastNavigationKind, navigate, rewriteLegacyLinks, storedSlugForRoute, subscribe, TOOLS_PATH } from './router';
 import { RouteBoundary } from './components/ErrorBoundary';
 import { BlogList, BlogArticlePage } from './blog/Blog';
 import { ToolsList, ToolPage } from './tools/Tools';
@@ -1321,17 +1321,28 @@ const scrollInstantly = (top: number): void => {
 };
 
 type Crumb = { label: string; href?: string };
+
+/** Home › <category page> › <tool>, used by every tool URL. */
+const toolCrumbs = (home: Crumb, slug: string, state: ReturnType<typeof useCms>['state']): Crumb[] => {
+  const tool = state.tools.find(t => t.slug === slug);
+  const catLabel = tool ? (categoryLabels[tool.category] || 'Free SEO Tools') : 'Free SEO Tools';
+  const catHref = tool ? categoryHref(tool.category) : TOOLS_PATH;
+  return [home, { label: catLabel, href: catHref }, { label: tool?.name || 'Tool' }];
+};
 const SiteBreadcrumbs: React.FC<{ route: string }> = ({ route }) => {
   const { state } = useCms();
   const crumbs: Crumb[] = (() => {
     const home: Crumb = { label: 'Home', href: '/' };
     if (route === 'home') return [];
     if (route === 'free-tools' || route === 'tools') return [home, { label: 'Free SEO Tools' }];
-    if (route.startsWith('tool/')) {
-      const tool = state.tools.find(t => t.slug === route.slice(5));
-      const catLabel = tool ? (categoryLabels[tool.category] || 'Free SEO Tools') : 'Free SEO Tools';
-      const catHref = tool ? `/free-seo-tools?cat=${tool.category}` : '/free-seo-tools';
-      return [home, { label: catLabel, href: catHref }, { label: tool?.name || 'Tool' }];
+    if (route.startsWith('cat/')) {
+      const cat = categoryKeyOfRoute(route);
+      return [home, { label: 'Free SEO Tools', href: TOOLS_PATH }, { label: cat ? categoryLabels[cat] : 'Tools' }];
+    }
+    if (route.startsWith('tool/')) return toolCrumbs(home, route.slice(5), state);
+    // root slug: a tool page (or a CMS page, handled below)
+    if (route.startsWith('p/') && state.tools.some(t => t.slug === route.slice(2))) {
+      return toolCrumbs(home, route.slice(2), state);
     }
     if (route === 'blog') return [home, { label: 'Blog' }];
     if (route.startsWith('blog/')) {
@@ -1444,7 +1455,7 @@ const SiteApp: React.FC = () => {
   }, [route]);
 
   const isBlog = route === 'blog' || route.startsWith('blog/');
-  const isTools = route === 'free-tools' || route === 'tools' || route.startsWith('tool/');
+  const isTools = route === 'free-tools' || route === 'tools' || route.startsWith('tool/') || route.startsWith('cat/') || (route.startsWith('p/') && cms.state.tools.some(t => t.slug === route.slice(2)) && !findPage(cms.state, storedSlugForRoute(route.slice(2))));
 
   // Footer content is live: every value below is read straight from the CMS
   // store, so a save in Admin → Sections & Nav → Brand & footer updates the
@@ -1632,13 +1643,14 @@ const SiteApp: React.FC = () => {
 
       {/* Tools routes */}
       {(route === 'free-tools' || route === 'tools') && <ToolsList />}
+      {route.startsWith('cat/') && <ToolsList category={categoryKeyOfRoute(route) || undefined} />}
       {route.startsWith('tool/') && <ToolPage slug={route.slice(5)} />}
 
       {/* Admin (CMS) */}
       {route === 'admin' && cms.loggedIn && <AdminApp />}
       {route === 'admin-login' && <AdminLoginPage />}
       {route === 'admin-reset' && <AdminResetPage />}
-      {route.startsWith('p/') && <CmsPageView slug={route.slice(2)} />}
+      {route.startsWith('p/') && <RootSlugView slug={route.slice(2)} />}
       {route === 'notfound' && <NotFoundView />}
 
       {/* Competitor Analysis */}
@@ -1976,7 +1988,7 @@ const SiteApp: React.FC = () => {
 
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4 mb-10 items-stretch">
             {visibleTools.filter(t => t.custom ? false : ['plagiarism-checker', 'percentage-calculator', 'bmi-calculator', 'what-is-my-ip', 'keyword-density-checker', 'backlink-checker', 'unit-converter', 'website-seo-score-checker'].includes(t.slug)).slice(0, 8).map(t => (
-              <a key={t.slug} href={`/free-seo-tools/${t.slug}`}
+              <a key={t.slug} href={`/${t.slug}`}
                 className="group h-full flex flex-col bg-white rounded-2xl border border-slate-200 p-5 shadow-sm hover:shadow-lg hover:border-indigo-200 transition-all">
                 <div className="flex items-center gap-3 mb-2 min-h-[1.25rem]">
                   <span className="text-indigo-600 flex-shrink-0"><ToolIcon category={t.category} className="w-5 h-5" /></span>
@@ -1991,7 +2003,7 @@ const SiteApp: React.FC = () => {
             {(['text', 'keyword', 'backlink', 'checker', 'domain', 'ip', 'management', 'pdf', 'image', 'calculator', 'converter'] as const).map(cat => {
               const count = visibleTools.filter(t => t.category === cat).length;
               return (
-                <a key={cat} href={`/free-seo-tools?cat=${cat}`} className="group h-full flex flex-col bg-white rounded-2xl border border-slate-200 p-5 shadow-sm hover:shadow-lg hover:border-indigo-200 transition-all">
+                <a key={cat} href={categoryHref(cat)} className="group h-full flex flex-col bg-white rounded-2xl border border-slate-200 p-5 shadow-sm hover:shadow-lg hover:border-indigo-200 transition-all">
                   <div className="flex items-center justify-between gap-3 mb-2 min-h-[1.25rem]">
                     <span className="flex items-center gap-3 min-w-0">
                       <span className="text-indigo-600 flex-shrink-0"><ToolIcon category={cat} className="w-5 h-5" /></span>
@@ -2170,6 +2182,20 @@ const SiteApp: React.FC = () => {
 // Pages are edited as a single rich-text document. Legacy block-based pages
 // are converted once at load time (withPageContent), and any stored
 // #/… links are rewritten to clean paths at render time.
+/**
+ * A top-level slug carries either a CMS page (/about, /privacy) or a tool page
+ * (/plagiarism-checker, /merge-pdf). The store is consulted synchronously, so
+ * the right view renders on the first paint — no loading state, no redirect.
+ * A slug that matches neither falls through to the 404 view.
+ */
+const RootSlugView: React.FC<{ slug: string }> = ({ slug }) => {
+  const { state } = useCms();
+  const page = findPage(state, storedSlugForRoute(slug));
+  if (page) return <CmsPageView slug={slug} />;
+  if (state.tools.some(t => t.slug === slug && t.status === 'live')) return <ToolPage slug={slug} />;
+  return <NotFoundView />;
+};
+
 const CmsPageView: React.FC<{ slug: string }> = ({ slug }) => {
   const { state } = useCms();
   // Short legal URLs (/privacy) render the page stored under its CMS slug

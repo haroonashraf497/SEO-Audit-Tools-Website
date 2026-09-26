@@ -11,13 +11,14 @@ test.afterEach(() => expect(errors).toEqual([]));
 
 for (const [path, heading] of [
   ['/about', 'About SEO Audit Tools'],
-  ['/free-seo-tools?cat=calculator', /Free SEO Tools/],
-  ['/free-seo-tools/percentage-calculator', 'Percentage Calculator'],
+  ['/free-seo-tools', /Free SEO Tools/],
+  ['/calculator-tools', /Calculator Tools/],
+  ['/percentage-calculator', 'Percentage Calculator'],
   ['/blog', 'The SEO Audit Tool Blog'],
   ['/admin-login', 'Admin login'],
   ['/competitor-analysis', 'Website Competitor Analysis'],
-  ['/free-seo-tools/merge-pdf', 'Merge PDF'],
-  ['/free-seo-tools/text-to-pdf', 'Text To PDF'],
+  ['/merge-pdf', 'Merge PDF'],
+  ['/text-to-pdf', 'Text To PDF'],
 ] as const) {
   test(`direct visit and reload: ${path}`, async ({ page }) => {
     await page.goto(path);
@@ -37,20 +38,20 @@ test('new-tab link, query filters and browser history', async ({ page, context }
   await page.goto('/');
   await expect(page.getByRole('button', { name: 'Decline', exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Decline', exact: true }).click();
-  const href = await page.locator('a[href="/free-seo-tools/percentage-calculator"]').first().getAttribute('href');
+  const href = await page.locator('a[href="/percentage-calculator"]').first().getAttribute('href');
   // Opening the literal href in a separate tab exercises native navigation,
   // not the click handler (the same request as the context-menu command).
   const tab = await context.newPage();
   await tab.goto(href!);
   await expect(tab.locator('h1')).toHaveText('Percentage Calculator');
   await tab.close();
-  await page.locator('a[href="/free-seo-tools?cat=calculator"]').click();
-  await expect(page).toHaveURL(/\/free-seo-tools\?cat=calculator$/);
-  await expect(page.locator('h1')).toContainText('Tools');
+  await page.locator('a[href="/calculator-tools"]').click();
+  await expect(page).toHaveURL(/\/calculator-tools$/);
+  await expect(page.locator('h1')).toContainText('Calculator Tools');
   await page.goBack();
   await expect(page.locator('h1')).toHaveText('Free SEO Audit Tool');
   await page.goForward();
-  await expect(page).toHaveURL(/\/free-seo-tools\?cat=calculator$/);
+  await expect(page).toHaveURL(/\/calculator-tools$/);
 });
 
 for (const [path, destination, heading] of [
@@ -80,14 +81,14 @@ test('all 154 built-in tools render from their clean URLs', async ({ page }) => 
   const tools = [...source.matchAll(/\{ slug: '([^']+)', name: '([^']+)'/g)];
   expect(tools).toHaveLength(154);
   for (const [, slug, name] of tools) {
-    await page.goto(`/free-seo-tools/${slug}`);
+    await page.goto(`/${slug}`);
     await expect(page.locator('h1')).toHaveText(name);
     await expect(page.locator('main')).not.toContainText('Loading page…');
   }
 });
 
 test('calculator results still update', async ({ page }) => {
-  await page.goto('/free-seo-tools/average-calculator');
+  await page.goto('/average-calculator');
   await page.locator('textarea').first().fill('10,20,60');
   await expect(page.locator('main')).toContainText('30.0000');
 });
@@ -247,7 +248,7 @@ test('single-file build: one document, no chunks to fetch', async ({ page }) => 
 
   // Opening a route is instant — nothing is fetched, so nothing can stall.
   await page.getByRole('button', { name: 'Decline', exact: true }).click();
-  await page.locator('a[href="/free-seo-tools/percentage-calculator"]').first().click();
+  await page.locator('a[href="/percentage-calculator"]').first().click();
   await expect(page.locator('h1')).toHaveText('Percentage Calculator');
   expect(requests.filter(url => url.includes('/assets/'))).toEqual([]);
 });

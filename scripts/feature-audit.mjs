@@ -171,58 +171,107 @@ check('compressed downloads get their own file name and title',
 check('the merge guide documents the new option',
   /Compress more/.test(pdfGuide) && /Can I make the merged file smaller\?/.test(pdfGuide));
 
-console.log('\n=== 🔗 Tools URL hierarchy (/free-seo-tools) ===');
+console.log('\n=== 🔗 Tools index URL (/free-seo-tools) ===');
 const seoUtil = read('src/utils/seo.ts');
 const appSrcTools = read('src/App.tsx');
 const menuSrcTools = read('src/components/ToolCategoriesMenu.tsx');
 const sitemapXml = read('public/sitemap.xml');
-check('canonical tools path is /free-seo-tools in code',
+const dataSrc = read('src/tools/data.tsx');
+check('canonical tools index path is /free-seo-tools in code',
   /export const TOOLS_PATH = '\/free-seo-tools';/.test(read('src/router.ts'))
   && /path: '\/free-seo-tools',/.test(seoUtil));
 check('no link in the app points at the old /free-tools URL',
   !/href=(["'`])\/free-tools[?"'`]/.test(appSrcTools + menuSrcTools + read('src/tools/Sidebar.tsx') + read('src/tools/Tools.tsx') + store));
-check('home page category cards and CTAs use /free-seo-tools',
-  /href=\{`\/free-seo-tools\?cat=\$\{cat\}`\}/.test(appSrcTools) && /href="\/free-seo-tools"/.test(appSrcTools));
-check('mega menu uses /free-seo-tools?cat=', /href=\{`\/free-seo-tools\?cat=\$\{cat\}`\}/.test(menuSrcTools));
-check('sitemap lists /free-seo-tools', sitemapXml.includes('<loc>https://seoaudittools.pk/free-seo-tools</loc>'));
-check('SEO canonical collapses the old tools URLs', /clean === '\/free-tools'\) clean = '\/free-seo-tools';/.test(seoUtil));
+check('home page category cards link to the category pages',
+  /href=\{categoryHref\(cat\)\}/.test(appSrcTools) && /href="\/free-seo-tools"/.test(appSrcTools));
+check('mega menu links every category to its own page', /href=\{categoryHref\(cat\)\}/.test(menuSrcTools));
+check('sitemap lists the /free-seo-tools index', sitemapXml.includes('<loc>https://seoaudittools.pk/free-seo-tools</loc>'));
+check('SEO canonical collapses the old index spellings',
+  /clean === '\/tools' \|\| clean === '\/tool' \|\| clean === '\/free-tools' \|\| clean === '\/free-seo-tool'\) clean = TOOLS_PATH;/.test(seoUtil));
 
-console.log('\n=== 🔗 Tool page URL hierarchy (/free-seo-tools/<slug>) ===');
+console.log('\n=== 🔗 Tool page URL hierarchy (/<slug>) ===');
 const routerSrcT = read('src/router.ts');
 const htaccessT = read('public/.htaccess');
 const sitemapT = read('public/sitemap.xml');
-const linkSources = appSrcTools + menuSrcTools + read('src/tools/Sidebar.tsx') + read('src/tools/Tools.tsx') + read('src/tools/toolContent.tsx') + store + read('src/utils/seo.ts');
-check('tool pages nest under /free-seo-tools in the router + seo',
-  /export const TOOL_PATH_BASE = TOOLS_PATH;/.test(routerSrcT)
-  && /const LEGACY_TOOL_PATHS = \['\/tool', '\/free-tools', '\/free-seo-tool'\];/.test(routerSrcT)
-  && /path: `\/free-seo-tools\/\$\{slug\}`,/.test(read('src/utils/seo.ts')));
-// Any mention of an old tool prefix must live in redirect/normalisation code
+const linkSources = appSrcTools + menuSrcTools + read('src/tools/Sidebar.tsx') + read('src/tools/Tools.tsx') + read('src/tools/toolContent.tsx') + store + seoUtil;
+check('tool pages are top level in the router + seo',
+  /export const TOOL_PATH_BASE = '';/.test(routerSrcT)
+  && /const LEGACY_TOOL_PATHS = \[TOOLS_PATH, '\/free-seo-tool', '\/free-tools', '\/tool'\];/.test(routerSrcT)
+  && /path: `\/\$\{tool\.slug\}`,/.test(seoUtil)
+  && /const url = `\$\{origin\}\/\$\{tool\.slug\}`;/.test(seoUtil));
+// Any mention of the retired nesting must live in redirect/normalisation code
 // (a startsWith check), never in a link the user can click.
 const staleLinkLines = linkSources.split('\n')
-  .filter(line => /\/tool\/|\/free-seo-tool\//.test(line))
-  .filter(line => !/startsWith|LEGACY_TOOL_PATHS/.test(line))
-  .filter(line => !/^\s*\*/.test(line)); // doc comments may name the old paths
-check('no link in the app still points at an old tool URL',
-  !/href=\{?[`"']\/tool\//.test(linkSources) && staleLinkLines.length === 0,
+  .filter(line => /free-seo-tools\/|free-seo-tool\/|\/tool\//.test(line))
+  .filter(line => !/startsWith|LEGACY_TOOL_PATHS|TOOLS_PATH|canonicalToolsPath/.test(line))
+  .filter(line => /href/.test(line))              // a link, not a text cleanup regex
+  .filter(line => !/^\s*\*/.test(line))       // doc comments may name the old paths
+  .filter(line => !/^\s*\/\//.test(line));
+check('no link in the app still points at a nested tool URL',
+  !/href=\{[`"']\/free-seo-tools\//.test(linkSources) && staleLinkLines.length === 0,
   staleLinkLines.join(' | '));
-check('tool cards, sidebar and related links use /free-seo-tools/<slug>',
-  /href=\{`\/free-seo-tools\/\$\{t\.slug\}`\}/.test(read('src/tools/Tools.tsx'))
-  && /href=\{`\/free-seo-tools\/\$\{t\.slug\}`\}/.test(read('src/tools/Sidebar.tsx'))
-  && /href=\{`\/free-seo-tools\/\$\{t\.slug\}`\}/.test(read('src/tools/toolContent.tsx')));
-check('sitemap lists every tool under /free-seo-tools/',
-  (sitemapT.match(/<loc>https:\/\/seoaudittools\.pk\/free-seo-tools\//g) || []).length === 154
+check('tool cards, sidebar and related links use /<slug>',
+  /href=\{`\/\$\{t\.slug\}`\}/.test(read('src/tools/Tools.tsx'))
+  && /href=\{`\/\$\{t\.slug\}`\}/.test(read('src/tools/Sidebar.tsx'))
+  && /href=\{`\/\$\{t\.slug\}`\}/.test(read('src/tools/toolContent.tsx')));
+check('sitemap lists all 154 tools at the top level',
+  (sitemapT.match(/<loc>https:\/\/seoaudittools\.pk\/[a-z0-9-]+<\/loc>/g) || []).length >= 154
+  && !/seoaudittools\.pk\/free-seo-tools\//.test(sitemapT)
   && !/seoaudittools\.pk\/tool</.test(sitemapT));
-check('router reads the nested tool path and canonicalises the legacy ones',
-  /if \(seg\.startsWith\(`\$\{TOOLS_PATH\.slice\(1\)\}\/`\)\) return `tool\/\$\{seg\.slice\(TOOLS_PATH\.length\)\}`;/.test(routerSrcT)
-  && /if \(pathname\.startsWith\(`\$\{prefix\}\/`\)\) return TOOLS_PATH \+ pathname\.slice\(prefix\.length\);/.test(routerSrcT));
-check('.htaccess 301s every legacy tool prefix to /free-seo-tools/<slug>',
-  /RewriteRule \^tool\/\(\.\+\?\)\/\?\$ \/free-seo-tools\/\$1 \[R=301,L\]/.test(htaccessT)
-  && /RewriteRule \^free-tools\/\(\.\+\?\)\/\?\$ \/free-seo-tools\/\$1 \[R=301,L\]/.test(htaccessT)
-  && /RewriteRule \^free-seo-tool\/\(\.\+\?\)\/\?\$ \/free-seo-tools\/\$1 \[R=301,L\]/.test(htaccessT));
-check('.htaccess 301s the bare /free-seo-tool back to the index',
-  /RewriteRule \^free-seo-tool\/\?\$ \/free-seo-tools \[R=301,L\]/.test(htaccessT));
+check('router strips every legacy nesting prefix to the top-level slug',
+  /for \(const prefix of LEGACY_TOOL_PATHS\) \{\s*if \(pathname\.startsWith\(`\$\{prefix\}\/`\)\) return pathname\.slice\(prefix\.length\);/.test(routerSrcT));
+check('.htaccess 301s every legacy nesting to /<slug>',
+  /RewriteRule \^free-seo-tools\/\(\.\+\?\)\/\?\$ \/\$1 \[R=301,L\]/.test(htaccessT)
+  && /RewriteRule \^tool\/\(\.\+\?\)\/\?\$ \/\$1 \[R=301,L\]/.test(htaccessT)
+  && /RewriteRule \^free-tools\/\(\.\+\?\)\/\?\$ \/\$1 \[R=301,L\]/.test(htaccessT)
+  && /RewriteRule \^free-seo-tool\/\(\.\+\?\)\/\?\$ \/\$1 \[R=301,L\]/.test(htaccessT));
+check('.htaccess 301s every bare legacy index spelling to /free-seo-tools',
+  ['tools', 'tool', 'free-tools', 'free-seo-tool'].every(name =>
+    htaccessT.includes(`RewriteRule ^${name}/?$ /free-seo-tools [R=301,L]`)));
 check('stored CMS hrefs upgrade the legacy tool prefixes',
-  /for \(const prefix of \['\/tool', '\/free-tools', '\/free-seo-tool'\]\) \{\s*if \(value\.startsWith\(`\$\{prefix\}\/`\)\) return `\/free-seo-tools\$\{value\.slice\(prefix\.length\)\}`;/.test(store));
+  /for \(const prefix of \['\/free-seo-tools', '\/tool', '\/free-tools', '\/free-seo-tool'\]\) \{\s*if \(value\.startsWith\(`\$\{prefix\}\/`\)\) return value\.slice\(prefix\.length\);/.test(store));
+
+console.log('\n=== 🗂️ Category pages (/ip-tools) ===');
+check('every category has its own top-level slug',
+  /text: 'text-analysis-tools',/.test(dataSrc) && /management: 'website-management-tools',/.test(dataSrc)
+  && /checker: 'website-checker-tools',/.test(dataSrc) && /ip: 'ip-tools',/.test(dataSrc)
+  && /converter: 'unit-converter-tools',/.test(dataSrc)
+  && (dataSrc.match(/^  (?:text|keyword|backlink|management|checker|domain|ip|pdf|image|calculator|converter): '[a-z-]+-tools',$/gm) || []).length === 11);
+check('categoryHref builds the page URL',
+  /export const categoryHref = \(category: ToolCategory\): string => `\/\$\{categorySlugs\[category\]\}`;/.test(dataSrc));
+check('router resolves a category slug to its own route',
+  /const category = categoryFromSlug\(seg\);\s*if \(category\) return `cat\/\$\{category\}`;/.test(routerSrcT));
+check('the app renders a category page from that route',
+  /route\.startsWith\('cat\/'\) && <ToolsList category=\{categoryKeyOfRoute\(route\) \|\| undefined\} \/>/.test(appSrcTools));
+check('breadcrumbs go Home › Free SEO Tools › category',
+  /if \(route\.startsWith\('cat\/'\)\) \{[\s\S]{0,240}Free SEO Tools'[\s\S]{0,140}categoryLabels\[cat\] : 'Tools' \}\]/.test(appSrcTools));
+check('a category page has its own H1, intro and search',
+  /category \? \([\s\S]{0,800}\{categoryLabels\[category\]\}[\s\S]{0,600}\{categoryDescriptions\[category\]\}/.test(read('src/tools/Tools.tsx'))
+  && /placeholder=\{category \? `Search \$\{categoryLabels\[category\]\}…` : 'Search tools… e\.g\. plagiarism, sitemap, SSL'\}/.test(read('src/tools/Tools.tsx')));
+check('category pages filter the list to that category',
+  /const activeCat: 'all' \| ToolCategory = category \|\| 'all';/.test(read('src/tools/Tools.tsx')));
+check('search stays in ?q= on whichever page is open',
+  /navigate\(qs \? `\$\{basePath\}\?\$\{qs\}` : basePath, \{ replace: true \}\)/.test(read('src/tools/Tools.tsx')));
+check('"Show all N tools" leaves a category page for the index',
+  /Show all \{tools\.length\} tools/.test(read('src/tools/Tools.tsx'))
+  && /const clearFilters = useCallback\(\(\) => \{ setQuery\(''\); navigate\(TOOLS_PATH\); \}, \[\]\);/.test(read('src/tools/Tools.tsx')));
+check('SEO gives every category a canonical URL, ItemList and breadcrumb',
+  /if \(route\.startsWith\('cat\/'\)\) \{/.test(seoUtil)
+  && /const path = `\/\$\{categorySlugs\[cat\]\}`;/.test(seoUtil)
+  && /'@type': 'CollectionPage',/.test(seoUtil)
+  && /'@type': 'BreadcrumbList',/.test(seoUtil)
+  && /title: `\$\{label\} — \$\{list\.length\} Free Online Tools \| \$\{brand\}`,/.test(seoUtil));
+check('.htaccess 301s a legacy ?cat= filter onto the category page',
+  ['text-analysis-tools', 'website-management-tools', 'website-checker-tools', 'ip-tools', 'unit-converter-tools'].every(slug =>
+    htaccessT.includes(`RewriteRule ^free-seo-tools/?$ /${slug}? [R=301,L]`)));
+check('router upgrades a mixed ?cat=&q= query without dropping the search',
+  /export const canonicalCategoryQuery = \(pathname: string, search: string\): string \| null => \{/.test(routerSrcT)
+  && /const category = canonicalCategoryQuery\(next, search\);/.test(routerSrcT)
+  && /return `\$\{categoryHref\(key\)\}\$\{qs \? `\?\$\{qs\}` : ''\}`;/.test(routerSrcT));
+check('sitemap lists all eleven category pages',
+  ['text-analysis-tools', 'keyword-tools', 'backlink-tools', 'website-management-tools', 'website-checker-tools',
+    'domain-tools', 'ip-tools', 'pdf-tools', 'image-tools', 'calculator-tools', 'unit-converter-tools']
+    .every(slug => sitemapT.includes(`<loc>https://seoaudittools.pk/${slug}</loc>`)));
 
 console.log('\n=== 🧭 Tool Categories mega menu ===');
 const appSrc = read('src/App.tsx');
@@ -239,8 +288,8 @@ check('panel closes on Escape, outside click and navigation',
   /e\.key === 'Escape'/.test(menuSrc) && /wrapRef\.current\.contains/.test(menuSrc) && /useEffect\(\(\) => \{ setOpen\(false\); \}, \[route\]\)/.test(menuSrc));
 check('eleven categories in three columns, in the approved order',
   /const COLUMNS: ToolCategory\[\]\[\] = \[\s*\['text', 'keyword', 'backlink', 'calculator'\],\s*\['management', 'checker', 'domain', 'converter'\],\s*\['ip', 'pdf', 'image'\],\s*\];/.test(menuSrc));
-check('every category link points at the filtered tools page',
-  /href=\{`\/free-seo-tools\?cat=\$\{cat\}`\}/.test(menuSrc));
+check('every category link points at its own category page',
+  /href=\{categoryHref\(cat\)\}/.test(menuSrc));
 check('counts come from the live CMS tool list', /cms\.state\.tools\.forEach\(t => \{[\s\S]{0,80}if \(t\.status !== 'live'\) return;/.test(menuSrc)
   && /categoryLabels\[cat\]\} <span className="text-slate-400">\(\{counts\.get\(cat\) \|\| 0\}\)/.test(menuSrc));
 check('menu offers a browse-all link to /free-seo-tools', /Browse all \{total\} free tools/.test(menuSrc));
@@ -303,15 +352,15 @@ console.log('\n=== 🔗 URLs ===');
 check('.htaccess 301 /tools → /free-seo-tools', /RewriteRule \^tools\/\?\$ \/free-seo-tools \[R=301,L\]/.test(htaccess));
 check('.htaccess 301 /free-tools → /free-seo-tools', /RewriteRule \^free-tools\/\?\$ \/free-seo-tools \[R=301,L\]/.test(htaccess));
 check('.htaccess 301 /tool → /free-seo-tools', /RewriteRule \^tool\/\?\$ \/free-seo-tools \[R=301,L\]/.test(htaccess));
-check('router canonicalises /tools, /tool and /free-tools',
-  /export const TOOLS_PATH = '\/free-seo-tools';/.test(router)
-  && /export const LEGACY_TOOLS_PATHS = \['\/free-tools', '\/tools', '\/tool'\];/.test(router)
+check('.htaccess 301 /free-seo-tool → /free-seo-tools', /RewriteRule \^free-seo-tool\/\?\$ \/free-seo-tools \[R=301,L\]/.test(htaccess));
+check('router canonicalises the four index spellings',
+  /export const LEGACY_TOOLS_PATHS = \['\/tools', '\/tool', '\/free-tools', '\/free-seo-tool'\];/.test(router)
   && /next = canonicalToolsPath\(next\);/.test(router)
   && /p = canonicalToolsPath\(p\);/.test(router));
 check('route alias maps the tools paths to the free-tools route',
   /seg === TOOLS_PATH\.slice\(1\) \|\| LEGACY_TOOLS_PATHS\.some\(p => p\.slice\(1\) === seg\)/.test(router));
 check('stored content rewrites legacy tool paths',
-  /if \(value === '\/tools' \|\| value === '\/tool' \|\| value === '\/free-tools'\) return '\/free-seo-tools';/.test(store));
+  /if \(value === '\/tools' \|\| value === '\/tool' \|\| value === '\/free-tools' \|\| value === '\/free-seo-tool'\) return '\/free-seo-tools';/.test(store));
 check('nav default points at /free-seo-tools', /label: 'Free SEO Tools', href: '\/free-seo-tools', visible: true/.test(store));
 check('canonical uses clean path (no #/)', /return `\$\{origin\}\$\{clean\}`/.test(seo) && !/return `\$\{origin\}\/#\$\{clean\}`/.test(seo));
 check('sitemap uses /free-seo-tools', sitemap.includes('<loc>https://seoaudittools.pk/free-seo-tools</loc>') && !/seoaudittools\.pk\/free-tools</.test(sitemap));

@@ -537,17 +537,18 @@ const cleanStoredHref = (href: string): string => {
     if (!path) return '/';
     if (!path.startsWith('/')) return value; // in-page fragment — keep as-is
     let clean = path.replace(/^\/p\//, '/').replace(/^\//, '').replace(/\/+$/, '');
-    if (clean === 'tools' || clean === 'tool' || clean === 'free-tools') clean = 'free-seo-tools';
-    else if (clean.startsWith('tool/')) clean = `free-seo-tools/${clean.slice('tool/'.length)}`;
-    else if (clean.startsWith('free-tools/')) clean = `free-seo-tools/${clean.slice('free-tools/'.length)}`;
-    else if (clean.startsWith('free-seo-tool/')) clean = `free-seo-tools/${clean.slice('free-seo-tool/'.length)}`;
+    if (clean === 'tools' || clean === 'tool' || clean === 'free-tools' || clean === 'free-seo-tool') clean = 'free-seo-tools';
+    else if (clean.startsWith('free-seo-tools/')) clean = clean.slice('free-seo-tools/'.length);
+    else if (clean.startsWith('tool/')) clean = clean.slice('tool/'.length);
+    else if (clean.startsWith('free-tools/')) clean = clean.slice('free-tools/'.length);
+    else if (clean.startsWith('free-seo-tool/')) clean = clean.slice('free-seo-tool/'.length);
     return clean === '' ? '/' : `/${clean}`;
   }
-  if (value === '/tools' || value === '/tool' || value === '/free-tools') return '/free-seo-tools';
-  for (const prefix of ['/tool', '/free-tools', '/free-seo-tool']) {
-    if (value.startsWith(`${prefix}/`)) return `/free-seo-tools${value.slice(prefix.length)}`;
+  if (value === '/tools' || value === '/tool' || value === '/free-tools' || value === '/free-seo-tool') return '/free-seo-tools';
+  // Tool pages live at the top level: every nested spelling collapses to /<slug>.
+  for (const prefix of ['/free-seo-tools', '/tool', '/free-tools', '/free-seo-tool']) {
+    if (value.startsWith(`${prefix}/`)) return value.slice(prefix.length);
   }
-  if (value === '/free-seo-tool') return '/free-seo-tools';
   return value;
 };
 
