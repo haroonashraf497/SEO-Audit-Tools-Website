@@ -120,6 +120,35 @@ check('sitemap lists the short legal URLs only', sitemap.includes('<loc>https://
   && sitemap.includes('<loc>https://seoaudittools.pk/terms</loc>')
   && !/seoaudittools\.pk\/(privacy-policy|cookie-policy|terms-of-service)</.test(sitemap));
 
+console.log('\n=== 📄 Merge PDF — optional “Compress more” step ===');
+const pdfUi = read('src/tools/pdf/ui.tsx');
+const pdfTools = read('src/tools/pdf/PdfTools.tsx');
+const pdfGuide = read('src/tools/pdf/PdfGuide.tsx');
+check('CompressMore offers the four levels plus a target size',
+  /COMPRESS_LEVELS = \[[\s\S]{0,240}'lossless'[\s\S]{0,200}'balanced'[\s\S]{0,200}'strong'[\s\S]{0,200}'extreme'/.test(pdfUi)
+  && /Or target size/.test(pdfUi)
+  && /\[50, 100, 200, 300, 500\]\.map/.test(pdfUi));
+check('CompressMore reuses the shared compression engine',
+  /import \{ compressToTarget, fmtBytes/.test(pdfUi)
+  && /const out = await compressToTarget\(buf, target, setStatus\)/.test(pdfUi)
+  && /level === 'lossless' \? null : Math\.round\(bytes\.byteLength \* LEVEL_TARGET\[level\]\)/.test(pdfUi));
+check('compression reports the saving and can be applied to the download',
+  /down from \{fmtBytes\(bytes\.byteLength\)\}/.test(pdfUi)
+  && /✓ Use compressed file/.test(pdfUi)
+  && /onApply\(res\.bytes, res\.label\)/.test(pdfUi));
+check('no-smaller result is explained instead of shipped',
+  /Already optimal/.test(pdfUi) && /no smaller legible version could be produced/.test(pdfUi));
+check('Merge PDF renders the compressor inside its result card',
+  /<CompressMore[\s\S]{0,220}bytes=\{out\}[\s\S]{0,220}onApply=\{\(bytes, label\) => \{ setOut\(bytes\); setCompressedLabel\(label\); \}\}/.test(pdfTools));
+check('Merge PDF keeps the plain merge so the original can be restored',
+  /setMerged\(bytes\); setOut\(bytes\); setCompressedLabel\(null\);/.test(pdfTools)
+  && /onKeepOriginal=\{merged \? \(\) => \{ setOut\(merged\); setCompressedLabel\(null\); \} : undefined\}/.test(pdfTools));
+check('compressed downloads get their own file name and title',
+  /download\(out, compressedLabel \? 'merged-compressed\.pdf' : 'merged\.pdf'\)/.test(pdfTools)
+  && /title=\{compressedLabel \? 'PDFs merged & compressed' : 'PDFs merged successfully'\}/.test(pdfTools));
+check('the merge guide documents the new option',
+  /Compress more/.test(pdfGuide) && /Can I make the merged file smaller\?/.test(pdfGuide));
+
 console.log('\n=== 🔗 Tools URL hierarchy (/free-seo-tools) ===');
 const seoUtil = read('src/utils/seo.ts');
 const appSrcTools = read('src/App.tsx');

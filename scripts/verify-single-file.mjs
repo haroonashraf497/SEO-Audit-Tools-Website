@@ -256,6 +256,26 @@ for (const legacy of ['/tool/plagiarism-checker', '/free-seo-tool/plagiarism-che
   dom.window.close();
 }
 
+/* 3c. Merge PDF page loads with its drop zone, and the built file ships the
+      optional "Compress more" step for the merge result */
+{
+  const { dom, errors } = await boot('', '/free-seo-tools/merge-pdf');
+  const doc = dom.window.document;
+  const text = doc.querySelector('main')?.textContent || '';
+  check('Merge PDF renders its drop zone on the new URL',
+    errors.length === 0 && /Select PDF files to merge/.test(text) && /100% private/.test(text));
+  check('the merge page still renders its guide',
+    /How it works/.test(text) && /Frequently asked questions/.test(text));
+  const built = rawHtml;
+  check('the built file ships the optional compressor for merge results',
+    built.includes('Compress more')
+    && built.includes('Use compressed file')
+    && built.includes('Or target size')
+    && ['Lossless', 'Balanced', 'Strong', 'Extreme'].every(l => built.includes(l))
+    && built.includes('merged-compressed.pdf'));
+  dom.window.close();
+}
+
 /* 4. legacy tools URLs — /tools, /tool and the previous /free-tools — are all
       normalised to the canonical /free-seo-tools client-side */
 for (const legacy of ['/tools', '/tool', '/free-tools']) {

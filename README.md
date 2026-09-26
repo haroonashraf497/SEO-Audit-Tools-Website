@@ -79,6 +79,21 @@ name, and the Cookie preferences control there is the footer's only one. Legal p
 `/privacy-policy`, `/cookie-policy` and `/terms-of-service` URLs are 301-redirected and are
 also upgraded client-side for the dev/preview server, which does no rewriting.
 
+### Merge PDF — optional compression of the result
+
+After a merge, the result card offers a **“Compress more”** step next to the file size:
+
+- four levels — **Lossless** (structure only, text stays selectable), **Balanced**, **Strong**,
+  **Extreme** (pages re-rendered as images, biggest savings) — or an exact **target size in KB**
+  with quick chips (50/100/200/300/500);
+- it reuses the same `compressToTarget()` engine as the Compress PDF tool (lossless pass first,
+  then a DPI/quality ladder);
+- the block shows the saving before anything is downloaded (“128.4 KB · down from 341.6 KB (−62%)”),
+  then **✓ Use compressed file** swaps the result — the Download button, file name
+  (`merged-compressed.pdf`), title and size stats follow — and **Use the uncompressed merge instead**
+  restores the original. Compressing again compounds on the current file;
+- if no smaller legible version can be produced, the result says so instead of handing you a bigger file.
+
 ### URL hierarchy
 
 The tools index lives at **`/free-seo-tools`** (canonical, in the sitemap, canonical tag,
@@ -165,9 +180,9 @@ to move or version it. See `CMS.md` for the full CMS reference.
 
 ```bash
 npm run typecheck                  # tsc --noEmit
-node scripts/feature-audit.mjs     # 130 checks: CMS controls, footer redesign, legal URLs, /free-seo-tools, text-tool layout/mobile, case-converter grid, Tool Categories mega menu, no-bold top nav, category chips removed from /free-seo-tools, /free-seo-tools/<slug> tool URLs, no EKSTRUH, 154 tools
+node scripts/feature-audit.mjs     # 138 checks: CMS controls, footer redesign, legal URLs, /free-seo-tools, text-tool layout/mobile, case-converter grid, Tool Categories mega menu, no-bold top nav, category chips removed from /free-seo-tools, /free-seo-tools/<slug> tool URLs, Merge PDF compressor, no EKSTRUH, 154 tools
 npm install --no-save jsdom
-node scripts/verify-single-file.mjs  # 121 checks: boots the built file, instant swap, footer, legal URLs, head injection, text-tool layout, mega-menu navigation
+node scripts/verify-single-file.mjs  # 124 checks: boots the built file, instant swap, footer, legal URLs, head injection, text-tool layout, mega-menu navigation
 npm test                           # 34 Playwright tests (needs Chromium)
 ```
 

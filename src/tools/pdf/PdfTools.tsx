@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useMemo, useState } from 'react';
-import { PrivacyNote, DropZone, Progress, ErrorBox, Btn, StatBox, FileInfoPanel, Thumbnails, ResultPanel, usePdfFile } from './ui';
+import { PrivacyNote, DropZone, Progress, ErrorBox, Btn, StatBox, FileInfoPanel, Thumbnails, ResultPanel, CompressMore, usePdfFile } from './ui';
 import { loadPdfLib, loadPdfJs, fmtBytes, readFile, download, inspectPdf, parseRanges, compressToTarget, renderPages, imagesToPdf, type PdfInfo, type PdfDoc } from './engine';
 
 const base = (name: string) => name.replace(/\.pdf$/i, '');
@@ -11,6 +11,8 @@ export const MergePdf: React.FC = () => {
   const [busy, setBusy] = useState(false);
   const [pct, setPct] = useState(0);
   const [out, setOut] = useState<Uint8Array | null>(null);
+  const [merged, setMerged] = useState<Uint8Array | null>(null);
+  const [compressedLabel, setCompressedLabel] = useState<string | null>(null);
   const [err, setErr] = useState('');
   const add = async (files: File[]) => {
     setErr(''); setOut(null);
@@ -30,7 +32,8 @@ export const MergePdf: React.FC = () => {
         setPct(((i + 1) / items.length) * 100);
       }
       doc.setProducer('SEO Audit Tool PDF Tools'); doc.setCreator('SEO Audit Tool');
-      setOut(await doc.save());
+      const bytes = await doc.save();
+      setMerged(bytes); setOut(bytes); setCompressedLabel(null);
     } catch (e) { setErr(`Merge failed: ${String((e as Error).message || e).slice(0, 160)}. Encrypted files must be unlocked first.`); }
     setBusy(false);
   };
@@ -57,7 +60,24 @@ export const MergePdf: React.FC = () => {
         </>
       )}
       {err && <ErrorBox msg={err} />}
-      {out && <ResultPanel title="PDFs merged successfully" bytes={out.byteLength} onDownload={() => download(out, 'merged.pdf')} onReset={() => { setItems([]); setOut(null); }} fileName="merged.pdf"><p className="text-sm text-slate-600 mt-4">{items.length} files · {totalPages} pages combined in order shown.</p></ResultPanel>}
+      {out && (
+        <ResultPanel
+          title={compressedLabel ? 'PDFs merged & compressed' : 'PDFs merged successfully'}
+          bytes={out.byteLength}
+          before={totalSize}
+          onDownload={() => download(out, compressedLabel ? 'merged-compressed.pdf' : 'merged.pdf')}
+          onReset={() => { setItems([]); setOut(null); setMerged(null); setCompressedLabel(null); }}
+          fileName={compressedLabel ? 'merged-compressed.pdf' : 'merged.pdf'}
+        >
+          <p className="text-sm text-slate-600 mt-4">{items.length} files · {totalPages} pages combined in order shown. Original files totalled {fmtBytes(totalSize)}.</p>
+          <CompressMore
+            bytes={out}
+            appliedLabel={compressedLabel}
+            onApply={(bytes, label) => { setOut(bytes); setCompressedLabel(label); }}
+            onKeepOriginal={merged ? () => { setOut(merged); setCompressedLabel(null); } : undefined}
+          />
+        </ResultPanel>
+      )}
     </div>
   );
 };

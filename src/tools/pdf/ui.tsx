@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { fmtBytes, inspectPdf, paperName, readFile, renderPages, type PdfInfo } from './engine';
+import { compressToTarget, fmtBytes, inspectPdf, paperName, readFile, renderPages, type PdfInfo } from './engine';
 
 export const PrivacyNote: React.FC = () => (
   <div className="flex items-start gap-3 bg-emerald-50 border border-emerald-100 rounded-xl p-4 text-sm text-emerald-800">
@@ -103,6 +103,135 @@ export const Thumbnails: React.FC<{ buf: ArrayBuffer; selected?: Set<number>; on
         })}
       </div>
       {total > max && <p className="text-xs text-slate-400 mt-2">Showing first {max} of {total} pages.</p>}
+    </div>
+  );
+};
+
+/* ---------- Optional "compress it more" step for tool results ---------- */
+
+export const COMPRESS_LEVELS = [
+  ['lossless', 'Lossless', 'Structure only · identical quality'],
+  ['balanced', 'Balanced', '~40% smaller · great quality'],
+  ['strong', 'Strong', '~65% smaller · good quality'],
+  ['extreme', 'Extreme', '~85% smaller · screen quality'],
+] as const;
+
+export type CompressLevel = typeof COMPRESS_LEVELS[number][0];
+
+/** How far below the current size each level aims (lossless has no target). */
+const LEVEL_TARGET: Record<Exclude<CompressLevel, 'lossless'>, number> = { balanced: 0.6, strong: 0.35, extreme: 0.15 };
+
+export const CompressMore: React.FC<{
+  /** The file currently offered for download. */
+  bytes: Uint8Array;
+  /** Label of the compression already applied, when there is one. */
+  appliedLabel?: string | null;
+  onApply: (bytes: Uint8Array, label: string) => void;
+  onKeepOriginal?: () => void;
+  defaultLevel?: CompressLevel;
+}> = ({ bytes, appliedLabel, onApply, onKeepOriginal, defaultLevel = 'balanced' }) => {
+  const [level, setLevel] = useState<CompressLevel>(defaultLevel);
+  const [customTarget, setCustomTarget] = useState(0);
+  const [busy, setBusy] = useState(false);
+  const [status, setStatus] = useState('');
+  const [note, setNote] = useState('');
+  const [res, setRes] = useState<{ bytes: Uint8Array; label: string; lossless: boolean; passes: number } | null>(null);
+
+  const run = async () => {
+    setBusy(true); setRes(null); setNote(''); setStatus('');
+    try {
+      const target = customTarget
+        ? customTarget * 1024
+        : level === 'lossless' ? null : Math.round(bytes.byteLength * LEVEL_TARGET[level]);
+      const buf = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
+      const out = await compressToTarget(buf, target, setStatus);
+      if (out.bytes.byteLength < bytes.byteLength) {
+        const label = customTarget ? `${customTarget} KB target` : COMPRESS_LEVELS.find(l => l[0] === level)![1];
+        setRes({ bytes: out.bytes, label, lossless: out.lossless, passes: out.attempts.length });
+      } else {
+        setNote(`Already optimal — this file is ${fmtBytes(bytes.byteLength)} and no smaller legible version could be produced.`);
+      }
+    } catch (e) {
+      setNote(`Compression failed: ${String((e as Error).message || e).slice(0, 160)}`);
+    }
+    setBusy(false);
+  };
+
+  return (
+    <div className="mt-4 bg-slate-50 border border-slate-200 rounded-xl p-4">
+      <div className="flex items-start justify-between gap-3 mb-3">
+        <div>
+          <h4 className="font-bold text-slate-900 text-sm">Compress more</h4>
+          <p className="text-xs text-slate-500 mt-0.5">Optional — shrink the merged file before you download it. “Lossless” keeps real text; the other levels re-render pages as images, which takes a few seconds on large documents.</p>
+        </div>
+        <span className="text-xs font-semibold text-slate-500 flex-shrink-0">{fmtBytes(bytes.byteLength)}</span>
+      </div>
+
+      {appliedLabel && (
+        <div className="flex flex-wrap items-center justify-between gap-2 bg-emerald-50 border border-emerald-100 rounded-lg p-3 mb-3">
+          <p className="text-xs text-emerald-800"><strong>Compressed version applied ({appliedLabel}).</strong> The Download button above saves the smaller file.</p>
+          {onKeepOriginal && (
+            <button type="button" onClick={() => { onKeepOriginal(); setRes(null); setNote(''); }} className="text-xs font-semibold text-slate-600 hover:text-slate-900 underline">Use the uncompressed merge instead</button>
+          )}
+        </div>
+      )}
+
+      {!res && (
+        <>
+          <div className="grid sm:grid-cols-4 gap-2">
+            {COMPRESS_LEVELS.map(([key, label, hint]) => (
+              <button
+                key={key}
+                type="button"
+                onClick={() => { setLevel(key); setCustomTarget(0); }}
+                className={`text-left rounded-xl border p-3 bg-white transition-colors ${level === key && !customTarget ? 'border-indigo-500 ring-1 ring-indigo-200' : 'border-slate-200 hover:border-indigo-300'}`}
+              >
+                <p className="font-semibold text-slate-800 text-sm">{label}</p>
+                <p className="text-xs text-slate-500 mt-0.5">{hint}</p>
+              </button>
+            ))}
+          </div>
+          <div className="flex flex-wrap items-center gap-2 mt-3">
+            <label htmlFor="compress-more-target" className="text-xs font-semibold text-slate-700">Or target size</label>
+            <input
+              id="compress-more-target"
+              type="number"
+              min={10}
+              value={customTarget || ''}
+              onChange={e => setCustomTarget(Math.max(0, Number(e.target.value)))}
+              placeholder="e.g. 250"
+              className="w-24 p-2 rounded-lg border border-slate-300 text-sm bg-white"
+            />
+            <span className="text-xs text-slate-500">KB</span>
+            <div className="flex gap-1">
+              {[50, 100, 200, 300, 500].map(k => (
+                <button key={k} type="button" onClick={() => setCustomTarget(k)} className={`px-2.5 py-1 rounded-md text-xs font-semibold ${customTarget === k ? 'bg-indigo-600 text-white' : 'bg-white border border-slate-200 text-slate-600'}`}>{k}</button>
+              ))}
+            </div>
+          </div>
+          {busy
+            ? <div className="mt-3 flex items-center gap-3 text-xs text-slate-600"><span className="w-4 h-4 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />{status || 'Compressing…'}</div>
+            : <Btn onClick={run} variant="secondary" className="mt-3">Compress more →</Btn>}
+        </>
+      )}
+
+      {res && (
+        <div className="bg-white border border-emerald-200 rounded-xl p-3">
+          <p className="text-sm text-slate-800">
+            <strong className="text-emerald-600">{fmtBytes(res.bytes.byteLength)}</strong>
+            <span className="text-slate-400"> · </span>down from {fmtBytes(bytes.byteLength)}
+            <span className="text-emerald-600 font-semibold"> (−{Math.max(0, Math.round((1 - res.bytes.byteLength / bytes.byteLength) * 100))}%)</span>
+            <span className="text-slate-500 text-xs"> · {res.label}{res.lossless ? ' · text kept' : ` · ${res.passes} passes`}</span>
+          </p>
+          {!res.lossless && <p className="text-xs text-slate-500 mt-1">Pages were re-rendered as images, so text is no longer selectable. Choose “Lossless” to keep text.</p>}
+          <div className="flex flex-wrap gap-2 mt-3">
+            <Btn onClick={() => onApply(res.bytes, res.label)}>✓ Use compressed file</Btn>
+            <Btn variant="secondary" onClick={() => setRes(null)}>Try another level</Btn>
+          </div>
+        </div>
+      )}
+
+      {note && <p className="text-xs text-amber-700 bg-amber-50 border border-amber-100 rounded-lg p-3 mt-3">{note}</p>}
     </div>
   );
 };

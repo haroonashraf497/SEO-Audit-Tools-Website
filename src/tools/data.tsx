@@ -216,7 +216,7 @@ export const tools: ToolDef[] = [
   { slug: 'class-c-ip-checker', name: 'Class C IP Checker', description: 'Check whether multiple domains share the same Class C IP range, a key link-network signal.', category: 'ip', input: 'text', engine: 'classc', placeholder: 'Enter up to 20 domains, one per line\nexample.com\nexample.org' },
 
   // ---------- PDF Tools (all processing happens in the browser) ----------
-  { slug: 'merge-pdf', name: 'Merge PDF', description: 'Combine multiple PDF files into one document. Reorder files by drag-free arrows, see page counts and sizes, and download the merged PDF instantly. Files never leave your device.', category: 'pdf', input: 'none', engine: 'pdf-merge' },
+  { slug: 'merge-pdf', name: 'Merge PDF', description: 'Combine multiple PDF files into one document. Reorder files by drag-free arrows, see page counts and sizes, shrink the merged PDF with the optional compressor, and download it instantly. Files never leave your device.', category: 'pdf', input: 'none', engine: 'pdf-merge' },
   { slug: 'rotate-pdf', name: 'Rotate PDF', description: 'Rotate all pages or selected pages by 90°, 180° or 270° with live page thumbnails, then save a permanently rotated PDF.', category: 'pdf', input: 'none', engine: 'pdf-rotate' },
   { slug: 'unlock-pdf', name: 'Unlock PDF', description: 'Remove the open password and permission restrictions (printing, copying, editing) from a PDF you have the right to unlock.', category: 'pdf', input: 'none', engine: 'pdf-unlock' },
   { slug: 'lock-pdf', name: 'Lock PDF', description: 'Protect a PDF with an open password and owner password, set permissions for printing, copying and editing, using 128-bit AES encryption.', category: 'pdf', input: 'none', engine: 'pdf-lock' },
