@@ -19,9 +19,9 @@ browser, so it survives a refresh.
 | Username | `admin` |
 | Password | `admin123` |
 
-The site uses clean URL routing (`/free-seo-tools`, `/free-seo-tool/<slug>`, `/blog/<slug>`, `/about`, …) powered by the History API —
-the tools index answers on `/free-seo-tools` and each tool on `/free-seo-tool/<slug>`; `/tools`, `/tool` and the previous
-`/free-tools` all 301 to the index, and `/tool/<slug>` (or `/free-tools/<slug>`) 301s to `/free-seo-tool/<slug>`.
+The site uses clean URL routing (`/free-seo-tools`, `/free-seo-tools/<slug>`, `/blog/<slug>`, `/about`, …) powered by the History API —
+the tools index answers on `/free-seo-tools` and each tool on `/free-seo-tools/<slug>`; `/tools`, `/tool` and the previous
+`/free-tools` all 301 to the index, and `/tool/<slug>` (or `/free-tools/<slug>`) 301s to `/free-seo-tools/<slug>`.
 Link fields saved with an older spelling are upgraded to the new hierarchy when the CMS loads them.
 see `src/router.ts`. Old hash links (`/#/about`) are rewritten in the browser on load, and
 `public/.htaccess` 301-redirects the old `/p/<slug>` paths to `/<slug>`.

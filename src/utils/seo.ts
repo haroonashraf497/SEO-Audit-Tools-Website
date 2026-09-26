@@ -61,7 +61,7 @@ const originOf = (cms: CmsState): string => {
  * hash URLs never index. Legacy hash-style values (from an older CMS entry or
  * an old override) are converted to their clean path, and the legacy
  * `/tools`, `/tool` and `/free-tools` paths collapse to `/free-seo-tools`, and
- * `/tool/<slug>` to `/free-seo-tool/<slug>`.
+ * `/tool/<slug>` to `/free-seo-tools/<slug>`.
  */
 const absoluteUrl = (origin: string, path: string): string => {
   if (!path || path === '/' || path === '#/' || path === '#') return `${origin}/`;
@@ -70,7 +70,9 @@ const absoluteUrl = (origin: string, path: string): string => {
   if (!clean.startsWith('/')) clean = `/${clean}`;
   clean = clean.replace(/^\/p(?=\/|$)/, '').replace(/\/{2,}/g, '/');
   if (clean === '/tools' || clean === '/tool' || clean === '/free-tools') clean = '/free-seo-tools';
-  if (clean.startsWith('/tool/')) clean = `/free-seo-tool${clean.slice('/tool'.length)}`;
+  if (clean.startsWith('/tool/')) clean = `/free-seo-tools${clean.slice('/tool'.length)}`;
+  if (clean.startsWith('/free-tools/')) clean = `/free-seo-tools${clean.slice('/free-tools'.length)}`;
+  if (clean.startsWith('/free-seo-tool/')) clean = `/free-seo-tools${clean.slice('/free-seo-tool'.length)}`;
   if (clean === '' || clean === '/') return `${origin}/`;
   if (clean.length > 1) clean = clean.replace(/\/+$/, '');
   return `${origin}${clean}`;
@@ -169,7 +171,7 @@ export const resolvePageSeo = (route: string, cms: CmsState): PageSeo => {
           '@type': 'ListItem',
           position: i + 1,
           name: t.name,
-          url: `${origin}/free-seo-tool/${t.slug}`,
+          url: `${origin}/free-seo-tools/${t.slug}`,
         })),
       },
     };
@@ -182,7 +184,7 @@ export const resolvePageSeo = (route: string, cms: CmsState): PageSeo => {
       return {
         title: `Tool not found | ${brand}`,
         description: 'That tool is not available. Browse the free SEO tools directory instead.',
-        path: `/free-seo-tool/${slug}`,
+        path: `/free-seo-tools/${slug}`,
         origin,
         noindex: true,
         image: og,
@@ -191,11 +193,11 @@ export const resolvePageSeo = (route: string, cms: CmsState): PageSeo => {
     const seo = cms.seo[`tool:${tool.slug}`];
     const title = seo?.title || `${tool.name} — Free Online Tool | ${brand}`;
     const description = seo?.description || tool.description;
-    const url = `${origin}/free-seo-tool/${tool.slug}`;
+    const url = `${origin}/free-seo-tools/${tool.slug}`;
     return {
       title,
       description,
-      path: `/free-seo-tool/${tool.slug}`,
+      path: `/free-seo-tools/${tool.slug}`,
       origin,
       noindex: seo?.noindex,
       canonicalOverride: seo?.slug,

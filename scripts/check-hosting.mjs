@@ -3,7 +3,7 @@
 import assert from 'node:assert/strict';
 const origin = process.argv[2];
 if (!origin) throw new Error('Pass your Apache/LiteSpeed staging origin');
-for (const path of ['/about', '/free-seo-tools?cat=calculator', '/free-seo-tool/percentage-calculator', '/blog']) {
+for (const path of ['/about', '/free-seo-tools?cat=calculator', '/free-seo-tools/percentage-calculator', '/blog']) {
   const response = await fetch(new URL(path, origin), { redirect: 'manual' });
   assert.equal(response.status, 200, `${path} must serve the shell, not redirect to /`);
   assert.match(await response.text(), /id="root"/);
@@ -18,9 +18,10 @@ for (const [path, destination] of [
   ['/tools/', '/free-seo-tools'],
   ['/free-tools', '/free-seo-tools'],
   ['/free-tools?cat=pdf', '/free-seo-tools?cat=pdf'],
-  ['/free-seo-tool//percentage-calculator', '/free-seo-tool/percentage-calculator'],
-  ['/tool/percentage-calculator', '/free-seo-tool/percentage-calculator'],
-  ['/tool/percentage-calculator/', '/free-seo-tool/percentage-calculator'],
+  ['/free-seo-tools//percentage-calculator', '/free-seo-tools/percentage-calculator'],
+  ['/tool/percentage-calculator', '/free-seo-tools/percentage-calculator'],
+  ['/tool/percentage-calculator/', '/free-seo-tools/percentage-calculator'],
+  ['/free-seo-tool/percentage-calculator', '/free-seo-tools/percentage-calculator'],
   ['/free-seo-tool', '/free-seo-tools'],
 ]) {
   const response = await fetch(new URL(path, origin), { redirect: 'manual' });

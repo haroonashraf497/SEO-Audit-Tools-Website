@@ -385,7 +385,7 @@ export const ArticleRewriter: React.FC = () => {
           </div>
 
           <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm text-amber-800">
-            <strong>Before publishing:</strong> proofread the result and run it through the <a href="/free-seo-tool/grammar-checker" className="underline font-semibold">Grammar Check</a> and <a href="/free-seo-tool/plagiarism-checker" className="underline font-semibold">Plagiarism Checker</a>. Automated rewriting changes wording, not meaning or facts.
+            <strong>Before publishing:</strong> proofread the result and run it through the <a href="/free-seo-tools/grammar-checker" className="underline font-semibold">Grammar Check</a> and <a href="/free-seo-tools/plagiarism-checker" className="underline font-semibold">Plagiarism Checker</a>. Automated rewriting changes wording, not meaning or facts.
           </div>
 
           <div className="flex flex-col sm:flex-row gap-3 justify-between">

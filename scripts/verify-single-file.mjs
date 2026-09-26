@@ -215,7 +215,7 @@ const wait = () => new Promise(resolve => setTimeout(resolve, 250));
 
 /* 6. every heavy route renders straight away — the PDF pages used to show a
       "Loading PDF engine…" Suspense fallback */
-for (const [path, expected] of [['/free-seo-tool/merge-pdf', 'Merge PDF'], ['/admin-login', 'Admin login'], ['/competitor-analysis', 'Competitor Analysis']]) {
+for (const [path, expected] of [['/free-seo-tools/merge-pdf', 'Merge PDF'], ['/admin-login', 'Admin login'], ['/competitor-analysis', 'Competitor Analysis']]) {
   const { dom, errors } = await boot('', path);
   const mainText = (dom.window.document.querySelector('main').textContent || '').trim();
   check(`${path} renders immediately with no loading state`,
@@ -224,24 +224,27 @@ for (const [path, expected] of [['/free-seo-tool/merge-pdf', 'Merge PDF'], ['/ad
   dom.window.close();
 }
 
-/* 3b. tool pages answer on /free-seo-tool/<slug> and the old /tool/<slug>
-      prefix is normalised to it (server 301s it as well) */
+/* 3b. tool pages answer on /free-seo-tools/<slug> (nested under the index) and
+      every older prefix is normalised to it (server 301s them as well) */
 {
-  const { dom, errors } = await boot('', '/free-seo-tool/plagiarism-checker');
+  const { dom, errors } = await boot('', '/free-seo-tools/plagiarism-checker');
   const doc = dom.window.document;
-  check('a tool page renders under /free-seo-tool/<slug>',
+  check('a tool page renders under /free-seo-tools/<slug>',
     errors.length === 0 && /Plagiarism Checker/.test(doc.querySelector('main h1')?.textContent || ''),
     doc.querySelector('main h1')?.textContent || 'no h1');
-  check('its canonical tag points at /free-seo-tool/<slug>',
-    (doc.querySelector('link[rel=canonical]')?.getAttribute('href') || '').endsWith('/free-seo-tool/plagiarism-checker'),
+  check('its canonical tag points at /free-seo-tools/<slug>',
+    (doc.querySelector('link[rel=canonical]')?.getAttribute('href') || '').endsWith('/free-seo-tools/plagiarism-checker'),
     doc.querySelector('link[rel=canonical]')?.getAttribute('href') || '');
+  const cards = [...doc.querySelectorAll('main a[href^="/free-seo-tools/"]')].length;
+  check('its related-tool links use the nested path', cards > 0, `${cards} links`);
   dom.window.close();
 }
-for (const legacy of ['/tool/plagiarism-checker', '/tool/grammar-checker']) {
+for (const legacy of ['/tool/plagiarism-checker', '/free-seo-tool/plagiarism-checker', '/free-tools/grammar-checker']) {
   const { dom } = await boot('', legacy);
   const h1 = dom.window.document.querySelector('main h1')?.textContent?.trim();
-  check(`${legacy} normalises to /free-seo-tool/<slug> and renders the tool`,
-    dom.window.location.pathname === legacy.replace('/tool/', '/free-seo-tool/') && !/not found/i.test(h1 || ''),
+  const expected = legacy.replace(/^\/(tool|free-tools|free-seo-tool)\//, '/free-seo-tools/');
+  check(`${legacy} normalises to ${expected} and renders the tool`,
+    dom.window.location.pathname === expected && !/not found/i.test(h1 || ''),
     `${dom.window.location.pathname} | ${h1}`);
   dom.window.close();
 }
@@ -512,7 +515,7 @@ for (const [short, long, heading] of [['/privacy', '/privacy-policy', 'Privacy P
   const textSlugs = ['grammar-checker', 'plagiarism-checker', 'article-rewriter', 'word-counter', 'spell-checker', 'online-md5-generator', 'case-converter', 'merge-words-online-tool', 'text-to-speech', 'small-text-generator', 'reverse-text-generator'];
   const results12 = [];
   for (const slug of textSlugs) {
-    const boot12 = await boot('', `/free-seo-tool/${slug}`);
+    const boot12 = await boot('', `/free-seo-tools/${slug}`);
     const info = layout(boot12.dom);
     const main = boot12.dom.window.document.querySelector('main');
     results12.push({ slug, ...info, err: boot12.errors.length, h1: main.querySelector('h1')?.textContent?.trim() || '' });
@@ -528,7 +531,7 @@ for (const [short, long, heading] of [['/privacy', '/privacy-policy', 'Privacy P
   const otherSlugs = ['merge-pdf', 'website-seo-score-checker', 'meta-tag-generator', 'bmi-calculator'];
   const others = [];
   for (const slug of otherSlugs) {
-    const bootOther = await boot('', `/free-seo-tool/${slug}`);
+    const bootOther = await boot('', `/free-seo-tools/${slug}`);
     others.push({ slug, ...layout(bootOther.dom) });
     bootOther.dom.window.close();
   }
@@ -573,9 +576,9 @@ for (const [short, long, heading] of [['/privacy', '/privacy-policy', 'Privacy P
     const status = [...doc.querySelectorAll('main p')].find(p => /Showing/.test(p.textContent));
     check('clicking a category filters the tools page in the same task',
       bootNav.dom.window.location.pathname === '/free-seo-tools' && bootNav.dom.window.location.search === '?cat=checker'
-      && doc.querySelectorAll('main a[href^="/free-seo-tool/"]').length === 24
+      && doc.querySelectorAll('main a[href^="/free-seo-tools/"]').length === 24
       && /Showing 24 of \d+ tools in Website Checker Tools/.test(status?.textContent || ''),
-      `${bootNav.dom.window.location.pathname}${bootNav.dom.window.location.search}, tools=${doc.querySelectorAll('main a[href^="/free-seo-tool/"]').length}, status=${status?.textContent.replace(/\s+/g, ' ').trim()}`);
+      `${bootNav.dom.window.location.pathname}${bootNav.dom.window.location.search}, tools=${doc.querySelectorAll('main a[href^="/free-seo-tools/"]').length}, status=${status?.textContent.replace(/\s+/g, ' ').trim()}`);
     check('the menu closes once a category is chosen', doc.getElementById('tool-categories-menu')?.className.includes('hidden'));
     bootNav.dom.window.close();
   }
@@ -605,8 +608,8 @@ for (const [short, long, heading] of [['/privacy', '/privacy-policy', 'Privacy P
     const doc = bootFiltered.dom.window.document;
     const reset = [...doc.querySelectorAll('main button')].find(b => /^Show all \d+ tools$/.test(b.textContent.trim()));
     check('a filtered tools page offers "Show all" to clear the filter',
-      !!reset && doc.querySelectorAll('main a[href^="/free-seo-tool/"]').length === 18,
-      `reset=${!!reset}, cards=${doc.querySelectorAll('main a[href^="/free-seo-tool/"]').length}`);
+      !!reset && doc.querySelectorAll('main a[href^="/free-seo-tools/"]').length === 18,
+      `reset=${!!reset}, cards=${doc.querySelectorAll('main a[href^="/free-seo-tools/"]').length}`);
     bootFiltered.dom.window.close();
   }
 
@@ -644,7 +647,7 @@ for (const [short, long, heading] of [['/privacy', '/privacy-policy', 'Privacy P
 
   // Case Converter: the eight dark result cards form a two-column grid
   {
-    const bootCase = await boot('', '/free-seo-tool/case-converter');
+    const bootCase = await boot('', '/free-seo-tools/case-converter');
     const doc = bootCase.dom.window.document;
     const darkCards = [...doc.querySelectorAll('main div.bg-slate-900')];
     const grid = darkCards[0]?.parentElement;

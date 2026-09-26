@@ -35,7 +35,7 @@ export const ToolSearch: React.FC<{ autoFocus?: boolean; placeholder?: string }>
     return { tools: t, posts: p };
   }, [q, cmsTools, articles]);
 
-  const flat = [...results.tools.map(t => `/free-seo-tool/${t.slug}`), ...results.posts.map(p => `/blog/${p.slug}`)];
+  const flat = [...results.tools.map(t => `/free-seo-tools/${t.slug}`), ...results.posts.map(p => `/blog/${p.slug}`)];
 
   useEffect(() => {
     const onDoc = (e: MouseEvent) => { if (boxRef.current && !boxRef.current.contains(e.target as Node)) setOpen(false); };
@@ -81,7 +81,7 @@ export const ToolSearch: React.FC<{ autoFocus?: boolean; placeholder?: string }>
             <>
               {results.tools.length > 0 && <p className="px-4 pt-3 pb-1 text-[11px] font-bold uppercase tracking-wide text-slate-400">Tools</p>}
               {results.tools.map((t, i) => (
-                <a key={t.slug} href={`/free-seo-tool/${t.slug}`} onClick={() => go(`/free-seo-tool/${t.slug}`)} onMouseEnter={() => setActive(i)}
+                <a key={t.slug} href={`/free-seo-tools/${t.slug}`} onClick={() => go(`/free-seo-tools/${t.slug}`)} onMouseEnter={() => setActive(i)}
                   className={`flex items-center justify-between gap-3 px-4 py-2.5 text-sm ${active === i ? 'bg-indigo-50' : 'hover:bg-slate-50'}`}>
                   <span className="font-medium text-slate-800 truncate">{t.name}</span>
                   <span className="text-[11px] text-slate-400 whitespace-nowrap">{categoryLabels[t.category].replace(' Tools', '')}</span>
@@ -137,7 +137,7 @@ const CmsSidebarWidget: React.FC<{ widget: SidebarWidget; tools: ToolDef[]; post
     if (widget.source === 'tools') {
       items = (widget.linkRefs || []).map(ref => {
         const tool = tools.find(item => item.slug === ref);
-        return tool ? { href: `/free-seo-tool/${tool.slug}`, label: tool.name } : null;
+        return tool ? { href: `/free-seo-tools/${tool.slug}`, label: tool.name } : null;
       }).filter(Boolean) as { href: string; label: string }[];
     } else if (widget.source === 'posts') {
       items = (widget.linkRefs || []).map(ref => {
@@ -179,7 +179,7 @@ export const Sidebar: React.FC<{ category?: ToolCategory; currentSlug?: string; 
     const pool = category ? cmsTools.filter(t => t.category === category && t.slug !== currentSlug) : cmsTools.filter(t => ['plagiarism-checker', 'grammar-checker', 'word-counter', 'keyword-density-checker', 'meta-tag-generator', 'website-seo-score-checker', 'backlink-checker', 'ssl-checker', 'what-is-my-ip', 'compress-pdf'].includes(t.slug));
     return pool.slice(0, cfg.relevantCount);
   }, [category, currentSlug, cmsTools, cfg.relevantCount]);
-  const popular = POPULAR.map(([slug, badge]) => { const t = cmsTools.find(x => x.slug === slug); return t ? { href: `/free-seo-tool/${t.slug}`, label: t.name, badge } : null; }).filter(Boolean) as { href: string; label: string; badge?: string }[];
+  const popular = POPULAR.map(([slug, badge]) => { const t = cmsTools.find(x => x.slug === slug); return t ? { href: `/free-seo-tools/${t.slug}`, label: t.name, badge } : null; }).filter(Boolean) as { href: string; label: string; badge?: string }[];
   const posts = articles.filter(a => a.slug !== currentPost).slice(0, cfg.latestCount);
   const widgets = cfg.widgets || [];
 
@@ -191,7 +191,7 @@ export const Sidebar: React.FC<{ category?: ToolCategory; currentSlug?: string; 
         </div>
       )}
       {cfg.relevantTools && relevant.length > 0 && (
-        <ListPanel title={cfg.relevantTitle} items={relevant.map(t => ({ href: `/free-seo-tool/${t.slug}`, label: t.name }))} />
+        <ListPanel title={cfg.relevantTitle} items={relevant.map(t => ({ href: `/free-seo-tools/${t.slug}`, label: t.name }))} />
       )}
       {cfg.popular && (
         <ListPanel title={cfg.popularTitle} items={popular.filter(p => !p.href.endsWith(`/${currentSlug}`)).slice(0, 10)} arrowClass="text-blue-600" />

@@ -1,7 +1,7 @@
 /* ============================================================
    Clean-URL router (History API) — replaces the legacy #/ hash router.
 
-   • Routes come from location.pathname: /, /free-seo-tools, /free-seo-tool/slug,
+   • Routes come from location.pathname: /, /free-seo-tools, /free-seo-tools/slug,
      /blog, /blog/slug, /about, /admin …
    • Internal <a> clicks are intercepted → history.pushState,
      so navigation stays instant (no full reload).
@@ -19,9 +19,11 @@
                                  client-side)
        /#/tools?cat=x    → /free-seo-tools?cat=x
        /#/free-tools?cat=x → /free-seo-tools?cat=x
-       /tools, /tool     → /free-seo-tools
-       /free-tools       → /free-seo-tools  (previous canonical URL)
-       /tool/<slug>      → /free-seo-tool/<slug>
+       /tools, /tool     → /free-seo-tools   (tools index)
+       /free-tools       → /free-seo-tools   (previous canonical URL)
+       /tool/<slug>      → /free-seo-tools/<slug>
+       /free-tools/<slug>, /free-seo-tool/<slug> → /free-seo-tools/<slug>
+       /free-seo-tool    → /free-seo-tools
        /privacy-policy   → /privacy  (.htaccess 301s it as well)
        /p/about          → /about    (.htaccess issues a 301 for
                                  this; this is the client fallback)
@@ -36,15 +38,25 @@ export const TOOLS_PATH = '/free-seo-tools';
 /** Every older spelling of the tools index, redirected to `TOOLS_PATH`. */
 export const LEGACY_TOOLS_PATHS = ['/free-tools', '/tools', '/tool'];
 
-/** Individual tool pages live under this prefix: /free-seo-tool/<slug>. */
-export const TOOL_PATH_BASE = '/free-seo-tool';
+/** Individual tool pages nest under the index: /free-seo-tools/<slug>. */
+export const TOOL_PATH_BASE = TOOLS_PATH;
 
-/** Upgrade a path to the current hierarchy: /tool/<slug> → /free-seo-tool/<slug>
- *  and the bare /free-seo-tool back to the tools index. */
+/** Every older prefix a tool page may still arrive on. */
+export const LEGACY_TOOL_PATHS = ['/tool', '/free-tools', '/free-seo-tool'];
+
+/** Upgrade a path to the current hierarchy:
+ *    /tool/<slug>, /free-tools/<slug>, /free-seo-tool/<slug>
+ *                                       → /free-seo-tools/<slug>
+ *    /tools, /tool, /free-tools, /free-seo-tool (no slug)
+ *                                       → /free-seo-tools
+ *  Paths that already use the canonical hierarchy are returned untouched. */
 export const canonicalToolsPath = (pathname: string): string => {
-  if (pathname === TOOL_PATH_BASE) return TOOLS_PATH;
-  if (pathname.startsWith('/tool/')) return TOOL_PATH_BASE + pathname.slice('/tool'.length);
-  if (pathname.startsWith('/free-tools/')) return TOOL_PATH_BASE + pathname.slice('/free-tools'.length);
+  if (pathname === TOOLS_PATH || pathname.startsWith(`${TOOLS_PATH}/`)) return pathname;
+  for (const prefix of LEGACY_TOOL_PATHS) {
+    if (pathname === prefix) return TOOLS_PATH;
+    if (pathname.startsWith(`${prefix}/`)) return TOOLS_PATH + pathname.slice(prefix.length);
+  }
+  // /tools (the original directory name) and /free-tools → the tools index
   return LEGACY_TOOLS_PATHS.includes(pathname) ? TOOLS_PATH : pathname;
 };
 
@@ -111,9 +123,10 @@ export const cleanPath = (pathname: string): string => {
 export const getRoute = (): string => {
   const seg = currentPath().slice(1);
   if (seg === '') return 'home';
+  // /free-seo-tools/<slug> — a tool page (checked before the index itself)
+  if (seg.startsWith(`${TOOLS_PATH.slice(1)}/`)) return `tool/${seg.slice(TOOLS_PATH.length)}`;
   if (seg === TOOLS_PATH.slice(1) || LEGACY_TOOLS_PATHS.some(p => p.slice(1) === seg)) return 'free-tools';
-  if (seg.startsWith(`${TOOL_PATH_BASE.slice(1)}/`)) return `tool/${seg.slice(TOOL_PATH_BASE.length)}`;
-  // legacy /tool/<slug> (normalised to /free-seo-tool/<slug> before the first paint)
+  // legacy /tool/<slug> (normalised to /free-seo-tools/<slug> before the first paint)
   if (seg.startsWith('tool/')) return `tool/${seg.slice('tool/'.length)}`;
   if (seg === 'blog') return 'blog';
   if (seg.startsWith('blog/')) return `blog/${seg.slice(5)}`;
@@ -190,8 +203,9 @@ export const navigate = (to: string, opts: { replace?: boolean } = {}): void => 
  * One-shot legacy-URL normalisation, run before the first render:
  *  - /#/p/about (old hash link)  → /about
  *  - /#/tools?cat=keyword        → /free-seo-tools?cat=keyword
- *  - /tools, /tool, /free-tools  → /free-seo-tools
- *  - /tool/<slug>                → /free-seo-tool/<slug>
+ *  - /tools, /tool, /free-tools, /free-seo-tool → /free-seo-tools
+ *  - /tool/<slug>, /free-tools/<slug>, /free-seo-tool/<slug>
+ *                                → /free-seo-tools/<slug>
  *  - /p/about (old clean link)   → /about
  *  - /index.html                 → /
  */

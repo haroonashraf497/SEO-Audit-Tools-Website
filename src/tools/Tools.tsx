@@ -551,7 +551,7 @@ export const ToolsList: React.FC = () => {
               </div>
               <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {list.map(t => (
-                  <a key={t.slug} href={`/free-seo-tool/${t.slug}`}
+                  <a key={t.slug} href={`/free-seo-tools/${t.slug}`}
                     className="group bg-white rounded-2xl border border-slate-200 p-5 shadow-sm hover:shadow-lg hover:border-indigo-200 transition-all flex flex-col">
                     <div className="flex items-center justify-between mb-3">
                       <span className={`w-9 h-9 rounded-lg flex items-center justify-center border ${categoryStyles[t.category]}`}>

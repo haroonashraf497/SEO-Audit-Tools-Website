@@ -538,12 +538,16 @@ const cleanStoredHref = (href: string): string => {
     if (!path.startsWith('/')) return value; // in-page fragment — keep as-is
     let clean = path.replace(/^\/p\//, '/').replace(/^\//, '').replace(/\/+$/, '');
     if (clean === 'tools' || clean === 'tool' || clean === 'free-tools') clean = 'free-seo-tools';
-    else if (clean.startsWith('tool/')) clean = `free-seo-tool/${clean.slice('tool/'.length)}`;
+    else if (clean.startsWith('tool/')) clean = `free-seo-tools/${clean.slice('tool/'.length)}`;
+    else if (clean.startsWith('free-tools/')) clean = `free-seo-tools/${clean.slice('free-tools/'.length)}`;
+    else if (clean.startsWith('free-seo-tool/')) clean = `free-seo-tools/${clean.slice('free-seo-tool/'.length)}`;
     return clean === '' ? '/' : `/${clean}`;
   }
   if (value === '/tools' || value === '/tool' || value === '/free-tools') return '/free-seo-tools';
-  if (value.startsWith('/tool/')) return `/free-seo-tool${value.slice('/tool'.length)}`;
-  if (value.startsWith('/free-tools/')) return `/free-seo-tool${value.slice('/free-tools'.length)}`;
+  for (const prefix of ['/tool', '/free-tools', '/free-seo-tool']) {
+    if (value.startsWith(`${prefix}/`)) return `/free-seo-tools${value.slice(prefix.length)}`;
+  }
+  if (value === '/free-seo-tool') return '/free-seo-tools';
   return value;
 };
 

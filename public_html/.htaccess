@@ -46,10 +46,11 @@ Options -Indexes -MultiViews
   RewriteRule ^tools/?$ /free-seo-tools [R=301,L]
   RewriteRule ^tool/?$ /free-seo-tools [R=301,L]
   RewriteRule ^free-tools/?$ /free-seo-tools [R=301,L]
-  # Individual tools now live under /free-seo-tool/<slug>; the old prefixes
-  # (/tool/<slug>, /free-tools/<slug>) 301 across with the slug kept.
-  RewriteRule ^tool/(.+?)/?$ /free-seo-tool/$1 [R=301,L]
-  RewriteRule ^free-tools/(.+?)/?$ /free-seo-tool/$1 [R=301,L]
+  # Individual tools nest under the index: /free-seo-tools/<slug>. Every older
+  # prefix 301s across with the slug kept.
+  RewriteRule ^tool/(.+?)/?$ /free-seo-tools/$1 [R=301,L]
+  RewriteRule ^free-tools/(.+?)/?$ /free-seo-tools/$1 [R=301,L]
+  RewriteRule ^free-seo-tool/(.+?)/?$ /free-seo-tools/$1 [R=301,L]
   RewriteRule ^free-seo-tool/?$ /free-seo-tools [R=301,L]
   # Legal pages answer on the short canonical URL (same as the client router).
   RewriteRule ^privacy-policy/?$ /privacy [R=301,L]
