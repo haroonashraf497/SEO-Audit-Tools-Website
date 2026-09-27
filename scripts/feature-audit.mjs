@@ -417,6 +417,79 @@ check('nav default points at /free-seo-tools', /label: 'Free SEO Tools', href: '
 check('canonical uses clean path (no #/)', /return `\$\{origin\}\$\{clean\}`/.test(seo) && !/return `\$\{origin\}\/#\$\{clean\}`/.test(seo));
 check('sitemap uses /free-seo-tools', sitemap.includes('<loc>https://seoaudittools.pk/free-seo-tools</loc>') && !/seoaudittools\.pk\/free-tools</.test(sitemap));
 
+console.log('\n=== 🏷️ Blog categories ===');
+const blogSrc = read('src/blog/Blog.tsx');
+const adminSrc = read('src/cms/Admin.tsx');
+check('the store models blog categories and their clean URLs',
+  /export interface CmsBlogCategory \{[\s\S]{0,200}name: string;[\s\S]{0,80}slug: string;[\s\S]{0,80}visible: boolean;/.test(store)
+  && /blogCategories: CmsBlogCategory\[\];/.test(store)
+  && /blogCategories: defaultBlogCategories,/.test(store)
+  && /export const blogCategorySlug = \(name: string\): string =>/.test(store)
+  && /export const UNCATEGORIZED = 'Uncategorized';/.test(store));
+check('the four built-in article categories are seeded and migrated',
+  /export const defaultBlogCategories: CmsBlogCategory\[\] = \[[\s\S]{0,400}'Core Web Vitals'[\s\S]{0,200}'PageSpeed'[\s\S]{0,200}'WordPress SEO'[\s\S]{0,200}'Google & Indexing'/.test(store)
+  && /const migrateBlogCategories = \(saved\?: CmsBlogCategory\[\]\): CmsBlogCategory\[\] => \{/.test(store)
+  && /blogCategories: migrateBlogCategories\(parsed\.blogCategories\),/.test(store)
+  && /blogCategories: migrateBlogCategories\(parsed\.blogCategories\), seo: migrateSeo/.test(store));
+check('adding, renaming, hiding and removing categories all persist',
+  /addBlogCategory: \(name\) => \{/.test(store)
+  && /saveBlogCategory: \(slug, patch\) => setState\(s => \{/.test(store)
+  && /setBlogCategoryVisible: \(slug, visible\) =>/.test(store)
+  && /removeBlogCategory: \(slug\) => setState\(s => \{/.test(store));
+check('removing a category keeps its posts as Uncategorized',
+  /blogCategories: s\.blogCategories\.filter\(c => c\.slug !== slug\),\s*posts: s\.posts\.map\(p => \(p\.category === current\.name \? \{ \.\.\.p, category: UNCATEGORIZED \} : p\)\)/.test(store));
+check('renaming a category relabels its posts',
+  /posts: nextName === current\.name \? s\.posts : s\.posts\.map\(p => \(p\.category === current\.name \? \{ \.\.\.p, category: nextName \} : p\)\)/.test(store));
+check('the admin Blog posts tab carries the new Blog Categories section',
+  /const BlogCategoriesSection: React\.FC = \(\) => \{/.test(adminSrc)
+  && /<section aria-label="Blog Categories"/.test(adminSrc)
+  && /<BlogCategoriesSection \/>\s*\{creating && <NewPostForm/.test(adminSrc));
+check('the section has a name field, an auto slug and a save button',
+  /<Field label="Category Name">/.test(adminSrc)
+  && /<Field label="Category Slug" hint=\{effectiveSlug \? `\/blog\/category\/\$\{effectiveSlug\}`/.test(adminSrc)
+  && /const autoSlug = blogCategorySlug\(name\);/.test(adminSrc)
+  && /<SaveButton label="Add category" onSave=\{create\} \/>/.test(adminSrc));
+check('every category row shows name, slug, post count and its actions',
+  /\/blog\/category\/\{cat\.slug\}<\//.test(adminSrc)
+  && /postCount\(cat\)\} post/.test(adminSrc)
+  && /setBlogCategoryVisible\(cat\.slug, !cat\.visible\)/.test(adminSrc)
+  && /\(editing === cat\.id \? setEditing\(null\) : startEdit\(cat\)\)/.test(adminSrc)
+  && /removeBlogCategory\(cat\.slug\)/.test(adminSrc));
+check('the post editor and the new-post form both get an Assign Category dropdown',
+  /const AssignCategory: React\.FC<\{ value: string; onChange: \(name: string\) => void; ariaLabel\?: string \}>/.test(adminSrc)
+  && /<AssignCategory value=\{f\.category\} onChange=\{name => setF\(\{ \.\.\.f, category: name \}\)\} \/>/.test(adminSrc)
+  && (adminSrc.match(/<AssignCategory value=\{f\.category\}/g) || []).length === 2
+  && /<option value="__new__">\+ Add new category…<\/option>/.test(adminSrc)
+  && /addBlogCategory\(clean\);\s*onChange\(clean\);/.test(adminSrc));
+check('a category added in the editor appears in the dropdown straight away',
+  /const visible = state\.blogCategories\.filter\(c => c\.visible\);/.test(adminSrc)
+  && /const valueInList = known\.includes\(value\) \|\| value === UNCATEGORIZED;/.test(adminSrc));
+check('/blog renders a Blog Categories section linking to each category page',
+  /<section aria-label="Blog Categories"/.test(blogSrc)
+  && /href=\{`\/blog\/category\/\$\{cat\.slug\}`\}/.test(blogSrc)
+  && /postsInBlogCategory\(state, cat\.name\)\.length/.test(blogSrc));
+check('the blog filter tabs come from the CMS categories',
+  /const cats = useMemo\(\(\) => visibleBlogCategories\(state\), \[state\]\);/.test(blogSrc)
+  && /const tabs = useMemo\(\(\) => \['All', \.\.\.cats\.map\(c => c\.name\)\], \[cats\]\);/.test(blogSrc)
+  && /\{tabs\.map\(cat => \(/.test(blogSrc));
+check('a category page lists that category only, with its own heading',
+  /export const BlogCategoryPage: React\.FC<\{ slug: string \}> = \(\{ slug \}\) => \{/.test(blogSrc)
+  && /postsInBlogCategory\(state, category\.name\)/.test(blogSrc)
+  && /<h1 className="text-3xl md:text-4xl font-bold text-slate-900 leading-tight mb-4">\{category\.name\} articles<\/h1>/.test(blogSrc));
+check('the router resolves /blog/category/<slug> before the article route',
+  /if \(seg\.startsWith\('blog\/category\/'\)\) return `blogcat\/\$\{seg\.slice\('blog\/category\/'\.length\)\}`;\s*if \(seg\.startsWith\('blog\/'\)\) return `blog\/\$\{seg\.slice\(5\)\}`;/.test(read('src/router.ts')));
+check('the app renders the category page and its breadcrumb',
+  /route\.startsWith\('blogcat\/'\) && <BlogCategoryPage slug=\{route\.slice\('blogcat\/'\.length\)\} \/>/.test(app)
+  && /if \(route\.startsWith\('blogcat\/'\)\) \{/.test(app));
+check('SEO gives every category a canonical URL, ItemList and breadcrumb',
+  /if \(route\.startsWith\('blogcat\/'\)\) \{/.test(read('src/utils/seo.ts'))
+  && /const path = `\/blog\/category\/\$\{slug\}`;/.test(read('src/utils/seo.ts'))
+  && /title: `\$\{category\.name\} — SEO Guides & Fixes \| \$\{brand\}`,/.test(read('src/utils/seo.ts'))
+  && /hasPart: \(cms\.blogCategories \|\| \[\]\)\.filter\(c => c\.visible\)\.map\(c => \(/.test(read('src/utils/seo.ts')));
+check('the sitemap lists the built-in category pages',
+  ['core-web-vitals', 'pagespeed', 'wordpress-seo', 'google-indexing'].every(slug =>
+    sitemap.includes(`<loc>https://seoaudittools.pk/blog/category/${slug}</loc>`)));
+
 console.log('\n=== ✅ Preserved ===');
 check('no "Loading page" anywhere in src', !/Loading page/.test(read('src/App.tsx') + read('src/components/ErrorBoundary.tsx') + read('src/tools/Tools.tsx')));
 const codeOnly = src => src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');

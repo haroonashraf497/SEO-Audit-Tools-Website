@@ -286,6 +286,67 @@ export const resolvePageSeo = (route: string, cms: CmsState): PageSeo => {
         description,
         url: `${origin}/blog`,
         publisher: { '@id': `${origin}/#organization` },
+        // Every category answers on its own clean URL.
+        hasPart: (cms.blogCategories || []).filter(c => c.visible).map(c => ({
+          '@type': 'CollectionPage',
+          name: c.name,
+          url: `${origin}/blog/category/${c.slug}`,
+        })),
+      },
+    };
+  }
+
+  if (route.startsWith('blogcat/')) {
+    const slug = route.slice('blogcat/'.length);
+    const category = (cms.blogCategories || []).find(c => c.slug === slug);
+    const posts = category ? cms.posts.filter(p => p.status === 'live' && p.category === category.name) : [];
+    const path = `/blog/category/${slug}`;
+    if (!category || !category.visible) {
+      return {
+        title: `Category not found | ${brand}`,
+        description: 'That blog category is not available. Browse the SEO blog instead.',
+        path: '/blog',
+        origin,
+        noindex: true,
+        image: og,
+      };
+    }
+    const description = `${posts.length} free, practical ${category.name} guides from ${brand}: fixes for the SEO problems website owners actually hit.`;
+    return {
+      title: `${category.name} — SEO Guides & Fixes | ${brand}`,
+      description,
+      path,
+      origin,
+      image: og,
+      jsonLd: {
+        '@context': 'https://schema.org',
+        '@graph': [
+          {
+            '@type': 'CollectionPage',
+            name: `${category.name} articles`,
+            description,
+            url: `${origin}${path}`,
+            isPartOf: { '@id': `${origin}/#website` },
+          },
+          {
+            '@type': 'ItemList',
+            numberOfItems: posts.length,
+            itemListElement: posts.map((p, i) => ({
+              '@type': 'ListItem',
+              position: i + 1,
+              name: p.title,
+              url: `${origin}/blog/${p.slug}`,
+            })),
+          },
+          {
+            '@type': 'BreadcrumbList',
+            itemListElement: [
+              { '@type': 'ListItem', position: 1, name: 'Home', item: `${origin}/` },
+              { '@type': 'ListItem', position: 2, name: 'Blog', item: `${origin}/blog` },
+              { '@type': 'ListItem', position: 3, name: category.name, item: `${origin}${path}` },
+            ],
+          },
+        ],
       },
     };
   }

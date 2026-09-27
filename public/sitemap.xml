@@ -91,6 +91,30 @@
     <priority>0.8</priority>
   </url>
   <url>
+    <loc>https://seoaudittools.pk/blog/category/core-web-vitals</loc>
+    <lastmod>2026-09-26</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://seoaudittools.pk/blog/category/pagespeed</loc>
+    <lastmod>2026-09-26</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://seoaudittools.pk/blog/category/wordpress-seo</loc>
+    <lastmod>2026-09-26</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://seoaudittools.pk/blog/category/google-indexing</loc>
+    <lastmod>2026-09-26</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
     <loc>https://seoaudittools.pk/about</loc>
     <lastmod>2026-09-22</lastmod>
     <changefreq>monthly</changefreq>

@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { categories, type BlogArticle } from './index';
+import { type BlogArticle } from './index';
 import { Sidebar } from '../tools/Sidebar';
-import { useCms, livePosts } from '../cms/store';
+import { useCms, livePosts, postsInBlogCategory, visibleBlogCategories } from '../cms/store';
 import { sanitizeRichHtml } from '../utils/sanitize';
 import { rewriteLegacyLinks } from '../router';
 
@@ -84,6 +84,23 @@ const categoryColor: Record<string, string> = {
   'Google & Indexing': 'bg-blue-50 text-blue-700 border-blue-100',
 };
 
+/** Extra badge colours, so categories added in the CMS still get a colour. */
+const extraCategoryColors = [
+  'bg-rose-50 text-rose-700 border-rose-100',
+  'bg-amber-50 text-amber-700 border-amber-100',
+  'bg-emerald-50 text-emerald-700 border-emerald-100',
+  'bg-cyan-50 text-cyan-700 border-cyan-100',
+  'bg-teal-50 text-teal-700 border-teal-100',
+  'bg-purple-50 text-purple-700 border-purple-100',
+];
+
+const categoryBadge = (name: string): string => {
+  if (categoryColor[name]) return categoryColor[name];
+  let hash = 0;
+  for (let i = 0; i < name.length; i += 1) hash = (hash + name.charCodeAt(i)) % extraCategoryColors.length;
+  return extraCategoryColors[hash];
+};
+
 const formatDate = (iso: string): string => {
   const d = new Date(iso + 'T00:00:00');
   return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
@@ -98,7 +115,7 @@ const ArticleCard: React.FC<{ article: BlogArticle }> = ({ article }) => (
       </a>
     )}
     <div className="flex items-center gap-3 mb-4">
-      <span className={`px-2.5 py-1 rounded-full text-xs font-semibold border ${categoryColor[article.category]}`}>
+      <span className={`px-2.5 py-1 rounded-full text-xs font-semibold border ${categoryBadge(article.category)}`}>
         {article.category}
       </span>
       <span className="text-xs text-slate-400">{article.readTime}</span>
@@ -123,6 +140,10 @@ const ArticleCard: React.FC<{ article: BlogArticle }> = ({ article }) => (
 export const BlogList: React.FC = () => {
   const { state } = useCms();
   const posts = useMemo(() => livePosts(state) as unknown as BlogArticle[], [state]);
+  // Tabs come from the CMS category list (Admin → Blog posts → Blog Categories)
+  // so a category added there shows up here immediately.
+  const cats = useMemo(() => visibleBlogCategories(state), [state]);
+  const tabs = useMemo(() => ['All', ...cats.map(c => c.name)], [cats]);
   const [activeCategory, setActiveCategory] = useState<string>('All');
 
   useEffect(() => {
@@ -146,9 +167,26 @@ export const BlogList: React.FC = () => {
             </p>
           </header>
 
+          {/* Blog Categories — each one links to its own clean URL */}
+          <section aria-label="Blog Categories" className="mb-10">
+            <h2 className="text-2xl font-bold text-slate-900 mb-4 text-center">Blog Categories</h2>
+            <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
+              {cats.map(cat => (
+                <a
+                  key={cat.id}
+                  href={`/blog/category/${cat.slug}`}
+                  className="group bg-white rounded-xl border border-slate-200 p-4 shadow-sm hover:shadow-md hover:border-indigo-200 transition-all"
+                >
+                  <span className={`inline-block px-2.5 py-1 rounded-full text-xs font-semibold border mb-2 ${categoryBadge(cat.name)}`}>{cat.name}</span>
+                  <p className="text-xs text-slate-500">{postsInBlogCategory(state, cat.name).length} article{postsInBlogCategory(state, cat.name).length === 1 ? '' : 's'}</p>
+                </a>
+              ))}
+            </div>
+          </section>
+
           {/* Category filter */}
           <div className="flex flex-wrap items-center justify-center gap-2 mb-10" role="tablist" aria-label="Filter articles by category">
-            {categories.map(cat => (
+            {tabs.map(cat => (
               <button
                 key={cat}
                 type="button"
@@ -171,6 +209,57 @@ export const BlogList: React.FC = () => {
               <ArticleCard key={article.slug} article={article} />
             ))}
           </div>
+        </div>
+        <Sidebar />
+      </div>
+    </div>
+  );
+};
+
+// ---------- Blog category page (/blog/category/<slug>) ----------
+export const BlogCategoryPage: React.FC<{ slug: string }> = ({ slug }) => {
+  const { state } = useCms();
+  const category = useMemo(() => (state.blogCategories || []).find(c => c.slug === slug) || null, [state.blogCategories, slug]);
+  const posts = useMemo(() => (category ? postsInBlogCategory(state, category.name) as unknown as BlogArticle[] : []), [state, category]);
+
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [slug]);
+
+  if (!category || !category.visible) {
+    return (
+      <div className="pt-16 pb-20 px-4 text-center min-h-screen">
+        <h1 className="text-3xl font-bold text-slate-900 mb-4">Category not found</h1>
+        <p className="text-slate-600 mb-8">That blog category does not exist or is not visible.</p>
+        <a href="/blog" className="inline-block bg-gradient-to-r from-indigo-500 to-purple-600 text-white px-6 py-3 rounded-xl font-semibold">Back to the blog</a>
+      </div>
+    );
+  }
+
+  return (
+    <div className="pt-10 pb-20 px-4 min-h-screen">
+      <div className="max-w-7xl mx-auto grid lg:grid-cols-[minmax(0,1fr)_minmax(0,300px)] gap-8 items-start">
+        <div className="min-w-0">
+          <nav aria-label="Breadcrumb" className="text-sm text-slate-500 mb-4">
+            <a href="/blog" className="text-indigo-600 hover:text-indigo-700">Blog</a>
+            <span className="mx-2 text-slate-400" aria-hidden="true">/</span>
+            <span className="text-slate-600">{category.name}</span>
+          </nav>
+          <header className="mb-10">
+            <span className={`inline-block px-2.5 py-1 rounded-full text-xs font-semibold border mb-4 ${categoryBadge(category.name)}`}>{category.name}</span>
+            <h1 className="text-3xl md:text-4xl font-bold text-slate-900 leading-tight mb-4">{category.name} articles</h1>
+            <p className="text-lg text-slate-600 leading-relaxed">
+              {posts.length} practical guide{posts.length === 1 ? '' : 's'} filed under {category.name} — written for website owners who want fixes, not theory.
+            </p>
+          </header>
+          {posts.length === 0 ? (
+            <p className="text-slate-600">No published articles in this category yet. <a href="/blog" className="text-indigo-600 font-semibold hover:underline">Browse every article</a>.</p>
+          ) : (
+            <div className="grid md:grid-cols-2 gap-6">
+              {posts.map(article => <ArticleCard key={article.slug} article={article} />)}
+            </div>
+          )}
+          <p className="mt-10"><a href="/blog" className="text-indigo-600 font-semibold hover:underline">← All blog categories</a></p>
         </div>
         <Sidebar />
       </div>
@@ -204,7 +293,7 @@ export const BlogArticlePage: React.FC<{ slug: string }> = ({ slug }) => {
       <article className="min-w-0 w-full">
         <header className="mb-10">
           <div className="flex items-center gap-3 mb-5">
-            <span className={`px-2.5 py-1 rounded-full text-xs font-semibold border ${categoryColor[article.category]}`}>
+            <span className={`px-2.5 py-1 rounded-full text-xs font-semibold border ${categoryBadge(article.category)}`}>
               {article.category}
             </span>
             <time dateTime={article.date} className="text-sm text-slate-400">{formatDate(article.date)}</time>

@@ -216,13 +216,35 @@ Every panel saves to `localStorage` (so it survives a refresh) and updates the
 public site immediately. Content is per-browser: use **Settings → Export JSON**
 to move or version it. See `CMS.md` for the full CMS reference.
 
+### Blog categories
+
+Categories are managed in **Admin → Blog posts → Blog Categories** (a section sitting directly
+above the post list, next to *+ Write post*):
+
+- **Category Name** + **Category Slug** (auto-generated from the name, editable) and an
+  **Add category** button that confirms with *Saved ✓*;
+- every row shows **Name**, **/blog/category/<slug>**, its **live post count** and its own
+  **Visible/Hide**, **Edit** (rename + re-slug) and **Remove** actions;
+- removing a category never deletes a post — its posts move to **Uncategorized**; renaming one
+  relabels its posts, so nothing is orphaned;
+- categories save to the CMS store and appear immediately in the **Assign Category** dropdown in
+  the post editor and the new-post form, which can add a category inline ("+ New category") and
+  assign it without leaving the editor.
+
+On the public site, `/blog` carries a **Blog Categories** section (one card per visible category
+with its article count) and every category answers on its own clean URL:
+`/blog/category/<slug>` — e.g. https://seoaudittools.pk/blog/category/core-web-vitals. Those pages
+have their own H1, intro, canonical tag, `CollectionPage` + `ItemList` + `BreadcrumbList` JSON-LD and
+article list; the blog filter tabs are driven by the same category list, and the sitemap lists the
+four built-in category URLs.
+
 ## Verification
 
 ```bash
 npm run typecheck                  # tsc --noEmit
-node scripts/feature-audit.mjs     # 172 checks: CMS controls, footer redesign, legal URLs, /free-seo-tools index, text-tool layout/mobile, case-converter grid, Tool Categories mega menu, no-bold top nav, top-level tool URLs (/<slug>), category pages (/ip-tools), Merge PDF compressor, no EKSTRUH, 154 tools
+node scripts/feature-audit.mjs     # 189 checks: CMS controls, blog categories, footer redesign, legal URLs, /free-seo-tools index, text-tool layout/mobile, case-converter grid, Tool Categories mega menu, no-bold top nav, top-level tool URLs (/<slug>), category pages (/ip-tools), Merge PDF compressor, no EKSTRUH, 154 tools
 npm install --no-save jsdom
-node scripts/verify-single-file.mjs  # 152 checks: boots the built file, instant swap, footer, legal + category URLs, top-level tool pages, legacy redirects, head injection, text-tool layout, mega-menu navigation
+node scripts/verify-single-file.mjs  # 171 checks: boots the built file, blog category pages, instant swap, footer, legal + category URLs, top-level tool pages, legacy redirects, head injection, text-tool layout, mega-menu navigation
 npm test                           # 34 Playwright tests (needs Chromium)
 ```
 

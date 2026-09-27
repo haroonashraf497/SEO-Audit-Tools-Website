@@ -9,7 +9,7 @@ import SerpPreview from './components/SerpPreview';
 import { SeoManager } from './utils/seo';
 import { categoryKeyOfRoute, cleanHref, getRoute, lastNavigationKind, navigate, rewriteLegacyLinks, storedSlugForRoute, subscribe, TOOLS_PATH } from './router';
 import { RouteBoundary } from './components/ErrorBoundary';
-import { BlogList, BlogArticlePage } from './blog/Blog';
+import { BlogList, BlogArticlePage, BlogCategoryPage } from './blog/Blog';
 import { ToolsList, ToolPage } from './tools/Tools';
 import CompetitorAnalysis, { CompetitorToolContent } from './tools/CompetitorAnalysis';
 import { AdminApp } from './cms/Admin';
@@ -1345,6 +1345,10 @@ const SiteBreadcrumbs: React.FC<{ route: string }> = ({ route }) => {
       return toolCrumbs(home, route.slice(2), state);
     }
     if (route === 'blog') return [home, { label: 'Blog' }];
+    if (route.startsWith('blogcat/')) {
+      const cat = (state.blogCategories || []).find(c => c.slug === route.slice('blogcat/'.length));
+      return [home, { label: 'Blog', href: '/blog' }, { label: cat?.name || 'Category' }];
+    }
     if (route.startsWith('blog/')) {
       const post = state.posts.find(p => p.slug === route.slice(5));
       return [home, { label: 'Blog', href: '/blog' }, { label: post?.title || 'Article' }];
@@ -1454,7 +1458,7 @@ const SiteApp: React.FC = () => {
     scrollInstantly(0);
   }, [route]);
 
-  const isBlog = route === 'blog' || route.startsWith('blog/');
+  const isBlog = route === 'blog' || route.startsWith('blog/') || route.startsWith('blogcat/');
   const isTools = route === 'free-tools' || route === 'tools' || route.startsWith('tool/') || route.startsWith('cat/') || (route.startsWith('p/') && cms.state.tools.some(t => t.slug === route.slice(2)) && !findPage(cms.state, storedSlugForRoute(route.slice(2))));
 
   // Footer content is live: every value below is read straight from the CMS
@@ -1639,6 +1643,7 @@ const SiteApp: React.FC = () => {
 
       {/* Blog routes */}
       {route === 'blog' && <BlogList />}
+      {route.startsWith('blogcat/') && <BlogCategoryPage slug={route.slice('blogcat/'.length)} />}
       {route.startsWith('blog/') && <BlogArticlePage slug={route.slice(5)} />}
 
       {/* Tools routes */}

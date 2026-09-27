@@ -3,7 +3,7 @@
 
    • Routes come from location.pathname: /, /free-seo-tools (the tools index),
      /ip-tools (a category page), /plagiarism-checker (a tool page at the top
-     level), /blog, /blog/slug, /about, /admin …
+     level), /blog, /blog/slug, /blog/category/<slug>, /about, /admin …
    • Internal <a> clicks are intercepted → history.pushState,
      so navigation stays instant (no full reload).
    • Back/forward (popstate) re-renders the matching view.
@@ -171,6 +171,8 @@ export const getRoute = (): string => {
   const category = categoryFromSlug(seg);
   if (category) return `cat/${category}`;
   if (seg === 'blog') return 'blog';
+  // /blog/category/<slug> — a real page listing one category's posts
+  if (seg.startsWith('blog/category/')) return `blogcat/${seg.slice('blog/category/'.length)}`;
   if (seg.startsWith('blog/')) return `blog/${seg.slice(5)}`;
   if (seg === 'admin') return 'admin';
   if (seg === 'admin-login') return 'admin-login';

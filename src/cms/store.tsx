@@ -37,6 +37,18 @@ export type PageBlock =
   | { id: string; type: 'table'; head: string[]; rows: string[][] }
   | { id: string; type: 'cta'; text: string; label: string; href: string };
 
+/**
+ * A blog category. Posts store the category *name* (they always have), and
+ * this list is what the admin manages: a name, a clean slug for
+ * /blog/category/<slug>, and whether the category is visible on the site.
+ */
+export interface CmsBlogCategory {
+  id: string;
+  name: string;
+  slug: string;
+  visible: boolean;
+}
+
 export interface CmsPage {
   id: string; slug: string; title: string; metaTitle: string; metaDescription: string;
   /** Rich-text HTML document — the single source of truth for the page body. */
@@ -135,6 +147,8 @@ export interface CmsState {
   nav: NavItem[];
   /** The four footer link columns (Quick Links, SEO Tools, Resources, Company). */
   footerColumns: FooterColumn[];
+  /** Blog categories — managed in Admin → Blog posts → Blog Categories. */
+  blogCategories: CmsBlogCategory[];
   passcode: string;
 }
 
@@ -161,6 +175,54 @@ const defaultPosts: CmsPost[] = allArticles.map(a => ({
   excerpt: a.excerpt, content: a.content, category: a.category, date: a.date, readTime: a.readTime,
   author: a.author, keywords: a.keywords, featuredImage: a.featuredImage, featuredImageAlt: a.featuredImageAlt, status: 'live' as Status, builtin: true,
 }));
+
+/** URL slug for a category name: "SEO Tips" → "seo-tips". */
+export const blogCategorySlug = (name: string): string =>
+  (name || '')
+    .toLowerCase()
+    .replace(/&/g, ' and ')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '') || 'category';
+
+/** Categories a post can end up in when its own category is removed. */
+export const UNCATEGORIZED = 'Uncategorized';
+
+/** The four categories the built-in articles already use. */
+export const defaultBlogCategories: CmsBlogCategory[] = [
+  { id: uid(), name: 'Core Web Vitals', slug: 'core-web-vitals', visible: true },
+  { id: uid(), name: 'PageSpeed', slug: 'pagespeed', visible: true },
+  { id: uid(), name: 'WordPress SEO', slug: 'wordpress-seo', visible: true },
+  { id: uid(), name: 'Google & Indexing', slug: 'google-indexing', visible: true },
+];
+
+/**
+ * Keep the admin's categories across reloads. A browser that has never saved
+ * any gets the four built-in ones; a saved list is cleaned up (missing id,
+ * slug or a visible flag) rather than replaced, so an edit is never lost.
+ */
+const migrateBlogCategories = (saved?: CmsBlogCategory[]): CmsBlogCategory[] => {
+  if (!Array.isArray(saved) || saved.length === 0) return defaultBlogCategories;
+  return saved
+    .filter(c => c && typeof c.name === 'string' && c.name.trim())
+    .map(c => ({
+      id: c.id || uid(),
+      name: c.name.trim(),
+      slug: (c.slug || blogCategorySlug(c.name)).toLowerCase().replace(/[^a-z0-9-]/g, '-').replace(/^-+|-+$/g, '') || blogCategorySlug(c.name),
+      visible: c.visible !== false,
+    }));
+};
+
+/** Categories shown on the public site, in admin order. */
+export const visibleBlogCategories = (state: CmsState): CmsBlogCategory[] =>
+  (state.blogCategories || []).filter(c => c.visible);
+
+/** Category behind a /blog/category/<slug> URL, or undefined. */
+export const blogCategoryBySlug = (state: CmsState, slug: string): CmsBlogCategory | undefined =>
+  (state.blogCategories || []).find(c => c.slug === slug);
+
+/** Live posts in a category, newest first (posts already arrive sorted). */
+export const postsInBlogCategory = (state: CmsState, name: string): CmsPost[] =>
+  state.posts.filter(p => p.status === 'live' && p.category === name);
 
 const footerLink = (label: string, href: string): FooterLink => ({ id: uid(), label, href, visible: true });
 
@@ -191,6 +253,7 @@ export const defaultFooterColumns: FooterColumn[] = [
 
 export const defaultState: CmsState = {
   version: 13,
+  blogCategories: defaultBlogCategories,
   tools: defaultTools,
   posts: defaultPosts,
   pages: [
@@ -841,6 +904,7 @@ const load = (): CmsState => {
       settings,
       nav: migrateNav(parsed.nav),
       footerColumns: migrateFooterColumns(parsed.footerColumns, settings),
+      blogCategories: migrateBlogCategories(parsed.blogCategories),
       sidebar: { ...migrateSidebar(oldSidebar), widgets: migratedWidgets },
       sections: { ...defaultState.sections, ...(parsed.sections || {}) },
       seo: migrateSeo(parsed.seo, parsedVersion),
@@ -861,6 +925,11 @@ interface Ctx {
   savePost: (slug: string, patch: Partial<CmsPost>) => void;
   setPostStatus: (slug: string, status: Status) => void;
   deletePost: (slug: string) => void;
+  /* blog categories */
+  addBlogCategory: (name: string) => string;
+  saveBlogCategory: (slug: string, patch: Partial<CmsBlogCategory>) => void;
+  setBlogCategoryVisible: (slug: string, visible: boolean) => void;
+  removeBlogCategory: (slug: string) => void;
   /* pages */
   addPage: (p: Partial<CmsPage>) => string;
   savePage: (id: string, patch: Partial<CmsPage>) => void;
@@ -927,6 +996,42 @@ export const CmsProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setPostStatus: (slug, status) => setState(s => ({ ...s, posts: s.posts.map(p => (p.slug === slug ? { ...p, status } : p)) })),
     deletePost: (slug) => setState(s => ({ ...s, posts: s.posts.filter(p => p.slug !== slug) })),
 
+    // Unique slug inside the category list ("seo-tips", "seo-tips-2", …).
+    addBlogCategory: (name) => {
+      const clean = (name || '').trim() || 'New category';
+      let slug = blogCategorySlug(clean);
+      setState(s => {
+        const taken = new Set(s.blogCategories.map(c => c.slug));
+        if (taken.has(slug)) { let i = 2; while (taken.has(`${slug}-${i}`)) i += 1; slug = `${slug}-${i}`; }
+        return { ...s, blogCategories: [...s.blogCategories, { id: uid(), name: clean, slug, visible: true }] };
+      });
+      return slug;
+    },
+    // Renaming a category relabels its posts too, so nothing is orphaned.
+    saveBlogCategory: (slug, patch) => setState(s => {
+      const current = s.blogCategories.find(c => c.slug === slug);
+      if (!current) return s;
+      let nextSlug = (patch.slug ?? current.slug).toLowerCase().replace(/[^a-z0-9-]/g, '-').replace(/^-+|-+$/g, '') || current.slug;
+      if (nextSlug !== current.slug && s.blogCategories.some(c => c.slug === nextSlug)) nextSlug = current.slug;
+      const nextName = (patch.name ?? current.name).trim() || current.name;
+      return {
+        ...s,
+        blogCategories: s.blogCategories.map(c => (c.slug === slug ? { ...c, ...patch, name: nextName, slug: nextSlug } : c)),
+        posts: nextName === current.name ? s.posts : s.posts.map(p => (p.category === current.name ? { ...p, category: nextName } : p)),
+      };
+    }),
+    setBlogCategoryVisible: (slug, visible) => setState(s => ({ ...s, blogCategories: s.blogCategories.map(c => (c.slug === slug ? { ...c, visible } : c)) })),
+    // Removing a category keeps every post: they move to "Uncategorized".
+    removeBlogCategory: (slug) => setState(s => {
+      const current = s.blogCategories.find(c => c.slug === slug);
+      if (!current) return s;
+      return {
+        ...s,
+        blogCategories: s.blogCategories.filter(c => c.slug !== slug),
+        posts: s.posts.map(p => (p.category === current.name ? { ...p, category: UNCATEGORIZED } : p)),
+      };
+    }),
+
     addPage: (p) => { const id = uid(); setState(s => ({ ...s, pages: [{ id, slug: p.slug || `page-${id}`, title: p.title || 'New page', metaTitle: p.metaTitle || p.title || 'New page', metaDescription: p.metaDescription || '', content: p.content || '', featuredImage: p.featuredImage, featuredImageAlt: p.featuredImageAlt, status: p.status || 'draft' }, ...s.pages] })); return id; },
     savePage: (id, patch) => setState(s => ({ ...s, pages: s.pages.map(p => (p.id === id ? { ...p, ...patch } : p)) })),
     setPageStatus: (id, status) => setState(s => ({ ...s, pages: s.pages.map(p => (p.id === id ? { ...p, status } : p)) })),
@@ -942,7 +1047,7 @@ export const CmsProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     reset: () => setState({ ...defaultState }),
     exportJson: () => JSON.stringify({ ...state, pages: state.pages.map(pg => { const { blocks: _blocks, ...rest } = pg; return rest; }) }, null, 2),
-    importJson: (json) => { try { const parsed = JSON.parse(json) as CmsState; if (!parsed.tools || !parsed.posts) return false; const legacyItems = parsed.sidebar?.customItems || []; const widgets = parsed.sidebar?.widgets || (legacyItems.length ? [{ id: uid(), title: 'Featured links', type: 'links' as SidebarWidgetType, visible: true, source: 'manual' as SidebarLinkSource, links: legacyItems }] : []); const parsedVersion = typeof parsed.version === 'number' ? parsed.version : 1; setState({ ...defaultState, ...parsed, version: Math.max(defaultState.version, parsedVersion), pages: (parsedVersion < defaultState.version ? migratePages(parsed.pages || []) : (parsed.pages || defaultState.pages)).map(withPageContent), settings: migrateSettings(parsed.settings, parsedVersion), nav: migrateNav(parsed.nav), footerColumns: migrateFooterColumns(parsed.footerColumns, migrateSettings(parsed.settings, parsedVersion)), seo: migrateSeo(parsed.seo, parsedVersion), sidebar: { ...defaultState.sidebar, ...parsed.sidebar, widgets } }); return true; } catch { return false; } },
+    importJson: (json) => { try { const parsed = JSON.parse(json) as CmsState; if (!parsed.tools || !parsed.posts) return false; const legacyItems = parsed.sidebar?.customItems || []; const widgets = parsed.sidebar?.widgets || (legacyItems.length ? [{ id: uid(), title: 'Featured links', type: 'links' as SidebarWidgetType, visible: true, source: 'manual' as SidebarLinkSource, links: legacyItems }] : []); const parsedVersion = typeof parsed.version === 'number' ? parsed.version : 1; setState({ ...defaultState, ...parsed, version: Math.max(defaultState.version, parsedVersion), pages: (parsedVersion < defaultState.version ? migratePages(parsed.pages || []) : (parsed.pages || defaultState.pages)).map(withPageContent), settings: migrateSettings(parsed.settings, parsedVersion), nav: migrateNav(parsed.nav), footerColumns: migrateFooterColumns(parsed.footerColumns, migrateSettings(parsed.settings, parsedVersion)), blogCategories: migrateBlogCategories(parsed.blogCategories), seo: migrateSeo(parsed.seo, parsedVersion), sidebar: { ...defaultState.sidebar, ...parsed.sidebar, widgets } }); return true; } catch { return false; } },
 
     storageWarning,
     loggedIn,

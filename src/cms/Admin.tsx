@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { useCms, injectHeadCode, renderCopyright, type CmsPage, type CmsPost, type CmsTool, type FooterColumn, type FooterLink, type SeoEntry, type SidebarLinkSource, type SidebarWidget, type SidebarWidgetType, type Status } from './store';
+import { useCms, injectHeadCode, renderCopyright, blogCategorySlug, UNCATEGORIZED, type CmsBlogCategory, type CmsPage, type CmsPost, type CmsTool, type FooterColumn, type FooterLink, type SeoEntry, type SidebarLinkSource, type SidebarWidget, type SidebarWidgetType, type Status } from './store';
 import { categoryLabels, categoryOrder, ToolIcon, type ToolCategory } from '../tools/data';
 import { RichTextEditor } from './RichTextEditor';
 import { clearDraft, draftId, formatDraftTime, listDrafts, clearAllDrafts } from './drafts';
@@ -406,8 +406,10 @@ const PostEditor: React.FC<{ post: CmsPost; onClose: () => void }> = ({ post, on
         <Field label="URL slug" hint={`/blog/${f.slug}`}><input className={inputCls} value={f.slug} onChange={e => setF({ ...f, slug: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '-') })} /></Field>
       </div>
       <div className="grid md:grid-cols-3 gap-4">
-        <Field label="Category"><input className={inputCls} value={f.category} onChange={e => setF({ ...f, category: e.target.value })} /></Field>
+        <AssignCategory value={f.category} onChange={name => setF({ ...f, category: name })} />
         <Field label="Publish date"><input type="date" className={inputCls} value={f.date} onChange={e => setF({ ...f, date: e.target.value })} /></Field>
+      </div>
+      <div className="grid md:grid-cols-3 gap-4">
         <Field label="Read time"><input className={inputCls} value={f.readTime} onChange={e => setF({ ...f, readTime: e.target.value })} /></Field>
       </div>
       <Field label="Excerpt / summary" hint="Plain text — used on cards, in the blog list and as the meta description fallback."><textarea rows={2} className={inputCls} value={f.excerpt} onChange={e => setF({ ...f, excerpt: e.target.value })} /></Field>
@@ -420,6 +422,94 @@ const PostEditor: React.FC<{ post: CmsPost; onClose: () => void }> = ({ post, on
   );
 };
 
+/**
+ * Admin → Blog posts → Blog Categories.
+ *
+ * Sits directly above the post list, next to "+ Write post", so categories and
+ * posts are managed together. Every category shows its name, clean slug, live
+ * post count and its own Save / Visible / Edit / Remove controls; removing one
+ * keeps its posts and moves them to "Uncategorized".
+ */
+const BlogCategoriesSection: React.FC = () => {
+  const { state, addBlogCategory, saveBlogCategory, setBlogCategoryVisible, removeBlogCategory } = useCms();
+  const [name, setName] = useState('');
+  const [slug, setSlug] = useState('');
+  const [slugTouched, setSlugTouched] = useState(false);
+  const [editing, setEditing] = useState<string | null>(null);
+  const [draft, setDraft] = useState({ name: '', slug: '' });
+
+  const postCount = (cat: CmsBlogCategory) => state.posts.filter(p => p.category === cat.name).length;
+  const autoSlug = blogCategorySlug(name);
+  const effectiveSlug = slugTouched ? slug : autoSlug;
+
+  const create = () => {
+    const clean = name.trim();
+    if (!clean) return;
+    const created = addBlogCategory(clean);
+    if (slugTouched && slug.trim()) saveBlogCategory(created, { name: clean, slug: slug.trim() });
+    setName('');
+    setSlug('');
+    setSlugTouched(false);
+  };
+
+  const startEdit = (cat: CmsBlogCategory) => { setEditing(cat.id); setDraft({ name: cat.name, slug: cat.slug }); };
+
+  return (
+    <section aria-label="Blog Categories" className="bg-white rounded-2xl border border-slate-200 p-5 space-y-4">
+      <div className="flex flex-wrap items-center gap-3">
+        <h2 className="font-bold text-slate-900">Blog Categories</h2>
+        <span className="text-xs text-slate-500">{state.blogCategories.length} categor{state.blogCategories.length === 1 ? 'y' : 'ies'} · {state.blogCategories.filter(c => c.visible).length} visible</span>
+        <span className="text-xs text-slate-400 ml-auto">Each one becomes /blog/category/&lt;slug&gt; and appears in the post editor dropdown.</span>
+      </div>
+
+      <div className="grid md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] gap-3 items-end">
+        <Field label="Category Name"><input className={inputCls} value={name} onChange={e => setName(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); create(); } }} placeholder="SEO Tips" aria-label="Category Name" /></Field>
+        <Field label="Category Slug" hint={effectiveSlug ? `/blog/category/${effectiveSlug}` : 'Auto-generates from the name — edit if you want a different URL.'}>
+          <input className={inputCls} value={effectiveSlug} onChange={e => { setSlugTouched(true); setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '-')); }} placeholder="seo-tips" aria-label="Category Slug" />
+        </Field>
+        <SaveButton label="Add category" onSave={create} />
+      </div>
+
+      <div className="rounded-xl border border-slate-200 overflow-hidden">
+        {state.blogCategories.length === 0 && <p className="px-4 py-4 text-sm text-slate-500">No categories yet — add the first one above.</p>}
+        {state.blogCategories.map(cat => (
+          <React.Fragment key={cat.id}>
+            <Row actions={
+              <>
+                <span className={`text-xs font-semibold px-2.5 py-1 rounded-full border ${cat.visible ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 'bg-slate-100 text-slate-500 border-slate-200'}`}>{cat.visible ? 'Visible' : 'Hidden'}</span>
+                <Btn tone={cat.visible ? 'ghost' : 'ok'} onClick={() => setBlogCategoryVisible(cat.slug, !cat.visible)}>{cat.visible ? 'Hide' : 'Show'}</Btn>
+                <Btn tone="ghost" onClick={() => (editing === cat.id ? setEditing(null) : startEdit(cat))}>{editing === cat.id ? 'Close' : 'Edit'}</Btn>
+                <Btn tone="ghost" onClick={() => { if (window.confirm(`Remove the category “${cat.name}”? ${postCount(cat)} post(s) will move to ${UNCATEGORIZED}.`)) { removeBlogCategory(cat.slug); if (editing === cat.id) setEditing(null); } }}>Remove</Btn>
+              </>
+            }>
+              <div>
+                <p className="font-semibold text-slate-800">{cat.name}</p>
+                <p className="text-xs text-slate-500 font-mono">/blog/category/{cat.slug}</p>
+              </div>
+              <span className="text-xs text-slate-500"><strong className="text-slate-700">{postCount(cat)}</strong> post{postCount(cat) === 1 ? '' : 's'}</span>
+            </Row>
+            {editing === cat.id && (
+              <div className="p-4 bg-slate-50 border-b border-slate-100 space-y-3">
+                <div className="grid md:grid-cols-2 gap-3">
+                  <Field label="Category Name"><input className={inputCls} value={draft.name} onChange={e => setDraft({ ...draft, name: e.target.value })} aria-label="Edit category name" /></Field>
+                  <Field label="Category Slug" hint={`/blog/category/${draft.slug || blogCategorySlug(draft.name)}`}>
+                    <input className={inputCls} value={draft.slug} onChange={e => setDraft({ ...draft, slug: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '-') })} aria-label="Edit category slug" />
+                  </Field>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <SaveButton label="Save Changes" onSave={() => { saveBlogCategory(cat.slug, { name: draft.name, slug: draft.slug || blogCategorySlug(draft.name) }); setEditing(null); }} />
+                  <Btn tone="ghost" onClick={() => setEditing(null)}>Cancel</Btn>
+                  <span className="text-xs text-slate-400">Renaming keeps the posts in this category.</span>
+                </div>
+              </div>
+            )}
+          </React.Fragment>
+        ))}
+      </div>
+    </section>
+  );
+};
+
 const BlogPane: React.FC = () => {
   const { state, setPostStatus, deletePost } = useCms();
   const [edit, setEdit] = useState<string | null>(null);
@@ -427,6 +517,7 @@ const BlogPane: React.FC = () => {
   return (
     <div className="space-y-5">
       <div className="flex items-center gap-3"><span className="text-sm text-slate-500">{state.posts.length} posts · {state.posts.filter(p => p.status === 'live').length} published</span><Btn className="ml-auto" onClick={() => setCreating(true)}>+ Write post</Btn></div>
+      <BlogCategoriesSection />
       {creating && <NewPostForm onDone={() => setCreating(false)} />}
       <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
         {state.posts.map(p => (
@@ -460,6 +551,9 @@ const NewPostForm: React.FC<{ onDone: () => void }> = ({ onDone }) => {
       <div className="grid md:grid-cols-2 gap-4">
         <Field label="Title"><input className={inputCls} value={f.title} onChange={e => setF({ ...f, title: e.target.value })} /></Field>
         <Field label="Slug" hint={slug ? `/blog/${slug}` : ''}><input className={inputCls} value={f.slug} onChange={e => setF({ ...f, slug: e.target.value })} placeholder={slug} /></Field>
+      </div>
+      <div className="grid md:grid-cols-2 gap-4">
+        <AssignCategory value={f.category} onChange={name => setF({ ...f, category: name })} />
       </div>
       <Field label="Excerpt" hint="Plain text — shown on blog cards."><textarea rows={2} className={inputCls} value={f.excerpt} onChange={e => setF({ ...f, excerpt: e.target.value })} /></Field>
       <div className="grid md:grid-cols-2 gap-4">
@@ -555,6 +649,52 @@ const NewPageForm: React.FC<{ onDone: () => void }> = ({ onDone }) => {
       <FeaturedImageEditor image={f.featuredImage} alt={f.featuredImageAlt} onChange={patch => setF({ ...f, ...patch })} />
       <div className="flex gap-2"><Btn onClick={() => { addPage({ ...f, slug, metaTitle: f.metaTitle || f.title }); clearDraft(draftId('page', 'new-page')); onDone(); }}>Create page</Btn><Btn tone="ghost" onClick={onDone}>Cancel</Btn><span className="text-xs text-slate-400">Unsaved work is kept as a browser draft.</span></div>
     </div>
+  );
+};
+
+/**
+ * "Assign Category" dropdown for the blog post editor.
+ *
+ * Options come straight from the CMS category list, so a category added in
+ * Admin → Blog posts → Blog Categories appears here immediately. A post whose
+ * saved category is not in the list yet (older content) keeps that value as an
+ * option instead of being silently reassigned, and "+ Add new category…" adds
+ * one without leaving the editor and assigns it to the post.
+ */
+const AssignCategory: React.FC<{ value: string; onChange: (name: string) => void; ariaLabel?: string }> = ({ value, onChange, ariaLabel = 'Assign Category' }) => {
+  const { state, addBlogCategory } = useCms();
+  const [adding, setAdding] = useState(false);
+  const [name, setName] = useState('');
+  const visible = state.blogCategories.filter(c => c.visible);
+  const known = visible.map(c => c.name);
+  const valueInList = known.includes(value) || value === UNCATEGORIZED;
+  const slug = blogCategorySlug(name);
+  const submit = () => {
+    const clean = name.trim();
+    if (!clean) return;
+    addBlogCategory(clean);
+    onChange(clean);
+    setName('');
+    setAdding(false);
+  };
+  return (
+    <Field label="Assign Category" hint={slug ? `Creates /blog/category/${slug}` : 'New categories appear in the blog list immediately.'}>
+      <div className="flex flex-wrap items-center gap-2">
+        <select className={inputCls + ' max-w-[260px]'} value={valueInList ? value : ''} onChange={e => { if (e.target.value === '__new__') { setAdding(true); return; } onChange(e.target.value); }} aria-label={ariaLabel}>
+          {!valueInList && value ? <option value="">{value}</option> : null}
+          {visible.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
+          <option value={UNCATEGORIZED}>{UNCATEGORIZED}</option>
+          <option value="__new__">+ Add new category…</option>
+        </select>
+        <Btn tone="ghost" onClick={() => setAdding(a => !a)}>{adding ? 'Cancel' : '+ New category'}</Btn>
+      </div>
+      {adding && (
+        <div className="mt-2 flex flex-wrap items-end gap-2">
+          <input className={inputCls + ' max-w-[260px]'} value={name} onChange={e => setName(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); submit(); } }} placeholder="Category name, e.g. SEO Tips" aria-label="New category name" />
+          <SaveButton label="Add &amp; assign" onSave={submit} />
+        </div>
+      )}
+    </Field>
   );
 };
 

@@ -396,6 +396,167 @@ for (const [old, expected] of [['/free-seo-tools?cat=ip', '/ip-tools'], ['/free-
   dom.window.close();
 }
 
+/* 3d. blog categories: a Blog Categories section on /blog that links to real
+      /blog/category/<slug> pages, and the admin section that manages them */
+{
+  const { dom, errors } = await boot('', '/blog');
+  const doc = dom.window.document;
+  const section = doc.querySelector('section[aria-label="Blog Categories"]');
+  const links = [...(section?.querySelectorAll('a') || [])];
+  check('the blog page shows a Blog Categories section linking to category pages',
+    !!section && links.length === 4
+    && links.every(a => /^\/blog\/category\/[a-z-]+$/.test(a.getAttribute('href') || ''))
+    && errors.length === 0,
+    links.map(a => a.getAttribute('href')).join(' | '));
+  check('each category link shows its live article count',
+    links.every(a => /\d+ articles?/.test(a.textContent)), links.map(a => a.textContent.replace(/\s+/g, ' ').trim()).join(' | '));
+  dom.window.close();
+}
+for (const [slug, name, count] of [['core-web-vitals', 'Core Web Vitals', 3], ['pagespeed', 'PageSpeed', 3], ['wordpress-seo', 'WordPress SEO', 3], ['google-indexing', 'Google & Indexing', 3]]) {
+  const { dom, errors } = await boot('', `/blog/category/${slug}`);
+  const doc = dom.window.document;
+  const cards = [...doc.querySelectorAll('main article')];
+  check(`/blog/category/${slug} lists only its own ${count} articles`,
+    errors.length === 0
+    && (doc.querySelector('main h1')?.textContent || '').trim() === `${name} articles`
+    && cards.length === count
+    && (doc.querySelector('link[rel=canonical]')?.getAttribute('href') || '').endsWith(`/blog/category/${slug}`),
+    `h1=${(doc.querySelector('main h1')?.textContent || '').trim()} cards=${cards.length} canonical=${doc.querySelector('link[rel=canonical]')?.getAttribute('href')}`);
+  dom.window.close();
+}
+{
+  const { dom } = await boot('', '/blog/category/not-a-category');
+  check('an unknown category URL shows a not-found page with noindex',
+    /Category not found/.test(dom.window.document.querySelector('main h1')?.textContent || '')
+    && /noindex/.test(dom.window.document.querySelector('meta[name=robots]')?.getAttribute('content') || ''));
+  dom.window.close();
+}
+{
+  const session = JSON.stringify({ user: 'admin', remember: true, exp: Date.now() + 3_600_000 });
+  const { dom, errors } = await boot(`localStorage.setItem('ekstruh:admin-session:v1', ${JSON.stringify(session)});`, '/admin');
+  const doc = dom.window.document;
+  const click = el => el.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true, cancelable: true }));
+  const setValue = (el, value) => {
+    Object.getOwnPropertyDescriptor(dom.window.HTMLInputElement.prototype, 'value').set.call(el, value);
+    el.dispatchEvent(new dom.window.Event('input', { bubbles: true }));
+  };
+  click([...doc.querySelectorAll('button')].find(b => b.textContent.trim() === 'Blog posts'));
+  await wait();
+  check('admin boots the Blog posts tab with no script errors', errors.length === 0, errors.join(' | '));
+
+  const section = doc.querySelector('section[aria-label="Blog Categories"]');
+  const rows = () => [...(section?.querySelectorAll('p.font-semibold') || [])].map(p => p.textContent.trim());
+  check('the Blog Categories section is next to the post list and lists the four categories',
+    !!section && rows().join(', ') === 'Core Web Vitals, PageSpeed, WordPress SEO, Google & Indexing'
+    && (section.textContent || '').includes('4 categories'),
+    rows().join(', '));
+  check('each row carries the slug, the post count and its actions',
+    !!(section.textContent || '').includes('/blog/category/core-web-vitals')
+    && /3\s*posts?/.test((section.textContent || '').replace(/\s+/g, ' '))
+    && [...section.querySelectorAll('strong')].filter(el => el.textContent.trim() === '3').length === 4
+    && ['Hide', 'Edit', 'Remove'].every(label => [...section.querySelectorAll('button')].some(b => b.textContent.trim() === label)));
+
+  const nameInput = section.querySelector('input[aria-label="Category Name"]');
+  const slugInput = section.querySelector('input[aria-label="Category Slug"]');
+  setValue(nameInput, 'SEO Tips');
+  await wait();
+  check('the slug auto-generates from the name and stays editable',
+    slugInput.value === 'seo-tips' && !slugInput.readOnly && !slugInput.disabled, slugInput.value);
+  setValue(slugInput, 'seo-tips');
+  await wait();
+  const addButton = [...section.querySelectorAll('button')].find(b => /Add category/.test(b.textContent));
+  click(addButton);
+  await wait();
+  check('adding a category saves it and shows "Saved ✓"',
+    addButton.textContent.includes('Saved ✓')
+    && rows().join(', ') === 'Core Web Vitals, PageSpeed, WordPress SEO, Google & Indexing, SEO Tips',
+    `${addButton.textContent} | ${rows().join(', ')}`);
+  const stored = JSON.parse(dom.window.localStorage.getItem('seoaudittool:cms:v1') || '{}');
+  check('the new category is persisted in the CMS store',
+    ((stored.blogCategories || []).find(c => c.slug === 'seo-tips') || {}).name === 'SEO Tips',
+    JSON.stringify((stored.blogCategories || []).map(c => c.slug)));
+
+  const seoTipsRow = [...section.querySelectorAll('div')].find(div => (div.textContent || '').trim().startsWith('SEO Tips'));
+  click([...seoTipsRow.querySelectorAll('button')].find(b => b.textContent.trim() === 'Hide'));
+  await wait();
+  const stored2 = JSON.parse(dom.window.localStorage.getItem('seoaudittool:cms:v1') || '{}');
+  check('hiding a category persists its visible flag',
+    ((stored2.blogCategories || []).find(c => c.slug === 'seo-tips') || {}).visible === false,
+    JSON.stringify((stored2.blogCategories || []).find(c => c.slug === 'seo-tips')));
+  dom.window.close();
+}
+{
+  const session = JSON.stringify({ user: 'admin', remember: true, exp: Date.now() + 3_600_000 });
+  const { dom } = await boot(`localStorage.setItem('ekstruh:admin-session:v1', ${JSON.stringify(session)});`, '/admin');
+  const doc = dom.window.document;
+  const click = el => el.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true, cancelable: true }));
+  click([...doc.querySelectorAll('button')].find(b => b.textContent.trim() === 'Blog posts'));
+  await wait();
+  const editButtons = [...doc.querySelectorAll('button')].filter(b => b.textContent.trim() === 'Edit');
+  click(editButtons[editButtons.length - 1]);
+  await wait();
+  const select = doc.querySelector('select[aria-label="Assign Category"]');
+  const options = [...(select?.options || [])].map(o => o.value);
+  check('the post editor has an Assign Category dropdown with every category',
+    !!select
+    && ['Core Web Vitals', 'PageSpeed', 'WordPress SEO', 'Google & Indexing'].every(name => options.includes(name))
+    && options.includes('Uncategorized')
+    && options.includes('__new__'),
+    options.join(', '));
+  check('the dropdown shows the post\'s own category as selected',
+    (select?.value || '').length > 0 && options.includes(select.value), select?.value);
+  dom.window.close();
+}
+{
+  // Removing a category keeps its posts: they move to Uncategorized.
+  const state = {
+    version: 13,
+    blogCategories: [{ id: 'b1', name: 'Core Web Vitals', slug: 'core-web-vitals', visible: true }],
+    posts: [{ slug: 'p1', title: 'Kept post', metaTitle: 'Kept post', metaDescription: '', excerpt: '', content: '<p>x</p>', category: 'Core Web Vitals', date: '2026-01-01', readTime: '5 min read', author: 'A', keywords: [], status: 'live', builtin: false }],
+    pages: [], tools: [], seo: {}, footerColumns: [], nav: [], sections: {}, sidebar: {},
+  };
+  const session = JSON.stringify({ user: 'admin', remember: true, exp: Date.now() + 3_600_000 });
+  const preload = `localStorage.setItem('seoaudittool:cms:v1', ${JSON.stringify(JSON.stringify(state))});`
+    + `localStorage.setItem('ekstruh:admin-session:v1', ${JSON.stringify(session)});`;
+  const { dom } = await boot(preload, '/admin');
+  const doc = dom.window.document;
+  const click = el => el.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true, cancelable: true }));
+  const originalConfirm = dom.window.confirm;
+  dom.window.confirm = () => true;
+  click([...doc.querySelectorAll('button')].find(b => b.textContent.trim() === 'Blog posts'));
+  await wait();
+  const section = doc.querySelector('section[aria-label="Blog Categories"]');
+  click([...section.querySelectorAll('button')].find(b => b.textContent.trim() === 'Remove'));
+  await wait();
+  const stored = JSON.parse(dom.window.localStorage.getItem('seoaudittool:cms:v1') || '{}');
+  check('removing a category keeps its posts and marks them Uncategorized',
+    (stored.blogCategories || []).length === 0 && (stored.posts || [])[0]?.category === 'Uncategorized',
+    JSON.stringify({ cats: (stored.blogCategories || []).length, category: (stored.posts || [])[0]?.category }));
+  dom.window.confirm = originalConfirm;
+  dom.window.close();
+}
+{
+  // A hidden category disappears from /blog and its page is not available.
+  const state = {
+    version: 13,
+    blogCategories: [
+      { id: 'b1', name: 'Core Web Vitals', slug: 'core-web-vitals', visible: true },
+      { id: 'b2', name: 'Secret Category', slug: 'secret-category', visible: false },
+    ],
+    posts: [], pages: [], tools: [], seo: {}, footerColumns: [], nav: [], sections: {}, sidebar: {},
+  };
+  const preload = `localStorage.setItem('seoaudittool:cms:v1', ${JSON.stringify(JSON.stringify(state))});`;
+  const { dom } = await boot(preload, '/blog');
+  const links = [...dom.window.document.querySelectorAll('section[aria-label="Blog Categories"] a')].map(a => a.getAttribute('href'));
+  check('a hidden category is left out of the public Blog Categories section',
+    links.length === 1 && links[0] === '/blog/category/core-web-vitals', links.join(' | '));
+  dom.window.close();
+  const hidden = await boot(preload, '/blog/category/secret-category');
+  check('a hidden category page is not available',
+    /Category not found/.test(hidden.dom.window.document.querySelector('main h1')?.textContent || ''));
+  hidden.dom.window.close();
+}
+
 /* 4. legacy tools URLs — /tools, /tool, /free-tools and /free-seo-tool — are all
       normalised to the canonical /free-seo-tools client-side */
 for (const legacy of ['/tools', '/tool', '/free-tools', '/free-seo-tool']) {
