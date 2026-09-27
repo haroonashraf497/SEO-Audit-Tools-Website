@@ -1999,7 +1999,7 @@ const SiteApp: React.FC = () => {
             </p>
           </header>
 
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4 mb-10 items-stretch">
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4 items-stretch">
             {visibleTools.filter(t => t.custom ? false : ['plagiarism-checker', 'percentage-calculator', 'bmi-calculator', 'what-is-my-ip', 'keyword-density-checker', 'backlink-checker', 'unit-converter', 'website-seo-score-checker'].includes(t.slug)).slice(0, 8).map(t => (
               <a key={t.slug} href={`/${t.slug}`}
                 className="group h-full flex flex-col bg-white rounded-2xl border border-slate-200 p-5 shadow-sm hover:shadow-lg hover:border-indigo-200 transition-all">

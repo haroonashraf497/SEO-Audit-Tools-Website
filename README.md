@@ -238,6 +238,20 @@ have their own H1, intro, canonical tag, `CollectionPage` + `ItemList` + `Breadc
 article list; the blog filter tabs are driven by the same category list, and the sitemap lists the
 four built-in category URLs.
 
+### Article byline
+
+On a single article the header is the title, the excerpt and one byline row: the **SAT Team** name
+with the article's **date** underneath, a divider, the **read time**, and the article's **category**
+as a pill at the right-hand end of the row that links to that category's own page
+(`/blog/category/<slug>`). Every built-in article is bylined *SAT Team*, and a post created in the
+CMS defaults to the same name, so no post shows an empty or stale author.
+
+### Home page tool grid
+
+The tools section on the home page uses one spacing rhythm: the eight tool cards and the category
+cards below them share the same 1rem row gap, so the category rows start exactly like any other
+row instead of after a larger gap.
+
 ### Tool categories
 
 The tool categories are a managed list: **Admin → Tool Categories**, the tab directly next to
@@ -281,9 +295,9 @@ the store.
 
 ```bash
 npm run typecheck                  # tsc --noEmit
-node scripts/feature-audit.mjs     # 238 checks: CMS controls, blog categories, managed tool categories, the Competitor Analysis page copy, footer redesign, legal URLs, /free-seo-tools index, text-tool layout/mobile, case-converter grid, Tool Categories mega menu, no-bold top nav, top-level tool URLs (/<slug>), category pages (/ip-tools), Merge PDF compressor, no EKSTRUH, 154 tools
+node scripts/feature-audit.mjs     # 247 checks: CMS controls, blog categories, managed tool categories, the Competitor Analysis page copy, footer redesign, legal URLs, /free-seo-tools index, text-tool layout/mobile, case-converter grid, Tool Categories mega menu, no-bold top nav, top-level tool URLs (/<slug>), category pages (/ip-tools), Merge PDF compressor, no EKSTRUH, 154 tools
 npm install --no-save jsdom
-node scripts/verify-single-file.mjs  # 211 checks: boots the built file, blog + tool category pages, the Competitor Analysis page, instant swap, footer, legal + category URLs, top-level tool pages, legacy redirects, head injection, text-tool layout, mega-menu navigation
+node scripts/verify-single-file.mjs  # 217 checks: boots the built file, blog + tool category pages, the Competitor Analysis page, instant swap, footer, legal + category URLs, top-level tool pages, legacy redirects, head injection, text-tool layout, mega-menu navigation
 npm test                           # 34 Playwright tests (needs Chromium)
 ```
 

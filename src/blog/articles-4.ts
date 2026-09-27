@@ -10,7 +10,7 @@ export const articlesGoogleIndexing: BlogArticle[] = [
     category: 'Google & Indexing',
     date: '2025-01-22',
     readTime: '7 min read',
-    author: 'SEO Audit Pro Team',
+    author: 'SAT Team',
     excerpt: 'Google knows your page exists. It just doesn\u2019t think it\u2019s worth crawling yet. That stings, but it\u2019s fixable once you understand what the status is really telling you.',
     content: `
 Few things in SEO sting quite like opening Search Console's Pages report and finding hundreds of URLs sitting under "Discovered - currently not indexed." Google knows those pages exist. It looked at the URL, shrugged, and decided crawling them could wait. Indefinitely, in some cases.
@@ -79,7 +79,7 @@ Prune hard, link deliberately, keep the server quick, and give it four to eight 
     category: 'Google & Indexing',
     date: '2025-01-10',
     readTime: '6 min read',
-    author: 'SEO Audit Pro Team',
+    author: 'SAT Team',
     excerpt: 'Googlebot is a phone now. Full stop. Whatever your mobile visitors can\u2019t see, Google can\u2019t rank, and plenty of "responsive" sites still hide half their value on small screens.',
     content: `
 Mobile-first indexing finished rolling out years ago, and since mid-2024 Google crawls essentially everything with the smartphone version of Googlebot. Not desktop first with a mobile check. Mobile, period. Whatever exists on your mobile page is your page as far as ranking goes.
@@ -154,7 +154,7 @@ Still on the fence about whether this matters? Pull your Search Console performa
     category: 'Google & Indexing',
     date: '2024-12-15',
     readTime: '7 min read',
-    author: 'SEO Audit Pro Team',
+    author: 'SAT Team',
     excerpt: 'A core update hit and your charts fell off a cliff. Before you panic-delete half your site or buy a "recovery service," read this. Recovery is real, but it doesn\u2019t work how most people think.',
     content: `
 It usually starts with a Slack message: "Is something wrong with analytics?" Nothing is wrong with analytics. A Google core update rolled out, and organic traffic just stepped down 30, 40, sometimes 60 percent within a week. No manual action. No warning. No specific page to blame, because everything fell a little and some things fell a lot.

@@ -687,6 +687,39 @@ check('the comparison tool itself (engines, scoring, results view) is untouched'
   && /route === 'competitor-analysis'/.test(seoUtil)
   && /path: '\/competitor-analysis',/.test(seoUtil));
 
+console.log('\n=== 📝 Home page tool rows + the article byline ===');
+const blogPage = read('src/blog/Blog.tsx');
+const articleSource = ['src/blog/articles-1.ts', 'src/blog/articles-2.ts', 'src/blog/articles-3.ts', 'src/blog/articles-4.ts']
+  .map(read).join('\n');
+check('the home page tool rows and the category rows keep one spacing rhythm',
+  /<div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4 items-stretch">/.test(app)
+  && !/gap-4 mb-10 items-stretch/.test(app),
+  (app.match(/"grid md:grid-cols-2 lg:grid-cols-4[^"]*"/) || ['not found'])[0]);
+check('the categories grid still starts straight after the tools grid',
+  /<\/div>\s*\n\s*<div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 items-stretch">/.test(app));
+check('every built-in article is bylined SAT Team',
+  (articleSource.match(/author: 'SAT Team',/g) || []).length === 12
+  && !/SEO Audit Pro Team/.test(articleSource));
+check('a post created in the CMS defaults to the same byline',
+  /author: p\.author \|\| 'SAT Team',/.test(store));
+check('the article header has no badge/date/read-time row above the title',
+  !/className="flex items-center gap-3 mb-5"/.test(blogPage)
+  && /<header className="mb-10">\s*<h1 className="text-3xl md:text-4xl font-bold text-slate-900 leading-tight mb-4">\{article\.title\}<\/h1>/.test(blogPage));
+check('the byline puts the article date directly under the team name',
+  /<p className="text-sm font-semibold text-slate-800">\{article\.author\}<\/p>\s*<p className="text-xs text-slate-400">\s*<time dateTime=\{article\.date\}>\{formatDate\(article\.date\)\}<\/time>/.test(blogPage));
+check('the read time sits in front of the byline after a divider',
+  /aria-hidden="true" \/>\s*<span className="text-sm text-slate-400">\{article\.readTime\}<\/span>/.test(blogPage)
+  && /w-px h-9 bg-slate-200/.test(blogPage));
+check('the category pill closes the same row and links to its category page',
+  /<div className="ml-auto">/.test(blogPage)
+  && /const categoryHref = articleCategory \? `\/blog\/category\/\$\{articleCategory\.slug\}` : null;/.test(blogPage)
+  && /const articleCategory = \(state\.blogCategories \|\| \[\]\)\.find\(c => c\.visible && c\.name === article\.category\);/.test(blogPage)
+  && /<a href=\{categoryHref\} className=\{`inline-block px-2\.5 py-1 rounded-full text-xs font-semibold border \$\{categoryBadge\(article\.category\)\}`\}>/.test(blogPage));
+check('the 154 tools and the rest of the blog page are untouched',
+  (tools.match(/slug: '/g) || []).length === 154
+  && /<ArticleCard key=\{article\.slug\} article=\{article\} \/>/.test(blogPage)
+  && /export const BlogCategoryPage: React\.FC<\{ slug: string \}>/.test(blogPage));
+
 console.log('\n=== ✅ Preserved ===');
 check('no "Loading page" anywhere in src', !/Loading page/.test(read('src/App.tsx') + read('src/components/ErrorBoundary.tsx') + read('src/tools/Tools.tsx')));
 const codeOnly = src => src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');

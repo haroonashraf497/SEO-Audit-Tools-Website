@@ -10,7 +10,7 @@ export const articlesWordPress: BlogArticle[] = [
     category: 'WordPress SEO',
     date: '2025-01-16',
     readTime: '6 min read',
-    author: 'SEO Audit Pro Team',
+    author: 'SAT Team',
     excerpt: 'Forty-three active plugins is not a personality. It\u2019s a performance problem. Here\u2019s how to find out what each plugin actually costs you, with real numbers.',
     content: `
 There's a moment in almost every WordPress audit where I open the plugins page and just sit quietly for a second. Forty active plugins. Sometimes sixty. A slider plugin from 2019, three different contact form plugins, two SEO suites running side by side, and something called "Ultimate Addons for Something" that nobody remembers installing.
@@ -92,7 +92,7 @@ A realistic target for most content sites is 15 to 25 well-chosen plugins, each 
     category: 'WordPress SEO',
     date: '2025-01-03',
     readTime: '7 min read',
-    author: 'SEO Audit Pro Team',
+    author: 'SAT Team',
     excerpt: 'Most WordPress SEO guides are 6,000 words of plugin screenshots. This is the distilled version: what to configure, what to skip, and the traps that quietly deindex sites.',
     content: `
 WordPress powers over 40% of the web, which means WordPress SEO advice is everywhere, and most of it is either outdated, padded to rank for word count, or secretly a plugin affiliate pitch. Let me give you the version I'd give a friend: what actually needs configuring, in order, and the handful of traps that genuinely hurt sites.
@@ -176,7 +176,7 @@ Configure the machine once, properly. Then spend your energy where compounding l
     category: 'WordPress SEO',
     date: '2024-12-22',
     readTime: '6 min read',
-    author: 'SEO Audit Pro Team',
+    author: 'SAT Team',
     excerpt: 'You can optimize images forever, but if your server takes 1.5 seconds to respond, your Core Web Vitals are doomed from the start. Let\u2019s fix the foundation.',
     content: `
 Time to First Byte is the performance metric people optimize last and should optimize first. It measures how long a browser waits from requesting your page to receiving the first byte of the response. Everything else (rendering, images, scripts, all of it) queues up behind that wait.

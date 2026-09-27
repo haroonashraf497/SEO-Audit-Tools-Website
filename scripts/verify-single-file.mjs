@@ -431,6 +431,60 @@ for (const [slug, name, count] of [['core-web-vitals', 'Core Web Vitals', 3], ['
     && /noindex/.test(dom.window.document.querySelector('meta[name=robots]')?.getAttribute('content') || ''));
   dom.window.close();
 }
+
+/* 3e. the single article byline: SAT Team with the date under it, the read
+      time in front of it and the category pill at the right of the same row */
+{
+  const { dom, errors } = await boot('', '/blog/google-not-indexing-pages');
+  const doc = dom.window.document;
+  const header = doc.querySelector('main article header');
+  const h1 = header?.querySelector('h1');
+  const row = header?.querySelector('div.flex-wrap');
+  const kids = row ? [...row.children] : [];
+  const name = row?.querySelector('p.font-semibold');
+  const time = row?.querySelector('time');
+  const divider = kids.findIndex(k => k.tagName === 'SPAN' && /(^|\s)w-px(\s|$)/.test(k.className));
+  const readIdx = kids.findIndex(k => /7 min read/.test(k.textContent));
+  const last = kids[kids.length - 1];
+  check('the article header starts with its title — no badge or date row above it',
+    !!h1 && header.firstElementChild === h1 && !/^(Core Web Vitals|PageSpeed|WordPress SEO|Google & Indexing)$/.test((header.firstElementChild?.textContent || '').trim()),
+    `first=${header?.firstElementChild?.tagName} h1=${(h1?.textContent || '').slice(0, 40)}`);
+  check('the byline names the SAT Team with the article date underneath',
+    (name?.textContent || '').trim() === 'SAT Team' && !!time
+    && time.getAttribute('datetime') === '2025-01-22' && /22 Jan 2025/.test(time.textContent)
+    && !!name.parentElement && name.parentElement.contains(time)
+    && row.contains(name) && name.compareDocumentPosition(time) === 4,
+    `${(name?.textContent || '').trim()} | ${(time?.textContent || '').trim()}`);
+  check('the read time sits in front of the byline, after a divider',
+    divider > -1 && readIdx === divider + 1 && /7 min read/.test(kids[readIdx]?.textContent || ''),
+    `divider=${divider} read=${readIdx}`);
+  check('the category pill closes the byline row on the right and links to its category page',
+    !!last && /(^|\s)ml-auto(\s|$)/.test(last.className)
+    && !!last.querySelector('a[href="/blog/category/google-indexing"]')
+    && last.textContent.trim() === 'Google & Indexing'
+    && errors.length === 0,
+    `${last?.className} | ${last?.textContent?.trim()} | ${errors.join(' | ')}`);
+  dom.window.close();
+}
+
+/* 3f. the home page tool rows and the category rows keep one spacing rhythm */
+{
+  const { dom, errors } = await boot('', '/');
+  const doc = dom.window.document;
+  const section = [...doc.querySelectorAll('main section')].find(s => /Free SEO Tools/.test(s.querySelector('h2')?.textContent || ''));
+  const wrap = section?.firstElementChild;
+  const grids = [...(wrap?.children || [])].filter(el => /(^|\s)grid(\s|$)/.test(el.className));
+  check('the home page tool grid and category grid have no extra gap between them',
+    grids.length === 2
+    && /\bgap-4\b/.test(grids[0].className) && /\bgap-4\b/.test(grids[1].className)
+    && /\bmb-4\b/.test(grids[0].className) && !/(^|\s)mb-/.test(grids[1].className)
+    && errors.length === 0,
+    grids.map(g => g.className).join(' || ') || 'grids not found');
+  check('the home page still lists eight tool cards then the category cards',
+    grids.length === 2 && grids[0].children.length === 8 && grids[1].children.length === 11,
+    grids.map(g => g.children.length).join(' | '));
+  dom.window.close();
+}
 {
   const session = JSON.stringify({ user: 'admin', remember: true, exp: Date.now() + 3_600_000 });
   const { dom, errors } = await boot(`localStorage.setItem('ekstruh:admin-session:v1', ${JSON.stringify(session)});`, '/admin');

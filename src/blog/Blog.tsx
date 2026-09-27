@@ -286,29 +286,43 @@ export const BlogArticlePage: React.FC<{ slug: string }> = ({ slug }) => {
   }
 
   const related = (livePosts(state) as unknown as BlogArticle[]).filter(a => a.category === article.category && a.slug !== article.slug).slice(0, 2);
+  // The category pill links to that category's own page when it exists — the
+  // slug comes from the CMS list, so a customised slug is respected.
+  const articleCategory = (state.blogCategories || []).find(c => c.visible && c.name === article.category);
+  const categoryHref = articleCategory ? `/blog/category/${articleCategory.slug}` : null;
 
   return (
     <div className="pt-10 pb-20 px-4 min-h-screen">
       <div className="max-w-7xl mx-auto grid lg:grid-cols-[minmax(0,1fr)_minmax(0,300px)] gap-8 items-start">
       <article className="min-w-0 w-full">
         <header className="mb-10">
-          <div className="flex items-center gap-3 mb-5">
-            <span className={`px-2.5 py-1 rounded-full text-xs font-semibold border ${categoryBadge(article.category)}`}>
-              {article.category}
-            </span>
-            <time dateTime={article.date} className="text-sm text-slate-400">{formatDate(article.date)}</time>
-            <span className="text-sm text-slate-400">·</span>
-            <span className="text-sm text-slate-400">{article.readTime}</span>
-          </div>
           <h1 className="text-3xl md:text-4xl font-bold text-slate-900 leading-tight mb-4">{article.title}</h1>
           <p className="text-lg text-slate-600 leading-relaxed">{article.excerpt}</p>
-          <div className="flex items-center gap-3 mt-6 pt-6 border-t border-slate-200">
-            <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full flex items-center justify-center text-white text-sm font-bold">
-              SP
+          {/* Byline row: team + date on the left, read time, category on the right */}
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-3 mt-6 pt-6 border-t border-slate-200">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
+                SP
+              </div>
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-slate-800">{article.author}</p>
+                <p className="text-xs text-slate-400">
+                  <time dateTime={article.date}>{formatDate(article.date)}</time>
+                </p>
+              </div>
             </div>
-            <div>
-              <p className="text-sm font-semibold text-slate-800">{article.author}</p>
-              <p className="text-xs text-slate-400">SEO & Performance Specialists</p>
+            <span className="hidden sm:block w-px h-9 bg-slate-200 flex-shrink-0" aria-hidden="true" />
+            <span className="text-sm text-slate-400">{article.readTime}</span>
+            <div className="ml-auto">
+              {categoryHref ? (
+                <a href={categoryHref} className={`inline-block px-2.5 py-1 rounded-full text-xs font-semibold border ${categoryBadge(article.category)}`}>
+                  {article.category}
+                </a>
+              ) : (
+                <span className={`inline-block px-2.5 py-1 rounded-full text-xs font-semibold border ${categoryBadge(article.category)}`}>
+                  {article.category}
+                </span>
+              )}
             </div>
           </div>
         </header>
