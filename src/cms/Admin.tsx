@@ -977,10 +977,14 @@ const MenuRowEditor: React.FC<{
   onHref: (value: string) => void;
   onToggle: () => void;
   onRemove: () => void;
-}> = ({ label, href, visible, onLabel, onHref, onToggle, onRemove }) => (
+  /** Shown instead of the URL field for a row that has no URL of its own. */
+  hrefNote?: string;
+}> = ({ label, href, visible, onLabel, onHref, onToggle, onRemove, hrefNote }) => (
   <div className="flex flex-wrap items-center gap-2">
     <input className={inputCls + ' max-w-[200px]'} value={label} onChange={e => onLabel(e.target.value)} placeholder="Label" aria-label="Link label" />
-    <input className={inputCls + ' max-w-[240px] font-mono text-xs'} value={href} onChange={e => onHref(e.target.value)} placeholder="/free-seo-tools" aria-label="Link URL" />
+    {hrefNote
+      ? <span className={inputCls + ' max-w-[240px] font-mono text-xs bg-slate-50 text-slate-500 flex items-center'} title={hrefNote}>{hrefNote}</span>
+      : <input className={inputCls + ' max-w-[240px] font-mono text-xs'} value={href} onChange={e => onHref(e.target.value)} placeholder="/free-seo-tools" aria-label="Link URL" />}
     <Btn tone={visible ? 'ghost' : 'danger'} onClick={onToggle}>{visible ? 'Visible' : 'Hidden'}</Btn>
     <Btn tone="ghost" onClick={onRemove}>Remove</Btn>
   </div>
@@ -1104,7 +1108,7 @@ const SectionsPane: React.FC = () => {
       <section className="bg-white rounded-2xl border border-slate-200 p-5 space-y-4">
         <div>
           <h3 className="font-bold text-slate-900">Navigation menu</h3>
-          <p className="text-sm text-slate-500 mt-0.5">These links appear in the header (desktop and mobile). Add, remove, hide or rename them, then save.</p>
+          <p className="text-sm text-slate-500 mt-0.5">Every link in the header (desktop and mobile) is listed below, in the order it appears — Home, Free SEO Tools, Tool Categories, Competitor Analysis. Add, remove, hide or rename them, then save.</p>
         </div>
         <div className="space-y-2">
           {state.nav.map((n, i) => (
@@ -1113,13 +1117,14 @@ const SectionsPane: React.FC = () => {
               label={n.label}
               href={n.href}
               visible={n.visible}
+              hrefNote={n.kind === 'tool-categories' ? 'Mega menu → all category pages' : undefined}
               onLabel={value => setNav(state.nav.map((x, j) => j === i ? { ...x, label: value } : x))}
               onHref={value => setNav(state.nav.map((x, j) => j === i ? { ...x, href: value } : x))}
               onToggle={() => setNav(state.nav.map((x, j) => j === i ? { ...x, visible: !x.visible } : x))}
               onRemove={() => setNav(state.nav.filter((_, j) => j !== i))}
             />
           ))}
-          {state.nav.length === 0 && <p className="text-sm text-slate-500">No menu links yet — add one below. “Home” is always shown.</p>}
+          {state.nav.length === 0 && <p className="text-sm text-slate-500">No menu links yet — add one below.</p>}
         </div>
         <div className="flex flex-wrap items-center gap-3">
           <Btn tone="ghost" onClick={() => setNav([...state.nav, { id: Math.random().toString(36).slice(2, 9), label: 'New link', href: '/', visible: true }])}>+ Add</Btn>

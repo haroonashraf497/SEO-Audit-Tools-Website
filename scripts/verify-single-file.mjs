@@ -515,6 +515,103 @@ for (const [slug, name, count] of [['core-web-vitals', 'Core Web Vitals', 3], ['
   dom.window.close();
 }
 
+/* 3f. the header navigation is the CMS menu: every live link is listed in
+      Admin → Sections & Nav and an edit shows up in the header straight away */
+{
+  const { dom, errors } = await boot('', '/');
+  const doc = dom.window.document;
+  const desk = [...doc.querySelectorAll('div')].find(d => /hidden md:flex items-center gap-7/.test(d.className));
+  const entries = [...(desk?.children || [])];
+  const label = el => (el.textContent || '').trim();
+  check('the header shows every navigation entry, mega menu included, in order',
+    entries.length === 4
+    && label(entries[0]) === 'Home' && entries[0].tagName === 'A'
+    && label(entries[1]) === 'Free SEO Tools' && entries[1].tagName === 'A'
+    && entries[2].tagName === 'DIV' && /^Tool Categories/.test(label(entries[2])) && !!entries[2].querySelector('button')
+    && label(entries[3]) === 'Competitor Analysis' && entries[3].tagName === 'A'
+    && errors.length === 0,
+    entries.map(el => `${el.tagName}:${label(el).slice(0, 18)}`).join(' | '));
+  check('the mega menu still opens with its eleven categories and counts',
+    !!desk.querySelector('#tool-categories-menu a[href="/ip-tools"]')
+    && [...desk.querySelectorAll('#tool-categories-menu a')]
+      .filter(a => /^\/[a-z-]+-tools$/.test(a.getAttribute('href') || '') && a.getAttribute('href') !== '/free-seo-tools').length === 11
+    && /Browse all 155 free tools/.test(desk.querySelector('#tool-categories-menu').textContent || ''),
+    (desk.querySelector('#tool-categories-menu')?.textContent || '').slice(0, 90));
+  check('the burger menu lists the same four entries',
+    [...(doc.querySelector('#site-mobile-menu')?.children[0].children || [])].length === 4
+    && !!doc.querySelector('#site-mobile-menu [aria-controls="tool-categories-mobile"]'));
+  dom.window.close();
+}
+{
+  const session = JSON.stringify({ user: 'admin', remember: true, exp: Date.now() + 3_600_000 });
+  const { dom, errors } = await boot(`localStorage.setItem('ekstruh:admin-session:v1', ${JSON.stringify(session)});`, '/admin');
+  const doc = dom.window.document;
+  const click = el => el.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true, cancelable: true }));
+  const setValue = (el, value) => {
+    Object.getOwnPropertyDescriptor(dom.window.HTMLInputElement.prototype, 'value').set.call(el, value);
+    el.dispatchEvent(new dom.window.Event('input', { bubbles: true }));
+  };
+  click([...doc.querySelectorAll('button')].find(b => /sections/i.test(b.textContent)));
+  await new Promise(r => setTimeout(r, 400));
+  const nav = [...doc.querySelectorAll('section')].find(s => /Navigation menu/.test(s.querySelector('h3')?.textContent || ''));
+  const labels = () => [...nav.querySelectorAll('input[aria-label="Link label"]')].map(i => i.value);
+  check('the admin navigation menu lists all four header links',
+    labels().join(', ') === 'Home, Free SEO Tools, Tool Categories, Competitor Analysis'
+    && nav.querySelectorAll('input[aria-label="Link URL"]').length === 3
+    && ![...nav.querySelectorAll('input[aria-label="Link URL"]')].some(i => i.value === '')
+    && /Mega menu → all category pages/.test(nav.textContent || '')
+    && errors.length === 0,
+    labels().join(', '));
+  const rowOf = text => [...nav.querySelectorAll('input[aria-label="Link label"]')]
+    .find(i => i.value === text)?.closest('div.flex.flex-wrap');
+  check('every row carries its own label field, visibility and remove button',
+    ['Home', 'Free SEO Tools', 'Tool Categories', 'Competitor Analysis'].every(text => {
+      const row = rowOf(text);
+      return !!row && !!row.querySelector('input[aria-label="Link label"]')
+        && ['Visible', 'Remove'].every(btn => !!row.querySelector(`button`)) === true
+        && [...row.querySelectorAll('button')].some(b => b.textContent.trim() === 'Remove');
+    }));
+
+  // Rename Home, hide Free SEO Tools, add a link, then save.
+  setValue(rowOf('Home').querySelector('input[aria-label="Link label"]'), 'Start Here');
+  await new Promise(r => setTimeout(r, 120));
+  click([...rowOf('Free SEO Tools').querySelectorAll('button')].find(b => b.textContent.trim() === 'Visible'));
+  await new Promise(r => setTimeout(r, 120));
+  click([...nav.querySelectorAll('button')].find(b => b.textContent.trim() === '+ Add'));
+  await new Promise(r => setTimeout(r, 200));
+  setValue([...nav.querySelectorAll('input[aria-label="Link label"]')].pop(), 'Contact Us');
+  await new Promise(r => setTimeout(r, 120));
+  [...nav.querySelectorAll('input[aria-label="Link URL"]')].pop().dispatchEvent(new dom.window.Event('input', { bubbles: true }));
+  setValue([...nav.querySelectorAll('input[aria-label="Link URL"]')].pop(), '/contact');
+  await new Promise(r => setTimeout(r, 120));
+  click([...nav.querySelectorAll('button')].find(b => b.textContent.includes('Save Changes')));
+  await new Promise(r => setTimeout(r, 400));
+  check('renaming, hiding and adding entries all save (Saved ✓)',
+    [...nav.querySelectorAll('button')].some(b => b.textContent.includes('Saved ✓')), 
+    [...nav.querySelectorAll('button')].map(b => b.textContent.trim()).slice(-3).join(' | '));
+  const stored = JSON.parse(dom.window.localStorage.getItem('seoaudittool:cms:v1'));
+  const row = name => (stored.nav || []).find(n => n.label === name);
+  check('the saved menu keeps every entry, in order, with the mega entry intact',
+    (stored.nav || []).map(n => n.label).join(', ') === 'Start Here, Free SEO Tools, Tool Categories, Competitor Analysis, Contact Us'
+    && row('Free SEO Tools')?.visible === false && row('Tool Categories')?.kind === 'tool-categories'
+    && row('Contact Us')?.href === '/contact',
+    JSON.stringify((stored.nav || []).map(n => [n.label, n.href, n.visible, n.kind])));
+
+  const preload = `localStorage.setItem('seoaudittool:cms:v1', ${JSON.stringify(JSON.stringify(stored))});`;
+  const live = await boot(preload, '/');
+  const liveDesk = [...live.dom.window.document.querySelectorAll('div')].find(d => /hidden md:flex items-center gap-7/.test(d.className));
+  const liveLabels = [...(liveDesk?.children || [])].map(el => (el.textContent || '').trim());
+  check('what was saved is what the header shows — rename, hide and new link, no reload',
+    liveLabels.length === 4
+    && liveLabels[0] === 'Start Here'
+    && !liveLabels.includes('Free SEO Tools')
+    && /^Tool Categories/.test(liveLabels[1]) && /^Competitor Analysis/.test(liveLabels[2]) && liveLabels[3] === 'Contact Us'
+    && !!liveDesk.querySelector('a[href="/contact"]'),
+    liveLabels.join(' | '));
+  live.dom.window.close();
+  dom.window.close();
+}
+
 /* 3f. the home page tool rows and the category rows keep one spacing rhythm */
 {
   const { dom, errors } = await boot('', '/');

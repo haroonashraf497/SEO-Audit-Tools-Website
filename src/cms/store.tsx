@@ -159,7 +159,14 @@ export interface SidebarConfig {
   customItems?: SidebarItem[];
 }
 
-export interface NavItem { id: string; label: string; href: string; visible: boolean }
+export interface NavItem {
+  id: string;
+  label: string;
+  href: string;
+  visible: boolean;
+  /** 'tool-categories' renders the mega menu instead of a plain link. */
+  kind?: 'link' | 'tool-categories';
+}
 
 export interface SectionFlags {
   hero: boolean; auditTool: boolean; results: boolean; features: boolean; howItWorks: boolean;
@@ -492,6 +499,17 @@ export const defaultFooterColumns: FooterColumn[] = [
   ] },
 ];
 
+/**
+ * The four entries the live header shows. Kept as a builder (not a constant)
+ * so every entry gets a fresh id.
+ */
+const defaultNav = (): NavItem[] => [
+  { id: uid(), label: 'Home', href: '/', visible: true, kind: 'link' },
+  { id: uid(), label: 'Free SEO Tools', href: '/free-seo-tools', visible: true, kind: 'link' },
+  { id: uid(), label: 'Tool Categories', href: '', visible: true, kind: 'tool-categories' },
+  { id: uid(), label: 'Competitor Analysis', href: '/competitor-analysis', visible: true, kind: 'link' },
+];
+
 export const defaultState: CmsState = {
   version: 13,
   blogCategories: defaultBlogCategories,
@@ -819,9 +837,8 @@ export const defaultState: CmsState = {
     ],
     social: { facebook: 'https://www.facebook.com/', x: 'https://x.com/', linkedin: '', instagram: '', youtube: '' },
   },
-  nav: [
-    { id: uid(), label: 'Free SEO Tools', href: '/free-seo-tools', visible: true },
-  ],
+  // The live header, all of it editable in Admin → Sections & Nav.
+  nav: defaultNav(),
   footerColumns: defaultFooterColumns.map(col => ({ ...col, links: col.links.map(l => ({ ...l })) })),
   passcode: 'admin123',
 };
@@ -1114,13 +1131,30 @@ const LEGACY_NAV_SIGNATURES = [
   'SEO Tools|#/free-seo-tools',
   'SEO Tools|#/tools',
 ];
+/** The header entries a saved menu may predate, added back in live order. */
+const withHeaderDefaults = (items: NavItem[]): NavItem[] => {
+  const out = items.map(n => ({ ...n }));
+  if (!out.some(n => (n.href || '').trim() === '/')) {
+    out.unshift({ id: uid(), label: 'Home', href: '/', visible: true, kind: 'link' });
+  }
+  if (!out.some(n => n.kind === 'tool-categories')) {
+    const mega: NavItem = { id: uid(), label: 'Tool Categories', href: '', visible: true, kind: 'tool-categories' };
+    const toolsIndex = out.findIndex(n => (n.href || '').includes('free-seo-tools'));
+    if (toolsIndex === -1) out.push(mega); else out.splice(toolsIndex + 1, 0, mega);
+  }
+  if (!out.some(n => (n.href || '').includes('competitor-analysis'))) {
+    out.push({ id: uid(), label: 'Competitor Analysis', href: '/competitor-analysis', visible: true, kind: 'link' });
+  }
+  return out;
+};
+
 const migrateNav = (stored: NavItem[] | undefined): NavItem[] => {
-  const storedNav = Array.isArray(stored) && stored.length ? stored : defaultState.nav;
+  const storedNav = Array.isArray(stored) && stored.length ? stored : defaultNav();
   const signature = storedNav.map(n => `${n.label}|${n.href}`).join(';');
-  const nav = LEGACY_NAV_SIGNATURES.includes(signature) ? defaultState.nav : storedNav;
-  // Menus saved under the old hash URLs keep pointing at the same pages,
-  // now via clean paths.
-  return nav.map(n => ({ ...n, href: cleanStoredHref(n.href) }));
+  const nav = LEGACY_NAV_SIGNATURES.includes(signature) ? defaultNav() : withHeaderDefaults(storedNav);
+  // Menus saved under the old hash URLs keep pointing at the same pages, now
+  // via clean paths. The mega-menu entry has no URL of its own.
+  return nav.map(n => (n.kind === 'tool-categories' ? { ...n, href: '' } : { ...n, href: cleanStoredHref(n.href), kind: n.kind || 'link' }));
 };
 
 const load = (): CmsState => {

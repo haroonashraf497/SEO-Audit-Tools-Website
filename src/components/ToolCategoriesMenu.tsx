@@ -50,7 +50,7 @@ const useManagedCategories = () => {
 };
 
 /** Desktop: hover/focus dropdown anchored under the nav item. */
-export const ToolCategoriesMenu: React.FC<{ route?: string }> = ({ route }) => {
+export const ToolCategoriesMenu: React.FC<{ route?: string; label?: string }> = ({ route, label = 'Tool Categories' }) => {
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement | null>(null);
   const buttonRef = useRef<HTMLButtonElement | null>(null);
@@ -103,7 +103,7 @@ export const ToolCategoriesMenu: React.FC<{ route?: string }> = ({ route }) => {
         onClick={() => setOpen(o => !o)}
         className={`flex items-center gap-1.5 rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 ${open ? 'text-indigo-600' : 'text-slate-600 hover:text-indigo-600'}`}
       >
-        Tool Categories
+        {label}
         <Chevron up={open} />
       </button>
 
@@ -144,7 +144,7 @@ export const ToolCategoriesMenu: React.FC<{ route?: string }> = ({ route }) => {
 };
 
 /** Mobile: the same categories as a collapsible section inside the burger menu. */
-export const ToolCategoriesMobileSection: React.FC<{ onNavigate: () => void }> = ({ onNavigate }) => {
+export const ToolCategoriesMobileSection: React.FC<{ onNavigate: () => void; label?: string }> = ({ onNavigate, label = 'Tool Categories' }) => {
   const [open, setOpen] = useState(false);
   const cms = useCms();
   const { list, counts } = useManagedCategories();
@@ -158,7 +158,7 @@ export const ToolCategoriesMobileSection: React.FC<{ onNavigate: () => void }> =
         onClick={() => setOpen(o => !o)}
         className={`w-full flex items-center justify-between rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 ${open ? 'text-indigo-600' : 'text-slate-600 hover:text-indigo-600'}`}
       >
-        Tool Categories
+        {label}
         <Chevron up={open} />
       </button>
       <div id="tool-categories-mobile" className={`${open ? '' : 'hidden'} mt-2 ml-1 pl-3 border-l border-slate-200 flex flex-col`}>

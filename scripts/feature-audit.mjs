@@ -330,10 +330,12 @@ check('the tagline is card-only — descriptions keep serving SEO and tool pages
 console.log('\n=== 🧭 Tool Categories mega menu ===');
 const appSrc = read('src/App.tsx');
 const menuSrc = read('src/components/ToolCategoriesMenu.tsx');
-check('Tool Categories trigger lives in the desktop nav',
-  /<ToolCategoriesMenu route=\{route\} \/>\s*\n\s*<a href="\/competitor-analysis"/.test(appSrc));
-check('burger menu gets the same categories',
-  /<ToolCategoriesMobileSection onNavigate=\{\(\) => setMobileMenuOpen\(false\)\} \/>/.test(appSrc));
+check('the header renders every entry from Admin → Sections & Nav, in list order',
+  /\{\/\* Every header link comes from Admin → Sections & Nav, in list order\. \*\/\}/.test(appSrc)
+  && /cms\.state\.nav\.filter\(n => n\.visible && \(!\(n\.href \|\| ''\)\.includes\('\/admin'\) \|\| cms\.loggedIn\)\)\.map\(n => \{\s*if \(n\.kind === 'tool-categories'\) return <ToolCategoriesMenu key=\{n\.id\} route=\{route\} label=\{n\.label\} \/>;/.test(appSrc)
+  && /if \(n\.kind === 'tool-categories'\) return <ToolCategoriesMobileSection key=\{n\.id\} onNavigate=\{\(\) => setMobileMenuOpen\(false\)\} label=\{n\.label\} \/>;/.test(appSrc));
+check('burger menu gets the same categories and the CMS label',
+  /<ToolCategoriesMobileSection key=\{n\.id\} onNavigate=\{\(\) => setMobileMenuOpen\(false\)\} label=\{n\.label\} \/>/.test(appSrc));
 check('trigger is an accessible disclosure', /aria-haspopup="true"[\s\S]{0,120}aria-expanded=\{open\}/.test(menuSrc)
   && /aria-controls="tool-categories-menu"/.test(menuSrc));
 check('panel opens on hover and on click', /onMouseEnter=\{\(\) => \{ clearTimer\(\); setOpen\(true\); \}\}/.test(menuSrc)
@@ -416,6 +418,31 @@ check('route alias maps the tools paths to the free-tools route',
 check('stored content rewrites legacy tool paths',
   /if \(value === '\/tools' \|\| value === '\/tool' \|\| value === '\/free-tools' \|\| value === '\/free-seo-tool'\) return '\/free-seo-tools';/.test(store));
 check('nav default points at /free-seo-tools', /label: 'Free SEO Tools', href: '\/free-seo-tools', visible: true/.test(store));
+check('the default navigation menu lists every live header entry, mega menu included',
+  /const defaultNav = \(\): NavItem\[\] => \[\s*\{ id: uid\(\), label: 'Home', href: '\/', visible: true, kind: 'link' \},\s*\{ id: uid\(\), label: 'Free SEO Tools', href: '\/free-seo-tools', visible: true, kind: 'link' \},\s*\{ id: uid\(\), label: 'Tool Categories', href: '', visible: true, kind: 'tool-categories' \},\s*\{ id: uid\(\), label: 'Competitor Analysis', href: '\/competitor-analysis', visible: true, kind: 'link' \},\s*\];/.test(store)
+  && /nav: defaultNav\(\),/.test(store)
+  && /kind\?: 'link' \| 'tool-categories';/.test(store));
+check('a menu saved before this update gets the missing entries back in live order',
+  /const withHeaderDefaults = \(items: NavItem\[\]\): NavItem\[\] => \{/.test(store)
+  && /if \(!out\.some\(n => \(n\.href \|\| ''\)\.trim\(\) === '\/'\)\) \{\s*out\.unshift\(\{ id: uid\(\), label: 'Home', href: '\/', visible: true, kind: 'link' \}\);/.test(store)
+  && /if \(!out\.some\(n => n\.kind === 'tool-categories'\)\) \{/.test(store)
+  && /out\.splice\(toolsIndex \+ 1, 0, mega\)/.test(store)
+  && /if \(!out\.some\(n => \(n\.href \|\| ''\)\.includes\('competitor-analysis'\)\)\) \{/.test(store));
+check('the mega-menu entry keeps no URL of its own while other hrefs are cleaned',
+  /return nav\.map\(n => \(n\.kind === 'tool-categories' \? \{ \.\.\.n, href: '' \} : \{ \.\.\.n, href: cleanStoredHref\(n\.href\), kind: n\.kind \|\| 'link' \}\)\);/.test(store)
+  && /const nav = LEGACY_NAV_SIGNATURES\.includes\(signature\) \? defaultNav\(\) : withHeaderDefaults\(storedNav\);/.test(store));
+check('the admin lists the mega-menu row with a note instead of a URL field',
+  /hrefNote\?: string;;?/.test(admin)
+  && /hrefNote=\{n\.kind === 'tool-categories' \? 'Mega menu → all category pages' : undefined\}/.test(admin)
+  && /hrefNote\s*\n?\s*\? <span className=\{inputCls \+ ' max-w-\[240px\] font-mono text-xs bg-slate-50 text-slate-500 flex items-center'\}/.test(admin));
+check('the admin navigation copy names the four live links',
+  /Every link in the header \(desktop and mobile\) is listed below, in the order it appears — Home, Free SEO Tools, Tool Categories, Competitor Analysis\./.test(admin));
+check('the mega-menu trigger shows the label saved in the CMS',
+  /export const ToolCategoriesMenu: React\.FC<\{ route\?: string; label\?: string \}> = \(\{ route, label = 'Tool Categories' \}\) => \{/.test(read('src/components/ToolCategoriesMenu.tsx'))
+  && /export const ToolCategoriesMobileSection: React\.FC<\{ onNavigate: \(\) => void; label\?: string \}> = \(\{ onNavigate, label = 'Tool Categories' \}\) => \{/.test(read('src/components/ToolCategoriesMenu.tsx'))
+  && (read('src/components/ToolCategoriesMenu.tsx').match(/\{label\}\s*\n\s*<Chevron up=\{open\} \/>/g) || []).length === 2);
+check('the footer column editor is untouched by the navigation change',
+  /const FooterColumnEditor: React\.FC<\{/.test(admin) && /<MenuRowEditor\s*\n\s*key=\{link\.id\}/.test(admin));
 check('canonical uses clean path (no #/)', /return `\$\{origin\}\$\{clean\}`/.test(seo) && !/return `\$\{origin\}\/#\$\{clean\}`/.test(seo));
 check('sitemap uses /free-seo-tools', sitemap.includes('<loc>https://seoaudittools.pk/free-seo-tools</loc>') && !/seoaudittools\.pk\/free-tools</.test(sitemap));
 

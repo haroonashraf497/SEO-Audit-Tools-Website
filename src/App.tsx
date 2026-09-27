@@ -1585,17 +1585,19 @@ const SiteApp: React.FC = () => {
               </span>
             </a>
 
+            {/* Every header link comes from Admin → Sections & Nav, in list order. */}
             <div className="hidden md:flex items-center gap-7">
-              <a href="/" aria-current={route === 'home' ? 'page' : undefined} className={`rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 ${route === 'home' ? 'text-indigo-600' : 'text-slate-600 hover:text-indigo-600'}`}>Home</a>
               {cms.state.nav.filter(n => n.visible && (!(n.href || '').includes('/admin') || cms.loggedIn)).map(n => {
-                const href = cleanHref(n.href) || n.href;
-                const active = (isTools && (href.includes('tools') || href.includes('free-tools'))) || (isBlog && href.includes('blog')) || href.includes('competitor');
+                if (n.kind === 'tool-categories') return <ToolCategoriesMenu key={n.id} route={route} label={n.label} />;
+                const href = cleanHref(n.href) || n.href || '/';
+                const active = (href === '/' && route === 'home')
+                  || (isTools && (href.includes('tools') || href.includes('free-tools')))
+                  || (isBlog && href.includes('blog'))
+                  || (href.includes('competitor') && route === 'competitor-analysis');
                 return (
                   <a key={n.id} href={href} aria-current={active ? 'page' : undefined} className={`rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 ${active ? 'text-indigo-600' : 'text-slate-600 hover:text-indigo-600'}`}>{n.label}</a>
                 );
               })}
-              <ToolCategoriesMenu route={route} />
-              <a href="/competitor-analysis" aria-current={route === 'competitor-analysis' ? 'page' : undefined} className={`rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 ${route === 'competitor-analysis' ? 'text-indigo-600' : 'text-slate-600 hover:text-indigo-600'}`}>Competitor Analysis</a>
               {cms.loggedIn && (
                 <>
                   <a href="/admin" className="text-slate-600 hover:text-indigo-600 transition-colors" title="Content manager">Admin</a>
@@ -1619,16 +1621,17 @@ const SiteApp: React.FC = () => {
 
         <div id="site-mobile-menu" className={`md:hidden bg-white border-t border-slate-200 py-4 -mx-4 px-4 ${mobileMenuOpen ? '' : 'hidden'}`}>
           <div className="flex flex-col gap-4">
-            <a href="/" aria-current={route === 'home' ? 'page' : undefined} className={`rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 ${route === 'home' ? 'text-indigo-600' : 'text-slate-600 hover:text-indigo-600'}`} onClick={() => setMobileMenuOpen(false)}>Home</a>
             {cms.state.nav.filter(n => n.visible && (!(n.href || '').includes('/admin') || cms.loggedIn)).map(n => {
-              const href = cleanHref(n.href) || n.href;
-              const active = (isTools && (href.includes('tools') || href.includes('free-tools'))) || (isBlog && href.includes('blog')) || href.includes('competitor');
+              if (n.kind === 'tool-categories') return <ToolCategoriesMobileSection key={n.id} onNavigate={() => setMobileMenuOpen(false)} label={n.label} />;
+              const href = cleanHref(n.href) || n.href || '/';
+              const active = (href === '/' && route === 'home')
+                || (isTools && (href.includes('tools') || href.includes('free-tools')))
+                || (isBlog && href.includes('blog'))
+                || (href.includes('competitor') && route === 'competitor-analysis');
               return (
                 <a key={n.id} href={href} aria-current={active ? 'page' : undefined} className={`rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 ${active ? 'text-indigo-600' : 'text-slate-600 hover:text-indigo-600'}`} onClick={() => setMobileMenuOpen(false)}>{n.label}</a>
               );
             })}
-            <ToolCategoriesMobileSection onNavigate={() => setMobileMenuOpen(false)} />
-            <a href="/competitor-analysis" aria-current={route === 'competitor-analysis' ? 'page' : undefined} className={`rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 ${route === 'competitor-analysis' ? 'text-indigo-600' : 'text-slate-600 hover:text-indigo-600'}`} onClick={() => setMobileMenuOpen(false)}>Competitor Analysis</a>
             {cms.loggedIn && (
               <>
                 <a href="/admin" className="rounded-md text-slate-600 hover:text-indigo-600 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500" onClick={() => setMobileMenuOpen(false)}>Admin</a>
