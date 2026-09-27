@@ -92,15 +92,6 @@ const Toggle: React.FC<{ on: boolean; onClick: () => void; label: string; hint?:
   </button>
 );
 
-/** ↑ / ↓ / × row controls used by the repeatable lists (benefits, FAQs). */
-const ListControls: React.FC<{ index: number; total: number; onMove: (from: number, to: number) => void; onRemove: () => void; label: string }> = ({ index, total, onMove, onRemove, label }) => (
-  <div className="flex items-center gap-1">
-    <button type="button" disabled={index === 0} onClick={() => onMove(index, index - 1)} aria-label={`Move ${label} up`} title="Move up" className="w-8 h-8 rounded-lg border border-slate-300 bg-white text-slate-600 hover:bg-slate-50 disabled:opacity-40">↑</button>
-    <button type="button" disabled={index === total - 1} onClick={() => onMove(index, index + 1)} aria-label={`Move ${label} down`} title="Move down" className="w-8 h-8 rounded-lg border border-slate-300 bg-white text-slate-600 hover:bg-slate-50 disabled:opacity-40">↓</button>
-    <button type="button" onClick={onRemove} aria-label={`Remove ${label}`} title="Remove" className="w-8 h-8 rounded-lg border border-red-200 bg-red-50 text-red-700 hover:bg-red-100">×</button>
-  </div>
-);
-
 /* ---------------- small list row ---------------- */
 const Row: React.FC<{ children: React.ReactNode; actions?: React.ReactNode }> = ({ children, actions }) => (
   <div className="flex flex-col sm:flex-row sm:items-center gap-3 px-4 py-3 border-b border-slate-100 last:border-0">
@@ -558,13 +549,6 @@ const CompetitorPane: React.FC = () => {
     title: '', description: '',
   });
   const patch = (part: Partial<CmsCompetitor>) => setF(prev => ({ ...prev, ...part }));
-  const moveItem = <T,>(list: T[], from: number, to: number): T[] => {
-    if (to < 0 || to >= list.length) return list;
-    const next = [...list];
-    const [item] = next.splice(from, 1);
-    next.splice(to, 0, item);
-    return next;
-  };
   const save = () => { setCompetitor(f); setSeo('competitor-analysis', seo); };
 
   return (
@@ -577,7 +561,7 @@ const CompetitorPane: React.FC = () => {
       <section aria-label="Competitor Analysis" aria-labelledby="competitor-pane" className="bg-white rounded-2xl border border-slate-200 p-5 space-y-4">
         <div className="flex flex-wrap items-center gap-3">
           <h2 id="competitor-pane" className="font-bold text-slate-900">Competitor Analysis</h2>
-          <span className="text-xs text-slate-500">Hero, input labels, button, fallback note, the three content sections and the FAQs.</span>
+          <span className="text-xs text-slate-500">Hero, input labels, button, fallback note, the three content sections and the FAQs — one editor per section.</span>
         </div>
 
         {/* ---- page header & intro ---- */}
@@ -624,50 +608,28 @@ const CompetitorPane: React.FC = () => {
           </Field>
         </div>
 
-        {/* ---- benefits ---- */}
+        {/* ---- benefits: one editor for the whole section ---- */}
         <div className="rounded-xl border border-slate-200 p-4 space-y-4">
           <p className="text-xs font-bold uppercase tracking-wide text-slate-400">Section — benefits</p>
           <div className="grid md:grid-cols-2 gap-4">
             <Field label="Section heading"><input className={inputCls} value={f.benefitsHeading} onChange={e => patch({ benefitsHeading: e.target.value })} aria-label="Benefits heading" /></Field>
             <Field label="Section intro (optional)" hint={`${f.benefitsIntro.trim().length} characters`}><input className={inputCls} value={f.benefitsIntro} onChange={e => patch({ benefitsIntro: e.target.value })} aria-label="Benefits intro" /></Field>
           </div>
-          <div className="space-y-3">
-            <p className="text-xs font-semibold text-slate-500">{f.benefits.length} benefit block{f.benefits.length === 1 ? '' : 's'}</p>
-            {f.benefits.map((benefit, index) => (
-              <div key={benefit.id} className="rounded-xl border border-slate-200 bg-slate-50 p-3 space-y-2">
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-bold text-slate-400">#{index + 1}</span>
-                  <input className={inputCls} value={benefit.title} onChange={e => patch({ benefits: f.benefits.map(b => (b.id === benefit.id ? { ...b, title: e.target.value } : b)) })} placeholder="Benefit title" aria-label={`Benefit ${index + 1} title`} />
-                  <ListControls index={index} total={f.benefits.length} label={`benefit ${index + 1}`} onMove={(from, to) => patch({ benefits: moveItem(f.benefits, from, to) })} onRemove={() => patch({ benefits: f.benefits.filter(b => b.id !== benefit.id) })} />
-                </div>
-                <textarea rows={2} className={inputCls} value={benefit.text} onChange={e => patch({ benefits: f.benefits.map(b => (b.id === benefit.id ? { ...b, text: e.target.value } : b)) })} placeholder="One or two sentences about this benefit" aria-label={`Benefit ${index + 1} text`} />
-              </div>
-            ))}
-            <Btn tone="ghost" onClick={() => patch({ benefits: [...f.benefits, { id: `benefit-${Math.random().toString(36).slice(2, 9)}`, title: 'New benefit', text: '' }] })}>+ Add benefit</Btn>
-          </div>
+          <Field label="Benefits content" hint="One editor for the whole section — make each benefit a Heading 3 and the words under it become that card's text.">
+            <RichTextEditor value={f.benefitsContent} onChange={html => patch({ benefitsContent: html })} minHeight={220} placeholder="Heading 3 for a benefit title, then its description…" draftKey={draftId('competitor', 'benefits')} ariaLabel="Benefits content" />
+          </Field>
         </div>
 
-        {/* ---- FAQs ---- */}
+        {/* ---- FAQs: one editor for the whole section ---- */}
         <div className="rounded-xl border border-slate-200 p-4 space-y-4">
           <p className="text-xs font-bold uppercase tracking-wide text-slate-400">Section — FAQs</p>
           <div className="grid md:grid-cols-2 gap-4">
             <Field label="Eyebrow text"><input className={inputCls} value={f.faqEyebrow} onChange={e => patch({ faqEyebrow: e.target.value })} aria-label="FAQ eyebrow" /></Field>
             <Field label="Section heading"><input className={inputCls} value={f.faqHeading} onChange={e => patch({ faqHeading: e.target.value })} aria-label="FAQ heading" /></Field>
           </div>
-          <div className="space-y-3">
-            <p className="text-xs font-semibold text-slate-500">{f.faqs.length} question{f.faqs.length === 1 ? '' : 's'} — reorder with the arrows, answers support rich text.</p>
-            {f.faqs.map((faq, index) => (
-              <div key={faq.id} className="rounded-xl border border-slate-200 bg-slate-50 p-3 space-y-2">
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-bold text-slate-400">#{index + 1}</span>
-                  <input className={inputCls} value={faq.question} onChange={e => patch({ faqs: f.faqs.map(q => (q.id === faq.id ? { ...q, question: e.target.value } : q)) })} placeholder="Question" aria-label={`FAQ ${index + 1} question`} />
-                  <ListControls index={index} total={f.faqs.length} label={`FAQ ${index + 1}`} onMove={(from, to) => patch({ faqs: moveItem(f.faqs, from, to) })} onRemove={() => patch({ faqs: f.faqs.filter(q => q.id !== faq.id) })} />
-                </div>
-                <RichTextEditor value={faq.answer} onChange={html => patch({ faqs: f.faqs.map(q => (q.id === faq.id ? { ...q, answer: html } : q)) })} minHeight={120} placeholder="Write the answer…" draftKey={draftId('competitor', `faq-${index}`)} ariaLabel={`FAQ ${index + 1} answer`} />
-              </div>
-            ))}
-            <Btn tone="ghost" onClick={() => patch({ faqs: [...f.faqs, { id: `faq-${Math.random().toString(36).slice(2, 9)}`, question: 'New question', answer: '' }] })}>+ Add FAQ</Btn>
-          </div>
+          <Field label="FAQs content" hint="One editor for the whole section — make each question a Heading 3 and the words under it become its collapsible answer.">
+            <RichTextEditor value={f.faqsContent} onChange={html => patch({ faqsContent: html })} minHeight={260} placeholder="Heading 3 for a question, then the answer…" draftKey={draftId('competitor', 'faqs')} ariaLabel="FAQs content" />
+          </Field>
         </div>
 
         <SeoMetaEditor value={seo} onChange={setSeoDraft} fallbackTitle={`SEO Competitor Analysis — Compare Two Websites Free | ${state.settings.name}`} fallbackDescription="Compare your website with a competitor: overall SEO scores, domain registration, on-page checks, Google-style SERP previews and a two-column full audit. Free, no sign-up." routeHint="/competitor-analysis" />

@@ -5,6 +5,7 @@ import {
   categoryOrder, categorySlugs, type ToolCategory, type InputType,
 } from '../tools/data';
 import { TOOL_CATEGORY_BASE } from '../router';
+import { joinRichSections } from '../utils/richSections';
 import { allArticles } from '../blog';
 
 /* ============================================================
@@ -76,30 +77,17 @@ export interface CmsToolCategory {
 }
 
 /**
- * One benefit block on /competitor-analysis ("Benefits" section).
- * The title is plain text, the copy is a short paragraph.
- */
-export interface CmsBenefit {
-  id: string;
-  title: string;
-  text: string;
-}
-
-/** One FAQ row on /competitor-analysis: a question and a rich-text answer. */
-export interface CmsFaqItem {
-  id: string;
-  question: string;
-  answer: string;
-}
-
-/**
  * The /competitor-analysis page, managed in Admin → Competitor Analysis.
  *
  * Every string the visitor reads on that page lives here — the hero block, the
  * two input labels, the compare button and its fallback note, and the three
  * content sections underneath (about, how to read the report, benefits) plus
- * the FAQ list. The tool itself (engines, scoring, layout) is untouched: it
- * only reads this copy instead of the built-in defaults.
+ * the FAQs. The tool itself (engines, scoring, layout) is untouched: it only
+ * reads this copy instead of the built-in defaults.
+ *
+ * The Benefits and FAQ sections are each edited in one rich-text document:
+ * a heading starts a card / a question, the content under it is that card's
+ * text / that question's collapsible answer (see utils/richSections.ts).
  */
 export interface CmsCompetitor {
   heroSubtitle: string;
@@ -116,10 +104,12 @@ export interface CmsCompetitor {
   howToContent: string;
   benefitsHeading: string;
   benefitsIntro: string;
-  benefits: CmsBenefit[];
+  /** One document: each heading is a benefit card, its content the card text. */
+  benefitsContent: string;
   faqEyebrow: string;
   faqHeading: string;
-  faqs: CmsFaqItem[];
+  /** One document: each heading is a question, its content the answer. */
+  faqsContent: string;
 }
 
 export interface CmsPage {
@@ -411,45 +401,48 @@ export const defaultCompetitor: CmsCompetitor = {
   howToContent: '<ol><li>Compare matching page types. A homepage should be compared with a homepage, not a blog article.</li><li>Start with the overall and category scores to locate the largest gap.</li><li>Read the individual checks. Each one explains the finding and the recommended fix.</li><li>Review keywords for missing subtopics, not phrases to copy.</li><li>Inspect internal and external URL samples to understand how each page supports navigation and authority.</li><li>Turn the priority plan into a development or content checklist, then re-run the analysis.</li></ol>',
   benefitsHeading: 'Benefits',
   benefitsIntro: '',
-  benefits: [
-    { id: uid(), title: 'A fair benchmark', text: 'Both pages are tested with identical rules, so score differences are easier to interpret.' },
-    { id: uid(), title: 'Clear priorities', text: 'Errors and warnings become a focused improvement plan instead of a long, unstructured audit.' },
-    { id: uid(), title: 'Better content briefs', text: 'Keyword and heading comparisons reveal topics and supporting sections that may be missing.' },
-    { id: uid(), title: 'Stronger internal linking', text: 'URL samples show how each page directs visitors and crawlers to related content.' },
-    { id: uid(), title: 'Faster reviews', text: 'Marketers, developers and clients can discuss one side-by-side report instead of switching between tools.' },
-  ],
+  benefitsContent: joinRichSections([
+    { title: 'A fair benchmark', body: '<p>Both pages are tested with identical rules, so score differences are easier to interpret.</p>' },
+    { title: 'Clear priorities', body: '<p>Errors and warnings become a focused improvement plan instead of a long, unstructured audit.</p>' },
+    { title: 'Better content briefs', body: '<p>Keyword and heading comparisons reveal topics and supporting sections that may be missing.</p>' },
+    { title: 'Stronger internal linking', body: '<p>URL samples show how each page directs visitors and crawlers to related content.</p>' },
+    { title: 'Faster reviews', body: '<p>Marketers, developers and clients can discuss one side-by-side report instead of switching between tools.</p>' },
+  ]),
   faqEyebrow: 'Questions',
   faqHeading: 'Competitor Analysis FAQs',
-  faqs: [
-    { id: uid(), question: 'What does the competitor analysis compare?', answer: '<p>It compares both pages across on-page SEO, technical signals, mobile readiness, security, performance, keywords, content depth and link structure. Domain registration and expiry dates for both sites come from public RDAP registry data.</p>' },
-    { id: uid(), question: 'Does this tool check an entire website?', answer: '<p>It compares the two exact URLs you enter. For a broader view, test matching templates such as both homepages, both service pages, or both product pages.</p>' },
-    { id: uid(), question: 'Why does a report say Estimated fallback?', answer: '<p>Some websites block browser or CORS access. In that case the tool completes with stable URL-based sample data so the workflow does not fail, and labels the result clearly.</p>' },
-    { id: uid(), question: 'Does a higher SEO score guarantee better rankings?', answer: '<p>No. The score measures important technical and on-page signals. Rankings also depend on relevance, backlinks, brand trust, user intent and competition.</p>' },
-    { id: uid(), question: 'How should I use the keyword comparison?', answer: '<p>Look for meaningful terms your competitor covers that your page misses. Add useful sections where needed, but avoid copying text or stuffing keywords.</p>' },
-    { id: uid(), question: 'What should I fix first?', answer: '<p>Start with red errors, especially missing titles, noindex directives, missing H1 tags, HTTP pages and mobile viewport problems. Then work through warnings.</p>' },
-    { id: uid(), question: 'Is the analysis stored?', answer: '<p>No. Both URLs are processed in the browser session. The tool does not create an account or store a comparison history.</p>' },
-  ],
+  faqsContent: joinRichSections([
+    { title: 'What does the competitor analysis compare?', body: '<p>It compares both pages across on-page SEO, technical signals, mobile readiness, security, performance, keywords, content depth and link structure. Domain registration and expiry dates for both sites come from public RDAP registry data.</p>' },
+    { title: 'Does this tool check an entire website?', body: '<p>It compares the two exact URLs you enter. For a broader view, test matching templates such as both homepages, both service pages, or both product pages.</p>' },
+    { title: 'Why does a report say Estimated fallback?', body: '<p>Some websites block browser or CORS access. In that case the tool completes with stable URL-based sample data so the workflow does not fail, and labels the result clearly.</p>' },
+    { title: 'Does a higher SEO score guarantee better rankings?', body: '<p>No. The score measures important technical and on-page signals. Rankings also depend on relevance, backlinks, brand trust, user intent and competition.</p>' },
+    { title: 'How should I use the keyword comparison?', body: '<p>Look for meaningful terms your competitor covers that your page misses. Add useful sections where needed, but avoid copying text or stuffing keywords.</p>' },
+    { title: 'What should I fix first?', body: '<p>Start with red errors, especially missing titles, noindex directives, missing H1 tags, HTTP pages and mobile viewport problems. Then work through warnings.</p>' },
+    { title: 'Is the analysis stored?', body: '<p>No. Both URLs are processed in the browser session. The tool does not create an account or store a comparison history.</p>' },
+  ]),
 };
 
 const text = (value: unknown, fallback: string): string => (typeof value === 'string' && value.trim() ? value : fallback);
 
+/** Lists saved by the earlier build, where each benefit / FAQ had its own editor. */
+type LegacyCompetitor = Partial<CmsCompetitor> & {
+  benefits?: { title?: string; text?: string }[];
+  faqs?: { question?: string; answer?: string }[];
+};
+
 /**
  * Keep the admin's competitor copy across reloads. A browser that has never
  * saved any gets the built-in copy; a saved one is completed field by field so
- * a partial (older) save never blanks a section.
+ * a partial (older) save never blanks a section. A list saved back when every
+ * benefit / FAQ had its own editor is folded into the single document.
  */
-const migrateCompetitor = (saved?: Partial<CmsCompetitor>): CmsCompetitor => {
+const migrateCompetitor = (saved?: LegacyCompetitor): CmsCompetitor => {
   if (!saved || typeof saved !== 'object') return defaultCompetitor;
-  const benefits = Array.isArray(saved.benefits)
-    ? saved.benefits
-        .filter(b => b && (typeof b.title === 'string' || typeof b.text === 'string'))
-        .map(b => ({ id: b.id || uid(), title: b.title || '', text: b.text || '' }))
-    : defaultCompetitor.benefits;
-  const faqs = Array.isArray(saved.faqs)
-    ? saved.faqs
-        .filter(f => f && (typeof f.question === 'string' || typeof f.answer === 'string'))
-        .map(f => ({ id: f.id || uid(), question: f.question || '', answer: f.answer || '' }))
-    : defaultCompetitor.faqs;
+  const legacyBenefits = Array.isArray(saved.benefits)
+    ? joinRichSections(saved.benefits.filter(Boolean).map(b => ({ title: b.title || '', body: b.text || '' })))
+    : '';
+  const legacyFaqs = Array.isArray(saved.faqs)
+    ? joinRichSections(saved.faqs.filter(Boolean).map(f => ({ title: f.question || '', body: f.answer || '' })))
+    : '';
   return {
     heroSubtitle: text(saved.heroSubtitle, defaultCompetitor.heroSubtitle),
     heroTitle: text(saved.heroTitle, defaultCompetitor.heroTitle),
@@ -465,10 +458,10 @@ const migrateCompetitor = (saved?: Partial<CmsCompetitor>): CmsCompetitor => {
     howToContent: text(saved.howToContent, defaultCompetitor.howToContent),
     benefitsHeading: text(saved.benefitsHeading, defaultCompetitor.benefitsHeading),
     benefitsIntro: typeof saved.benefitsIntro === 'string' ? saved.benefitsIntro : defaultCompetitor.benefitsIntro,
-    benefits,
+    benefitsContent: text(legacyBenefits || saved.benefitsContent, defaultCompetitor.benefitsContent),
     faqEyebrow: text(saved.faqEyebrow, defaultCompetitor.faqEyebrow),
     faqHeading: text(saved.faqHeading, defaultCompetitor.faqHeading),
-    faqs,
+    faqsContent: text(legacyFaqs || saved.faqsContent, defaultCompetitor.faqsContent),
   };
 };
 

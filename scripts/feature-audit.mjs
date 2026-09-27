@@ -576,31 +576,43 @@ check('the competitor page model covers the hero, the inputs, the sections and t
   /export interface CmsCompetitor \{[\s\S]{0,200}heroSubtitle: string;[\s\S]{0,120}heroTitle: string;[\s\S]{0,120}heroIntro: string;[\s\S]{0,200}yourLabel: string;[\s\S]{0,120}theirLabel: string;[\s\S]{0,120}buttonText: string;[\s\S]{0,120}fallbackNote: string;/.test(store)
   && /aboutHeading: string;\s*aboutContent: string;/.test(store)
   && /howToHeading: string;\s*howToContent: string;/.test(store)
-  && /benefitsHeading: string;\s*benefitsIntro: string;\s*benefits: CmsBenefit\[\];/.test(store)
-  && /faqHeading: string;\s*faqs: CmsFaqItem\[\];/.test(store));
-check('a benefit is a title plus a text block, an FAQ is a question plus a rich answer',
-  /export interface CmsBenefit \{[\s\S]{0,160}title: string;[\s\S]{0,80}text: string;/.test(store)
-  && /export interface CmsFaqItem \{[\s\S]{0,160}question: string;[\s\S]{0,80}answer: string;/.test(store));
+  && /benefitsHeading: string;[\s\S]{0,140}benefitsIntro: string;[\s\S]{0,220}benefitsContent: string;/.test(store)
+  && /faqHeading: string;[\s\S]{0,220}faqsContent: string;/.test(store));
+check('benefits and FAQs are one rich-text document each — no per-item editor',
+  /\/\*\* One document: each heading is a benefit card, its content the card text\. \*\/\s*benefitsContent: string;/.test(store)
+  && /\/\*\* One document: each heading is a question, its content the answer\. \*\/\s*faqsContent: string;/.test(store)
+  && !/CmsBenefit|CmsFaqItem/.test(store));
 check('the built-in copy seeds the managed page (title, labels, button, fallback note)',
   /export const defaultCompetitor: CmsCompetitor = \{[\s\S]{0,200}heroSubtitle: 'Side-by-side SEO audit',[\s\S]{0,120}heroTitle: 'Website Competitor Analysis',/.test(store)
   && /yourLabel: 'Your website',[\s\S]{0,120}theirLabel: 'Competitor website',/.test(store)
   && /buttonText: 'Compare Both Websites',/.test(store)
   && /fallbackNote: 'If a site blocks browser access/.test(store));
-check('the seeded copy keeps the three sections and the FAQ list',
+check('the seeded copy keeps the three sections, the five benefits and the seven questions',
   /aboutHeading: 'What is Website Competitor Analysis\?',/.test(store)
   && /howToHeading: 'How to read the comparison report',/.test(store)
   && /benefitsHeading: 'Benefits',/.test(store)
   && /faqHeading: 'Competitor Analysis FAQs',/.test(store)
-  && (store.match(/question: '/g) || []).length >= 7);
+  && /benefitsContent: joinRichSections\(\[/.test(store)
+  && /faqsContent: joinRichSections\(\[/.test(store)
+  && (store.match(/\{ title: '[^']+', body: '<p>/g) || []).length >= 12,
+  String((store.match(/\{ title: '[^']+', body: '<p>/g) || []).length));
+check('the one-editor rule comes from a shared splitter (heading = item)',
+  /export const splitRichSections = \(html: string\): RichSection\[\] => \{/.test(read('src/utils/richSections.ts'))
+  && /if \(node\.nodeType === 1 && HEADING_TAG\.test\(\(node as HTMLElement\)\.tagName\)\) \{\s*flush\(\);/.test(read('src/utils/richSections.ts'))
+  && /export const joinRichSections = \(sections: \{ title: string; body: string \}\[\]\): string =>/.test(read('src/utils/richSections.ts')));
 check('the store carries the page copy and defaults to the seeded version',
   /competitor: CmsCompetitor;/.test(store) && /competitor: defaultCompetitor,/.test(store));
 check('a browser that never saved any gets the built-in copy, a saved one is completed field by field',
-  /const migrateCompetitor = \(saved\?: Partial<CmsCompetitor>\): CmsCompetitor => \{\s*if \(!saved \|\| typeof saved !== 'object'\) return defaultCompetitor;/.test(store)
+  /const migrateCompetitor = \(saved\?: LegacyCompetitor\): CmsCompetitor => \{\s*if \(!saved \|\| typeof saved !== 'object'\) return defaultCompetitor;/.test(store)
   && /heroTitle: text\(saved\.heroTitle, defaultCompetitor\.heroTitle\)/.test(store)
-  && /benefitsIntro: typeof saved\.benefitsIntro === 'string' \? saved\.benefitsIntro : defaultCompetitor\.benefitsIntro/.test(store));
-check('benefits and FAQs survive a save (ids kept, missing ids regenerated)',
-  /const benefits = Array\.isArray\(saved\.benefits\)[\s\S]{0,300}map\(b => \(\{ id: b\.id \|\| uid\(\), title: b\.title \|\| '', text: b\.text \|\| '' \}\)\)/.test(store)
-  && /const faqs = Array\.isArray\(saved\.faqs\)[\s\S]{0,320}map\(f => \(\{ id: f\.id \|\| uid\(\), question: f\.question \|\| '', answer: f\.answer \|\| '' \}\)\)/.test(store));
+  && /benefitsIntro: typeof saved\.benefitsIntro === 'string' \? saved\.benefitsIntro : defaultCompetitor\.benefitsIntro/.test(store)
+  && /const migrateCompetitor = \(saved\?: LegacyCompetitor\): CmsCompetitor => \{/.test(store));
+check('a list saved when each item had its own editor folds into the single document',
+  /type LegacyCompetitor = Partial<CmsCompetitor> & \{[\s\S]{0,180}benefits\?: \{ title\?: string; text\?: string \}\[\];[\s\S]{0,120}faqs\?: \{ question\?: string; answer\?: string \}\[\];/.test(store)
+  && /const legacyBenefits = Array\.isArray\(saved\.benefits\)[\s\S]{0,200}joinRichSections\(saved\.benefits/.test(store)
+  && /const legacyFaqs = Array\.isArray\(saved\.faqs\)[\s\S]{0,200}joinRichSections\(saved\.faqs/.test(store)
+  && /benefitsContent: text\(legacyBenefits \|\| saved\.benefitsContent, defaultCompetitor\.benefitsContent\)/.test(store)
+  && /faqsContent: text\(legacyFaqs \|\| saved\.faqsContent, defaultCompetitor\.faqsContent\)/.test(store));
 check('the stored CMS and an imported backup both run the migration',
   (store.match(/competitor: migrateCompetitor\(parsed\.competitor\)/g) || []).length === 2);
 check('one action saves the whole page and shows the standard confirmation',
@@ -618,24 +630,29 @@ check('the pane edits the page header, the intro and the tool input area',
   && /aria-label="Competitor website label"/.test(adminSrc)
   && /aria-label="Button text"/.test(adminSrc)
   && /aria-label="Fallback note"/.test(adminSrc));
-check('every content section gets a full WYSIWYG editor',
+check('every content section gets a full WYSIWYG editor — one per section',
   /<RichTextEditor value=\{f\.aboutContent\}/.test(adminSrc)
   && /<RichTextEditor value=\{f\.howToContent\}/.test(adminSrc)
-  && /<RichTextEditor value=\{faq\.answer\}/.test(adminSrc)
+  && /<RichTextEditor value=\{f\.benefitsContent\}/.test(adminSrc)
+  && /<RichTextEditor value=\{f\.faqsContent\}/.test(adminSrc)
   && /draftKey=\{draftId\('competitor', 'about'\)\}/.test(adminSrc)
-  && /draftKey=\{draftId\('competitor', 'howto'\)\}/.test(adminSrc));
-check('benefits are repeatable blocks with add, remove and reorder',
-  /aria-label=\{`Benefit \$\{index \+ 1\} title`\}/.test(adminSrc)
-  && /aria-label=\{`Benefit \$\{index \+ 1\} text`\}/.test(adminSrc)
-  && /\+ Add benefit/.test(adminSrc)
-  && /const moveItem = <T,>\(list: T\[\], from: number, to: number\): T\[\] => \{/.test(adminSrc)
-  && /const ListControls: React\.FC<\{ index: number; total: number; onMove: \(from: number, to: number\) => void; onRemove: \(\) => void; label: string \}>/.test(adminSrc));
-check('FAQs add, remove and reorder, with a rich-text answer per item',
-  /aria-label=\{`FAQ \$\{index \+ 1\} question`\}/.test(adminSrc)
-  && /ariaLabel=\{`FAQ \$\{index \+ 1\} answer`\}/.test(adminSrc)
-  && /\+ Add FAQ/.test(adminSrc)
-  && /onMove=\{\(from, to\) => patch\(\{ faqs: moveItem\(f\.faqs, from, to\) \}\)\}/.test(adminSrc)
-  && /onRemove=\{\(\) => patch\(\{ faqs: f\.faqs\.filter\(q => q\.id !== faq\.id\) \}\)\}/.test(adminSrc));
+  && /draftKey=\{draftId\('competitor', 'howto'\)\}/.test(adminSrc)
+  && (adminSrc.match(/<RichTextEditor value=\{f\.(aboutContent|howToContent|benefitsContent|faqsContent)\}/g) || []).length === 4);
+check('the Benefits section is one editor, not one per benefit block',
+  /<Field label="Benefits content" hint="One editor for the whole section/.test(adminSrc)
+  && /value=\{f\.benefitsContent\}/.test(adminSrc)
+  && /draftKey=\{draftId\('competitor', 'benefits'\)\}/.test(adminSrc)
+  && !/aria-label=\{`Benefit \$\{index \+ 1\}/.test(adminSrc)
+  && !/\+ Add benefit|Move benefit/.test(adminSrc));
+check('the FAQs section is one editor, not one per question',
+  /<Field label="FAQs content" hint="One editor for the whole section/.test(adminSrc)
+  && /value=\{f\.faqsContent\}/.test(adminSrc)
+  && /draftKey=\{draftId\('competitor', 'faqs'\)\}/.test(adminSrc)
+  && !/aria-label=\{`FAQ \$\{index \+ 1\}/.test(adminSrc)
+  && !/\+ Add FAQ|Move FAQ/.test(adminSrc));
+check('the admin explains how the single document maps onto the page',
+  /make each benefit a Heading 3 and the words under it become that card's text/.test(adminSrc)
+  && /make each question a Heading 3 and the words under it become its collapsible answer/.test(adminSrc));
 check('the pane saves with "Save Changes", previews and can reset to the seeded copy',
   /<SaveButton label="Save Changes" onSave=\{save\} \/>/.test(adminSrc)
   && /Open the live page →/.test(adminSrc)
@@ -655,9 +672,14 @@ check('the three sections and the FAQs render from the CMS copy',
   /const copy = state\.competitor;/.test(read('src/tools/CompetitorAnalysis.tsx'))
   && /sanitizeRichHtml\(copy\.aboutContent\)/.test(read('src/tools/CompetitorAnalysis.tsx'))
   && /sanitizeRichHtml\(copy\.howToContent\)/.test(read('src/tools/CompetitorAnalysis.tsx'))
-  && /copy\.benefits\.map\(benefit =>/.test(read('src/tools/CompetitorAnalysis.tsx'))
-  && /copy\.faqs\.map\(\(faq, index\) =>/.test(read('src/tools/CompetitorAnalysis.tsx'))
-  && /sanitizeRichHtml\(faq\.answer\)/.test(read('src/tools/CompetitorAnalysis.tsx')));
+  && /splitRichSections\(copy\.benefitsContent\)/.test(read('src/tools/CompetitorAnalysis.tsx'))
+  && /splitRichSections\(copy\.faqsContent\)/.test(read('src/tools/CompetitorAnalysis.tsx')));
+check('the benefit cards and the FAQ accordion keep their design',
+  /benefitItems\.map\(benefit => \(/.test(read('src/tools/CompetitorAnalysis.tsx'))
+  && /<h3 className="text-sm font-bold text-slate-800">\{benefit\.title\}<\/h3>/.test(read('src/tools/CompetitorAnalysis.tsx'))
+  && /faqItems\.map\(\(faq, index\) => \(/.test(read('src/tools/CompetitorAnalysis.tsx'))
+  && /sanitizeRichHtml\(faq\.body\)/.test(read('src/tools/CompetitorAnalysis.tsx'))
+  && /dangerouslySetInnerHTML=\{\{ __html: sanitizeRichHtml\(benefit\.body\) \}\}/.test(read('src/tools/CompetitorAnalysis.tsx')));
 check('the comparison tool itself (engines, scoring, results view) is untouched',
   /const buildAudit = \(input: string, page: LivePageData, live: boolean\): Audit => \{/.test(read('src/tools/CompetitorAnalysis.tsx'))
   && /const run = async \(\) => \{/.test(read('src/tools/CompetitorAnalysis.tsx'))

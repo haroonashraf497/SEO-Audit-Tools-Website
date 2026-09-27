@@ -806,17 +806,19 @@ for (const [slug, name, count] of [['core-web-vitals', 'Core Web Vitals', 3], ['
   check('the pane carries every header, input-area and section-heading field',
     !!section && labels.every(l => section.querySelector(`[aria-label="${l}"]`)) && adminErrors.length === 0,
     `${labels.filter(l => !section?.querySelector(`[aria-label="${l}"]`)).join(', ')} · ${adminErrors.join(' | ')}`);
-  check('the sections each get a full rich-text editor',
-    [...section.querySelectorAll('[contenteditable="true"]')].length >= 9,
+  check('each section gets exactly one rich-text editor',
+    [...section.querySelectorAll('[contenteditable="true"]')].length === 4,
     String([...section.querySelectorAll('[contenteditable="true"]')].length));
-  check('the benefit blocks and FAQs are repeatable rows with reorder and remove',
-    section.querySelectorAll('[aria-label^="Benefit "][aria-label$=" title"]').length === 5
-    && section.querySelectorAll('[aria-label^="FAQ "][aria-label$=" question"]').length === 7
-    && !!section.querySelector('[aria-label="Move benefit 2 up"]') && !!section.querySelector('[aria-label="Move FAQ 2 down"]')
-    && !!section.querySelector('[aria-label="Remove FAQ 3"]')
-    && [...section.querySelectorAll('button')].some(b => /\+ Add benefit/.test(b.textContent))
-    && [...section.querySelectorAll('button')].some(b => /\+ Add FAQ/.test(b.textContent)));
+  check('Benefits and FAQs are one editor each — no per-item editors or row controls',
+    !!section.querySelector('[aria-label="Benefits content"]')
+    && !!section.querySelector('[aria-label="FAQs content"]')
+    && !section.querySelector('[aria-label^="Benefit 1 title"]')
+    && !section.querySelector('[aria-label^="FAQ 1 question"]')
+    && !section.querySelector('[aria-label^="Move benefit"]')
+    && !section.querySelector('[aria-label^="Move FAQ"]')
+    && ![...section.querySelectorAll('button')].some(b => /\+ Add (benefit|FAQ)/.test(b.textContent)));
 
+  setValue(section.querySelector('[aria-label="Benefits heading"]'), 'Why it helps');
   setValue(section.querySelector('[aria-label="Hero title"]'), 'Head-to-Head SEO Comparison');
   setValue(section.querySelector('[aria-label="Hero subtitle"]'), 'Compare two pages');
   setValue(section.querySelector('[aria-label="Your website label"]'), 'My site');
@@ -825,18 +827,11 @@ for (const [slug, name, count] of [['core-web-vitals', 'Core Web Vitals', 3], ['
   setValue(section.querySelector('[aria-label="Intro paragraph"]'), 'Paste two URLs and get one side-by-side report.');
   setValue(section.querySelector('[aria-label="Fallback note"]'), 'Blocked sites fall back to labelled sample data.');
   setValue(section.querySelector('[aria-label="About heading"]'), 'What this comparison does');
-  setValue(section.querySelector('[aria-label="FAQ 1 question"]'), 'What is compared?');
-  setValue(section.querySelector('[aria-label="Benefit 1 title"]'), 'Identical rules');
-  await wait();
-  click(section.querySelector('[aria-label="Move FAQ 1 down"]'));
-  await wait();
-  click(section.querySelector('[aria-label="Remove benefit 5"]'));
-  await wait();
-  click([...section.querySelectorAll('button')].find(b => /\+ Add benefit/.test(b.textContent)));
+  setValue(section.querySelector('[aria-label="FAQ heading"]'), 'Competitor analysis questions');
   await wait();
   check('the edits live in the form before saving (no reload needed)',
     section.querySelector('[aria-label="Hero title"]').value === 'Head-to-Head SEO Comparison'
-    && section.querySelectorAll('[aria-label^="Benefit "][aria-label$=" title"]').length === 5);
+    && section.querySelector('[aria-label="Benefits heading"]').value === 'Why it helps');
   click([...section.querySelectorAll('button')].find(b => /Save Changes/.test(b.textContent)));
   await wait();
   check('saving the page shows "Saved ✓"', /Saved ✓/.test((section.textContent || '').replace(/\s+/g, ' ')));
@@ -845,14 +840,14 @@ for (const [slug, name, count] of [['core-web-vitals', 'Core Web Vitals', 3], ['
   check('the whole page is persisted (header, labels, button, fallback note, sections)',
     copy.heroTitle === 'Head-to-Head SEO Comparison' && copy.heroSubtitle === 'Compare two pages'
     && copy.yourLabel === 'My site' && copy.theirLabel === 'Rival site' && copy.buttonText === 'Run the comparison'
-    && copy.aboutHeading === 'What this comparison does' && copy.benefits[0].title === 'Identical rules',
+    && copy.aboutHeading === 'What this comparison does' && copy.benefitsHeading === 'Why it helps'
+    && copy.faqHeading === 'Competitor analysis questions',
     JSON.stringify(copy).slice(0, 200));
-  check('the FAQ list is persisted with its new order',
-    (copy.faqs || []).length === 7 && copy.faqs[0].question === 'Does this tool check an entire website?',
-    JSON.stringify((copy.faqs || []).map(f => f.question)));
-  check('the benefit list keeps the removed block out and the added one in',
-    copy.benefits.length === 5 && !copy.benefits.some(b => b.title === 'Faster reviews'),
-    JSON.stringify(copy.benefits.map(b => b.title)));
+  check('benefits and FAQs are stored as one document each (no per-item arrays)',
+    typeof copy.benefitsContent === 'string' && copy.benefitsContent.includes('<h3>A fair benchmark</h3>')
+    && typeof copy.faqsContent === 'string' && copy.faqsContent.includes('<h3>What does the competitor analysis compare?</h3>')
+    && copy.benefits === undefined && copy.faqs === undefined,
+    `${(copy.benefitsContent || '').slice(0, 40)} | ${(copy.faqsContent || '').slice(0, 40)}`);
   dom.window.close();
 
   // the live page reflects the saved copy, and the tool itself still works
@@ -863,8 +858,13 @@ for (const [slug, name, count] of [['core-web-vitals', 'Core Web Vitals', 3], ['
     liveText.includes('Head-to-Head SEO Comparison') && liveText.includes('Compare two pages')
     && liveText.includes('My site') && liveText.includes('Rival site')
     && liveText.includes('Run the comparison') && liveText.includes('Blocked sites fall back')
-    && liveText.includes('What this comparison does') && liveText.includes('Identical rules'),
+    && liveText.includes('What this comparison does') && liveText.includes('A fair benchmark')
+    && liveText.includes('Competitor analysis questions'),
     liveText.slice(0, 140));
+  check('the page layout survives the single-document sections',
+    [...live.window.document.querySelectorAll('h3')].filter(h => ['A fair benchmark', 'Clear priorities', 'Better content briefs', 'Stronger internal linking', 'Faster reviews'].includes(h.textContent.trim())).length === 5
+    && [...live.window.document.querySelectorAll('button')].filter(b => /^What does the competitor analysis compare\?/.test(b.textContent.trim())).length === 1,
+    `${live.window.document.querySelectorAll('h3').length} h3s`);
   check('the comparison tool itself still renders its two inputs and button',
     !!live.window.document.querySelector('input[placeholder="https://yourwebsite.com/page"]')
     && !!live.window.document.querySelector('input[placeholder="https://competitor.com/page"]')
@@ -872,6 +872,22 @@ for (const [slug, name, count] of [['core-web-vitals', 'Core Web Vitals', 3], ['
     && liveErrors.length === 0,
     liveErrors.join(' | '));
   live.window.close();
+
+  // A save made when every benefit / FAQ had its own editor still shows.
+  const legacy = JSON.stringify({
+    competitor: {
+      heroTitle: 'Legacy title',
+      benefits: [{ title: 'Legacy benefit', text: 'Legacy benefit text.' }],
+      faqs: [{ question: 'Legacy question?', answer: '<p>Legacy answer.</p>' }],
+    },
+  });
+  const { dom: legacyDom } = await boot(`localStorage.setItem('seoaudittool:cms:v1', ${JSON.stringify(legacy)});`, '/competitor-analysis');
+  const legacyText = text(legacyDom).replace(/\s+/g, ' ');
+  check('an older save (one editor per benefit / FAQ) folds into the single documents',
+    legacyText.includes('Legacy title') && legacyText.includes('Legacy benefit')
+    && legacyText.includes('Legacy benefit text.') && legacyText.includes('Legacy question?'),
+    legacyText.slice(0, 140));
+  legacyDom.window.close();
 }
 
 /* 4. legacy tools URLs — /tools, /tool, /free-tools and /free-seo-tool — are all

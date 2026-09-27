@@ -4,6 +4,7 @@ import { fetchDomainInfo, type DomainInfo } from '../utils/domainLookup';
 import { SerpCompare } from '../components/SerpPreview';
 import { useCms } from '../cms/store';
 import { sanitizeRichHtml } from '../utils/sanitize';
+import { splitRichSections } from '../utils/richSections';
 
 type State = 'pass' | 'warning' | 'error';
 type Check = { label: string; detail: string; fix: string; state: State };
@@ -449,6 +450,10 @@ export const CompetitorToolContent: React.FC = () => {
     return html.replace(/<[^>]*>/g, '').trim() ? sanitizeRichHtml(html) : '';
   })();
   const [open, setOpen] = useState(0);
+  // One editor per section: a heading starts a benefit card / a question, the
+  // content under it is that card's text / that question's answer.
+  const benefitItems = useMemo(() => splitRichSections(copy.benefitsContent), [copy.benefitsContent]);
+  const faqItems = useMemo(() => splitRichSections(copy.faqsContent), [copy.faqsContent]);
   return (
     <div className="space-y-8 mt-10">
       <section className="bg-white rounded-2xl border border-slate-200 p-6 md:p-8 shadow-sm">
@@ -466,11 +471,15 @@ export const CompetitorToolContent: React.FC = () => {
           <h2 className="text-xl font-bold text-slate-900 mb-4">{copy.benefitsHeading}</h2>
           {copy.benefitsIntro && <p className="text-sm text-slate-600 mb-4 leading-relaxed">{copy.benefitsIntro}</p>}
           <div className="grid gap-3">
-            {copy.benefits.map(benefit => (
-              <div key={benefit.id} className="bg-white rounded-xl border border-slate-200 p-4">
-                <h3 className="text-sm font-bold text-slate-800">{benefit.title}</h3>
-                {benefit.text && <p className="text-xs text-slate-500 mt-1 leading-relaxed">{benefit.text}</p>}
-              </div>
+            {benefitItems.map(benefit => (
+              benefit.title ? (
+                <div key={benefit.id} className="bg-white rounded-xl border border-slate-200 p-4">
+                  <h3 className="text-sm font-bold text-slate-800">{benefit.title}</h3>
+                  {benefit.body && <div className="rich-text text-xs text-slate-500 mt-1 leading-relaxed" dangerouslySetInnerHTML={{ __html: sanitizeRichHtml(benefit.body) }} />}
+                </div>
+              ) : (
+                benefit.body ? <div key={benefit.id} className="rich-text bg-white rounded-xl border border-slate-200 p-4 text-xs text-slate-500" dangerouslySetInnerHTML={{ __html: sanitizeRichHtml(benefit.body) }} /> : null
+              )
             ))}
           </div>
         </div>
@@ -479,16 +488,20 @@ export const CompetitorToolContent: React.FC = () => {
         <p className="text-xs font-bold uppercase tracking-wide text-indigo-600 mb-2">{copy.faqEyebrow}</p>
         <h2 className="text-2xl font-extrabold text-slate-900 mb-5">{copy.faqHeading}</h2>
         <div className="divide-y divide-slate-100 border-y border-slate-100">
-          {copy.faqs.map((faq, index) => (
+          {faqItems.map((faq, index) => (
+            faq.title ? (
             <div key={faq.id}>
               <button type="button" onClick={() => setOpen(open === index ? -1 : index)} className="w-full flex items-center justify-between gap-4 text-left py-4">
-                <h3 className="text-sm md:text-base font-bold text-slate-800">{faq.question}</h3>
+                <h3 className="text-sm md:text-base font-bold text-slate-800">{faq.title}</h3>
                 <span className={`text-indigo-600 transition-transform ${open === index ? 'rotate-45' : ''}`}>+</span>
               </button>
-              {open === index && (
-                <div className="rich-text pb-4 pr-8 text-sm text-slate-600 leading-relaxed" dangerouslySetInnerHTML={{ __html: sanitizeRichHtml(faq.answer) }} />
+              {open === index && faq.body && (
+                <div className="rich-text pb-4 pr-8 text-sm text-slate-600 leading-relaxed" dangerouslySetInnerHTML={{ __html: sanitizeRichHtml(faq.body) }} />
               )}
             </div>
+            ) : (
+              faq.body ? <div key={faq.id} className="rich-text border-y border-slate-100 py-4 text-sm text-slate-600" dangerouslySetInnerHTML={{ __html: sanitizeRichHtml(faq.body) }} /> : null
+            )
           ))}
         </div>
       </section>
