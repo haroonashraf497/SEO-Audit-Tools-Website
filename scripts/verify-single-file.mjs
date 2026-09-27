@@ -407,8 +407,10 @@ for (const [old, expected] of [['/free-seo-tools?cat=ip', '/ip-tools'], ['/free-
     && !/Blog Categories/.test(doc.querySelector('main')?.textContent || '')
     && errors.length === 0,
     (doc.querySelector('main')?.textContent || '').includes('Blog Categories') ? 'section still present' : 'removed');
-  check('the blog index still filters by category with its tabs',
-    tabs.join(', ') === 'All, Core Web Vitals, PageSpeed, WordPress SEO, Google & Indexing', tabs.join(', '));
+  check('the blog index still filters by category, and every tab shows its article count',
+    tabs.map(t => t.replace(/\s+\d+$/, '')).join(', ') === 'All, Core Web Vitals, PageSpeed, WordPress SEO, Google & Indexing'
+    && tabs.join(', ') === 'All 12, Core Web Vitals 3, PageSpeed 3, WordPress SEO 3, Google & Indexing 3',
+    tabs.join(', '));
   dom.window.close();
 }
 for (const [slug, name, count] of [['core-web-vitals', 'Core Web Vitals', 3], ['pagespeed', 'PageSpeed', 3], ['wordpress-seo', 'WordPress SEO', 3], ['google-indexing', 'Google & Indexing', 3]]) {
@@ -647,9 +649,10 @@ for (const [slug, name, count] of [['core-web-vitals', 'Core Web Vitals', 3], ['
   };
   const preload = `localStorage.setItem('seoaudittool:cms:v1', ${JSON.stringify(JSON.stringify(state))});`;
   const { dom } = await boot(preload, '/blog');
-  const tabs = [...dom.window.document.querySelectorAll('main [role="tab"]')].map(t => t.textContent.trim());
+  const tabs = [...dom.window.document.querySelectorAll('main [role="tab"]')].map(t => t.textContent.replace(/\s+/g, ' ').trim());
   check('a hidden category is left out of the blog filter tabs',
-    tabs.join(', ') === 'All, Core Web Vitals', tabs.join(', '));
+    tabs.map(t => t.replace(/\s+\d+$/, '')).join(', ') === 'All, Core Web Vitals'
+    && tabs.every(t => /\s\d+$/.test(t)), tabs.join(', '));
   dom.window.close();
   const hidden = await boot(preload, '/blog/category/secret-category');
   check('a hidden category page is not available',

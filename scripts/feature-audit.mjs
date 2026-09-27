@@ -471,6 +471,10 @@ check('the blog index no longer renders the Blog Categories section',
   && !/Blog Categories<\/h2>/.test(blogSrc)
   && !/href=\{`\/blog\/category\/\$\{cat\.slug\}`\}/.test(blogSrc)
   && /role="tablist" aria-label="Filter articles by category"/.test(blogSrc));
+check('every blog filter tab shows its live article count',
+  /const tabCounts = useMemo\(\(\) => \{\s*const counts: Record<string, number> = \{ All: posts\.length \};\s*for \(const post of posts\) counts\[post\.category\] = \(counts\[post\.category\] \|\| 0\) \+ 1;/.test(blogSrc)
+  && /\{tabCounts\[cat\] \|\| 0\}/.test(blogSrc)
+  && /text-indigo-100' : 'text-slate-400'/.test(blogSrc));
 check('the category pages, their clean URLs and the admin manager are unchanged',
   /export const BlogCategoryPage: React\.FC<\{ slug: string \}> = \(\{ slug \}\) => \{/.test(blogSrc)
   && /postsInBlogCategory\(state, category\.name\)/.test(blogSrc)

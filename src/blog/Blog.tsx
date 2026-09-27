@@ -144,6 +144,12 @@ export const BlogList: React.FC = () => {
   // so a category added there shows up here immediately.
   const cats = useMemo(() => visibleBlogCategories(state), [state]);
   const tabs = useMemo(() => ['All', ...cats.map(c => c.name)], [cats]);
+  /* Live article count per tab, so the filter shows how much sits behind it. */
+  const tabCounts = useMemo(() => {
+    const counts: Record<string, number> = { All: posts.length };
+    for (const post of posts) counts[post.category] = (counts[post.category] || 0) + 1;
+    return counts;
+  }, [posts]);
   const [activeCategory, setActiveCategory] = useState<string>('All');
 
   useEffect(() => {
@@ -183,6 +189,9 @@ export const BlogList: React.FC = () => {
                 }`}
               >
                 {cat}
+                <span className={`ml-1.5 text-xs font-semibold ${activeCategory === cat ? 'text-indigo-100' : 'text-slate-400'}`}>
+                  {' '}{tabCounts[cat] || 0}
+                </span>
               </button>
             ))}
           </div>

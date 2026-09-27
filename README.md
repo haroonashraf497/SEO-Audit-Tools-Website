@@ -235,8 +235,9 @@ On the public site, every category answers on its own clean URL: `/blog/category
 https://seoaudittools.pk/blog/category/core-web-vitals. Those pages have their own H1, intro,
 canonical tag, `CollectionPage` + `ItemList` + `BreadcrumbList` JSON-LD and article list. The blog
 index itself no longer shows the Blog Categories card section — its filter tabs are driven by the
-same category list, each article's byline links to its category page, and the sitemap lists the four
-built-in category URLs.
+same category list and each shows the live number of articles behind it (*All 12*,
+*Core Web Vitals 3*, …), each article's byline links to its category page, and the sitemap lists the
+four built-in category URLs.
 
 ### Article byline
 
@@ -307,7 +308,7 @@ the store.
 
 ```bash
 npm run typecheck                  # tsc --noEmit
-node scripts/feature-audit.mjs     # 255 checks: CMS controls, blog categories, managed tool categories, the Competitor Analysis page copy, footer redesign, legal URLs, /free-seo-tools index, text-tool layout/mobile, case-converter grid, Tool Categories mega menu, no-bold top nav, top-level tool URLs (/<slug>), category pages (/ip-tools), Merge PDF compressor, no EKSTRUH, 154 tools
+node scripts/feature-audit.mjs     # 256 checks: CMS controls, blog categories, managed tool categories, the Competitor Analysis page copy, footer redesign, legal URLs, /free-seo-tools index, text-tool layout/mobile, case-converter grid, Tool Categories mega menu, no-bold top nav, top-level tool URLs (/<slug>), category pages (/ip-tools), Merge PDF compressor, no EKSTRUH, 154 tools
 npm install --no-save jsdom
 node scripts/verify-single-file.mjs  # 223 checks: boots the built file, blog + tool category pages, the Competitor Analysis page, instant swap, footer, legal + category URLs, top-level tool pages, legacy redirects, head injection, text-tool layout, mega-menu navigation
 npm test                           # 34 Playwright tests (needs Chromium)
