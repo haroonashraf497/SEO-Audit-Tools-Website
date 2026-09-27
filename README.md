@@ -246,6 +246,18 @@ as a pill at the right-hand end of the row that links to that category's own pag
 (`/blog/category/<slug>`). Every built-in article is bylined *SAT Team*, and a post created in the
 CMS defaults to the same name, so no post shows an empty or stale author.
 
+### Single article sidebar
+
+The sidebar on a single blog post reads **search bar → Latest Articles → Other Relevant Tools**,
+with the remaining panels (Popular SEO Tools, any CMS widgets, the CTA) after them. Every other
+page — the blog index, the category pages and the tool pages — keeps its original order
+(search, Other Relevant Tools, Popular SEO Tools, Latest Articles, CTA).
+
+Article titles in that sidebar are never cut off: the latest-articles list and any CMS
+*recommended reading* widget wrap a long title onto a second line (`break-words`) instead of
+truncating it with an ellipsis, and the search dropdown shows the whole title too. Tool and link
+lists keep their existing one-line style.
+
 ### Home page tool grid
 
 The tools section on the home page uses one spacing rhythm: the eight tool cards and the category
@@ -295,9 +307,9 @@ the store.
 
 ```bash
 npm run typecheck                  # tsc --noEmit
-node scripts/feature-audit.mjs     # 247 checks: CMS controls, blog categories, managed tool categories, the Competitor Analysis page copy, footer redesign, legal URLs, /free-seo-tools index, text-tool layout/mobile, case-converter grid, Tool Categories mega menu, no-bold top nav, top-level tool URLs (/<slug>), category pages (/ip-tools), Merge PDF compressor, no EKSTRUH, 154 tools
+node scripts/feature-audit.mjs     # 254 checks: CMS controls, blog categories, managed tool categories, the Competitor Analysis page copy, footer redesign, legal URLs, /free-seo-tools index, text-tool layout/mobile, case-converter grid, Tool Categories mega menu, no-bold top nav, top-level tool URLs (/<slug>), category pages (/ip-tools), Merge PDF compressor, no EKSTRUH, 154 tools
 npm install --no-save jsdom
-node scripts/verify-single-file.mjs  # 217 checks: boots the built file, blog + tool category pages, the Competitor Analysis page, instant swap, footer, legal + category URLs, top-level tool pages, legacy redirects, head injection, text-tool layout, mega-menu navigation
+node scripts/verify-single-file.mjs  # 223 checks: boots the built file, blog + tool category pages, the Competitor Analysis page, instant swap, footer, legal + category URLs, top-level tool pages, legacy redirects, head injection, text-tool layout, mega-menu navigation
 npm test                           # 34 Playwright tests (needs Chromium)
 ```
 

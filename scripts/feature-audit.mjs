@@ -720,6 +720,34 @@ check('the 154 tools and the rest of the blog page are untouched',
   && /<ArticleCard key=\{article\.slug\} article=\{article\} \/>/.test(blogPage)
   && /export const BlogCategoryPage: React\.FC<\{ slug: string \}>/.test(blogPage));
 
+console.log('\n=== 📚 Blog article sidebar (order + full titles) ===');
+const sidebarSrc = read('src/tools/Sidebar.tsx');
+check('the sidebar takes an article-page order without changing the default order',
+  /export const Sidebar: React\.FC<\{ category\?: string; currentSlug\?: string; currentPost\?: string; order\?: 'default' \| 'article' \}> = \(\{ category, currentSlug, currentPost, order = 'default' \}\) => \{/.test(sidebarSrc)
+  && /const panels: \{ key: string; node: React\.ReactNode \}\[\] = order === 'article'/.test(sidebarSrc));
+check('the article order is search box → Latest Articles → Other Relevant Tools',
+  /\{ key: 'search', node: searchPanel \},\s*\{ key: 'latest', node: latestPanel \},\s*\{ key: 'relevant', node: relevantPanel \},\s*\{ key: 'popular', node: popularPanel \},/.test(sidebarSrc));
+check('every other page keeps the original order (search, tools, popular, … then latest)',
+  /\{ key: 'search', node: searchPanel \},\s*\{ key: 'relevant', node: relevantPanel \},\s*\{ key: 'popular', node: popularPanel \},[\s\S]{0,200}\{ key: 'latest', node: latestPanel \},/.test(sidebarSrc));
+check('the article page asks for its order and nothing else changed there',
+  /<Sidebar currentPost=\{article\.slug\} order="article" \/>/.test(blogPage)
+  && (blogPage.match(/<Sidebar(?! currentPost=\{article\.slug\} order="article")/g) || []).length === 2);
+check('no article title in the sidebar is truncated, clamped or ellipsised',
+  /const latestPanel = cfg\.latest && posts\.length > 0 \? \(\s*<ListPanel title=\{cfg\.latestTitle\} items=\{posts\.map\(p => \(\{ href: `\/blog\/\$\{p\.slug\}`, label: p\.title \}\)\)\} arrowClass="text-indigo-500" wrap \/>/.test(sidebarSrc)
+  && /const ListPanel: React\.FC<\{ title: React\.ReactNode; items: \{ href: string; label: string; badge\?: string \}\[\]; arrowClass\?: string; wrap\?: boolean \}>/.test(sidebarSrc)
+  && /<span className=\{wrap \? 'flex-1 min-w-0 break-words' : 'flex-1 truncate'\}>\{it\.label\}<\/span>/.test(sidebarSrc)
+  && /<span className="font-medium text-slate-800">\{p\.title\}<\/span>/.test(sidebarSrc)
+  && !/line-clamp-1/.test(sidebarSrc));
+check('tool and link lists keep their existing one-line style',
+  !/wrap \/>[\s\S]{0,40}label: t\.name/.test(sidebarSrc)
+  && /arrowClass="text-blue-600" \/>/.test(sidebarSrc)
+  && /title=\{cfg\.relevantTitle\} items=\{relevant\.map\(t => \(\{ href: `\/\$\{t\.slug\}`, label: t\.name \}\)\)\} \/>/.test(sidebarSrc));
+check('the sidebar still renders search, tools, popular, widgets, latest and CTA',
+  /const searchPanel = cfg\.searchBox \?/.test(sidebarSrc) && /const relevantPanel = cfg\.relevantTools/.test(sidebarSrc)
+  && /const popularPanel = cfg\.popular \?/.test(sidebarSrc) && /const latestPanel = cfg\.latest/.test(sidebarSrc)
+  && /const ctaPanel = cfg\.cta \?/.test(sidebarSrc) && /const widgetPanels = widgets\.map/.test(sidebarSrc)
+  && /<aside className="space-y-5">/.test(sidebarSrc));
+
 console.log('\n=== ✅ Preserved ===');
 check('no "Loading page" anywhere in src', !/Loading page/.test(read('src/App.tsx') + read('src/components/ErrorBoundary.tsx') + read('src/tools/Tools.tsx')));
 const codeOnly = src => src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');

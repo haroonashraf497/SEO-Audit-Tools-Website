@@ -358,7 +358,7 @@ export const BlogArticlePage: React.FC<{ slug: string }> = ({ slug }) => {
           </div>
         )}
       </article>
-      <Sidebar currentPost={article.slug} />
+      <Sidebar currentPost={article.slug} order="article" />
       </div>
     </div>
   );

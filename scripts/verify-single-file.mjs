@@ -467,6 +467,53 @@ for (const [slug, name, count] of [['core-web-vitals', 'Core Web Vitals', 3], ['
   dom.window.close();
 }
 
+/* 3g. the single article sidebar: search bar, Latest Articles, Other Relevant
+      Tools — and every article title shown in full */
+{
+  const { dom, errors } = await boot('', '/blog/google-not-indexing-pages');
+  const doc = dom.window.document;
+  const aside = doc.querySelector('aside');
+  const panelTitle = el => (el.querySelector('h3')?.textContent || '').trim();
+  const panels = [...aside.children];
+  check('the article sidebar starts with the search bar, then Latest Articles, then Other Relevant Tools',
+    !!panels[0]?.querySelector('input[aria-label="Search tools"]')
+    && panelTitle(panels[1]) === 'Latest Articles'
+    && panelTitle(panels[2]) === 'Other Relevant Tools'
+    && errors.length === 0,
+    panels.map(el => panelTitle(el) || (el.querySelector('input') ? 'search' : '?')).join(' | '));
+  check('Latest Articles is not the last panel and the CTA still closes the sidebar',
+    panelTitle(panels[panels.length - 1]) === '' && !/Latest Articles/.test(panels[panels.length - 1].textContent)
+    && panels.filter(el => panelTitle(el) === 'Latest Articles').length === 1);
+  check('the latest-articles list shows every article with its full title',
+    panels[1].querySelectorAll('li').length === 6
+    && [...panels[1].querySelectorAll('li a span.flex-1')].every(span =>
+      !/truncate|line-clamp/.test(span.className) && /break-words/.test(span.className))
+    && [...panels[1].querySelectorAll('li a span.flex-1')].some(span => span.textContent.trim() === 'INP Is the Core Web Vital Nobody Prepared For (Here\u2019s How to Fix It)'),
+    [...panels[1].querySelectorAll('li a span.flex-1')].map(span => span.textContent.trim()).join(' || ').slice(0, 120));
+  check('article titles wrap onto a second line instead of being ellipsised',
+    /\.break-words\{overflow-wrap:break-word\}/.test(rawHtml.replace(/\s+/g, ''))
+    && [...panels[1].querySelectorAll('li a span')].every(span => !/truncate|line-clamp/.test(span.className))
+    && [...panels[1].querySelectorAll('li a span.flex-1')].every(span => /break-words/.test(span.className)),
+    [...panels[1].querySelectorAll('li a span.flex-1')].map(span => span.className).join(' | '));
+  dom.window.close();
+}
+{
+  const { dom } = await boot('', '/blog');
+  const titles = [...dom.window.document.querySelectorAll('aside > div')].map(el => (el.querySelector('h3')?.textContent || '').trim() || (el.querySelector('input') ? 'search' : 'cta'));
+  check('the blog listing sidebar keeps its original order',
+    titles.join(' | ') === 'search | Other Relevant Tools | Popular SEO Tools | Latest Articles | cta',
+    titles.join(' | '));
+  dom.window.close();
+}
+{
+  const { dom } = await boot('', '/plagiarism-checker');
+  const titles = [...dom.window.document.querySelectorAll('aside > div')].map(el => (el.querySelector('h3')?.textContent || '').trim() || (el.querySelector('input') ? 'search' : 'cta'));
+  check('tool pages keep their sidebar order too',
+    titles.join(' | ') === 'search | Other Relevant Tools | Popular SEO Tools | Latest Articles | cta',
+    titles.join(' | '));
+  dom.window.close();
+}
+
 /* 3f. the home page tool rows and the category rows keep one spacing rhythm */
 {
   const { dom, errors } = await boot('', '/');
