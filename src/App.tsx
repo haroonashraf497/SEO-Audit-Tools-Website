@@ -1,9 +1,12 @@
 import React, { useState, useCallback, useMemo, useEffect, useLayoutEffect, useRef } from 'react';
-import { categoryDescriptions, categoryHref, categoryLabels, ToolIcon } from './tools/data';
+import { ToolIcon } from './tools/data';
 import { fetchPageData, type LivePageData } from './utils/pageFetch';
 import { fetchDomainInfo, type DomainInfo } from './utils/domainLookup';
 import { sanitizeRichHtml } from './utils/sanitize';
-import { CmsProvider, useCms, liveTools, livePosts, findPage, blocksToHtml, renderCopyright, defaultFooterColumns, type SocialLinks } from './cms/store';
+import {
+  CmsProvider, useCms, liveTools, livePosts, findPage, blocksToHtml, renderCopyright, defaultFooterColumns,
+  resolveToolCategory, toolCategoriesOf, toolCategoryHref, toolCategoryName, toolCategorySummary, type SocialLinks,
+} from './cms/store';
 import { ToolCategoriesMenu, ToolCategoriesMobileSection } from './components/ToolCategoriesMenu';
 import SerpPreview from './components/SerpPreview';
 import { SeoManager } from './utils/seo';
@@ -1325,8 +1328,8 @@ type Crumb = { label: string; href?: string };
 /** Home › <category page> › <tool>, used by every tool URL. */
 const toolCrumbs = (home: Crumb, slug: string, state: ReturnType<typeof useCms>['state']): Crumb[] => {
   const tool = state.tools.find(t => t.slug === slug);
-  const catLabel = tool ? (categoryLabels[tool.category] || 'Free SEO Tools') : 'Free SEO Tools';
-  const catHref = tool ? categoryHref(tool.category) : TOOLS_PATH;
+  const catLabel = tool ? toolCategoryName(state, tool.category) : 'Free SEO Tools';
+  const catHref = tool ? toolCategoryHref(state, tool.category) : TOOLS_PATH;
   return [home, { label: catLabel, href: catHref }, { label: tool?.name || 'Tool' }];
 };
 const SiteBreadcrumbs: React.FC<{ route: string }> = ({ route }) => {
@@ -1336,8 +1339,12 @@ const SiteBreadcrumbs: React.FC<{ route: string }> = ({ route }) => {
     if (route === 'home') return [];
     if (route === 'free-tools' || route === 'tools') return [home, { label: 'Free SEO Tools' }];
     if (route.startsWith('cat/')) {
-      const cat = categoryKeyOfRoute(route);
-      return [home, { label: 'Free SEO Tools', href: TOOLS_PATH }, { label: cat ? categoryLabels[cat] : 'Tools' }];
+      const cat = categoryKeyOfRoute(route) || route.slice(4);
+      return [home, { label: 'Free SEO Tools', href: TOOLS_PATH }, { label: cat ? toolCategoryName(state, cat) : 'Tools' }];
+    }
+    if (route.startsWith('toolcat/')) {
+      const slug = route.slice('toolcat/'.length);
+      return [home, { label: 'Free SEO Tools', href: TOOLS_PATH }, { label: resolveToolCategory(state, slug)?.name || 'Tools' }];
     }
     if (route.startsWith('tool/')) return toolCrumbs(home, route.slice(5), state);
     // root slug: a tool page (or a CMS page, handled below)
@@ -1459,7 +1466,7 @@ const SiteApp: React.FC = () => {
   }, [route]);
 
   const isBlog = route === 'blog' || route.startsWith('blog/') || route.startsWith('blogcat/');
-  const isTools = route === 'free-tools' || route === 'tools' || route.startsWith('tool/') || route.startsWith('cat/') || (route.startsWith('p/') && cms.state.tools.some(t => t.slug === route.slice(2)) && !findPage(cms.state, storedSlugForRoute(route.slice(2))));
+  const isTools = route === 'free-tools' || route === 'tools' || route.startsWith('tool/') || route.startsWith('cat/') || route.startsWith('toolcat/') || (route.startsWith('p/') && cms.state.tools.some(t => t.slug === route.slice(2)) && !findPage(cms.state, storedSlugForRoute(route.slice(2))));
 
   // Footer content is live: every value below is read straight from the CMS
   // store, so a save in Admin → Sections & Nav → Brand & footer updates the
@@ -1649,6 +1656,7 @@ const SiteApp: React.FC = () => {
       {/* Tools routes */}
       {(route === 'free-tools' || route === 'tools') && <ToolsList />}
       {route.startsWith('cat/') && <ToolsList category={categoryKeyOfRoute(route) || undefined} />}
+      {route.startsWith('toolcat/') && <ToolsList categorySlug={route.slice('toolcat/'.length)} />}
       {route.startsWith('tool/') && <ToolPage slug={route.slice(5)} />}
 
       {/* Admin (CMS) */}
@@ -2005,18 +2013,18 @@ const SiteApp: React.FC = () => {
           </div>
 
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 items-stretch">
-            {(['text', 'keyword', 'backlink', 'checker', 'domain', 'ip', 'management', 'pdf', 'image', 'calculator', 'converter'] as const).map(cat => {
-              const count = visibleTools.filter(t => t.category === cat).length;
+            {toolCategoriesOf(cms.state).map(cat => {
+              const count = visibleTools.filter(t => t.category === cat.key).length;
               return (
-                <a key={cat} href={categoryHref(cat)} className="group h-full flex flex-col bg-white rounded-2xl border border-slate-200 p-5 shadow-sm hover:shadow-lg hover:border-indigo-200 transition-all">
+                <a key={cat.key} href={toolCategoryHref(cms.state, cat.key)} className="group h-full flex flex-col bg-white rounded-2xl border border-slate-200 p-5 shadow-sm hover:shadow-lg hover:border-indigo-200 transition-all">
                   <div className="flex items-center justify-between gap-3 mb-2 min-h-[1.25rem]">
                     <span className="flex items-center gap-3 min-w-0">
-                      <span className="text-indigo-600 flex-shrink-0"><ToolIcon category={cat} className="w-5 h-5" /></span>
-                      <h3 className="font-bold text-slate-900 text-sm group-hover:text-indigo-600 transition-colors truncate">{categoryLabels[cat]}</h3>
+                      <span className="text-indigo-600 flex-shrink-0"><ToolIcon category={cat.key} className="w-5 h-5" /></span>
+                      <h3 className="font-bold text-slate-900 text-sm group-hover:text-indigo-600 transition-colors truncate">{cat.name}</h3>
                     </span>
                     <span className="text-xs text-slate-500 font-medium whitespace-nowrap">{count} tools</span>
                   </div>
-                  <p className="text-xs text-slate-500 leading-relaxed line-clamp-2 h-10">{categoryDescriptions[cat]}</p>
+                  <p className="text-xs text-slate-500 leading-relaxed line-clamp-2 h-10">{toolCategorySummary(cms.state, cat.key)}</p>
                 </a>
               );
             })}

@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { categoryLabels, type ToolCategory, type ToolDef } from './data';
-import { useCms, liveTools, livePosts, type SidebarWidget } from '../cms/store';
+import { type ToolDef } from './data';
+import { useCms, liveTools, livePosts, toolCategoryName, type SidebarWidget } from '../cms/store';
 import { looksLikeHtml, sanitizeRichHtml } from '../utils/sanitize';
 import { cleanHref, navigate, rewriteLegacyLinks } from '../router';
 
@@ -84,7 +84,7 @@ export const ToolSearch: React.FC<{ autoFocus?: boolean; placeholder?: string }>
                 <a key={t.slug} href={`/${t.slug}`} onClick={() => go(`/${t.slug}`)} onMouseEnter={() => setActive(i)}
                   className={`flex items-center justify-between gap-3 px-4 py-2.5 text-sm ${active === i ? 'bg-indigo-50' : 'hover:bg-slate-50'}`}>
                   <span className="font-medium text-slate-800 truncate">{t.name}</span>
-                  <span className="text-[11px] text-slate-400 whitespace-nowrap">{categoryLabels[t.category].replace(' Tools', '')}</span>
+                  <span className="text-[11px] text-slate-400 whitespace-nowrap">{toolCategoryName(cmsState, t.category).replace(' Tools', '')}</span>
                 </a>
               ))}
               {results.posts.length > 0 && <p className="px-4 pt-3 pb-1 text-[11px] font-bold uppercase tracking-wide text-slate-400 border-t border-slate-100">Blog articles</p>}
@@ -170,7 +170,7 @@ const CmsSidebarWidget: React.FC<{ widget: SidebarWidget; tools: ToolDef[]; post
 };
 
 // ---------- The sidebar ----------
-export const Sidebar: React.FC<{ category?: ToolCategory; currentSlug?: string; currentPost?: string }> = ({ category, currentSlug, currentPost }) => {
+export const Sidebar: React.FC<{ category?: string; currentSlug?: string; currentPost?: string }> = ({ category, currentSlug, currentPost }) => {
   const { state } = useCms();
   const cfg = state.sidebar;
   const cmsTools = useMemo(() => liveTools(state) as unknown as ToolDef[], [state]);

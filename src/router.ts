@@ -2,8 +2,10 @@
    Clean-URL router (History API) — replaces the legacy #/ hash router.
 
    • Routes come from location.pathname: /, /free-seo-tools (the tools index),
-     /ip-tools (a category page), /plagiarism-checker (a tool page at the top
-     level), /blog, /blog/slug, /blog/category/<slug>, /about, /admin …
+     /ip-tools (a category page), /tools/category/<slug> (any category,
+     including the ones added in Admin → Tool Categories),
+     /plagiarism-checker (a tool page at the top level), /blog, /blog/slug,
+     /blog/category/<slug>, /about, /admin …
    • Internal <a> clicks are intercepted → history.pushState,
      so navigation stays instant (no full reload).
    • Back/forward (popstate) re-renders the matching view.
@@ -49,6 +51,15 @@ export const TOOL_PATH_BASE = '';
 /** Canonical path of a tool page ('' base → a bare top-level slug). */
 export const toolPath = (slug: string): string => `${TOOL_PATH_BASE}/${slug}`;
 
+/** Prefix of the pages managed in Admin → Tool Categories:
+ *  /tools/category/<slug>. The built-in categories keep their original
+ *  top-level URLs (/ip-tools, /website-checker-tools, …) as their canonical
+ *  page and answer here as well; categories added in the admin live here. */
+export const TOOL_CATEGORY_BASE = '/tools/category';
+
+/** Path of a tool category page, e.g. /tools/category/local-seo-tools. */
+export const toolCategoryPath = (slug: string): string => `${TOOL_CATEGORY_BASE}/${slug}`;
+
 /** Every older prefix a tool page may still arrive on — including the
  *  /free-seo-tools/<slug> spelling that used to be canonical. */
 export const LEGACY_TOOL_PATHS = [TOOLS_PATH, '/free-seo-tool', '/free-tools', '/tool'];
@@ -66,6 +77,9 @@ const isCategoryKey = (value: string): value is ToolCategory =>
  *  (/ip-tools, /website-checker-tools, …) — are returned untouched. */
 export const canonicalToolsPath = (pathname: string): string => {
   if (pathname === TOOLS_PATH) return pathname;
+  // /tools/category/<slug> is a category page of its own — not a legacy
+  // /tools/<slug> tool URL, so it is never rewritten.
+  if (pathname === TOOL_CATEGORY_BASE || pathname.startsWith(`${TOOL_CATEGORY_BASE}/`)) return pathname;
   for (const prefix of LEGACY_TOOL_PATHS) {
     if (pathname.startsWith(`${prefix}/`)) return pathname.slice(prefix.length);
   }
@@ -168,6 +182,9 @@ export const getRoute = (): string => {
   if (seg === '') return 'home';
   if (seg === TOOLS_PATH.slice(1) || LEGACY_TOOLS_PATHS.some(p => p.slice(1) === seg)) return 'free-tools';
   if (seg.startsWith('tool/')) return `p/${seg.slice('tool/'.length)}`;
+  // /tools/category/<slug> — the category pages managed in the admin
+  const categoryPrefix = `${TOOL_CATEGORY_BASE.slice(1)}/`;
+  if (seg.startsWith(categoryPrefix)) return `toolcat/${seg.slice(categoryPrefix.length)}`;
   const category = categoryFromSlug(seg);
   if (category) return `cat/${category}`;
   if (seg === 'blog') return 'blog';

@@ -1,7 +1,58 @@
 import { useEffect, type FC } from 'react';
-import { useCms, type CmsState } from '../cms/store';
+import { resolveToolCategory, toolCategoryHref, toolCategorySummary, useCms, type CmsState, type CmsToolCategory } from '../cms/store';
 import { TOOLS_PATH, routeSlugForStored, storedSlugForRoute } from '../router';
-import { categoryDescriptions, categoryFromKey, categoryLabels, categorySlugs } from '../tools/data';
+
+/**
+ * SEO entry for a tool category page. The name, URL and description all come
+ * from the list managed in Admin → Tool Categories; a built-in category keeps
+ * its original top-level URL (/ip-tools) as the canonical one, and every
+ * category also answers on /tools/category/<slug>.
+ */
+const toolCategorySeo = (cms: CmsState, cat: CmsToolCategory, ctx: { origin: string; brand: string; og: string }): PageSeo => {
+  const { origin, brand, og } = ctx;
+  const list = cms.tools.filter(t => t.status === 'live' && t.category === cat.key);
+  const label = cat.name;
+  const path = toolCategoryHref(cms, cat.key);
+  const description = `${toolCategorySummary(cms, cat.key)} ${list.length} free ${label.toLowerCase()}, no sign-up — most run instantly in your browser.`.replace(/\s+/g, ' ').trim();
+  return {
+    title: `${label} — ${list.length} Free Online Tools | ${brand}`,
+    description,
+    path,
+    origin,
+    image: og,
+    jsonLd: {
+      '@context': 'https://schema.org',
+      '@graph': [
+        {
+          '@type': 'CollectionPage',
+          name: label,
+          description,
+          url: `${origin}${path}`,
+          isPartOf: { '@id': `${origin}/#website` },
+        },
+        {
+          '@type': 'ItemList',
+          name: label,
+          numberOfItems: list.length,
+          itemListElement: list.map((t, i) => ({
+            '@type': 'ListItem',
+            position: i + 1,
+            name: t.name,
+            url: `${origin}/${t.slug}`,
+          })),
+        },
+        {
+          '@type': 'BreadcrumbList',
+          itemListElement: [
+            { '@type': 'ListItem', position: 1, name: 'Home', item: `${origin}/` },
+            { '@type': 'ListItem', position: 2, name: 'Free SEO Tools', item: `${origin}${TOOLS_PATH}` },
+            { '@type': 'ListItem', position: 3, name: label, item: `${origin}${path}` },
+          ],
+        },
+      ],
+    },
+  };
+};
 
 export const DEFAULT_ORIGIN = 'https://seoaudittools.pk';
 export const DEFAULT_OG_PATH = '/og.jpg';
@@ -181,8 +232,11 @@ export const resolvePageSeo = (route: string, cms: CmsState): PageSeo => {
     };
   }
 
-  if (route.startsWith('cat/')) {
-    const cat = categoryFromKey(route.slice(4));
+  // A tool category page: /ip-tools (built-in, canonical) and
+  // /tools/category/<slug> (every managed category, Admin → Tool Categories).
+  if (route.startsWith('cat/') || route.startsWith('toolcat/')) {
+    const value = route.startsWith('cat/') ? route.slice(4) : route.slice('toolcat/'.length);
+    const cat = resolveToolCategory(cms, value);
     if (!cat) {
       return {
         title: `Tools not found | ${brand}`,
@@ -193,48 +247,7 @@ export const resolvePageSeo = (route: string, cms: CmsState): PageSeo => {
         image: og,
       };
     }
-    const list = cms.tools.filter(t => t.status === 'live' && t.category === cat);
-    const label = categoryLabels[cat];
-    const path = `/${categorySlugs[cat]}`;
-    const description = `${categoryDescriptions[cat]} ${list.length} free ${label.toLowerCase()}, no sign-up — most run instantly in your browser.`;
-    return {
-      title: `${label} — ${list.length} Free Online Tools | ${brand}`,
-      description,
-      path,
-      origin,
-      image: og,
-      jsonLd: {
-        '@context': 'https://schema.org',
-        '@graph': [
-          {
-            '@type': 'CollectionPage',
-            name: label,
-            description,
-            url: `${origin}${path}`,
-            isPartOf: { '@id': `${origin}/#website` },
-          },
-          {
-            '@type': 'ItemList',
-            name: label,
-            numberOfItems: list.length,
-            itemListElement: list.map((t, i) => ({
-              '@type': 'ListItem',
-              position: i + 1,
-              name: t.name,
-              url: `${origin}/${t.slug}`,
-            })),
-          },
-          {
-            '@type': 'BreadcrumbList',
-            itemListElement: [
-              { '@type': 'ListItem', position: 1, name: 'Home', item: `${origin}/` },
-              { '@type': 'ListItem', position: 2, name: 'Free SEO Tools', item: `${origin}${TOOLS_PATH}` },
-              { '@type': 'ListItem', position: 3, name: label, item: `${origin}${path}` },
-            ],
-          },
-        ],
-      },
-    };
+    return toolCategorySeo(cms, cat, { origin, brand, og });
   }
 
   if (route.startsWith('tool/')) {

@@ -1,10 +1,10 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  categoryDescriptions, categoryHref, categoryIntros, categoryLabels, categoryOrder, categoryStyles, toolTagline, ToolIcon,
+  categoryDescriptions, categoryHref, categoryLabel, categoryLabels, categoryStyle, toolTagline, ToolIcon,
   type ToolDef, type ToolCategory,
 } from './data';
-import { useCms } from '../cms/store';
-import { TOOLS_PATH, navigate, subscribe } from '../router';
+import { resolveToolCategory, toolCategoriesOf, type CmsToolCategory, useCms } from '../cms/store';
+import { TOOLS_PATH, navigate, subscribe, toolCategoryPath } from '../router';
 import { buildReport, type SimReport, type RowStatus, Seeded } from './simulator';
 import { fetchPageData } from '../utils/pageFetch';
 import { WhatIsMyIp, IpLocationTool, ReverseIpTool, ProxyListTool, ClassCTool } from './IpTools';
@@ -446,11 +446,30 @@ const readSearchParams = () => {
  *    prop, with its own canonical URL, heading and description.
  * Search filters within whichever page is open and stays in ?q=.
  */
-export const ToolsList: React.FC<{ category?: ToolCategory }> = ({ category }) => {
+/**
+ * Tool directory. Rendered three ways:
+ *  • `/free-seo-tools` — every category, grouped into sections (the index)
+ *  • `/<category-slug>` (e.g. /ip-tools) — one built-in category, via the
+ *    `category` prop, with its own canonical URL, heading and description
+ *  • `/tools/category/<slug>` — any category by slug, via `categorySlug`,
+ *    including the ones added in Admin → Tool Categories (a built-in category
+ *    answering there keeps its original page as the canonical URL)
+ * Names, slugs, descriptions and the order of the sections all come from the
+ * managed list, so an edit in the admin shows up here immediately.
+ * Search filters within whichever page is open and stays in ?q=.
+ */
+export const ToolsList: React.FC<{ category?: ToolCategory; categorySlug?: string }> = ({ category, categorySlug }) => {
   const { state: cmsState } = useCms();
   const tools = useMemo<ToolDef[]>(() => cmsState.tools.filter(t => t.status === 'live') as unknown as ToolDef[], [cmsState.tools]);
-  const basePath = category ? categoryHref(category) : TOOLS_PATH;
-  const activeCat: 'all' | ToolCategory = category || 'all';
+  // The managed category this page is about — undefined on the index.
+  const active = useMemo<CmsToolCategory | undefined>(
+    () => (category || categorySlug ? resolveToolCategory(cmsState, categorySlug || category || '') : undefined),
+    [cmsState, category, categorySlug],
+  );
+  const activeKey = active?.key || category || '';
+  const activeName = active?.name || (category ? categoryLabels[category] : '');
+  // While searching, stay on the URL the visitor arrived on.
+  const basePath = categorySlug ? toolCategoryPath(categorySlug) : category ? categoryHref(category) : TOOLS_PATH;
   const [query, setQuery] = useState(readSearchParams);
 
   // React to sidebar searches / breadcrumb links while a tools page is open
@@ -461,21 +480,34 @@ export const ToolsList: React.FC<{ category?: ToolCategory }> = ({ category }) =
 
   useEffect(() => {
     window.scrollTo(0, 0);
-  }, [category]);
+  }, [category, categorySlug]);
 
   const filtered = useMemo(() => tools.filter(t =>
-    (activeCat === 'all' || t.category === activeCat) &&
+    (!activeKey || t.category === activeKey) &&
     (t.name.toLowerCase().includes(query.toLowerCase()) || t.description.toLowerCase().includes(query.toLowerCase()))
-  ), [query, activeCat]);
+  ), [query, activeKey, tools]);
 
   const grouped = useMemo(() => {
-    const map = new Map<ToolCategory, ToolDef[]>();
+    const map = new Map<string, ToolDef[]>();
     filtered.forEach(t => {
       const arr = map.get(t.category) || [];
       arr.push(t); map.set(t.category, arr);
     });
     return map;
   }, [filtered]);
+
+  /**
+   * The sections this page shows: every managed category in admin order, plus
+   * any category a tool still points at, so a tool can never fall off the site.
+   */
+  const sections = useMemo<CmsToolCategory[]>(() => {
+    const managed = toolCategoriesOf(cmsState);
+    const known = new Set(managed.map(c => c.key));
+    const strays = [...new Set(filtered.map(t => t.category))]
+      .filter(key => !known.has(key))
+      .map(key => ({ id: `stray-${key}`, key, name: categoryLabel(key), slug: key, description: '', builtin: false }));
+    return [...managed, ...strays];
+  }, [cmsState, filtered]);
 
   // Keep the URL in step with the search term so a filtered view is shareable
   // and survives reload. replaceState: searching is not navigation.
@@ -490,24 +522,47 @@ export const ToolsList: React.FC<{ category?: ToolCategory }> = ({ category }) =
   // "Show all N tools" — leaves a category page for the index.
   const clearFilters = useCallback(() => { setQuery(''); navigate(TOOLS_PATH); }, []);
 
+  // A category URL whose category no longer exists (removed in the admin).
+  if ((category || categorySlug) && !active) {
+    return (
+      <div className="pt-16 pb-20 px-4 text-center min-h-screen">
+        <div className="max-w-xl mx-auto">
+          <p className="text-sm font-semibold text-indigo-600 uppercase tracking-wide mb-3">Tools</p>
+          <h1 className="text-3xl font-bold text-slate-900 mb-4">Category not found</h1>
+          <p className="text-slate-600 mb-8">That tool category is not available. Browse the free SEO tools directory instead.</p>
+          <a href={TOOLS_PATH} className="inline-block px-6 py-3 rounded-xl bg-indigo-600 text-white font-semibold hover:bg-indigo-700 transition-colors">Browse all free SEO tools</a>
+        </div>
+      </div>
+    );
+  }
+
+  // A category can be published before it has any tools in it.
+  const categoryIsEmpty = !!activeKey && tools.every(t => t.category !== activeKey);
+
+  const activeSubtitle = active
+    ? active.builtin
+      ? `${categoryDescriptions[active.key as ToolCategory]} Every tool is free, needs no sign-up and most run instantly in your browser.`
+      : 'Every tool is free, needs no sign-up and most run instantly in your browser.'
+    : '';
+
   return (
     <div className="pb-20 min-h-screen">
       {/* Hero band — same background as the home page hero */}
       <section className="pt-16 pb-16 px-4 bg-gradient-to-br from-indigo-100 via-violet-50 to-purple-100">
         <div className="max-w-7xl mx-auto">
         <header className="text-center mb-8">
-          {category ? (
+          {activeKey ? (
             <>
               <nav aria-label="Breadcrumb" className="text-sm text-slate-500 mb-3">
                 <a href="/free-seo-tools" className="text-indigo-600 hover:text-indigo-700">{tools.length} free SEO tools</a>
                 <span className="mx-2 text-slate-400" aria-hidden="true">/</span>
-                <span className="text-slate-600">{categoryLabels[category]}</span>
+                <span className="text-slate-600">{activeName}</span>
               </nav>
               <h1 className="text-4xl md:text-5xl font-bold text-slate-900 mb-4">
-                <span className="bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">{categoryLabels[category]}</span>
+                <span className="bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">{activeName}</span>
               </h1>
               <p className="text-lg text-slate-600 max-w-2xl mx-auto">
-                {categoryDescriptions[category]} Every tool is free, needs no sign-up and most run instantly in your browser.
+                {activeSubtitle}
               </p>
             </>
           ) : (
@@ -532,7 +587,7 @@ export const ToolsList: React.FC<{ category?: ToolCategory }> = ({ category }) =
               onChange={e => onQueryChange(e.target.value)}
               type="search"
               aria-label="Search tools"
-              placeholder={category ? `Search ${categoryLabels[category]}…` : 'Search tools… e.g. plagiarism, sitemap, SSL'}
+              placeholder={activeKey ? `Search ${activeName}…` : 'Search tools… e.g. plagiarism, sitemap, SSL'}
               className="w-full pl-12 pr-11 py-3.5 rounded-xl border border-slate-300 bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 outline-none text-sm"
             />
             {query && (
@@ -553,10 +608,10 @@ export const ToolsList: React.FC<{ category?: ToolCategory }> = ({ category }) =
       <div className="px-4 pt-10">
         <div className="max-w-7xl mx-auto">
         <div className="min-h-[1.5rem] mb-6 text-center" aria-live="polite">
-          {(query.trim() || activeCat !== 'all') && (
+          {(query.trim() || activeKey) && (
             <p className="text-sm text-slate-500">
               Showing <strong className="text-slate-700">{filtered.length}</strong> of {tools.length} tools
-              {activeCat !== 'all' && <> in {categoryLabels[activeCat]}</>}
+              {activeKey && <> in {activeName}</>}
 
               {query.trim() && <> matching “{query.trim()}”</>}
               {' · '}
@@ -571,43 +626,44 @@ export const ToolsList: React.FC<{ category?: ToolCategory }> = ({ category }) =
           )}
         </div>
 
-        {categoryOrder.map(cat => {
-          const list = grouped.get(cat);
+        {sections.map(cat => {
+          const list = grouped.get(cat.key);
           if (!list?.length) return null;
           return (
-            <section key={cat} className="mb-12">
+            <section key={cat.key} className="mb-12">
               <div className="flex items-center gap-3 mb-3">
                 {/* On the index the heading opens that category's own page; on a
                     category page it is the current page, so it stays plain text. */}
-                {category ? (
+                {activeKey ? (
                   <>
-                    <span className={`w-9 h-9 rounded-lg flex items-center justify-center border ${categoryStyles[cat]}`}>
-                      <ToolIcon category={cat} />
+                    <span className={`w-9 h-9 rounded-lg flex items-center justify-center border ${categoryStyle(cat.key)}`}>
+                      <ToolIcon category={cat.key} />
                     </span>
-                    <h2 className="font-bold text-slate-900" style={CATEGORY_HEADING_SIZE}>{categoryLabels[cat]}</h2>
+                    <h2 className="font-bold text-slate-900" style={CATEGORY_HEADING_SIZE}>{cat.name}</h2>
                   </>
                 ) : (
                   <a
-                    href={categoryHref(cat)}
+                    href={cat.builtin ? `/${cat.slug}` : toolCategoryPath(cat.slug)}
                     className="group/heading flex items-center gap-3 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2"
                   >
-                    <span className={`w-9 h-9 rounded-lg flex items-center justify-center border ${categoryStyles[cat]}`}>
-                      <ToolIcon category={cat} />
+                    <span className={`w-9 h-9 rounded-lg flex items-center justify-center border ${categoryStyle(cat.key)}`}>
+                      <ToolIcon category={cat.key} />
                     </span>
-                    <h2 className="font-bold text-slate-900 group-hover/heading:text-indigo-600 transition-colors" style={CATEGORY_HEADING_SIZE}>{categoryLabels[cat]}</h2>
+                    <h2 className="font-bold text-slate-900 group-hover/heading:text-indigo-600 transition-colors" style={CATEGORY_HEADING_SIZE}>{cat.name}</h2>
                   </a>
                 )}
                 <span className="text-sm text-slate-400">({list.length})</span>
               </div>
               {/* SEO introduction for this category — the copy search engines read
-                  on the category URL, shown on the index and on its own page. */}
-              <p className="text-[15px] sm:text-base text-slate-600 leading-relaxed mb-6">{categoryIntros[cat]}</p>
+                  on the category URL, shown on the index and on its own page.
+                  Managed in Admin → Tool Categories. */}
+              {cat.description && <p className="text-[15px] sm:text-base text-slate-600 leading-relaxed mb-6">{cat.description}</p>}
               <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 {list.map(t => (
                   <a key={t.slug} href={`/${t.slug}`}
                     className="group bg-white rounded-2xl border border-slate-200 p-5 shadow-sm hover:shadow-lg hover:border-indigo-200 transition-all flex flex-col">
                     <div className="flex items-center justify-between mb-3">
-                      <span className={`w-9 h-9 rounded-lg flex items-center justify-center border ${categoryStyles[t.category]}`}>
+                      <span className={`w-9 h-9 rounded-lg flex items-center justify-center border ${categoryStyle(t.category)}`}>
                         <ToolIcon category={t.category} className="w-4 h-4" />
                       </span>
                       {t.engine && (
@@ -624,7 +680,14 @@ export const ToolsList: React.FC<{ category?: ToolCategory }> = ({ category }) =
             </section>
           );
         })}
-        {filtered.length === 0 && (
+        {filtered.length === 0 && categoryIsEmpty && !query.trim() && (
+          <div className="text-center py-16 text-slate-500">
+            <p className="text-lg font-semibold mb-1">No tools in this category yet</p>
+            <p className="text-sm mb-5">Every other tool in the directory is still one click away.</p>
+            <a href={TOOLS_PATH} className="inline-block px-5 py-2.5 rounded-full bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-700 transition-colors">Browse all {tools.length} free tools</a>
+          </div>
+        )}
+        {filtered.length === 0 && !(categoryIsEmpty && !query.trim()) && (
           <div className="text-center py-16 text-slate-500">
             <p className="text-lg font-semibold mb-1">No tools found</p>
             <p className="text-sm mb-5">Try a different search term or category.</p>
@@ -775,7 +838,7 @@ export const ToolPage: React.FC<{ slug: string }> = ({ slug }) => {
   const header = (
     <header className={`text-center ${stacked ? 'mb-5 sm:mb-6' : 'mb-6'}`}>
       <div className="inline-flex flex-wrap items-center justify-center gap-2 mb-4">
-        <span className={`w-10 h-10 rounded-xl flex items-center justify-center border ${categoryStyles[tool.category]}`}>
+        <span className={`w-10 h-10 rounded-xl flex items-center justify-center border ${categoryStyle(tool.category)}`}>
           <ToolIcon category={tool.category} className="w-5 h-5" />
         </span>
         {tool.engine && (

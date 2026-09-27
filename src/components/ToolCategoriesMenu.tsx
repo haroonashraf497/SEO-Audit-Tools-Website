@@ -1,13 +1,15 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { categoryHref, categoryLabels, categoryOrder, type ToolCategory } from '../tools/data';
-import { useCms } from '../cms/store';
+import { type ToolCategory } from '../tools/data';
+import { toolCategoriesOf, toolCategoryHref, type CmsToolCategory, useCms } from '../cms/store';
 
 /**
  * "Tool Categories" mega menu for the top navigation.
  *
  * Every category (with its live tool count) is listed here and links straight
- * to its own page, e.g. /website-management-tools. Counts come from the same
- * CMS source the tools pages use, so the numbers can never drift apart.
+ * to its own page, e.g. /website-management-tools. Names, order and counts come
+ * from the same CMS source the tools pages use — the list managed in
+ * Admin → Tool Categories — so the numbers can never drift apart. Categories
+ * added in the admin are listed after the built-in ones.
  */
 
 /** Three balanced columns, matching the approved dropdown layout. */
@@ -23,16 +25,28 @@ const Chevron: React.FC<{ up?: boolean }> = ({ up }) => (
   </svg>
 );
 
-const useCategoryCounts = () => {
+/**
+ * The managed categories (in admin order, split for the dropdown) plus a live
+ * tool count per category key.
+ */
+const useManagedCategories = () => {
   const cms = useCms();
   return useMemo(() => {
-    const map = new Map<ToolCategory, number>();
+    const list = toolCategoriesOf(cms.state);
+    const counts = new Map<string, number>();
     cms.state.tools.forEach(t => {
       if (t.status !== 'live') return;
-      map.set(t.category, (map.get(t.category) || 0) + 1);
+      counts.set(t.category, (counts.get(t.category) || 0) + 1);
     });
-    return map;
-  }, [cms.state.tools]);
+    const byKey = new Map(list.map(c => [c.key, c]));
+    const columns = COLUMNS.map(column =>
+      column.map(key => byKey.get(key)).filter((c): c is CmsToolCategory => !!c));
+    // Categories added in the admin join the last column.
+    const extras = list.filter(c => !COLUMNS.some(column => column.includes(c.key as ToolCategory)));
+    if (extras.length) columns[columns.length - 1] = [...columns[columns.length - 1], ...extras];
+    const total = [...counts.values()].reduce((a, b) => a + b, 0);
+    return { list, counts, columns, total };
+  }, [cms.state]);
 };
 
 /** Desktop: hover/focus dropdown anchored under the nav item. */
@@ -41,8 +55,8 @@ export const ToolCategoriesMenu: React.FC<{ route?: string }> = ({ route }) => {
   const wrapRef = useRef<HTMLDivElement | null>(null);
   const buttonRef = useRef<HTMLButtonElement | null>(null);
   const closeTimer = useRef<number | null>(null);
-  const counts = useCategoryCounts();
-  const total = useMemo(() => [...counts.values()].reduce((a, b) => a + b, 0), [counts]);
+  const cms = useCms();
+  const { list, counts, columns, total } = useManagedCategories();
 
   const clearTimer = useCallback(() => {
     if (closeTimer.current !== null) {
@@ -101,16 +115,16 @@ export const ToolCategoriesMenu: React.FC<{ route?: string }> = ({ route }) => {
         {/* No heading inside the panel — the nav item itself is the label. */}
         <div className="max-w-7xl mx-auto bg-white rounded-2xl border border-slate-200 shadow-2xl px-5 py-4 lg:px-6 lg:py-5 max-h-[calc(100vh-6rem)] overflow-y-auto">
           <div className="grid grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-1">
-            {COLUMNS.map((column, i) => (
+            {columns.map((column, i) => (
               <div key={i} className="flex flex-col">
                 {column.map(cat => (
                   <a
-                    key={cat}
-                    href={categoryHref(cat)}
+                    key={cat.key}
+                    href={toolCategoryHref(cms.state, cat.key)}
                     onClick={close}
                     className="py-2 text-[17px] leading-snug text-slate-800 hover:text-indigo-600 transition-colors rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2"
                   >
-                    {categoryLabels[cat]} <span className="text-slate-400">({counts.get(cat) || 0})</span>
+                    {cat.name} <span className="text-slate-400">({counts.get(cat.key) || 0})</span>
                   </a>
                 ))}
               </div>
@@ -121,7 +135,7 @@ export const ToolCategoriesMenu: React.FC<{ route?: string }> = ({ route }) => {
             <a href="/free-seo-tools" onClick={close} className="text-sm text-indigo-600 hover:text-indigo-700 transition-colors">
               Browse all {total} free tools →
             </a>
-            <span className="text-xs text-slate-400">{categoryOrder.length} categories</span>
+            <span className="text-xs text-slate-400">{list.length} categories</span>
           </div>
         </div>
       </div>
@@ -132,7 +146,8 @@ export const ToolCategoriesMenu: React.FC<{ route?: string }> = ({ route }) => {
 /** Mobile: the same categories as a collapsible section inside the burger menu. */
 export const ToolCategoriesMobileSection: React.FC<{ onNavigate: () => void }> = ({ onNavigate }) => {
   const [open, setOpen] = useState(false);
-  const counts = useCategoryCounts();
+  const cms = useCms();
+  const { list, counts } = useManagedCategories();
 
   return (
     <div>
@@ -147,14 +162,14 @@ export const ToolCategoriesMobileSection: React.FC<{ onNavigate: () => void }> =
         <Chevron up={open} />
       </button>
       <div id="tool-categories-mobile" className={`${open ? '' : 'hidden'} mt-2 ml-1 pl-3 border-l border-slate-200 flex flex-col`}>
-        {categoryOrder.map(cat => (
+        {list.map(cat => (
           <a
-            key={cat}
-            href={categoryHref(cat)}
+            key={cat.key}
+            href={toolCategoryHref(cms.state, cat.key)}
             onClick={onNavigate}
             className="py-2 text-[15px] text-slate-700 hover:text-indigo-600 transition-colors rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2"
           >
-            {categoryLabels[cat]} <span className="text-slate-400">({counts.get(cat) || 0})</span>
+            {cat.name} <span className="text-slate-400">({counts.get(cat.key) || 0})</span>
           </a>
         ))}
         <a href="/free-seo-tools" onClick={onNavigate} className="py-2 text-sm text-indigo-600 hover:text-indigo-700 transition-colors">

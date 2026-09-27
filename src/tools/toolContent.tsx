@@ -1,7 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import type { ToolDef, ToolCategory } from './data';
-import { categoryLabels } from './data';
-import { useCms } from '../cms/store';
+import { toolCategoryName, useCms } from '../cms/store';
 import { sanitizeRichHtml } from '../utils/sanitize';
 import { rewriteLegacyLinks } from '../router';
 
@@ -422,21 +421,24 @@ export const ToolRelatedContent: React.FC<{ tool: ToolDef; related: ToolDef[] }>
   }), [base.faqs, name]);
   const [openFaq, setOpenFaq] = useState<number | null>(0);
   // A custom "About" written in the CMS overrides the category template.
-  const cmsTool = useCms().state.tools.find(t => t.slug === tool.slug);
+  const cmsState = useCms().state;
+  const cmsTool = cmsState.tools.find(t => t.slug === tool.slug);
+  // Built-in label or the name managed in Admin → Tool Categories.
+  const categoryName = toolCategoryName(cmsState, tool.category);
   const aboutOverride = cmsTool?.about && cmsTool.about.replace(/<[^>]*>/g, '').trim() ? rewriteLegacyLinks(sanitizeRichHtml(cmsTool.about)) : '';
 
   return (
     <div className="mt-10 space-y-8">
       {aboutOverride ? (
         <section className="bg-white rounded-2xl border border-slate-200 p-6 md:p-8 shadow-sm">
-          <p className="text-xs font-bold uppercase tracking-wide text-indigo-600 mb-2">{categoryLabels[tool.category]}</p>
+          <p className="text-xs font-bold uppercase tracking-wide text-indigo-600 mb-2">{categoryName}</p>
           <h2 className="text-2xl md:text-3xl font-extrabold text-slate-900 mb-4">About the {name}</h2>
           <div className="rich-text text-slate-600" dangerouslySetInnerHTML={{ __html: aboutOverride }} />
         </section>
       ) : (
       <>
       <section className="bg-white rounded-2xl border border-slate-200 p-6 md:p-8 shadow-sm">
-        <p className="text-xs font-bold uppercase tracking-wide text-indigo-600 mb-2">{categoryLabels[tool.category]}</p>
+        <p className="text-xs font-bold uppercase tracking-wide text-indigo-600 mb-2">{categoryName}</p>
         <h2 className="text-2xl md:text-3xl font-extrabold text-slate-900 mb-4">About the {name}</h2>
         <div className="space-y-4 mb-7">
           {base.overview.map((paragraph, index) => <p key={index} className="text-slate-600 leading-relaxed">{paragraph}</p>)}
@@ -512,7 +514,7 @@ export const ToolRelatedContent: React.FC<{ tool: ToolDef; related: ToolDef[] }>
       {related.length > 0 && (
         <section className="bg-white rounded-2xl border border-slate-200 p-6 md:p-8 shadow-sm">
           <h2 className="text-2xl font-extrabold text-slate-900 mb-1">Related tools</h2>
-          <p className="text-sm text-slate-500 mb-5">Continue with these related {categoryLabels[tool.category].toLowerCase()}.</p>
+          <p className="text-sm text-slate-500 mb-5">Continue with these related {categoryName.toLowerCase()}.</p>
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {related.map(t => (
               <a key={t.slug} href={`/${t.slug}`} className="group rounded-xl border border-slate-200 p-4 hover:border-indigo-300 hover:shadow-md transition-all">

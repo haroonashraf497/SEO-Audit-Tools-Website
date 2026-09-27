@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { useCms, injectHeadCode, renderCopyright, blogCategorySlug, UNCATEGORIZED, type CmsBlogCategory, type CmsPage, type CmsPost, type CmsTool, type FooterColumn, type FooterLink, type SeoEntry, type SidebarLinkSource, type SidebarWidget, type SidebarWidgetType, type Status } from './store';
-import { categoryLabels, categoryOrder, ToolIcon, type ToolCategory } from '../tools/data';
+import { useCms, injectHeadCode, renderCopyright, blogCategorySlug, toolCategorySlug, toolCategoriesOf, toolCategoryName, UNCATEGORIZED, type CmsBlogCategory, type CmsPage, type CmsPost, type CmsTool, type CmsToolCategory, type FooterColumn, type FooterLink, type SeoEntry, type SidebarLinkSource, type SidebarWidget, type SidebarWidgetType, type Status } from './store';
+import { ToolIcon } from '../tools/data';
 import { RichTextEditor } from './RichTextEditor';
 import { clearDraft, draftId, formatDraftTime, listDrafts, clearAllDrafts } from './drafts';
 import { navigate } from '../router';
@@ -127,10 +127,10 @@ const Dashboard: React.FC<{ go: (t: Tab) => void }> = ({ go }) => {
   const openItems = hiddenTools + draftTools + draftPosts + unpublishedPages;
   const health = Math.max(58, Math.min(100, 100 - openItems * 2 - (Object.values(state.sections).length - sectionsOn) * 2));
   const latest = [...state.posts].sort((a, b) => (a.date < b.date ? 1 : -1)).slice(0, 5);
-  const categoryStats = categoryOrder.map(category => {
-    const all = state.tools.filter(tool => tool.category === category);
+  const categoryStats = toolCategoriesOf(state).map(cat => {
+    const all = state.tools.filter(tool => tool.category === cat.key);
     const live = all.filter(tool => tool.status === 'live').length;
-    return { category, total: all.length, live, offline: all.length - live };
+    return { category: cat.key, label: cat.name, total: all.length, live, offline: all.length - live };
   });
   const cards: { label: string; value: string; detail: string; tab: Tab; icon: 'tools' | 'blog' | 'pages' | 'visibility'; tone: string }[] = [
     { label: 'Tools', value: String(liveTools), detail: `${hiddenTools + draftTools} not public`, tab: 'tools', icon: 'tools', tone: 'text-indigo-600 bg-indigo-50 border-indigo-100' },
@@ -229,9 +229,9 @@ const Dashboard: React.FC<{ go: (t: Tab) => void }> = ({ go }) => {
             </div>
             <div className="grid sm:grid-cols-2 gap-3">
               {categoryStats.map(item => (
-                <button key={item.category} type="button" onClick={() => go('tools')} className="group flex items-center gap-3 rounded-xl border border-slate-200 p-3 text-left hover:border-indigo-300 hover:bg-indigo-50/40 transition-colors">
+                <button key={item.category} type="button" onClick={() => go('toolcats')} className="group flex items-center gap-3 rounded-xl border border-slate-200 p-3 text-left hover:border-indigo-300 hover:bg-indigo-50/40 transition-colors">
                   <span className="w-9 h-9 flex items-center justify-center rounded-lg bg-slate-100 text-slate-600 group-hover:bg-white group-hover:text-indigo-600"><ToolIcon category={item.category} className="w-4 h-4" /></span>
-                  <span className="min-w-0 flex-1"><span className="block text-sm font-semibold text-slate-800 truncate">{categoryLabels[item.category]}</span><span className="block text-xs text-slate-500">{item.live} live · {item.offline} hidden/draft</span></span>
+                  <span className="min-w-0 flex-1"><span className="block text-sm font-semibold text-slate-800 truncate">{item.label}</span><span className="block text-xs text-slate-500">{item.live} live · {item.offline} hidden/draft</span></span>
                   <span className="text-lg font-bold text-slate-800">{item.total}</span>
                 </button>
               ))}
@@ -306,7 +306,7 @@ const ToolEditor: React.FC<{ tool: CmsTool; onClose: () => void }> = ({ tool, on
         <Field label="About content (optional)" hint={f.slug === 'competitor-analysis' ? 'Added under “What is Website Competitor Analysis?” on the Competitor Analysis page. Leave empty to keep only the default copy.' : "Replaces the 'About the …' text shown on this tool's page. Leave empty to keep the shared default content."}><RichTextEditor value={f.about || ''} onChange={html => set('about')(html)} minHeight={240} placeholder="Write extra about content — headings, paragraphs, lists, images and links…" draftKey={draftId('tool-about', tool.slug)} ariaLabel="Tool about copy" /></Field>
       </div>
       <div className="grid md:grid-cols-3 gap-4">
-        <Field label="Category"><select className={inputCls} value={f.category} onChange={e => set('category')(e.target.value)}>{categoryOrder.map(c => <option key={c} value={c}>{categoryLabels[c]}</option>)}</select></Field>
+        <Field label="Category" hint="Managed in the Tool Categories tab"><select className={inputCls} value={f.category} onChange={e => set('category')(e.target.value)} aria-label="Category">{!state.toolCategories.some(c => c.key === f.category) && f.category ? <option value={f.category}>{f.category}</option> : null}{state.toolCategories.map(c => <option key={c.id} value={c.key}>{c.name}</option>)}</select></Field>
         <Field label="Page state"><select className={inputCls} value={f.status} onChange={e => set('status')(e.target.value)}><option value="live">Live</option><option value="hidden">Hidden</option><option value="draft">Draft</option></select></Field>
         <Field label="Badge (optional)" hint="e.g. New, Popular"><input className={inputCls} value={f.badge || ''} onChange={e => set('badge')(e.target.value)} /></Field>
       </div>
@@ -334,7 +334,7 @@ const ToolsPane: React.FC = () => {
     <div className="space-y-5">
       <div className="flex flex-wrap items-center gap-3">
         <input value={q} onChange={e => setQ(e.target.value)} placeholder="Search tools…" className={inputCls + ' max-w-xs'} />
-        <select value={cat} onChange={e => setCat(e.target.value)} className={inputCls + ' max-w-[200px]'}><option value="all">All categories</option>{categoryOrder.map(c => <option key={c} value={c}>{categoryLabels[c]}</option>)}</select>
+        <select value={cat} onChange={e => setCat(e.target.value)} className={inputCls + ' max-w-[200px]'} aria-label="Filter by category"><option value="all">All categories</option>{state.toolCategories.map(c => <option key={c.id} value={c.key}>{c.name}</option>)}</select>
         <span className="text-sm text-slate-500">{filtered.length} tools · {filtered.filter(t => t.status === 'live').length} live</span>
         <Btn className="ml-auto" onClick={() => setCreating(true)}>+ Add tool</Btn>
       </div>
@@ -359,7 +359,7 @@ const ToolsPane: React.FC = () => {
               <div className="flex flex-wrap items-center gap-3">
                 <p className="font-semibold text-slate-800">{t.name}</p>
                 <span className="text-xs text-slate-400 font-mono">/{t.slug}</span>
-                <span className="text-xs text-slate-500">{categoryLabels[t.category]}</span>
+                <span className="text-xs text-slate-500">{toolCategoryName(state, t.category)}</span>
                 {!t.builtin && <span className="text-[11px] font-bold text-indigo-600">CUSTOM</span>}
               </div>
             </Row>
@@ -374,8 +374,8 @@ const ToolsPane: React.FC = () => {
 };
 
 const NewToolForm: React.FC<{ onDone: () => void }> = ({ onDone }) => {
-  const { addTool } = useCms();
-  const [f, setF] = useState({ name: '', slug: '', description: '', category: 'management' as ToolCategory, input: 'text' as CmsTool['input'], status: 'draft' as Status, placeholder: '', featuredImage: '', featuredImageAlt: '' });
+  const { state, addTool } = useCms();
+  const [f, setF] = useState({ name: '', slug: '', description: '', category: 'management' as string, input: 'text' as CmsTool['input'], status: 'draft' as Status, placeholder: '', featuredImage: '', featuredImageAlt: '' });
   const autoSlug = f.slug || f.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
   return (
     <div className="space-y-4">
@@ -385,12 +385,149 @@ const NewToolForm: React.FC<{ onDone: () => void }> = ({ onDone }) => {
       </div>
       <Field label="Description"><textarea rows={3} className={inputCls} value={f.description} onChange={e => setF({ ...f, description: e.target.value })} /></Field>
       <div className="grid md:grid-cols-3 gap-4">
-        <Field label="Category"><select className={inputCls} value={f.category} onChange={e => setF({ ...f, category: e.target.value as ToolCategory })}>{categoryOrder.map(c => <option key={c} value={c}>{categoryLabels[c]}</option>)}</select></Field>
+        <Field label="Category" hint="Managed in the Tool Categories tab"><select className={inputCls} value={f.category} onChange={e => setF({ ...f, category: e.target.value })} aria-label="Category">{state.toolCategories.map(c => <option key={c.id} value={c.key}>{c.name}</option>)}</select></Field>
         <Field label="Input type"><select className={inputCls} value={f.input} onChange={e => setF({ ...f, input: e.target.value as CmsTool['input'] })}>{['text', 'domain', 'url', 'keyword', 'none'].map(o => <option key={o} value={o}>{o}</option>)}</select></Field>
         <Field label="State"><select className={inputCls} value={f.status} onChange={e => setF({ ...f, status: e.target.value as Status })}><option value="draft">Draft</option><option value="live">Live</option><option value="hidden">Hidden</option></select></Field>
       </div>
       <FeaturedImageEditor image={f.featuredImage} alt={f.featuredImageAlt} onChange={patch => setF({ ...f, ...patch })} />
       <div className="flex gap-2"><Btn onClick={() => { addTool({ ...f, slug: autoSlug }); onDone(); }}>Create tool</Btn><Btn tone="ghost" onClick={onDone}>Cancel</Btn></div>
+    </div>
+  );
+};
+
+/** Public URL shown next to a category: the original top-level page for the
+ *  built-in categories, /tools/category/<slug> for the ones added here. */
+const categoryPaths = (cat: CmsToolCategory): { primary: string; alias: string } =>
+  cat.builtin
+    ? { primary: `/${cat.slug}`, alias: `/tools/category/${cat.slug}` }
+    : { primary: `/tools/category/${cat.slug}`, alias: '' };
+
+/**
+ * Admin → Tool Categories.
+ *
+ * The tab that sits next to "Tools": every category the site publishes is
+ * managed here — its name, its clean slug and the description shown under the
+ * heading on the tools index and on the category's own page. The Category
+ * dropdown in the tool editor lists exactly these categories, and the public
+ * pages (mega menu, home cards, /free-seo-tools and the category pages) all
+ * read from the same list, so an edit appears immediately.
+ */
+const ToolCategoriesPane: React.FC = () => {
+  const { state, addToolCategory, saveToolCategory, removeToolCategory } = useCms();
+  const [name, setName] = useState('');
+  const [slug, setSlug] = useState('');
+  const [description, setDescription] = useState('');
+  const [slugTouched, setSlugTouched] = useState(false);
+  const [editing, setEditing] = useState<string | null>(null);
+  const [draft, setDraft] = useState({ name: '', slug: '', description: '' });
+
+  const toolCount = (key: string) => state.tools.filter(t => t.category === key).length;
+  const autoSlug = toolCategorySlug(name);
+  const effectiveSlug = slugTouched ? slug : autoSlug;
+
+  const create = () => {
+    const clean = name.trim();
+    if (!clean) return;
+    const key = addToolCategory({ name: clean, slug: effectiveSlug || autoSlug, description: description.trim() });
+    if (slugTouched && slug.trim()) saveToolCategory(key, { slug: slug.trim() });
+    setName('');
+    setSlug('');
+    setDescription('');
+    setSlugTouched(false);
+  };
+
+  const startEdit = (cat: CmsToolCategory) => { setEditing(cat.key); setDraft({ name: cat.name, slug: cat.slug, description: cat.description }); };
+
+  /** Where the tools of a deleted category move: the nearest one left. */
+  const removalTarget = (key: string): string => {
+    const cats = toolCategoriesOf(state);
+    const index = cats.findIndex(c => c.key === key);
+    const remaining = cats.filter(c => c.key !== key);
+    return remaining[Math.min(Math.max(index, 0), remaining.length - 1)]?.name || '';
+  };
+
+  return (
+    <div className="space-y-5">
+      <div className="flex flex-wrap items-center gap-3">
+        <span className="text-sm text-slate-500">{state.toolCategories.length} categories · {state.tools.filter(t => t.status === 'live').length} live tools</span>
+        <span className="text-xs text-slate-400 ml-auto">Categories appear in the mega menu, the tools directory and the tool editor dropdown.</span>
+      </div>
+
+      <section aria-label="Tool Categories" className="bg-white rounded-2xl border border-slate-200 p-5 space-y-4">
+        <div className="flex flex-wrap items-center gap-3">
+          <h2 className="font-bold text-slate-900">Tool Categories</h2>
+          <span className="text-xs text-slate-500">Add, edit or delete a category — its name, slug and description drive every page that lists it.</span>
+        </div>
+
+        <div className="grid lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-3">
+          <Field label="Category Name"><input className={inputCls} value={name} onChange={e => setName(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); create(); } }} placeholder="Local SEO Tools" aria-label="Category Name" /></Field>
+          <Field label="Category Slug" hint={name.trim() ? `/tools/category/${effectiveSlug}` : 'Auto-generates from the name — edit it to change the URL.'}>
+            <input className={inputCls} value={effectiveSlug} onChange={e => { setSlugTouched(true); setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '-')); }} placeholder="local-seo-tools" aria-label="Category Slug" />
+          </Field>
+        </div>
+        <Field label="Category Description" hint={`${description.trim().length} characters — shown under the heading on /free-seo-tools and on the category page, and used as its meta description.`}>
+          <textarea rows={3} className={inputCls} value={description} onChange={e => setDescription(e.target.value)} placeholder="What this group of tools helps visitors do…" aria-label="Category Description" />
+        </Field>
+        <div className="flex flex-wrap items-center gap-3">
+          <SaveButton label="Add category" onSave={create} />
+          <span className="text-xs text-slate-400">Built-in categories keep their original page (e.g. /ip-tools) and also answer on /tools/category/&lt;slug&gt;.</span>
+        </div>
+
+      <div className="rounded-xl border border-slate-200 overflow-hidden">
+        {state.toolCategories.length === 0 && <p className="px-4 py-4 text-sm text-slate-500">No categories yet — add the first one above.</p>}
+        {state.toolCategories.map(cat => {
+          const paths = categoryPaths(cat);
+          const count = toolCount(cat.key);
+          return (
+            <React.Fragment key={cat.id}>
+              <Row actions={
+                <>
+                  {cat.builtin && <span className="text-[11px] font-bold uppercase tracking-wide text-slate-500 bg-slate-100 border border-slate-200 px-2.5 py-0.5 rounded-full">Built-in</span>}
+                  <Btn tone="ghost" onClick={() => (editing === cat.key ? setEditing(null) : startEdit(cat))}>{editing === cat.key ? 'Close' : 'Edit'}</Btn>
+                  <Btn
+                    tone="ghost"
+                    disabled={state.toolCategories.length <= 1}
+                    onClick={() => {
+                      const target = removalTarget(cat.key);
+                      if (!window.confirm(`Delete the category “${cat.name}”? Its ${count} tool(s) move to “${target}” so nothing disappears from the site.`)) return;
+                      removeToolCategory(cat.key);
+                      if (editing === cat.key) setEditing(null);
+                    }}
+                  >Delete</Btn>
+                </>
+              }>
+                <div>
+                  <p className="font-semibold text-slate-800">{cat.name}</p>
+                  <p className="text-xs text-slate-500 font-mono">{paths.primary}{paths.alias ? ` · ${paths.alias}` : ''}</p>
+                </div>
+                <span className="text-xs text-slate-500"><strong className="text-slate-700">{count}</strong> tool{count === 1 ? '' : 's'}</span>
+              </Row>
+              {editing === cat.key && (
+                <div className="p-4 bg-slate-50 border-b border-slate-100 space-y-3">
+                  <div className="grid md:grid-cols-2 gap-3">
+                    <Field label="Category Name"><input className={inputCls} value={draft.name} onChange={e => setDraft({ ...draft, name: e.target.value })} aria-label="Edit category name" /></Field>
+                    <Field label="Category Slug" hint={draft.slug ? (cat.builtin ? `/tools/category/${draft.slug}` : `/tools/category/${draft.slug}`) : 'Auto-generates from the name'}>
+                      <input className={inputCls} value={draft.slug} onChange={e => setDraft({ ...draft, slug: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '-') })} aria-label="Edit category slug" />
+                    </Field>
+                  </div>
+                  <Field label="Category Description" hint={`${draft.description.trim().length} characters`}>
+                    <textarea rows={3} className={inputCls} value={draft.description} onChange={e => setDraft({ ...draft, description: e.target.value })} aria-label="Edit category description" />
+                  </Field>
+                  <div className="flex flex-wrap items-center gap-2">
+                    {/* The row stays open so the "Saved ✓" confirmation is visible. */}
+                    <SaveButton label="Save Changes" onSave={() => saveToolCategory(cat.key, { name: draft.name, slug: draft.slug || toolCategorySlug(draft.name), description: draft.description })} />
+                    <Btn tone="ghost" onClick={() => setEditing(null)}>Close</Btn>
+                    <span className="text-xs text-slate-400">Tools keep pointing at this category when its name changes.</span>
+                  </div>
+                </div>
+              )}
+            </React.Fragment>
+          );
+        })}
+      </div>
+      </section>
+
+      <p className="text-xs text-slate-400">Deleting a category never deletes tools: they move to the nearest remaining category. A category with no live tools yet shows an empty category page on the site.</p>
     </div>
   );
 };
@@ -1193,8 +1330,8 @@ const SettingsPane: React.FC = () => {
 };
 
 /* ---------------- shell ---------------- */
-type Tab = 'dashboard' | 'pages' | 'blog' | 'tools' | 'sidebar' | 'sections' | 'settings';
-const TABS: [Tab, string][] = [['dashboard', 'Dashboard'], ['pages', 'Pages'], ['blog', 'Blog posts'], ['tools', 'Tools'], ['sidebar', 'Sidebar'], ['sections', 'Sections & Nav'], ['settings', 'Settings']];
+type Tab = 'dashboard' | 'pages' | 'blog' | 'tools' | 'toolcats' | 'sidebar' | 'sections' | 'settings';
+const TABS: [Tab, string][] = [['dashboard', 'Dashboard'], ['pages', 'Pages'], ['blog', 'Blog posts'], ['tools', 'Tools'], ['toolcats', 'Tool Categories'], ['sidebar', 'Sidebar'], ['sections', 'Sections & Nav'], ['settings', 'Settings']];
 
 export const AdminApp: React.FC = () => {
   const { loggedIn, logout, state, storageWarning } = useCms();
@@ -1237,6 +1374,7 @@ export const AdminApp: React.FC = () => {
         {tab === 'pages' && <PagesPane />}
         {tab === 'blog' && <BlogPane />}
         {tab === 'tools' && <ToolsPane />}
+        {tab === 'toolcats' && <ToolCategoriesPane />}
         {tab === 'sidebar' && <SidebarPane />}
         {tab === 'sections' && <SectionsPane />}
         {tab === 'settings' && <SettingsPane />}

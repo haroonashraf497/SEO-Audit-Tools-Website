@@ -238,13 +238,33 @@ have their own H1, intro, canonical tag, `CollectionPage` + `ItemList` + `Breadc
 article list; the blog filter tabs are driven by the same category list, and the sitemap lists the
 four built-in category URLs.
 
+### Tool categories
+
+The tool categories are a managed list: **Admin → Tool Categories**, the tab directly next to
+*Tools*.
+
+- **Category Name**, **Category Slug** (auto-generated from the name, editable) and
+  **Category Description** — the paragraph shown under the heading on `/free-seo-tools` and on
+  the category's own page (it is also the category meta description). **Add category** confirms
+  with *Saved ✓*.
+- Every row shows the category name, its public URL, its live **tool count** and its own
+  **Edit** (name, slug, description) and **Delete**. Deleting a category never deletes tools:
+  they move to the nearest remaining category so nothing disappears from the site.
+- The eleven built-in categories keep their original page — `/ip-tools`,
+  `/website-checker-tools`, … — and are marked *Built-in*. Every category also answers on
+  `/tools/category/<slug>`, which is the canonical URL for the categories added in the admin.
+- The tool editor's **Category** dropdown, the tools-list filter, the *Tool Categories* mega
+  menu (with live counts), the home-page category cards and the directory sections all read from
+  this list, so an edit is live everywhere at once. A tool can never fall out of the directory:
+  a category that exists only on a tool still gets its own section.
+
 ## Verification
 
 ```bash
 npm run typecheck                  # tsc --noEmit
-node scripts/feature-audit.mjs     # 189 checks: CMS controls, blog categories, footer redesign, legal URLs, /free-seo-tools index, text-tool layout/mobile, case-converter grid, Tool Categories mega menu, no-bold top nav, top-level tool URLs (/<slug>), category pages (/ip-tools), Merge PDF compressor, no EKSTRUH, 154 tools
+node scripts/feature-audit.mjs     # 216 checks: CMS controls, blog categories, managed tool categories, footer redesign, legal URLs, /free-seo-tools index, text-tool layout/mobile, case-converter grid, Tool Categories mega menu, no-bold top nav, top-level tool URLs (/<slug>), category pages (/ip-tools), Merge PDF compressor, no EKSTRUH, 154 tools
 npm install --no-save jsdom
-node scripts/verify-single-file.mjs  # 171 checks: boots the built file, blog category pages, instant swap, footer, legal + category URLs, top-level tool pages, legacy redirects, head injection, text-tool layout, mega-menu navigation
+node scripts/verify-single-file.mjs  # 196 checks: boots the built file, blog + tool category pages, instant swap, footer, legal + category URLs, top-level tool pages, legacy redirects, head injection, text-tool layout, mega-menu navigation
 npm test                           # 34 Playwright tests (needs Chromium)
 ```
 

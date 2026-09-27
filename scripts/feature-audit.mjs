@@ -183,8 +183,8 @@ check('canonical tools index path is /free-seo-tools in code',
 check('no link in the app points at the old /free-tools URL',
   !/href=(["'`])\/free-tools[?"'`]/.test(appSrcTools + menuSrcTools + read('src/tools/Sidebar.tsx') + read('src/tools/Tools.tsx') + store));
 check('home page category cards link to the category pages',
-  /href=\{categoryHref\(cat\)\}/.test(appSrcTools) && /href="\/free-seo-tools"/.test(appSrcTools));
-check('mega menu links every category to its own page', /href=\{categoryHref\(cat\)\}/.test(menuSrcTools));
+  /href=\{toolCategoryHref\(cms\.state, cat\.key\)\}/.test(appSrcTools) && /href="\/free-seo-tools"/.test(appSrcTools));
+check('mega menu links every category to its own page', /href=\{toolCategoryHref\(cms\.state, cat\.key\)\}/.test(menuSrcTools));
 check('sitemap lists the /free-seo-tools index', sitemapXml.includes('<loc>https://seoaudittools.pk/free-seo-tools</loc>'));
 check('SEO canonical collapses the old index spellings',
   /clean === '\/tools' \|\| clean === '\/tool' \|\| clean === '\/free-tools' \|\| clean === '\/free-seo-tool'\) clean = TOOLS_PATH;/.test(seoUtil));
@@ -244,20 +244,22 @@ check('router resolves a category slug to its own route',
 check('the app renders a category page from that route',
   /route\.startsWith\('cat\/'\) && <ToolsList category=\{categoryKeyOfRoute\(route\) \|\| undefined\} \/>/.test(appSrcTools));
 check('breadcrumbs go Home › Free SEO Tools › category',
-  /if \(route\.startsWith\('cat\/'\)\) \{[\s\S]{0,240}Free SEO Tools'[\s\S]{0,140}categoryLabels\[cat\] : 'Tools' \}\]/.test(appSrcTools));
+  /if \(route\.startsWith\('cat\/'\)\) \{[\s\S]{0,240}Free SEO Tools'[\s\S]{0,220}toolCategoryName\(state, cat\)/.test(appSrcTools)
+  && /if \(route\.startsWith\('toolcat\/'\)\) \{[\s\S]{0,240}Free SEO Tools'[\s\S]{0,220}resolveToolCategory\(state, slug\)\?\.name/.test(appSrcTools));
 check('a category page has its own H1, intro and search',
-  /category \? \([\s\S]{0,800}\{categoryLabels\[category\]\}[\s\S]{0,600}\{categoryDescriptions\[category\]\}/.test(read('src/tools/Tools.tsx'))
-  && /placeholder=\{category \? `Search \$\{categoryLabels\[category\]\}…` : 'Search tools… e\.g\. plagiarism, sitemap, SSL'\}/.test(read('src/tools/Tools.tsx')));
+  /activeKey \? \([\s\S]{0,800}\{activeName\}[\s\S]{0,700}\{activeSubtitle\}/.test(read('src/tools/Tools.tsx'))
+  && /placeholder=\{activeKey \? `Search \$\{activeName\}…` : 'Search tools… e\.g\. plagiarism, sitemap, SSL'\}/.test(read('src/tools/Tools.tsx')));
 check('category pages filter the list to that category',
-  /const activeCat: 'all' \| ToolCategory = category \|\| 'all';/.test(read('src/tools/Tools.tsx')));
+  /const active = useMemo<CmsToolCategory \| undefined>\(/.test(read('src/tools/Tools.tsx'))
+  && /\(!activeKey \|\| t\.category === activeKey\)/.test(read('src/tools/Tools.tsx')));
 check('search stays in ?q= on whichever page is open',
   /navigate\(qs \? `\$\{basePath\}\?\$\{qs\}` : basePath, \{ replace: true \}\)/.test(read('src/tools/Tools.tsx')));
 check('"Show all N tools" leaves a category page for the index',
   /Show all \{tools\.length\} tools/.test(read('src/tools/Tools.tsx'))
   && /const clearFilters = useCallback\(\(\) => \{ setQuery\(''\); navigate\(TOOLS_PATH\); \}, \[\]\);/.test(read('src/tools/Tools.tsx')));
 check('SEO gives every category a canonical URL, ItemList and breadcrumb',
-  /if \(route\.startsWith\('cat\/'\)\) \{/.test(seoUtil)
-  && /const path = `\/\$\{categorySlugs\[cat\]\}`;/.test(seoUtil)
+  /if \(route\.startsWith\('cat\/'\) \|\| route\.startsWith\('toolcat\/'\)\) \{/.test(seoUtil)
+  && /const path = toolCategoryHref\(cms, cat\.key\);/.test(seoUtil)
   && /'@type': 'CollectionPage',/.test(seoUtil)
   && /'@type': 'BreadcrumbList',/.test(seoUtil)
   && /title: `\$\{label\} — \$\{list\.length\} Free Online Tools \| \$\{brand\}`,/.test(seoUtil));
@@ -279,12 +281,12 @@ check('each introduction is a substantial, unique, category-specific paragraph',
   && new Set(intros.map(i => i.text)).size === intros.length,
   intros.filter(i => i.text.length < 200 || i.text.length > 340).map(i => `${i.key}:${i.text.length}`).join(', '));
 check('the introduction is rendered under the heading on the index and on the category page',
-  /\{categoryIntros\[cat\]\}/.test(read('src/tools/Tools.tsx'))
-  && /text-\[15px\] sm:text-base text-slate-600 leading-relaxed mb-6/.test(read('src/tools/Tools.tsx')));
+  /\{cat\.description && <p className="text-\[15px\] sm:text-base text-slate-600 leading-relaxed mb-6">\{cat\.description\}<\/p>\}/.test(read('src/tools/Tools.tsx')));
 check('the short one-liner stays for the home cards and meta description',
   /export const categoryDescriptions: Record<ToolCategory, string> = \{/.test(dataSrc)
-  && /categoryDescriptions\[cat\]/.test(appSrcTools)
-  && /`\$\{categoryDescriptions\[cat\]\} \$\{list\.length\} free/.test(seoUtil));
+  && /toolCategorySummary\(cms\.state, cat\.key\)/.test(appSrcTools)
+  && /\$\{toolCategorySummary\(cms, cat\.key\)\} \$\{list\.length\} free/.test(seoUtil)
+  && /export const toolCategorySummary = \(state: CmsState, key: string\): string => \{/.test(store));
 
 check('sitemap lists all eleven category pages',
   ['text-analysis-tools', 'keyword-tools', 'backlink-tools', 'website-management-tools', 'website-checker-tools',
@@ -303,10 +305,10 @@ check('tool names on the cards are 1rem',
   /const TOOL_NAME_SIZE = \{ fontSize: '1rem' \} as const;/.test(listSrcCards)
   && /style=\{TOOL_NAME_SIZE\}/.test(listSrcCards));
 check('the category heading links to that category page on the index',
-  /href=\{categoryHref\(cat\)\}/.test(listSrcCards)
+  /href=\{cat\.builtin \? `\/\$\{cat\.slug\}` : toolCategoryPath\(cat\.slug\)\}/.test(listSrcCards)
   && /group-hover\/heading:text-indigo-600/.test(listSrcCards));
 check('a category page does not link its own heading back to itself',
-  /\{category \? \([\s\S]{0,400}<h2 className="font-bold text-slate-900" style=\{CATEGORY_HEADING_SIZE\}>/.test(listSrcCards));
+  /\{activeKey \? \([\s\S]{0,400}<h2 className="font-bold text-slate-900" style=\{CATEGORY_HEADING_SIZE\}>\{cat\.name\}<\/h2>/.test(listSrcCards));
 check('every card description is clamped to exactly two lines',
   /line-clamp-2 min-h-\[2\.5rem\]/.test(listSrcCards) && /toolTagline\(t\)/.test(listSrcCards));
 const taglineBlock = dataSrcCards.slice(dataSrcCards.indexOf('export const toolTaglines'), dataSrcCards.indexOf('export const toolTagline ='));
@@ -341,9 +343,9 @@ check('panel closes on Escape, outside click and navigation',
 check('eleven categories in three columns, in the approved order',
   /const COLUMNS: ToolCategory\[\]\[\] = \[\s*\['text', 'keyword', 'backlink', 'calculator'\],\s*\['management', 'checker', 'domain', 'converter'\],\s*\['ip', 'pdf', 'image'\],\s*\];/.test(menuSrc));
 check('every category link points at its own category page',
-  /href=\{categoryHref\(cat\)\}/.test(menuSrc));
+  /href=\{toolCategoryHref\(cms\.state, cat\.key\)\}/.test(menuSrc));
 check('counts come from the live CMS tool list', /cms\.state\.tools\.forEach\(t => \{[\s\S]{0,80}if \(t\.status !== 'live'\) return;/.test(menuSrc)
-  && /categoryLabels\[cat\]\} <span className="text-slate-400">\(\{counts\.get\(cat\) \|\| 0\}\)/.test(menuSrc));
+  && /\{cat\.name\} <span className="text-slate-400">\(\{counts\.get\(cat\.key\) \|\| 0\}\)/.test(menuSrc));
 check('menu offers a browse-all link to /free-seo-tools', /Browse all \{total\} free tools/.test(menuSrc));
 const listSrc = read('src/tools/Tools.tsx');
 check('tools page drops the category filter chips',
@@ -430,7 +432,7 @@ check('the four built-in article categories are seeded and migrated',
   /export const defaultBlogCategories: CmsBlogCategory\[\] = \[[\s\S]{0,400}'Core Web Vitals'[\s\S]{0,200}'PageSpeed'[\s\S]{0,200}'WordPress SEO'[\s\S]{0,200}'Google & Indexing'/.test(store)
   && /const migrateBlogCategories = \(saved\?: CmsBlogCategory\[\]\): CmsBlogCategory\[\] => \{/.test(store)
   && /blogCategories: migrateBlogCategories\(parsed\.blogCategories\),/.test(store)
-  && /blogCategories: migrateBlogCategories\(parsed\.blogCategories\), seo: migrateSeo/.test(store));
+  && /blogCategories: migrateBlogCategories\(parsed\.blogCategories\), toolCategories: migrateToolCategories\(parsed\.toolCategories\), seo: migrateSeo/.test(store));
 check('adding, renaming, hiding and removing categories all persist',
   /addBlogCategory: \(name\) => \{/.test(store)
   && /saveBlogCategory: \(slug, patch\) => setState\(s => \{/.test(store)
@@ -489,6 +491,85 @@ check('SEO gives every category a canonical URL, ItemList and breadcrumb',
 check('the sitemap lists the built-in category pages',
   ['core-web-vitals', 'pagespeed', 'wordpress-seo', 'google-indexing'].every(slug =>
     sitemap.includes(`<loc>https://seoaudittools.pk/blog/category/${slug}</loc>`)));
+
+/* ---- Tool Categories: the categories managed in Admin → Tool Categories ---- */
+check('the tool category model carries a key, a name, a slug and a description',
+  /export interface CmsToolCategory \{[\s\S]{0,340}key: string;[\s\S]{0,120}name: string;[\s\S]{0,120}slug: string;[\s\S]{0,120}description: string;/.test(store));
+check('the eleven built-in categories seed the managed list',
+  /export const defaultToolCategories: CmsToolCategory\[\] = categoryOrder\.map\(key => \(\{[\s\S]{0,240}name: categoryLabels\[key\],[\s\S]{0,120}slug: categorySlugs\[key\],[\s\S]{0,120}description: categoryIntros\[key\],/.test(store));
+check('the store carries the managed list and defaults to the seeded categories',
+  /toolCategories: CmsToolCategory\[\];/.test(store) && /toolCategories: defaultToolCategories,/.test(store));
+check('a browser that never saved any gets the seeded list, a saved one is kept',
+  /const migrateToolCategories = \(saved\?: CmsToolCategory\[\]\): CmsToolCategory\[\] => \{\s*if \(!Array\.isArray\(saved\) \|\| saved\.length === 0\) return defaultToolCategories;/.test(store));
+check('the stored CMS and an imported backup both run the migration',
+  (store.match(/toolCategories: migrateToolCategories\(parsed\.toolCategories\)/g) || []).length === 2);
+check('adding, editing and deleting a category all persist',
+  /addToolCategory: \(\{ name, slug, description \}\) => \{/.test(store)
+  && /saveToolCategory: \(key, patch\) => setState\(s => \{/.test(store)
+  && /removeToolCategory: \(key\) => setState\(s => \{/.test(store));
+check('a new category gets a generated key and the clean slug of its name',
+  /let catSlug = toolCategorySlug\(slug \|\| clean\);/.test(store) && /let key = `custom-\$\{catSlug\}`;/.test(store));
+check('editing changes the name, the slug and the description',
+  /\.\.\.patch, key: current\.key, builtin: current\.builtin, name: nextName, slug: nextSlug/.test(store));
+check('deleting a category keeps its tools in the nearest remaining category',
+  /const fallback = remaining\[Math\.min\(index, remaining\.length - 1\)\]\.key;/.test(store)
+  && /tools: s\.tools\.map\(t => \(t\.category === key \? \{ \.\.\.t, category: fallback \} : t\)\)/.test(store));
+check('a category resolves from its key and from its slug',
+  /export const resolveToolCategory = \(state: CmsState, value: string\): CmsToolCategory \| undefined => \{/.test(store)
+  && /const legacyKey = categoryFromSlug\(value\);\s*return legacyKey \? toolCategoryByKey\(state, legacyKey\) : undefined;/.test(store));
+check('a built-in category keeps its top-level page, an added one lives under /tools/category',
+  /return cat\.builtin \? `\/\$\{categorySlugs\[cat\.key as ToolCategory\]\}` : `\$\{TOOL_CATEGORY_BASE\}\/\$\{cat\.slug\}`;/.test(store));
+check('the tool editor, the new-tool form and the tools filter all use the managed list',
+  (adminSrc.match(/state\.toolCategories\.map\(c => <option key=\{c\.id\} value=\{c\.key\}>\{c\.name\}<\/option>\)/g) || []).length >= 3);
+check('a tool row shows the managed category name',
+  /toolCategoryName\(state, t\.category\)/.test(adminSrc));
+check('the Tool Categories tab sits next to Tools and renders its own pane',
+  /\['tools', 'Tools'\], \['toolcats', 'Tool Categories'\]/.test(adminSrc)
+  && /\{tab === 'toolcats' && <ToolCategoriesPane \/>\}/.test(adminSrc));
+check('the pane has a name, a slug and a description field plus an add button',
+  /const ToolCategoriesPane: React\.FC = \(\) => \{/.test(adminSrc)
+  && /aria-label="Category Name"/.test(adminSrc)
+  && /aria-label="Category Slug"/.test(adminSrc)
+  && /aria-label="Category Description"/.test(adminSrc)
+  && /<SaveButton label="Add category" onSave=\{create\} \/>/.test(adminSrc));
+check('every category row shows its name, its URL, its tool count and its own Edit/Delete',
+  /<section aria-label="Tool Categories"/.test(adminSrc)
+  && /\{paths\.primary\}\{paths\.alias \? ` · \$\{paths\.alias\}` : ''\}/.test(adminSrc)
+  && /tool\{count === 1 \? '' : 's'\}/.test(adminSrc)
+  && /removeToolCategory\(cat\.key\)/.test(adminSrc)
+  && /saveToolCategory\(cat\.key, \{ name: draft\.name/.test(adminSrc));
+check('the router gives every category a /tools/category/<slug> URL',
+  /export const TOOL_CATEGORY_BASE = '\/tools\/category';/.test(router)
+  && /export const toolCategoryPath = \(slug: string\): string => `\$\{TOOL_CATEGORY_BASE\}\/\$\{slug\}`;/.test(router)
+  && /if \(seg\.startsWith\(categoryPrefix\)\) return `toolcat\/\$\{seg\.slice\(categoryPrefix\.length\)\}`;/.test(router));
+check('the category path is never rewritten to a legacy tool URL',
+  /if \(pathname === TOOL_CATEGORY_BASE \|\| pathname\.startsWith\(`\$\{TOOL_CATEGORY_BASE\}\/`\)\) return pathname;/.test(router));
+check('the app renders a category page for /tools/category/<slug>',
+  /route\.startsWith\('toolcat\/'\) && <ToolsList categorySlug=\{route\.slice\('toolcat\/'\.length\)\} \/>/.test(app)
+  && /const isTools = route === 'free-tools' \|\| route === 'tools' \|\| route\.startsWith\('tool\/'\) \|\| route\.startsWith\('cat\/'\) \|\| route\.startsWith\('toolcat\/'\)/.test(app));
+check('the directory renders every managed category in admin order',
+  /export const ToolsList: React\.FC<\{ category\?: ToolCategory; categorySlug\?: string \}>/.test(listSrcCards)
+  && /const managed = toolCategoriesOf\(cmsState\);/.test(listSrcCards)
+  && /return \[\.\.\.managed, \.\.\.strays\];/.test(listSrcCards));
+check('no tool can fall off the index: a stray category keeps its own section',
+  /const strays = \[\.\.\.new Set\(filtered\.map\(t => t\.category\)\)\]/.test(listSrcCards));
+check('a category URL that no longer exists shows a not-found page',
+  /if \(\(category \|\| categorySlug\) && !active\) \{[\s\S]{0,500}Category not found/.test(listSrcCards));
+check('a brand-new category with no tools yet says so instead of 404-ing',
+  /const categoryIsEmpty = !!activeKey && tools\.every\(t => t\.category !== activeKey\);/.test(listSrcCards)
+  && /No tools in this category yet/.test(listSrcCards));
+check('the category page builds its meta copy from the managed description',
+  /const description = `\$\{toolCategorySummary\(cms, cat\.key\)\} \$\{list\.length\} free/.test(seoUtil));
+check('an unknown category URL is noindexed',
+  /const cat = resolveToolCategory\(cms, value\);[\s\S]{0,400}noindex: true/.test(seoUtil));
+check('the managed name reaches the tool pages, the sidebar and the breadcrumbs',
+  /toolCategoryName\(cmsState, tool\.category\)/.test(read('src/tools/toolContent.tsx'))
+  && /toolCategoryName\(cmsState, t\.category\)/.test(read('src/tools/Sidebar.tsx'))
+  && /toolCategoryHref\(state, tool\.category\)/.test(app));
+check('styling and icons fall back for categories added in the admin',
+  /export const categoryStyle = \(key: string\): string =>/.test(dataSrc)
+  && /export const categoryLabel = \(key: string\): string =>/.test(dataSrc)
+  && /default:\s*\/\/ A category added in the admin/.test(dataSrc));
 
 console.log('\n=== ✅ Preserved ===');
 check('no "Loading page" anywhere in src', !/Loading page/.test(read('src/App.tsx') + read('src/components/ErrorBoundary.tsx') + read('src/tools/Tools.tsx')));

@@ -557,6 +557,203 @@ for (const [slug, name, count] of [['core-web-vitals', 'Core Web Vitals', 3], ['
   hidden.dom.window.close();
 }
 
+/* 3e. Tool Categories: the categories managed in Admin → Tool Categories drive
+ * the directory, the mega menu, the category pages and the tool editor. */
+{
+  // A built-in category keeps its original top-level page and answers on the
+  // /tools/category/<slug> URL with the same content and the same canonical.
+  for (const [route, label] of [['/ip-tools', 'top-level'], ['/tools/category/ip-tools', 'tools/category']]) {
+    const { dom, errors } = await boot('', route);
+    const doc = dom.window.document;
+    check(`${label} category URL renders the category page (H1, tools, intro)`,
+      (doc.querySelector('main h1')?.textContent || '').trim() === 'IP Tools'
+      && toolLinks(dom).length === 6
+      && text(dom).includes('See what the internet sees'),
+      `${doc.querySelector('main h1')?.textContent} · ${toolLinks(dom).length} cards · errors: ${errors.join(' | ')}`);
+    check(`${label} category URL keeps /ip-tools as the canonical`,
+      (doc.querySelector('link[rel=canonical]')?.getAttribute('href') || '') === 'https://seoaudittools.pk/ip-tools',
+      doc.querySelector('link[rel=canonical]')?.getAttribute('href'));
+    dom.window.close();
+  }
+  const { dom: missing } = await boot('', '/tools/category/not-a-category');
+  check('a category URL that does not exist shows a not-found page with noindex',
+    /Category not found/.test(missing.window.document.querySelector('main h1')?.textContent || '')
+    && /noindex/.test(missing.window.document.querySelector('meta[name=robots]')?.getAttribute('content') || ''));
+  missing.window.close();
+
+  // Admin → Tool Categories: next to Tools, with name + auto slug + description.
+  const session = JSON.stringify({ user: 'admin', remember: true, exp: Date.now() + 3_600_000 });
+  const { dom, errors } = await boot(`localStorage.setItem('ekstruh:admin-session:v1', ${JSON.stringify(session)});`, '/admin');
+  const doc = dom.window.document;
+  const click = el => el.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true, cancelable: true }));
+  const setValue = (el, value) => {
+    const proto = el.tagName === 'TEXTAREA' ? dom.window.HTMLTextAreaElement.prototype : dom.window.HTMLInputElement.prototype;
+    Object.getOwnPropertyDescriptor(proto, 'value').set.call(el, value);
+    el.dispatchEvent(new dom.window.Event('input', { bubbles: true }));
+  };
+  const setSelect = (el, value) => {
+    Object.getOwnPropertyDescriptor(dom.window.HTMLSelectElement.prototype, 'value').set.call(el, value);
+    el.dispatchEvent(new dom.window.Event('change', { bubbles: true }));
+  };
+  const adminButton = label => [...doc.querySelectorAll('button')].filter(b => b.textContent.trim() === label).pop();
+  const tabBar = [...doc.querySelectorAll('nav')].find(n => [...n.querySelectorAll('button')].some(b => b.textContent.trim() === 'Dashboard'));
+  const tabLabels = [...(tabBar?.querySelectorAll('button') || [])].map(b => b.textContent.trim());
+  check('the admin tab bar carries Tool Categories directly after Tools',
+    tabLabels.indexOf('Tool Categories') === tabLabels.indexOf('Tools') + 1, tabLabels.join(' | '));
+  click(adminButton('Tool Categories'));
+  await wait();
+  let section = doc.querySelector('section[aria-label="Tool Categories"]');
+  check('the pane lists the eleven built-in categories with their tool counts',
+    !!section
+    && [...section.querySelectorAll('p.font-semibold')].length === 11
+    && (section.textContent || '').includes('/tools/category/text-analysis-tools')
+    && [...section.querySelectorAll('strong')].some(el => el.textContent.trim() === '11')
+    && [...section.querySelectorAll('strong')].some(el => el.textContent.trim() === '45'),
+    section ? [...section.querySelectorAll('p.font-semibold')].map(p => p.textContent.trim()).join(', ') : 'no section');
+  check('every row has its own Edit and Delete, and the built-ins are marked',
+    ['Edit', 'Delete'].every(label => [...section.querySelectorAll('button')].some(b => b.textContent.trim() === label))
+    && [...section.querySelectorAll('button')].filter(b => b.textContent.trim() === 'Delete').length === 11
+    && (section.textContent || '').includes('Built-in'));
+
+  const nameInput = section.querySelector('input[aria-label="Category Name"]');
+  const slugInput = section.querySelector('input[aria-label="Category Slug"]');
+  const descInput = section.querySelector('textarea[aria-label="Category Description"]');
+  setValue(nameInput, 'Local SEO Tools');
+  await wait();
+  check('the slug auto-generates from the name and stays editable',
+    slugInput.value === 'local-seo-tools' && !slugInput.readOnly && !slugInput.disabled, slugInput.value);
+  setValue(descInput, 'Rank in the map pack with local keyword, citation and review checks.');
+  await wait();
+  click([...section.querySelectorAll('button')].find(b => /Add category/.test(b.textContent)));
+  await wait();
+  check('adding a category saves it and shows "Saved ✓"',
+    /Saved ✓/.test(section.textContent || '')
+    && [...section.querySelectorAll('p.font-semibold')].some(p => p.textContent.trim() === 'Local SEO Tools'));
+  const stored = JSON.parse(dom.window.localStorage.getItem('seoaudittool:cms:v1') || '{}');
+  const added = (stored.toolCategories || []).find(c => c.slug === 'local-seo-tools');
+  check('the new category (name, slug, description) is persisted in the CMS store',
+    !!added && added.name === 'Local SEO Tools' && added.description.startsWith('Rank in the map pack'), JSON.stringify(added));
+
+  // The tool editor's Category dropdown is the managed list.
+  click(adminButton('Tools'));
+  await wait();
+  const filterSelect = doc.querySelector('select[aria-label="Filter by category"]');
+  check('the tools list filter offers every managed category',
+    !!filterSelect && [...filterSelect.options].map(o => o.textContent).join(', ') === 'All categories, Text Analysis Tools, Keyword Tools, Backlink Tools, Website Management Tools, Website Checker Tools, Domain Tools, IP Tools, PDF Tools, Image Tools, Calculator Tools, Unit Converter Tools, Local SEO Tools',
+    filterSelect ? [...filterSelect.options].map(o => o.textContent).join(', ') : 'no select');
+  click([...doc.querySelectorAll('button')].filter(b => b.textContent.trim() === 'Edit')[0]);
+  await wait();
+  const catSelect = doc.querySelector('select[aria-label="Category"]');
+  const options = catSelect ? [...catSelect.options].map(o => o.textContent) : [];
+  check("the tool editor's Category dropdown uses the managed list",
+    options.length === 12 && options.includes('IP Tools') && options.includes('Local SEO Tools'), options.join(' | '));
+  setSelect(catSelect, added.key);
+  await wait();
+  click([...doc.querySelectorAll('button')].find(b => b.textContent.trim() === 'Save tool'));
+  await wait();
+  const stored2 = JSON.parse(dom.window.localStorage.getItem('seoaudittool:cms:v1') || '{}');
+  const moved = (stored2.tools || []).find(t => t.category === added.key);
+  check('assigning a tool to a new category saves it', !!moved, JSON.stringify(moved && moved.name));
+  dom.window.close();
+
+  // The new category is live everywhere the site lists categories.
+  const preload = `localStorage.setItem('seoaudittool:cms:v1', ${JSON.stringify(JSON.stringify(stored2))});`;
+  const { dom: menuDom } = await boot(preload, '/');
+  const menuLinks = [...menuDom.window.document.querySelectorAll('#tool-categories-menu a')]
+    .map(a => `${a.textContent.replace(/\s+/g, ' ').trim()}|${a.getAttribute('href')}`);
+  check('the mega menu lists the new category with its URL and live count',
+    menuLinks.some(v => v.startsWith('Local SEO Tools (1)|/tools/category/local-seo-tools')), menuLinks.join(' ~ '));
+  menuDom.window.close();
+  const { dom: indexDom } = await boot(preload, '/free-seo-tools');
+  const indexHeadings = [...indexDom.window.document.querySelectorAll('h2')].map(h => h.textContent.trim());
+  check('the directory shows a section for the new category, with its description',
+    indexHeadings.includes('Local SEO Tools')
+    && text(indexDom).includes('Rank in the map pack')
+    // 155 tool cards: the extra main-area link is the new category heading itself.
+    && toolLinks(indexDom).filter(h => !h.startsWith('/tools/category/')).length === 155,
+    `${indexHeadings.length} headings · ${toolLinks(indexDom).length} cards`);
+  const categoryHrefs = [...indexDom.window.document.querySelectorAll('main a[href="/tools/category/local-seo-tools"]')];
+  check('that section heading links to its /tools/category page', categoryHrefs.length === 1);
+  check('the category heading link is not counted as a tool card',
+    toolLinks(indexDom).includes('/tools/category/local-seo-tools'));
+  indexDom.window.close();
+
+  const { dom: catDom } = await boot(preload, '/tools/category/local-seo-tools');
+  const catDoc = catDom.window.document;
+  check('the new category has its own page with its name, description and tool',
+    (catDoc.querySelector('main h1')?.textContent || '').trim() === 'Local SEO Tools'
+    && text(catDom).includes('Rank in the map pack')
+    && toolLinks(catDom).length === 1
+    && (catDoc.querySelector('link[rel=canonical]')?.getAttribute('href') || '') === 'https://seoaudittools.pk/tools/category/local-seo-tools'
+    && /Local SEO Tools/.test(catDoc.title),
+    `${catDoc.querySelector('main h1')?.textContent} · ${toolLinks(catDom).length} cards · ${catDoc.title}`);
+  catDom.window.close();
+
+  // Renaming a category and rewriting its description shows through at once.
+  const { dom: admin2 } = await boot(`localStorage.setItem('seoaudittool:cms:v1', ${JSON.stringify(JSON.stringify(stored2))});${`localStorage.setItem('ekstruh:admin-session:v1', ${JSON.stringify(session)});`}`, '/admin');
+  const doc2 = admin2.window.document;
+  const click2 = el => el.dispatchEvent(new admin2.window.MouseEvent('click', { bubbles: true, cancelable: true }));
+  const set2 = (el, value) => {
+    const proto = el.tagName === 'TEXTAREA' ? admin2.window.HTMLTextAreaElement.prototype : admin2.window.HTMLInputElement.prototype;
+    Object.getOwnPropertyDescriptor(proto, 'value').set.call(el, value);
+    el.dispatchEvent(new admin2.window.Event('input', { bubbles: true }));
+  };
+  click2([...doc2.querySelectorAll('button')].filter(b => b.textContent.trim() === 'Tool Categories').pop());
+  await wait();
+  section = doc2.querySelector('section[aria-label="Tool Categories"]');
+  click2([...section.querySelectorAll('button')].filter(b => b.textContent.trim() === 'Edit')[0]);
+  await wait();
+  set2(doc2.querySelector('input[aria-label="Edit category name"]'), 'Text Checking Tools');
+  set2(doc2.querySelector('textarea[aria-label="Edit category description"]'), 'Proofread every page: plagiarism, grammar, rewriting and word counts.');
+  await wait();
+  click2([...section.querySelectorAll('button')].find(b => /Save Changes/.test(b.textContent)));
+  await wait();
+  check('renaming a category writes its name and description back',
+    /Saved ✓/.test(section.textContent || '')
+    && [...section.querySelectorAll('p.font-semibold')].some(p => p.textContent.trim() === 'Text Checking Tools'));
+  const stored3 = JSON.parse(admin2.window.localStorage.getItem('seoaudittool:cms:v1') || '{}');
+  check('the edit is persisted in the CMS store',
+    (stored3.toolCategories || [])[0]?.name === 'Text Checking Tools'
+    && (stored3.toolCategories || [])[0]?.description.startsWith('Proofread every page'),
+    JSON.stringify((stored3.toolCategories || [])[0]));
+  admin2.window.close();
+
+  const edited = `localStorage.setItem('seoaudittool:cms:v1', ${JSON.stringify(JSON.stringify(stored3))});`;
+  const { dom: renamedIndex } = await boot(edited, '/free-seo-tools');
+  check('the directory picks the new name and description up immediately',
+    [...renamedIndex.window.document.querySelectorAll('h2')].some(h => h.textContent.trim() === 'Text Checking Tools')
+    && text(renamedIndex).includes('Proofread every page'));
+  renamedIndex.window.close();
+  for (const route of ['/text-analysis-tools', '/tools/category/text-analysis-tools']) {
+    const { dom: builtin } = await boot(edited, route);
+    check(`${route} still answers after the rename (built-in page kept)`,
+      (builtin.window.document.querySelector('main h1')?.textContent || '').trim() === 'Text Checking Tools'
+      && (builtin.window.document.querySelector('link[rel=canonical]')?.getAttribute('href') || '') === 'https://seoaudittools.pk/text-analysis-tools');
+    builtin.window.close();
+  }
+
+  // Deleting a category keeps its tools: they move to the nearest remaining one.
+  const { dom: admin3 } = await boot(`localStorage.setItem('seoaudittool:cms:v1', ${JSON.stringify(JSON.stringify(stored2))});${`localStorage.setItem('ekstruh:admin-session:v1', ${JSON.stringify(session)});`}`, '/admin');
+  const doc3 = admin3.window.document;
+  const click3 = el => el.dispatchEvent(new admin3.window.MouseEvent('click', { bubbles: true, cancelable: true }));
+  admin3.window.confirm = () => true;
+  click3([...doc3.querySelectorAll('button')].filter(b => b.textContent.trim() === 'Tool Categories').pop());
+  await wait();
+  const section3 = doc3.querySelector('section[aria-label="Tool Categories"]');
+  const customRow = [...section3.querySelectorAll('div')].filter(d => d.textContent.trim().startsWith('Local SEO Tools'))[0];
+  click3([...customRow.querySelectorAll('button')].find(b => b.textContent.trim() === 'Delete'));
+  await wait();
+  const stored4 = JSON.parse(admin3.window.localStorage.getItem('seoaudittool:cms:v1') || '{}');
+  const survivor = (stored4.tools || []).find(t => t.slug === moved.slug);
+  check('deleting a category removes it but keeps its tools in the nearest one',
+    !(stored4.toolCategories || []).some(c => c.slug === 'local-seo-tools')
+    && !!survivor
+    && (stored4.toolCategories || []).some(c => c.key === survivor.category)
+    && ![...section3.querySelectorAll('p.font-semibold')].some(p => p.textContent.trim() === 'Local SEO Tools'),
+    JSON.stringify({ cats: (stored4.toolCategories || []).length, survivor: survivor && survivor.category }));
+  admin3.window.close();
+}
+
 /* 4. legacy tools URLs — /tools, /tool, /free-tools and /free-seo-tool — are all
       normalised to the canonical /free-seo-tools client-side */
 for (const legacy of ['/tools', '/tool', '/free-tools', '/free-seo-tool']) {

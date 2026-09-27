@@ -1,6 +1,10 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { clearAdminSession, readAdminSession, saveAdminPassword, verifyAdminLogin, writeAdminSession } from './auth';
-import { tools as staticTools, type ToolCategory, type InputType } from '../tools/data';
+import {
+  tools as staticTools, categoryDescriptions, categoryFromSlug, categoryIntros, categoryLabels,
+  categoryOrder, categorySlugs, type ToolCategory, type InputType,
+} from '../tools/data';
+import { TOOL_CATEGORY_BASE } from '../router';
 import { allArticles } from '../blog';
 
 /* ============================================================
@@ -14,7 +18,9 @@ export type Status = 'live' | 'hidden' | 'draft';
 export interface SeoEntry { title: string; description: string; slug?: string; noindex?: boolean }
 
 export interface CmsTool {
-  slug: string; name: string; description: string; category: ToolCategory;
+  /** `category` is the key of a managed tool category (Admin → Tool
+   *  Categories) — one of the eleven built-in keys, or a `custom-…` key. */
+  slug: string; name: string; description: string; category: string;
   engine?: string; input: InputType; placeholder?: string; placeholder2?: string;
   status: Status; custom?: boolean; badge?: string; builtin: boolean;
   featuredImage?: string; featuredImageAlt?: string;
@@ -47,6 +53,26 @@ export interface CmsBlogCategory {
   name: string;
   slug: string;
   visible: boolean;
+}
+
+/**
+ * An admin-managed tool category (Admin → Tool Categories).
+ *
+ *  • `key` is the identity a tool stores in its own `category` field. The
+ *    eleven built-in categories keep their original keys (`text`, `keyword`,
+ *    …); categories added in the admin get a generated `custom-…` key.
+ *  • `slug` is what the public URL uses — the built-in categories keep their
+ *    original top-level page (/ip-tools, /website-checker-tools, …) while
+ *    categories added in the admin answer on /tools/category/<slug>.
+ *  • Every category also answers on /tools/category/<slug>.
+ */
+export interface CmsToolCategory {
+  id: string;
+  key: string;
+  name: string;
+  slug: string;
+  description: string;
+  builtin: boolean;
 }
 
 export interface CmsPage {
@@ -149,6 +175,8 @@ export interface CmsState {
   footerColumns: FooterColumn[];
   /** Blog categories — managed in Admin → Blog posts → Blog Categories. */
   blogCategories: CmsBlogCategory[];
+  /** Tool categories — managed in Admin → Tool Categories. */
+  toolCategories: CmsToolCategory[];
   passcode: string;
 }
 
@@ -224,6 +252,100 @@ export const blogCategoryBySlug = (state: CmsState, slug: string): CmsBlogCatego
 export const postsInBlogCategory = (state: CmsState, name: string): CmsPost[] =>
   state.posts.filter(p => p.status === 'live' && p.category === name);
 
+/** URL slug for a tool category name: "IP Tools" → "ip-tools". */
+export const toolCategorySlug = (name: string): string => blogCategorySlug(name);
+
+/** The eleven categories the built-in tools already use, in menu order. */
+export const defaultToolCategories: CmsToolCategory[] = categoryOrder.map(key => ({
+  id: uid(),
+  key,
+  name: categoryLabels[key],
+  slug: categorySlugs[key],
+  description: categoryIntros[key],
+  builtin: true,
+}));
+
+/**
+ * Keep the admin's tool categories across reloads. A browser that has never
+ * saved any gets the eleven built-in ones; a saved list is cleaned up (missing
+ * id, key, name, slug or description) rather than replaced, so an edit — or a
+ * deletion — is never undone.
+ */
+const migrateToolCategories = (saved?: CmsToolCategory[]): CmsToolCategory[] => {
+  if (!Array.isArray(saved) || saved.length === 0) return defaultToolCategories;
+  const taken = new Set<string>();
+  return saved
+    .filter(c => c && typeof c.key === 'string' && c.key.trim())
+    .map(c => {
+      const key = c.key.trim();
+      const name = (c.name || '').trim() || (categoryLabels as Record<string, string>)[key] || key;
+      let slug = toolCategorySlug(c.slug || name);
+      while (taken.has(slug)) slug = `${slug}-2`;
+      taken.add(slug);
+      return {
+        id: c.id || uid(),
+        key,
+        name,
+        slug,
+        description: typeof c.description === 'string' && c.description.trim()
+          ? c.description
+          : (categoryIntros as Record<string, string>)[key] || '',
+        builtin: key in categorySlugs,
+      };
+    });
+};
+
+/** Every managed tool category, in admin order. */
+export const toolCategoriesOf = (state: CmsState): CmsToolCategory[] => state.toolCategories || [];
+
+/** Category behind a tool's `category` key, or undefined. */
+export const toolCategoryByKey = (state: CmsState, key: string): CmsToolCategory | undefined =>
+  toolCategoriesOf(state).find(c => c.key === key);
+
+/** Category behind a /tools/category/<slug> URL, or undefined. */
+export const toolCategoryBySlug = (state: CmsState, slug: string): CmsToolCategory | undefined =>
+  toolCategoriesOf(state).find(c => c.slug === slug);
+
+/**
+ * Category from either its key (`ip`) or its slug (`ip-tools`) — the route
+ * carries one of them, and a URL built before a rename still resolves.
+ */
+export const resolveToolCategory = (state: CmsState, value: string): CmsToolCategory | undefined => {
+  const direct = toolCategoryByKey(state, value) || toolCategoryBySlug(state, value);
+  if (direct) return direct;
+  const legacyKey = categoryFromSlug(value);
+  return legacyKey ? toolCategoryByKey(state, legacyKey) : undefined;
+};
+
+/** Live tools in a category. */
+export const toolsInToolCategory = (state: CmsState, key: string): CmsTool[] =>
+  state.tools.filter(t => t.status === 'live' && t.category === key);
+
+/** Canonical public URL of a category: its original top-level page for the
+ *  built-in categories, /tools/category/<slug> for the ones added in admin. */
+export const toolCategoryHref = (state: CmsState, value: string): string => {
+  const cat = resolveToolCategory(state, value);
+  if (!cat) return TOOL_CATEGORY_BASE;
+  return cat.builtin ? `/${categorySlugs[cat.key as ToolCategory]}` : `${TOOL_CATEGORY_BASE}/${cat.slug}`;
+};
+
+/** The /tools/category/<slug> spelling of a category — always available. */
+export const toolCategoryAliasPath = (state: CmsState, value: string): string => {
+  const cat = resolveToolCategory(state, value);
+  return cat ? `${TOOL_CATEGORY_BASE}/${cat.slug}` : TOOL_CATEGORY_BASE;
+};
+
+/** Display name of a category, falling back to its built-in label. */
+export const toolCategoryName = (state: CmsState, key: string): string =>
+  resolveToolCategory(state, key)?.name || (categoryLabels as Record<string, string>)[key] || key;
+
+/** The short summary used on the home-page cards and in meta descriptions. */
+export const toolCategorySummary = (state: CmsState, key: string): string => {
+  const cat = resolveToolCategory(state, key);
+  if (cat && !cat.builtin) return cat.description;
+  return (categoryDescriptions as Record<string, string>)[key] || cat?.description || '';
+};
+
 const footerLink = (label: string, href: string): FooterLink => ({ id: uid(), label, href, visible: true });
 
 /** The four footer columns every visitor sees until the admin edits them. */
@@ -254,6 +376,7 @@ export const defaultFooterColumns: FooterColumn[] = [
 export const defaultState: CmsState = {
   version: 13,
   blogCategories: defaultBlogCategories,
+  toolCategories: defaultToolCategories,
   tools: defaultTools,
   posts: defaultPosts,
   pages: [
@@ -905,6 +1028,7 @@ const load = (): CmsState => {
       nav: migrateNav(parsed.nav),
       footerColumns: migrateFooterColumns(parsed.footerColumns, settings),
       blogCategories: migrateBlogCategories(parsed.blogCategories),
+      toolCategories: migrateToolCategories(parsed.toolCategories),
       sidebar: { ...migrateSidebar(oldSidebar), widgets: migratedWidgets },
       sections: { ...defaultState.sections, ...(parsed.sections || {}) },
       seo: migrateSeo(parsed.seo, parsedVersion),
@@ -925,6 +1049,10 @@ interface Ctx {
   savePost: (slug: string, patch: Partial<CmsPost>) => void;
   setPostStatus: (slug: string, status: Status) => void;
   deletePost: (slug: string) => void;
+  /* tool categories */
+  addToolCategory: (input: { name: string; slug?: string; description: string }) => string;
+  saveToolCategory: (key: string, patch: Partial<CmsToolCategory>) => void;
+  removeToolCategory: (key: string) => void;
   /* blog categories */
   addBlogCategory: (name: string) => string;
   saveBlogCategory: (slug: string, patch: Partial<CmsBlogCategory>) => void;
@@ -1032,6 +1160,54 @@ export const CmsProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       };
     }),
 
+    // New categories get a generated key (tools store that) plus the public
+    // slug the /tools/category/… URL is built from.
+    addToolCategory: ({ name, slug, description }) => {
+      const clean = (name || '').trim() || 'New category';
+      let catSlug = toolCategorySlug(slug || clean);
+      let key = `custom-${catSlug}`;
+      setState(s => {
+        const cats = s.toolCategories || [];
+        const slugs = new Set(cats.map(c => c.slug));
+        if (slugs.has(catSlug)) { let i = 2; while (slugs.has(`${catSlug}-${i}`)) i += 1; catSlug = `${catSlug}-${i}`; }
+        const keys = new Set(cats.map(c => c.key));
+        if (keys.has(key)) { let i = 2; while (keys.has(`${key}-${i}`)) i += 1; key = `${key}-${i}`; }
+        return { ...s, toolCategories: [...cats, { id: uid(), key, name: clean, slug: catSlug, description: (description || '').trim(), builtin: false }] };
+      });
+      return key;
+    },
+    // Name, slug and description are all editable; a slug already in use is
+    // refused (the category keeps the one it had).
+    saveToolCategory: (key, patch) => setState(s => {
+      const cats = s.toolCategories || [];
+      const current = cats.find(c => c.key === key);
+      if (!current) return s;
+      let nextSlug = toolCategorySlug(patch.slug ?? current.slug);
+      if (nextSlug !== current.slug && cats.some(c => c.key !== key && c.slug === nextSlug)) nextSlug = current.slug;
+      const nextName = ((patch.name ?? current.name) || '').trim() || current.name;
+      return {
+        ...s,
+        toolCategories: cats.map(c => (c.key === key
+          ? { ...c, ...patch, key: current.key, builtin: current.builtin, name: nextName, slug: nextSlug }
+          : c)),
+      };
+    }),
+    // Removing a category keeps every tool: they move to the nearest
+    // remaining category so nothing disappears from the site.
+    removeToolCategory: (key) => setState(s => {
+      const cats = s.toolCategories || [];
+      if (cats.length <= 1) return s;
+      const index = cats.findIndex(c => c.key === key);
+      if (index === -1) return s;
+      const remaining = cats.filter(c => c.key !== key);
+      const fallback = remaining[Math.min(index, remaining.length - 1)].key;
+      return {
+        ...s,
+        toolCategories: remaining,
+        tools: s.tools.map(t => (t.category === key ? { ...t, category: fallback } : t)),
+      };
+    }),
+
     addPage: (p) => { const id = uid(); setState(s => ({ ...s, pages: [{ id, slug: p.slug || `page-${id}`, title: p.title || 'New page', metaTitle: p.metaTitle || p.title || 'New page', metaDescription: p.metaDescription || '', content: p.content || '', featuredImage: p.featuredImage, featuredImageAlt: p.featuredImageAlt, status: p.status || 'draft' }, ...s.pages] })); return id; },
     savePage: (id, patch) => setState(s => ({ ...s, pages: s.pages.map(p => (p.id === id ? { ...p, ...patch } : p)) })),
     setPageStatus: (id, status) => setState(s => ({ ...s, pages: s.pages.map(p => (p.id === id ? { ...p, status } : p)) })),
@@ -1047,7 +1223,7 @@ export const CmsProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     reset: () => setState({ ...defaultState }),
     exportJson: () => JSON.stringify({ ...state, pages: state.pages.map(pg => { const { blocks: _blocks, ...rest } = pg; return rest; }) }, null, 2),
-    importJson: (json) => { try { const parsed = JSON.parse(json) as CmsState; if (!parsed.tools || !parsed.posts) return false; const legacyItems = parsed.sidebar?.customItems || []; const widgets = parsed.sidebar?.widgets || (legacyItems.length ? [{ id: uid(), title: 'Featured links', type: 'links' as SidebarWidgetType, visible: true, source: 'manual' as SidebarLinkSource, links: legacyItems }] : []); const parsedVersion = typeof parsed.version === 'number' ? parsed.version : 1; setState({ ...defaultState, ...parsed, version: Math.max(defaultState.version, parsedVersion), pages: (parsedVersion < defaultState.version ? migratePages(parsed.pages || []) : (parsed.pages || defaultState.pages)).map(withPageContent), settings: migrateSettings(parsed.settings, parsedVersion), nav: migrateNav(parsed.nav), footerColumns: migrateFooterColumns(parsed.footerColumns, migrateSettings(parsed.settings, parsedVersion)), blogCategories: migrateBlogCategories(parsed.blogCategories), seo: migrateSeo(parsed.seo, parsedVersion), sidebar: { ...defaultState.sidebar, ...parsed.sidebar, widgets } }); return true; } catch { return false; } },
+    importJson: (json) => { try { const parsed = JSON.parse(json) as CmsState; if (!parsed.tools || !parsed.posts) return false; const legacyItems = parsed.sidebar?.customItems || []; const widgets = parsed.sidebar?.widgets || (legacyItems.length ? [{ id: uid(), title: 'Featured links', type: 'links' as SidebarWidgetType, visible: true, source: 'manual' as SidebarLinkSource, links: legacyItems }] : []); const parsedVersion = typeof parsed.version === 'number' ? parsed.version : 1; setState({ ...defaultState, ...parsed, version: Math.max(defaultState.version, parsedVersion), pages: (parsedVersion < defaultState.version ? migratePages(parsed.pages || []) : (parsed.pages || defaultState.pages)).map(withPageContent), settings: migrateSettings(parsed.settings, parsedVersion), nav: migrateNav(parsed.nav), footerColumns: migrateFooterColumns(parsed.footerColumns, migrateSettings(parsed.settings, parsedVersion)), blogCategories: migrateBlogCategories(parsed.blogCategories), toolCategories: migrateToolCategories(parsed.toolCategories), seo: migrateSeo(parsed.seo, parsedVersion), sidebar: { ...defaultState.sidebar, ...parsed.sidebar, widgets } }); return true; } catch { return false; } },
 
     storageWarning,
     loggedIn,
