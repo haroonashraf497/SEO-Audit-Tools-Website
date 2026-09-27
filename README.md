@@ -258,13 +258,31 @@ The tool categories are a managed list: **Admin → Tool Categories**, the tab d
   this list, so an edit is live everywhere at once. A tool can never fall out of the directory:
   a category that exists only on a tool still gets its own section.
 
+### Competitor Analysis page
+
+The `/competitor-analysis` page is edited in **Admin → Competitor Analysis**, the tab right after
+*Tool Categories*:
+
+- **Page header & intro** — hero title, subtitle and the intro paragraph;
+- **Tool input area** — the two field labels, the compare button text and the fallback note;
+- **Sections** — *What is Website Competitor Analysis?* and *How to read the comparison report*
+  each have a full WYSIWYG editor, *Benefits* has an intro plus repeatable blocks (title + text,
+  add / remove / move up / move down), and the *FAQs* are repeatable rows with a question field
+  and a rich-text answer, also reorderable;
+- **SEO** — meta title, meta description, canonical override and the noindex switch for the URL;
+- **Save Changes** shows the standard *Saved ✓* and `/competitor-analysis` updates instantly, with
+  no reload. *Reset fields to default copy* restores the shipped wording.
+
+The comparison engine, scoring, layout and URL are untouched — the tool only reads its copy from
+the store.
+
 ## Verification
 
 ```bash
 npm run typecheck                  # tsc --noEmit
-node scripts/feature-audit.mjs     # 216 checks: CMS controls, blog categories, managed tool categories, footer redesign, legal URLs, /free-seo-tools index, text-tool layout/mobile, case-converter grid, Tool Categories mega menu, no-bold top nav, top-level tool URLs (/<slug>), category pages (/ip-tools), Merge PDF compressor, no EKSTRUH, 154 tools
+node scripts/feature-audit.mjs     # 235 checks: CMS controls, blog categories, managed tool categories, the Competitor Analysis page copy, footer redesign, legal URLs, /free-seo-tools index, text-tool layout/mobile, case-converter grid, Tool Categories mega menu, no-bold top nav, top-level tool URLs (/<slug>), category pages (/ip-tools), Merge PDF compressor, no EKSTRUH, 154 tools
 npm install --no-save jsdom
-node scripts/verify-single-file.mjs  # 196 checks: boots the built file, blog + tool category pages, instant swap, footer, legal + category URLs, top-level tool pages, legacy redirects, head injection, text-tool layout, mega-menu navigation
+node scripts/verify-single-file.mjs  # 210 checks: boots the built file, blog + tool category pages, the Competitor Analysis page, instant swap, footer, legal + category URLs, top-level tool pages, legacy redirects, head injection, text-tool layout, mega-menu navigation
 npm test                           # 34 Playwright tests (needs Chromium)
 ```
 

@@ -436,26 +436,69 @@ const comparison = (a: Audit, b: Audit, da: DomainInfo | null, db: DomainInfo | 
   ];
 };
 
+/**
+ * The three sections under the comparison report. Every word comes from
+ * Admin → Competitor Analysis, so what the admin saves is what visitors read;
+ * the markup, spacing and colours are the ones this page always had.
+ */
 export const CompetitorToolContent: React.FC = () => {
   const { state } = useCms();
+  const copy = state.competitor;
   const extraAbout = (() => {
     const html = state.tools.find(t => t.slug === 'competitor-analysis')?.about || '';
     return html.replace(/<[^>]*>/g, '').trim() ? sanitizeRichHtml(html) : '';
   })();
   const [open, setOpen] = useState(0);
-  const faqs = [
-    ['What does the competitor analysis compare?', 'It compares both pages across on-page SEO, technical signals, mobile readiness, security, performance, keywords, content depth and link structure. Domain registration and expiry dates for both sites come from public RDAP registry data.'],
-    ['Does this tool check an entire website?', 'It compares the two exact URLs you enter. For a broader view, test matching templates such as both homepages, both service pages, or both product pages.'],
-    ['Why does a report say Estimated fallback?', 'Some websites block browser or CORS access. In that case the tool completes with stable URL-based sample data so the workflow does not fail, and labels the result clearly.'],
-    ['Does a higher SEO score guarantee better rankings?', 'No. The score measures important technical and on-page signals. Rankings also depend on relevance, backlinks, brand trust, user intent and competition.'],
-    ['How should I use the keyword comparison?', 'Look for meaningful terms your competitor covers that your page misses. Add useful sections where needed, but avoid copying text or stuffing keywords.'],
-    ['What should I fix first?', 'Start with red errors, especially missing titles, noindex directives, missing H1 tags, HTTP pages and mobile viewport problems. Then work through warnings.'],
-    ['Is the analysis stored?', 'No. Both URLs are processed in the browser session. The tool does not create an account or store a comparison history.'],
-  ];
-  return <div className="space-y-8 mt-10"><section className="bg-white rounded-2xl border border-slate-200 p-6 md:p-8 shadow-sm"><p className="text-xs font-bold uppercase tracking-wide text-indigo-600 mb-2">About the tool</p><h2 className="text-2xl md:text-3xl font-extrabold text-slate-900">What is Website Competitor Analysis?</h2><div className="space-y-4 text-slate-600 leading-relaxed mt-4"><p>This tool audits two public web pages with the same checklist, then puts the results next to each other. That makes differences easier to spot than reading two separate reports.</p><p>Use it when a competitor outranks you, when you are planning a new landing page, or when you want a practical benchmark before rewriting content. The report does not copy a competitor’s strategy. It shows where their page is stronger, where yours already leads, and which gaps are worth investigating.</p><p>The comparison covers page titles, descriptions, headings, word count, images, internal and external links, nofollow attributes, responsive signals, security and HTML performance. Keyword frequency is extracted from the visible page copy so you can compare topic coverage without relying on guessed search-volume data.</p>{extraAbout && <div className="rich-text text-slate-600 leading-relaxed mt-4" dangerouslySetInnerHTML={{ __html: extraAbout }} />}</div></section><section className="grid md:grid-cols-2 gap-6"><div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm"><h2 className="text-xl font-bold text-slate-900 mb-4">How to read the comparison report</h2><ol className="space-y-3">{['Compare matching page types. A homepage should be compared with a homepage, not a blog article.', 'Start with the overall and category scores to locate the largest gap.', 'Read the individual checks. Each one explains the finding and the recommended fix.', 'Review keywords for missing subtopics, not phrases to copy.', 'Inspect internal and external URL samples to understand how each page supports navigation and authority.', 'Turn the priority plan into a development or content checklist, then re-run the analysis.'].map((step, index) => <li key={step} className="flex gap-3 text-sm text-slate-600"><span className="w-6 h-6 rounded-full bg-indigo-50 text-indigo-700 font-bold text-xs flex items-center justify-center flex-shrink-0">{index + 1}</span>{step}</li>)}</ol></div><div className="bg-gradient-to-br from-indigo-50 to-white rounded-2xl border border-indigo-100 p-6"><h2 className="text-xl font-bold text-slate-900 mb-4">Benefits</h2><div className="grid gap-3">{[['A fair benchmark', 'Both pages are tested with identical rules, so score differences are easier to interpret.'], ['Clear priorities', 'Errors and warnings become a focused improvement plan instead of a long, unstructured audit.'], ['Better content briefs', 'Keyword and heading comparisons reveal topics and supporting sections that may be missing.'], ['Stronger internal linking', 'URL samples show how each page directs visitors and crawlers to related content.'], ['Faster reviews', 'Marketers, developers and clients can discuss one side-by-side report instead of switching between tools.']].map(([title, text]) => <div key={title} className="bg-white rounded-xl border border-slate-200 p-4"><h3 className="text-sm font-bold text-slate-800">{title}</h3><p className="text-xs text-slate-500 mt-1 leading-relaxed">{text}</p></div>)}</div></div></section><section className="bg-white rounded-2xl border border-slate-200 p-6 md:p-8 shadow-sm"><p className="text-xs font-bold uppercase tracking-wide text-indigo-600 mb-2">Questions</p><h2 className="text-2xl font-extrabold text-slate-900 mb-5">Competitor Analysis FAQs</h2><div className="divide-y divide-slate-100 border-y border-slate-100">{faqs.map(([q, a], index) => <div key={q}><button type="button" onClick={() => setOpen(open === index ? -1 : index)} className="w-full flex items-center justify-between gap-4 text-left py-4"><h3 className="text-sm md:text-base font-bold text-slate-800">{q}</h3><span className={`text-indigo-600 transition-transform ${open === index ? 'rotate-45' : ''}`}>+</span></button>{open === index && <p className="pb-4 pr-8 text-sm text-slate-600 leading-relaxed">{a}</p>}</div>)}</div></section></div>;
+  return (
+    <div className="space-y-8 mt-10">
+      <section className="bg-white rounded-2xl border border-slate-200 p-6 md:p-8 shadow-sm">
+        <p className="text-xs font-bold uppercase tracking-wide text-indigo-600 mb-2">{copy.aboutEyebrow}</p>
+        <h2 className="text-2xl md:text-3xl font-extrabold text-slate-900">{copy.aboutHeading}</h2>
+        <div className="rich-text space-y-4 text-slate-600 leading-relaxed mt-4" dangerouslySetInnerHTML={{ __html: sanitizeRichHtml(copy.aboutContent) }} />
+        {extraAbout && <div className="rich-text text-slate-600 leading-relaxed mt-4" dangerouslySetInnerHTML={{ __html: extraAbout }} />}
+      </section>
+      <section className="grid md:grid-cols-2 gap-6">
+        <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
+          <h2 className="text-xl font-bold text-slate-900 mb-4">{copy.howToHeading}</h2>
+          <div className="rich-text text-sm text-slate-600" dangerouslySetInnerHTML={{ __html: sanitizeRichHtml(copy.howToContent) }} />
+        </div>
+        <div className="bg-gradient-to-br from-indigo-50 to-white rounded-2xl border border-indigo-100 p-6">
+          <h2 className="text-xl font-bold text-slate-900 mb-4">{copy.benefitsHeading}</h2>
+          {copy.benefitsIntro && <p className="text-sm text-slate-600 mb-4 leading-relaxed">{copy.benefitsIntro}</p>}
+          <div className="grid gap-3">
+            {copy.benefits.map(benefit => (
+              <div key={benefit.id} className="bg-white rounded-xl border border-slate-200 p-4">
+                <h3 className="text-sm font-bold text-slate-800">{benefit.title}</h3>
+                {benefit.text && <p className="text-xs text-slate-500 mt-1 leading-relaxed">{benefit.text}</p>}
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+      <section className="bg-white rounded-2xl border border-slate-200 p-6 md:p-8 shadow-sm">
+        <p className="text-xs font-bold uppercase tracking-wide text-indigo-600 mb-2">{copy.faqEyebrow}</p>
+        <h2 className="text-2xl font-extrabold text-slate-900 mb-5">{copy.faqHeading}</h2>
+        <div className="divide-y divide-slate-100 border-y border-slate-100">
+          {copy.faqs.map((faq, index) => (
+            <div key={faq.id}>
+              <button type="button" onClick={() => setOpen(open === index ? -1 : index)} className="w-full flex items-center justify-between gap-4 text-left py-4">
+                <h3 className="text-sm md:text-base font-bold text-slate-800">{faq.question}</h3>
+                <span className={`text-indigo-600 transition-transform ${open === index ? 'rotate-45' : ''}`}>+</span>
+              </button>
+              {open === index && (
+                <div className="rich-text pb-4 pr-8 text-sm text-slate-600 leading-relaxed" dangerouslySetInnerHTML={{ __html: sanitizeRichHtml(faq.answer) }} />
+              )}
+            </div>
+          ))}
+        </div>
+      </section>
+    </div>
+  );
 };
 
 const CompetitorAnalysis: React.FC = () => {
+  // Hero, input labels, button and fallback note: Admin → Competitor Analysis.
+  const copy = useCms().state.competitor;
   const [yours, setYours] = useState(''), [theirs, setTheirs] = useState('');
   const [yourAudit, setYourAudit] = useState<Audit | null>(null), [theirAudit, setTheirAudit] = useState<Audit | null>(null);
   const [yourDomain, setYourDomain] = useState<DomainInfo | null>(null), [theirDomain, setTheirDomain] = useState<DomainInfo | null>(null);
@@ -480,18 +523,18 @@ const CompetitorAnalysis: React.FC = () => {
   if (!yourAudit || !theirAudit) return (
     <div className="space-y-6">
       <section className="text-center bg-gradient-to-br from-indigo-500 to-purple-600 rounded-3xl p-8 md:p-10 text-white">
-        <p className="text-xs font-bold uppercase tracking-[.18em] text-indigo-200 mb-3">Side-by-side SEO audit</p>
-        <h1 className="text-3xl md:text-4xl font-extrabold">Website Competitor Analysis</h1>
-        <p className="max-w-2xl mx-auto text-indigo-100 mt-3">Run two complete audits with the same on-page, technical, mobile, security and performance checks used by the homepage audit.</p>
+        <p className="text-xs font-bold uppercase tracking-[.18em] text-indigo-200 mb-3">{copy.heroSubtitle}</p>
+        <h1 className="text-3xl md:text-4xl font-extrabold">{copy.heroTitle}</h1>
+        <p className="max-w-2xl mx-auto text-indigo-100 mt-3">{copy.heroIntro}</p>
       </section>
       <section className="bg-white rounded-2xl border border-slate-200 p-5 md:p-6 shadow-sm">
         <div className="grid md:grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-semibold text-slate-700 mb-1">Your website</label>
+            <label className="block text-sm font-semibold text-slate-700 mb-1">{copy.yourLabel}</label>
             <Input value={yours} onChange={e => setYours(e.target.value)} placeholder="https://yourwebsite.com/page" />
           </div>
           <div>
-            <label className="block text-sm font-semibold text-slate-700 mb-1">Competitor website</label>
+            <label className="block text-sm font-semibold text-slate-700 mb-1">{copy.theirLabel}</label>
             <Input value={theirs} onChange={e => setTheirs(e.target.value)} placeholder="https://competitor.com/page" />
           </div>
         </div>
@@ -501,10 +544,10 @@ const CompetitorAnalysis: React.FC = () => {
             <div className="h-2 bg-slate-200 rounded-full overflow-hidden"><div className="h-full bg-gradient-to-r from-indigo-500 to-purple-600" style={{ width: `${progress}%` }} /></div>
           </div>
         ) : (
-          <button onClick={run} className="w-full mt-5 py-4 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold">Compare Both Websites →</button>
+          <button onClick={run} className="w-full mt-5 py-4 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold">{copy.buttonText} →</button>
         )}
         {error && <p className="text-sm text-red-600 text-center mt-3">{error}</p>}
-        <p className="text-xs text-slate-400 text-center mt-3">If a site blocks browser access, a clearly labelled URL-based fallback keeps the comparison working.</p>
+        <p className="text-xs text-slate-400 text-center mt-3">{copy.fallbackNote}</p>
       </section>
     </div>
   );

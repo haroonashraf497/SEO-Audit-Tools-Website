@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { useCms, injectHeadCode, renderCopyright, blogCategorySlug, toolCategorySlug, toolCategoriesOf, toolCategoryName, UNCATEGORIZED, type CmsBlogCategory, type CmsPage, type CmsPost, type CmsTool, type CmsToolCategory, type FooterColumn, type FooterLink, type SeoEntry, type SidebarLinkSource, type SidebarWidget, type SidebarWidgetType, type Status } from './store';
+import { useCms, injectHeadCode, renderCopyright, blogCategorySlug, toolCategorySlug, toolCategoriesOf, toolCategoryName, defaultCompetitor, UNCATEGORIZED, type CmsCompetitor, type CmsBlogCategory, type CmsPage, type CmsPost, type CmsTool, type CmsToolCategory, type FooterColumn, type FooterLink, type SeoEntry, type SidebarLinkSource, type SidebarWidget, type SidebarWidgetType, type Status } from './store';
 import { ToolIcon } from '../tools/data';
 import { RichTextEditor } from './RichTextEditor';
 import { clearDraft, draftId, formatDraftTime, listDrafts, clearAllDrafts } from './drafts';
@@ -90,6 +90,15 @@ const Toggle: React.FC<{ on: boolean; onClick: () => void; label: string; hint?:
     <span><span className="block text-sm font-semibold text-slate-800">{label}</span>{hint && <span className="block text-xs text-slate-500">{hint}</span>}</span>
     <span className={`relative w-11 h-6 rounded-full transition-colors flex-shrink-0 ${on ? 'bg-emerald-500' : 'bg-slate-300'}`}><span className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-all ${on ? 'left-5.5' : 'left-0.5'}`} style={{ left: on ? 22 : 2 }} /></span>
   </button>
+);
+
+/** ↑ / ↓ / × row controls used by the repeatable lists (benefits, FAQs). */
+const ListControls: React.FC<{ index: number; total: number; onMove: (from: number, to: number) => void; onRemove: () => void; label: string }> = ({ index, total, onMove, onRemove, label }) => (
+  <div className="flex items-center gap-1">
+    <button type="button" disabled={index === 0} onClick={() => onMove(index, index - 1)} aria-label={`Move ${label} up`} title="Move up" className="w-8 h-8 rounded-lg border border-slate-300 bg-white text-slate-600 hover:bg-slate-50 disabled:opacity-40">↑</button>
+    <button type="button" disabled={index === total - 1} onClick={() => onMove(index, index + 1)} aria-label={`Move ${label} down`} title="Move down" className="w-8 h-8 rounded-lg border border-slate-300 bg-white text-slate-600 hover:bg-slate-50 disabled:opacity-40">↓</button>
+    <button type="button" onClick={onRemove} aria-label={`Remove ${label}`} title="Remove" className="w-8 h-8 rounded-lg border border-red-200 bg-red-50 text-red-700 hover:bg-red-100">×</button>
+  </div>
 );
 
 /* ---------------- small list row ---------------- */
@@ -528,6 +537,148 @@ const ToolCategoriesPane: React.FC = () => {
       </section>
 
       <p className="text-xs text-slate-400">Deleting a category never deletes tools: they move to the nearest remaining category. A category with no live tools yet shows an empty category page on the site.</p>
+    </div>
+  );
+};
+
+/**
+ * Admin → Competitor Analysis.
+ *
+ * Every word of the public /competitor-analysis page: the hero block, the two
+ * input labels, the compare button and its fallback note, then the About, How
+ * to read the report and Benefits sections (each with a full WYSIWYG editor,
+ * and benefits as repeatable blocks) and the FAQ list (rich-text answers,
+ * add / remove / reorder). Saving shows the standard "Saved ✓" and the live
+ * page picks the copy up instantly — layout, tool behaviour and URL unchanged.
+ */
+const CompetitorPane: React.FC = () => {
+  const { state, setCompetitor, setSeo } = useCms();
+  const [f, setF] = useState<CmsCompetitor>(state.competitor);
+  const [seo, setSeoDraft] = useState<SeoEntry>(state.seo['competitor-analysis'] || {
+    title: '', description: '',
+  });
+  const patch = (part: Partial<CmsCompetitor>) => setF(prev => ({ ...prev, ...part }));
+  const moveItem = <T,>(list: T[], from: number, to: number): T[] => {
+    if (to < 0 || to >= list.length) return list;
+    const next = [...list];
+    const [item] = next.splice(from, 1);
+    next.splice(to, 0, item);
+    return next;
+  };
+  const save = () => { setCompetitor(f); setSeo('competitor-analysis', seo); };
+
+  return (
+    <div className="space-y-5">
+      <div className="flex flex-wrap items-center gap-3">
+        <span className="text-sm text-slate-500">Page copy for <code className="font-mono text-slate-600">/competitor-analysis</code> · every section below is editable</span>
+        <button type="button" onClick={() => navigate('/competitor-analysis')} className="ml-auto text-sm font-semibold text-indigo-600 hover:text-indigo-700">Preview page →</button>
+      </div>
+
+      <section aria-label="Competitor Analysis" aria-labelledby="competitor-pane" className="bg-white rounded-2xl border border-slate-200 p-5 space-y-4">
+        <div className="flex flex-wrap items-center gap-3">
+          <h2 id="competitor-pane" className="font-bold text-slate-900">Competitor Analysis</h2>
+          <span className="text-xs text-slate-500">Hero, input labels, button, fallback note, the three content sections and the FAQs.</span>
+        </div>
+
+        {/* ---- page header & intro ---- */}
+        <div className="rounded-xl border border-slate-200 p-4 space-y-4">
+          <p className="text-xs font-bold uppercase tracking-wide text-slate-400">Page header &amp; intro</p>
+          <div className="grid md:grid-cols-2 gap-4">
+            <Field label="Hero title" hint="The page's main heading (H1)."><input className={inputCls} value={f.heroTitle} onChange={e => patch({ heroTitle: e.target.value })} aria-label="Hero title" /></Field>
+            <Field label="Subtitle" hint="Small line above the title."><input className={inputCls} value={f.heroSubtitle} onChange={e => patch({ heroSubtitle: e.target.value })} aria-label="Hero subtitle" /></Field>
+          </div>
+          <Field label="Intro paragraph" hint={`${f.heroIntro.trim().length} characters — shown under the title.`}>
+            <textarea rows={3} className={inputCls} value={f.heroIntro} onChange={e => patch({ heroIntro: e.target.value })} aria-label="Intro paragraph" />
+          </Field>
+        </div>
+
+        {/* ---- tool input area ---- */}
+        <div className="rounded-xl border border-slate-200 p-4 space-y-4">
+          <p className="text-xs font-bold uppercase tracking-wide text-slate-400">Tool input area</p>
+          <div className="grid md:grid-cols-2 gap-4">
+            <Field label="Label — your website"><input className={inputCls} value={f.yourLabel} onChange={e => patch({ yourLabel: e.target.value })} aria-label="Your website label" /></Field>
+            <Field label="Label — competitor website"><input className={inputCls} value={f.theirLabel} onChange={e => patch({ theirLabel: e.target.value })} aria-label="Competitor website label" /></Field>
+            <Field label="Button text" hint="The ↗ arrow is added automatically."><input className={inputCls} value={f.buttonText} onChange={e => patch({ buttonText: e.target.value })} aria-label="Button text" /></Field>
+            <Field label="Fallback note"><input className={inputCls} value={f.fallbackNote} onChange={e => patch({ fallbackNote: e.target.value })} aria-label="Fallback note" /></Field>
+          </div>
+        </div>
+
+        {/* ---- about ---- */}
+        <div className="rounded-xl border border-slate-200 p-4 space-y-4">
+          <p className="text-xs font-bold uppercase tracking-wide text-slate-400">Section — about the tool</p>
+          <div className="grid md:grid-cols-2 gap-4">
+            <Field label="Eyebrow text"><input className={inputCls} value={f.aboutEyebrow} onChange={e => patch({ aboutEyebrow: e.target.value })} aria-label="About eyebrow" /></Field>
+            <Field label="Section heading"><input className={inputCls} value={f.aboutHeading} onChange={e => patch({ aboutHeading: e.target.value })} aria-label="About heading" /></Field>
+          </div>
+          <Field label="Section content" hint="Visual editor — headings, paragraphs, lists, links, images, colour and alignment. Switch to the Code tab for raw HTML.">
+            <RichTextEditor value={f.aboutContent} onChange={html => patch({ aboutContent: html })} minHeight={240} placeholder="Write the about section…" draftKey={draftId('competitor', 'about')} ariaLabel="About section content" />
+          </Field>
+        </div>
+
+        {/* ---- how to read ---- */}
+        <div className="rounded-xl border border-slate-200 p-4 space-y-4">
+          <p className="text-xs font-bold uppercase tracking-wide text-slate-400">Section — how to read the report</p>
+          <Field label="Section heading"><input className={inputCls} value={f.howToHeading} onChange={e => patch({ howToHeading: e.target.value })} aria-label="How to read heading" /></Field>
+          <Field label="Section content" hint="Visual editor — the numbered list below is the default; edit the steps or rewrite the whole section.">
+            <RichTextEditor value={f.howToContent} onChange={html => patch({ howToContent: html })} minHeight={220} placeholder="Write the steps…" draftKey={draftId('competitor', 'howto')} ariaLabel="How to read section content" />
+          </Field>
+        </div>
+
+        {/* ---- benefits ---- */}
+        <div className="rounded-xl border border-slate-200 p-4 space-y-4">
+          <p className="text-xs font-bold uppercase tracking-wide text-slate-400">Section — benefits</p>
+          <div className="grid md:grid-cols-2 gap-4">
+            <Field label="Section heading"><input className={inputCls} value={f.benefitsHeading} onChange={e => patch({ benefitsHeading: e.target.value })} aria-label="Benefits heading" /></Field>
+            <Field label="Section intro (optional)" hint={`${f.benefitsIntro.trim().length} characters`}><input className={inputCls} value={f.benefitsIntro} onChange={e => patch({ benefitsIntro: e.target.value })} aria-label="Benefits intro" /></Field>
+          </div>
+          <div className="space-y-3">
+            <p className="text-xs font-semibold text-slate-500">{f.benefits.length} benefit block{f.benefits.length === 1 ? '' : 's'}</p>
+            {f.benefits.map((benefit, index) => (
+              <div key={benefit.id} className="rounded-xl border border-slate-200 bg-slate-50 p-3 space-y-2">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-bold text-slate-400">#{index + 1}</span>
+                  <input className={inputCls} value={benefit.title} onChange={e => patch({ benefits: f.benefits.map(b => (b.id === benefit.id ? { ...b, title: e.target.value } : b)) })} placeholder="Benefit title" aria-label={`Benefit ${index + 1} title`} />
+                  <ListControls index={index} total={f.benefits.length} label={`benefit ${index + 1}`} onMove={(from, to) => patch({ benefits: moveItem(f.benefits, from, to) })} onRemove={() => patch({ benefits: f.benefits.filter(b => b.id !== benefit.id) })} />
+                </div>
+                <textarea rows={2} className={inputCls} value={benefit.text} onChange={e => patch({ benefits: f.benefits.map(b => (b.id === benefit.id ? { ...b, text: e.target.value } : b)) })} placeholder="One or two sentences about this benefit" aria-label={`Benefit ${index + 1} text`} />
+              </div>
+            ))}
+            <Btn tone="ghost" onClick={() => patch({ benefits: [...f.benefits, { id: `benefit-${Math.random().toString(36).slice(2, 9)}`, title: 'New benefit', text: '' }] })}>+ Add benefit</Btn>
+          </div>
+        </div>
+
+        {/* ---- FAQs ---- */}
+        <div className="rounded-xl border border-slate-200 p-4 space-y-4">
+          <p className="text-xs font-bold uppercase tracking-wide text-slate-400">Section — FAQs</p>
+          <div className="grid md:grid-cols-2 gap-4">
+            <Field label="Eyebrow text"><input className={inputCls} value={f.faqEyebrow} onChange={e => patch({ faqEyebrow: e.target.value })} aria-label="FAQ eyebrow" /></Field>
+            <Field label="Section heading"><input className={inputCls} value={f.faqHeading} onChange={e => patch({ faqHeading: e.target.value })} aria-label="FAQ heading" /></Field>
+          </div>
+          <div className="space-y-3">
+            <p className="text-xs font-semibold text-slate-500">{f.faqs.length} question{f.faqs.length === 1 ? '' : 's'} — reorder with the arrows, answers support rich text.</p>
+            {f.faqs.map((faq, index) => (
+              <div key={faq.id} className="rounded-xl border border-slate-200 bg-slate-50 p-3 space-y-2">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-bold text-slate-400">#{index + 1}</span>
+                  <input className={inputCls} value={faq.question} onChange={e => patch({ faqs: f.faqs.map(q => (q.id === faq.id ? { ...q, question: e.target.value } : q)) })} placeholder="Question" aria-label={`FAQ ${index + 1} question`} />
+                  <ListControls index={index} total={f.faqs.length} label={`FAQ ${index + 1}`} onMove={(from, to) => patch({ faqs: moveItem(f.faqs, from, to) })} onRemove={() => patch({ faqs: f.faqs.filter(q => q.id !== faq.id) })} />
+                </div>
+                <RichTextEditor value={faq.answer} onChange={html => patch({ faqs: f.faqs.map(q => (q.id === faq.id ? { ...q, answer: html } : q)) })} minHeight={120} placeholder="Write the answer…" draftKey={draftId('competitor', `faq-${index}`)} ariaLabel={`FAQ ${index + 1} answer`} />
+              </div>
+            ))}
+            <Btn tone="ghost" onClick={() => patch({ faqs: [...f.faqs, { id: `faq-${Math.random().toString(36).slice(2, 9)}`, question: 'New question', answer: '' }] })}>+ Add FAQ</Btn>
+          </div>
+        </div>
+
+        <SeoMetaEditor value={seo} onChange={setSeoDraft} fallbackTitle={`SEO Competitor Analysis — Compare Two Websites Free | ${state.settings.name}`} fallbackDescription="Compare your website with a competitor: overall SEO scores, domain registration, on-page checks, Google-style SERP previews and a two-column full audit. Free, no sign-up." routeHint="/competitor-analysis" />
+
+        <div className="flex flex-wrap items-center gap-3">
+          <SaveButton label="Save Changes" onSave={save} />
+          <Btn tone="ghost" onClick={() => setF(defaultCompetitor)}>Reset fields to default copy</Btn>
+          <button type="button" onClick={() => navigate('/competitor-analysis')} className="text-sm font-semibold text-indigo-600 hover:text-indigo-700">Open the live page →</button>
+          <span className="text-xs text-slate-400">Saving updates /competitor-analysis instantly — no reload.</span>
+        </div>
+      </section>
     </div>
   );
 };
@@ -1330,8 +1481,8 @@ const SettingsPane: React.FC = () => {
 };
 
 /* ---------------- shell ---------------- */
-type Tab = 'dashboard' | 'pages' | 'blog' | 'tools' | 'toolcats' | 'sidebar' | 'sections' | 'settings';
-const TABS: [Tab, string][] = [['dashboard', 'Dashboard'], ['pages', 'Pages'], ['blog', 'Blog posts'], ['tools', 'Tools'], ['toolcats', 'Tool Categories'], ['sidebar', 'Sidebar'], ['sections', 'Sections & Nav'], ['settings', 'Settings']];
+type Tab = 'dashboard' | 'pages' | 'blog' | 'tools' | 'toolcats' | 'competitor' | 'sidebar' | 'sections' | 'settings';
+const TABS: [Tab, string][] = [['dashboard', 'Dashboard'], ['pages', 'Pages'], ['blog', 'Blog posts'], ['tools', 'Tools'], ['toolcats', 'Tool Categories'], ['competitor', 'Competitor Analysis'], ['sidebar', 'Sidebar'], ['sections', 'Sections & Nav'], ['settings', 'Settings']];
 
 export const AdminApp: React.FC = () => {
   const { loggedIn, logout, state, storageWarning } = useCms();
@@ -1375,6 +1526,7 @@ export const AdminApp: React.FC = () => {
         {tab === 'blog' && <BlogPane />}
         {tab === 'tools' && <ToolsPane />}
         {tab === 'toolcats' && <ToolCategoriesPane />}
+        {tab === 'competitor' && <CompetitorPane />}
         {tab === 'sidebar' && <SidebarPane />}
         {tab === 'sections' && <SectionsPane />}
         {tab === 'settings' && <SettingsPane />}

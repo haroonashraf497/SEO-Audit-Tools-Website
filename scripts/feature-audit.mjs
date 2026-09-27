@@ -432,7 +432,7 @@ check('the four built-in article categories are seeded and migrated',
   /export const defaultBlogCategories: CmsBlogCategory\[\] = \[[\s\S]{0,400}'Core Web Vitals'[\s\S]{0,200}'PageSpeed'[\s\S]{0,200}'WordPress SEO'[\s\S]{0,200}'Google & Indexing'/.test(store)
   && /const migrateBlogCategories = \(saved\?: CmsBlogCategory\[\]\): CmsBlogCategory\[\] => \{/.test(store)
   && /blogCategories: migrateBlogCategories\(parsed\.blogCategories\),/.test(store)
-  && /blogCategories: migrateBlogCategories\(parsed\.blogCategories\), toolCategories: migrateToolCategories\(parsed\.toolCategories\), seo: migrateSeo/.test(store));
+  && /blogCategories: migrateBlogCategories\(parsed\.blogCategories\), toolCategories: migrateToolCategories\(parsed\.toolCategories\), competitor: migrateCompetitor\(parsed\.competitor\), seo: migrateSeo/.test(store));
 check('adding, renaming, hiding and removing categories all persist',
   /addBlogCategory: \(name\) => \{/.test(store)
   && /saveBlogCategory: \(slug, patch\) => setState\(s => \{/.test(store)
@@ -570,6 +570,100 @@ check('styling and icons fall back for categories added in the admin',
   /export const categoryStyle = \(key: string\): string =>/.test(dataSrc)
   && /export const categoryLabel = \(key: string\): string =>/.test(dataSrc)
   && /default:\s*\/\/ A category added in the admin/.test(dataSrc));
+
+/* ---- Competitor Analysis: the /competitor-analysis page copy is managed ---- */
+check('the competitor page model covers the hero, the inputs, the sections and the FAQs',
+  /export interface CmsCompetitor \{[\s\S]{0,200}heroSubtitle: string;[\s\S]{0,120}heroTitle: string;[\s\S]{0,120}heroIntro: string;[\s\S]{0,200}yourLabel: string;[\s\S]{0,120}theirLabel: string;[\s\S]{0,120}buttonText: string;[\s\S]{0,120}fallbackNote: string;/.test(store)
+  && /aboutHeading: string;\s*aboutContent: string;/.test(store)
+  && /howToHeading: string;\s*howToContent: string;/.test(store)
+  && /benefitsHeading: string;\s*benefitsIntro: string;\s*benefits: CmsBenefit\[\];/.test(store)
+  && /faqHeading: string;\s*faqs: CmsFaqItem\[\];/.test(store));
+check('a benefit is a title plus a text block, an FAQ is a question plus a rich answer',
+  /export interface CmsBenefit \{[\s\S]{0,160}title: string;[\s\S]{0,80}text: string;/.test(store)
+  && /export interface CmsFaqItem \{[\s\S]{0,160}question: string;[\s\S]{0,80}answer: string;/.test(store));
+check('the built-in copy seeds the managed page (title, labels, button, fallback note)',
+  /export const defaultCompetitor: CmsCompetitor = \{[\s\S]{0,200}heroSubtitle: 'Side-by-side SEO audit',[\s\S]{0,120}heroTitle: 'Website Competitor Analysis',/.test(store)
+  && /yourLabel: 'Your website',[\s\S]{0,120}theirLabel: 'Competitor website',/.test(store)
+  && /buttonText: 'Compare Both Websites',/.test(store)
+  && /fallbackNote: 'If a site blocks browser access/.test(store));
+check('the seeded copy keeps the three sections and the FAQ list',
+  /aboutHeading: 'What is Website Competitor Analysis\?',/.test(store)
+  && /howToHeading: 'How to read the comparison report',/.test(store)
+  && /benefitsHeading: 'Benefits',/.test(store)
+  && /faqHeading: 'Competitor Analysis FAQs',/.test(store)
+  && (store.match(/question: '/g) || []).length >= 7);
+check('the store carries the page copy and defaults to the seeded version',
+  /competitor: CmsCompetitor;/.test(store) && /competitor: defaultCompetitor,/.test(store));
+check('a browser that never saved any gets the built-in copy, a saved one is completed field by field',
+  /const migrateCompetitor = \(saved\?: Partial<CmsCompetitor>\): CmsCompetitor => \{\s*if \(!saved \|\| typeof saved !== 'object'\) return defaultCompetitor;/.test(store)
+  && /heroTitle: text\(saved\.heroTitle, defaultCompetitor\.heroTitle\)/.test(store)
+  && /benefitsIntro: typeof saved\.benefitsIntro === 'string' \? saved\.benefitsIntro : defaultCompetitor\.benefitsIntro/.test(store));
+check('benefits and FAQs survive a save (ids kept, missing ids regenerated)',
+  /const benefits = Array\.isArray\(saved\.benefits\)[\s\S]{0,300}map\(b => \(\{ id: b\.id \|\| uid\(\), title: b\.title \|\| '', text: b\.text \|\| '' \}\)\)/.test(store)
+  && /const faqs = Array\.isArray\(saved\.faqs\)[\s\S]{0,320}map\(f => \(\{ id: f\.id \|\| uid\(\), question: f\.question \|\| '', answer: f\.answer \|\| '' \}\)\)/.test(store));
+check('the stored CMS and an imported backup both run the migration',
+  (store.match(/competitor: migrateCompetitor\(parsed\.competitor\)/g) || []).length === 2);
+check('one action saves the whole page and shows the standard confirmation',
+  /setCompetitor: \(value: CmsCompetitor\) => void;/.test(store)
+  && /setCompetitor: \(value\) => setState\(s => \(\{ \.\.\.s, competitor: migrateCompetitor\(value\) \}\)\)/.test(store));
+check('the admin tab list places Competitor Analysis after Tool Categories',
+  /\['toolcats', 'Tool Categories'\], \['competitor', 'Competitor Analysis'\], \['sidebar', 'Sidebar'\]/.test(adminSrc)
+  && /\{tab === 'competitor' && <CompetitorPane \/>\}/.test(adminSrc));
+check('the pane edits the page header, the intro and the tool input area',
+  /const CompetitorPane: React\.FC = \(\) => \{/.test(adminSrc)
+  && /aria-label="Hero title"/.test(adminSrc)
+  && /aria-label="Hero subtitle"/.test(adminSrc)
+  && /aria-label="Intro paragraph"/.test(adminSrc)
+  && /aria-label="Your website label"/.test(adminSrc)
+  && /aria-label="Competitor website label"/.test(adminSrc)
+  && /aria-label="Button text"/.test(adminSrc)
+  && /aria-label="Fallback note"/.test(adminSrc));
+check('every content section gets a full WYSIWYG editor',
+  /<RichTextEditor value=\{f\.aboutContent\}/.test(adminSrc)
+  && /<RichTextEditor value=\{f\.howToContent\}/.test(adminSrc)
+  && /<RichTextEditor value=\{faq\.answer\}/.test(adminSrc)
+  && /draftKey=\{draftId\('competitor', 'about'\)\}/.test(adminSrc)
+  && /draftKey=\{draftId\('competitor', 'howto'\)\}/.test(adminSrc));
+check('benefits are repeatable blocks with add, remove and reorder',
+  /aria-label=\{`Benefit \$\{index \+ 1\} title`\}/.test(adminSrc)
+  && /aria-label=\{`Benefit \$\{index \+ 1\} text`\}/.test(adminSrc)
+  && /\+ Add benefit/.test(adminSrc)
+  && /const moveItem = <T,>\(list: T\[\], from: number, to: number\): T\[\] => \{/.test(adminSrc)
+  && /const ListControls: React\.FC<\{ index: number; total: number; onMove: \(from: number, to: number\) => void; onRemove: \(\) => void; label: string \}>/.test(adminSrc));
+check('FAQs add, remove and reorder, with a rich-text answer per item',
+  /aria-label=\{`FAQ \$\{index \+ 1\} question`\}/.test(adminSrc)
+  && /ariaLabel=\{`FAQ \$\{index \+ 1\} answer`\}/.test(adminSrc)
+  && /\+ Add FAQ/.test(adminSrc)
+  && /onMove=\{\(from, to\) => patch\(\{ faqs: moveItem\(f\.faqs, from, to\) \}\)\}/.test(adminSrc)
+  && /onRemove=\{\(\) => patch\(\{ faqs: f\.faqs\.filter\(q => q\.id !== faq\.id\) \}\)\}/.test(adminSrc));
+check('the pane saves with "Save Changes", previews and can reset to the seeded copy',
+  /<SaveButton label="Save Changes" onSave=\{save\} \/>/.test(adminSrc)
+  && /Open the live page →/.test(adminSrc)
+  && /onClick=\{\(\) => setF\(defaultCompetitor\)\}/.test(adminSrc));
+check('the meta title, description, canonical and indexing stay editable for the page',
+  /setSeo\('competitor-analysis', seo\)/.test(adminSrc)
+  && /state\.seo\['competitor-analysis'\]/.test(adminSrc)
+  && /routeHint="\/competitor-analysis"/.test(adminSrc));
+check('the live page reads the hero, the labels, the button and the fallback note from the CMS',
+  /const copy = useCms\(\)\.state\.competitor;/.test(read('src/tools/CompetitorAnalysis.tsx'))
+  && /\{copy\.heroSubtitle\}[\s\S]{0,120}\{copy\.heroTitle\}[\s\S]{0,160}\{copy\.heroIntro\}/.test(read('src/tools/CompetitorAnalysis.tsx'))
+  && /\{copy\.yourLabel\}/.test(read('src/tools/CompetitorAnalysis.tsx'))
+  && /\{copy\.theirLabel\}/.test(read('src/tools/CompetitorAnalysis.tsx'))
+  && /\{copy\.buttonText\} →/.test(read('src/tools/CompetitorAnalysis.tsx'))
+  && /\{copy\.fallbackNote\}/.test(read('src/tools/CompetitorAnalysis.tsx')));
+check('the three sections and the FAQs render from the CMS copy',
+  /const copy = state\.competitor;/.test(read('src/tools/CompetitorAnalysis.tsx'))
+  && /sanitizeRichHtml\(copy\.aboutContent\)/.test(read('src/tools/CompetitorAnalysis.tsx'))
+  && /sanitizeRichHtml\(copy\.howToContent\)/.test(read('src/tools/CompetitorAnalysis.tsx'))
+  && /copy\.benefits\.map\(benefit =>/.test(read('src/tools/CompetitorAnalysis.tsx'))
+  && /copy\.faqs\.map\(\(faq, index\) =>/.test(read('src/tools/CompetitorAnalysis.tsx'))
+  && /sanitizeRichHtml\(faq\.answer\)/.test(read('src/tools/CompetitorAnalysis.tsx')));
+check('the comparison tool itself (engines, scoring, results view) is untouched',
+  /const buildAudit = \(input: string, page: LivePageData, live: boolean\): Audit => \{/.test(read('src/tools/CompetitorAnalysis.tsx'))
+  && /const run = async \(\) => \{/.test(read('src/tools/CompetitorAnalysis.tsx'))
+  && /SEO Competitor Comparison/.test(read('src/tools/CompetitorAnalysis.tsx'))
+  && /route === 'competitor-analysis'/.test(seoUtil)
+  && /path: '\/competitor-analysis',/.test(seoUtil));
 
 console.log('\n=== ✅ Preserved ===');
 check('no "Loading page" anywhere in src', !/Loading page/.test(read('src/App.tsx') + read('src/components/ErrorBoundary.tsx') + read('src/tools/Tools.tsx')));

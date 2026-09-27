@@ -75,6 +75,53 @@ export interface CmsToolCategory {
   builtin: boolean;
 }
 
+/**
+ * One benefit block on /competitor-analysis ("Benefits" section).
+ * The title is plain text, the copy is a short paragraph.
+ */
+export interface CmsBenefit {
+  id: string;
+  title: string;
+  text: string;
+}
+
+/** One FAQ row on /competitor-analysis: a question and a rich-text answer. */
+export interface CmsFaqItem {
+  id: string;
+  question: string;
+  answer: string;
+}
+
+/**
+ * The /competitor-analysis page, managed in Admin → Competitor Analysis.
+ *
+ * Every string the visitor reads on that page lives here — the hero block, the
+ * two input labels, the compare button and its fallback note, and the three
+ * content sections underneath (about, how to read the report, benefits) plus
+ * the FAQ list. The tool itself (engines, scoring, layout) is untouched: it
+ * only reads this copy instead of the built-in defaults.
+ */
+export interface CmsCompetitor {
+  heroSubtitle: string;
+  heroTitle: string;
+  heroIntro: string;
+  yourLabel: string;
+  theirLabel: string;
+  buttonText: string;
+  fallbackNote: string;
+  aboutEyebrow: string;
+  aboutHeading: string;
+  aboutContent: string;
+  howToHeading: string;
+  howToContent: string;
+  benefitsHeading: string;
+  benefitsIntro: string;
+  benefits: CmsBenefit[];
+  faqEyebrow: string;
+  faqHeading: string;
+  faqs: CmsFaqItem[];
+}
+
 export interface CmsPage {
   id: string; slug: string; title: string; metaTitle: string; metaDescription: string;
   /** Rich-text HTML document — the single source of truth for the page body. */
@@ -177,6 +224,8 @@ export interface CmsState {
   blogCategories: CmsBlogCategory[];
   /** Tool categories — managed in Admin → Tool Categories. */
   toolCategories: CmsToolCategory[];
+  /** The /competitor-analysis page — managed in Admin → Competitor Analysis. */
+  competitor: CmsCompetitor;
   passcode: string;
 }
 
@@ -346,6 +395,83 @@ export const toolCategorySummary = (state: CmsState, key: string): string => {
   return (categoryDescriptions as Record<string, string>)[key] || cat?.description || '';
 };
 
+/** The /competitor-analysis copy every visitor sees until the admin edits it. */
+export const defaultCompetitor: CmsCompetitor = {
+  heroSubtitle: 'Side-by-side SEO audit',
+  heroTitle: 'Website Competitor Analysis',
+  heroIntro: 'Run two complete audits with the same on-page, technical, mobile, security and performance checks used by the homepage audit.',
+  yourLabel: 'Your website',
+  theirLabel: 'Competitor website',
+  buttonText: 'Compare Both Websites',
+  fallbackNote: 'If a site blocks browser access, a clearly labelled URL-based fallback keeps the comparison working.',
+  aboutEyebrow: 'About the tool',
+  aboutHeading: 'What is Website Competitor Analysis?',
+  aboutContent: '<p>This tool audits two public web pages with the same checklist, then puts the results next to each other. That makes differences easier to spot than reading two separate reports.</p><p>Use it when a competitor outranks you, when you are planning a new landing page, or when you want a practical benchmark before rewriting content. The report does not copy a competitor’s strategy. It shows where their page is stronger, where yours already leads, and which gaps are worth investigating.</p><p>The comparison covers page titles, descriptions, headings, word count, images, internal and external links, nofollow attributes, responsive signals, security and HTML performance. Keyword frequency is extracted from the visible page copy so you can compare topic coverage without relying on guessed search-volume data.</p>',
+  howToHeading: 'How to read the comparison report',
+  howToContent: '<ol><li>Compare matching page types. A homepage should be compared with a homepage, not a blog article.</li><li>Start with the overall and category scores to locate the largest gap.</li><li>Read the individual checks. Each one explains the finding and the recommended fix.</li><li>Review keywords for missing subtopics, not phrases to copy.</li><li>Inspect internal and external URL samples to understand how each page supports navigation and authority.</li><li>Turn the priority plan into a development or content checklist, then re-run the analysis.</li></ol>',
+  benefitsHeading: 'Benefits',
+  benefitsIntro: '',
+  benefits: [
+    { id: uid(), title: 'A fair benchmark', text: 'Both pages are tested with identical rules, so score differences are easier to interpret.' },
+    { id: uid(), title: 'Clear priorities', text: 'Errors and warnings become a focused improvement plan instead of a long, unstructured audit.' },
+    { id: uid(), title: 'Better content briefs', text: 'Keyword and heading comparisons reveal topics and supporting sections that may be missing.' },
+    { id: uid(), title: 'Stronger internal linking', text: 'URL samples show how each page directs visitors and crawlers to related content.' },
+    { id: uid(), title: 'Faster reviews', text: 'Marketers, developers and clients can discuss one side-by-side report instead of switching between tools.' },
+  ],
+  faqEyebrow: 'Questions',
+  faqHeading: 'Competitor Analysis FAQs',
+  faqs: [
+    { id: uid(), question: 'What does the competitor analysis compare?', answer: '<p>It compares both pages across on-page SEO, technical signals, mobile readiness, security, performance, keywords, content depth and link structure. Domain registration and expiry dates for both sites come from public RDAP registry data.</p>' },
+    { id: uid(), question: 'Does this tool check an entire website?', answer: '<p>It compares the two exact URLs you enter. For a broader view, test matching templates such as both homepages, both service pages, or both product pages.</p>' },
+    { id: uid(), question: 'Why does a report say Estimated fallback?', answer: '<p>Some websites block browser or CORS access. In that case the tool completes with stable URL-based sample data so the workflow does not fail, and labels the result clearly.</p>' },
+    { id: uid(), question: 'Does a higher SEO score guarantee better rankings?', answer: '<p>No. The score measures important technical and on-page signals. Rankings also depend on relevance, backlinks, brand trust, user intent and competition.</p>' },
+    { id: uid(), question: 'How should I use the keyword comparison?', answer: '<p>Look for meaningful terms your competitor covers that your page misses. Add useful sections where needed, but avoid copying text or stuffing keywords.</p>' },
+    { id: uid(), question: 'What should I fix first?', answer: '<p>Start with red errors, especially missing titles, noindex directives, missing H1 tags, HTTP pages and mobile viewport problems. Then work through warnings.</p>' },
+    { id: uid(), question: 'Is the analysis stored?', answer: '<p>No. Both URLs are processed in the browser session. The tool does not create an account or store a comparison history.</p>' },
+  ],
+};
+
+const text = (value: unknown, fallback: string): string => (typeof value === 'string' && value.trim() ? value : fallback);
+
+/**
+ * Keep the admin's competitor copy across reloads. A browser that has never
+ * saved any gets the built-in copy; a saved one is completed field by field so
+ * a partial (older) save never blanks a section.
+ */
+const migrateCompetitor = (saved?: Partial<CmsCompetitor>): CmsCompetitor => {
+  if (!saved || typeof saved !== 'object') return defaultCompetitor;
+  const benefits = Array.isArray(saved.benefits)
+    ? saved.benefits
+        .filter(b => b && (typeof b.title === 'string' || typeof b.text === 'string'))
+        .map(b => ({ id: b.id || uid(), title: b.title || '', text: b.text || '' }))
+    : defaultCompetitor.benefits;
+  const faqs = Array.isArray(saved.faqs)
+    ? saved.faqs
+        .filter(f => f && (typeof f.question === 'string' || typeof f.answer === 'string'))
+        .map(f => ({ id: f.id || uid(), question: f.question || '', answer: f.answer || '' }))
+    : defaultCompetitor.faqs;
+  return {
+    heroSubtitle: text(saved.heroSubtitle, defaultCompetitor.heroSubtitle),
+    heroTitle: text(saved.heroTitle, defaultCompetitor.heroTitle),
+    heroIntro: text(saved.heroIntro, defaultCompetitor.heroIntro),
+    yourLabel: text(saved.yourLabel, defaultCompetitor.yourLabel),
+    theirLabel: text(saved.theirLabel, defaultCompetitor.theirLabel),
+    buttonText: text(saved.buttonText, defaultCompetitor.buttonText),
+    fallbackNote: text(saved.fallbackNote, defaultCompetitor.fallbackNote),
+    aboutEyebrow: text(saved.aboutEyebrow, defaultCompetitor.aboutEyebrow),
+    aboutHeading: text(saved.aboutHeading, defaultCompetitor.aboutHeading),
+    aboutContent: text(saved.aboutContent, defaultCompetitor.aboutContent),
+    howToHeading: text(saved.howToHeading, defaultCompetitor.howToHeading),
+    howToContent: text(saved.howToContent, defaultCompetitor.howToContent),
+    benefitsHeading: text(saved.benefitsHeading, defaultCompetitor.benefitsHeading),
+    benefitsIntro: typeof saved.benefitsIntro === 'string' ? saved.benefitsIntro : defaultCompetitor.benefitsIntro,
+    benefits,
+    faqEyebrow: text(saved.faqEyebrow, defaultCompetitor.faqEyebrow),
+    faqHeading: text(saved.faqHeading, defaultCompetitor.faqHeading),
+    faqs,
+  };
+};
+
 const footerLink = (label: string, href: string): FooterLink => ({ id: uid(), label, href, visible: true });
 
 /** The four footer columns every visitor sees until the admin edits them. */
@@ -377,6 +503,7 @@ export const defaultState: CmsState = {
   version: 13,
   blogCategories: defaultBlogCategories,
   toolCategories: defaultToolCategories,
+  competitor: defaultCompetitor,
   tools: defaultTools,
   posts: defaultPosts,
   pages: [
@@ -1029,6 +1156,7 @@ const load = (): CmsState => {
       footerColumns: migrateFooterColumns(parsed.footerColumns, settings),
       blogCategories: migrateBlogCategories(parsed.blogCategories),
       toolCategories: migrateToolCategories(parsed.toolCategories),
+      competitor: migrateCompetitor(parsed.competitor),
       sidebar: { ...migrateSidebar(oldSidebar), widgets: migratedWidgets },
       sections: { ...defaultState.sections, ...(parsed.sections || {}) },
       seo: migrateSeo(parsed.seo, parsedVersion),
@@ -1049,6 +1177,8 @@ interface Ctx {
   savePost: (slug: string, patch: Partial<CmsPost>) => void;
   setPostStatus: (slug: string, status: Status) => void;
   deletePost: (slug: string) => void;
+  /* /competitor-analysis copy */
+  setCompetitor: (value: CmsCompetitor) => void;
   /* tool categories */
   addToolCategory: (input: { name: string; slug?: string; description: string }) => string;
   saveToolCategory: (key: string, patch: Partial<CmsToolCategory>) => void;
@@ -1160,6 +1290,8 @@ export const CmsProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       };
     }),
 
+    setCompetitor: (value) => setState(s => ({ ...s, competitor: migrateCompetitor(value) })),
+
     // New categories get a generated key (tools store that) plus the public
     // slug the /tools/category/… URL is built from.
     addToolCategory: ({ name, slug, description }) => {
@@ -1223,7 +1355,7 @@ export const CmsProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     reset: () => setState({ ...defaultState }),
     exportJson: () => JSON.stringify({ ...state, pages: state.pages.map(pg => { const { blocks: _blocks, ...rest } = pg; return rest; }) }, null, 2),
-    importJson: (json) => { try { const parsed = JSON.parse(json) as CmsState; if (!parsed.tools || !parsed.posts) return false; const legacyItems = parsed.sidebar?.customItems || []; const widgets = parsed.sidebar?.widgets || (legacyItems.length ? [{ id: uid(), title: 'Featured links', type: 'links' as SidebarWidgetType, visible: true, source: 'manual' as SidebarLinkSource, links: legacyItems }] : []); const parsedVersion = typeof parsed.version === 'number' ? parsed.version : 1; setState({ ...defaultState, ...parsed, version: Math.max(defaultState.version, parsedVersion), pages: (parsedVersion < defaultState.version ? migratePages(parsed.pages || []) : (parsed.pages || defaultState.pages)).map(withPageContent), settings: migrateSettings(parsed.settings, parsedVersion), nav: migrateNav(parsed.nav), footerColumns: migrateFooterColumns(parsed.footerColumns, migrateSettings(parsed.settings, parsedVersion)), blogCategories: migrateBlogCategories(parsed.blogCategories), toolCategories: migrateToolCategories(parsed.toolCategories), seo: migrateSeo(parsed.seo, parsedVersion), sidebar: { ...defaultState.sidebar, ...parsed.sidebar, widgets } }); return true; } catch { return false; } },
+    importJson: (json) => { try { const parsed = JSON.parse(json) as CmsState; if (!parsed.tools || !parsed.posts) return false; const legacyItems = parsed.sidebar?.customItems || []; const widgets = parsed.sidebar?.widgets || (legacyItems.length ? [{ id: uid(), title: 'Featured links', type: 'links' as SidebarWidgetType, visible: true, source: 'manual' as SidebarLinkSource, links: legacyItems }] : []); const parsedVersion = typeof parsed.version === 'number' ? parsed.version : 1; setState({ ...defaultState, ...parsed, version: Math.max(defaultState.version, parsedVersion), pages: (parsedVersion < defaultState.version ? migratePages(parsed.pages || []) : (parsed.pages || defaultState.pages)).map(withPageContent), settings: migrateSettings(parsed.settings, parsedVersion), nav: migrateNav(parsed.nav), footerColumns: migrateFooterColumns(parsed.footerColumns, migrateSettings(parsed.settings, parsedVersion)), blogCategories: migrateBlogCategories(parsed.blogCategories), toolCategories: migrateToolCategories(parsed.toolCategories), competitor: migrateCompetitor(parsed.competitor), seo: migrateSeo(parsed.seo, parsedVersion), sidebar: { ...defaultState.sidebar, ...parsed.sidebar, widgets } }); return true; } catch { return false; } },
 
     storageWarning,
     loggedIn,
