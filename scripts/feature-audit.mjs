@@ -466,10 +466,16 @@ check('the post editor and the new-post form both get an Assign Category dropdow
 check('a category added in the editor appears in the dropdown straight away',
   /const visible = state\.blogCategories\.filter\(c => c\.visible\);/.test(adminSrc)
   && /const valueInList = known\.includes\(value\) \|\| value === UNCATEGORIZED;/.test(adminSrc));
-check('/blog renders a Blog Categories section linking to each category page',
-  /<section aria-label="Blog Categories"/.test(blogSrc)
-  && /href=\{`\/blog\/category\/\$\{cat\.slug\}`\}/.test(blogSrc)
-  && /postsInBlogCategory\(state, cat\.name\)\.length/.test(blogSrc));
+check('the blog index no longer renders the Blog Categories section',
+  !/<section aria-label="Blog Categories"/.test(blogSrc)
+  && !/Blog Categories<\/h2>/.test(blogSrc)
+  && !/href=\{`\/blog\/category\/\$\{cat\.slug\}`\}/.test(blogSrc)
+  && /role="tablist" aria-label="Filter articles by category"/.test(blogSrc));
+check('the category pages, their clean URLs and the admin manager are unchanged',
+  /export const BlogCategoryPage: React\.FC<\{ slug: string \}> = \(\{ slug \}\) => \{/.test(blogSrc)
+  && /postsInBlogCategory\(state, category\.name\)/.test(blogSrc)
+  && /<BlogCategoriesSection \/>/.test(adminSrc)
+  && /\/blog\/category\/\{cat\.slug\}</.test(adminSrc));
 check('the blog filter tabs come from the CMS categories',
   /const cats = useMemo\(\(\) => visibleBlogCategories\(state\), \[state\]\);/.test(blogSrc)
   && /const tabs = useMemo\(\(\) => \['All', \.\.\.cats\.map\(c => c\.name\)\], \[cats\]\);/.test(blogSrc)

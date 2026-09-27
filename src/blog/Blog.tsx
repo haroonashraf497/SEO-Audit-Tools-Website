@@ -167,24 +167,7 @@ export const BlogList: React.FC = () => {
             </p>
           </header>
 
-          {/* Blog Categories — each one links to its own clean URL */}
-          <section aria-label="Blog Categories" className="mb-10">
-            <h2 className="text-2xl font-bold text-slate-900 mb-4 text-center">Blog Categories</h2>
-            <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
-              {cats.map(cat => (
-                <a
-                  key={cat.id}
-                  href={`/blog/category/${cat.slug}`}
-                  className="group bg-white rounded-xl border border-slate-200 p-4 shadow-sm hover:shadow-md hover:border-indigo-200 transition-all"
-                >
-                  <span className={`inline-block px-2.5 py-1 rounded-full text-xs font-semibold border mb-2 ${categoryBadge(cat.name)}`}>{cat.name}</span>
-                  <p className="text-xs text-slate-500">{postsInBlogCategory(state, cat.name).length} article{postsInBlogCategory(state, cat.name).length === 1 ? '' : 's'}</p>
-                </a>
-              ))}
-            </div>
-          </section>
-
-          {/* Category filter */}
+          {/* Category filter — the only category control left on the blog index */}
           <div className="flex flex-wrap items-center justify-center gap-2 mb-10" role="tablist" aria-label="Filter articles by category">
             {tabs.map(cat => (
               <button

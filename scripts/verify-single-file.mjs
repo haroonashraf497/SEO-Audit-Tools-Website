@@ -396,20 +396,19 @@ for (const [old, expected] of [['/free-seo-tools?cat=ip', '/ip-tools'], ['/free-
   dom.window.close();
 }
 
-/* 3d. blog categories: a Blog Categories section on /blog that links to real
-      /blog/category/<slug> pages, and the admin section that manages them */
+/* 3d. blog categories: the /blog/category/<slug> pages stay, the Blog
+      Categories card section no longer appears on the blog index */
 {
   const { dom, errors } = await boot('', '/blog');
   const doc = dom.window.document;
-  const section = doc.querySelector('section[aria-label="Blog Categories"]');
-  const links = [...(section?.querySelectorAll('a') || [])];
-  check('the blog page shows a Blog Categories section linking to category pages',
-    !!section && links.length === 4
-    && links.every(a => /^\/blog\/category\/[a-z-]+$/.test(a.getAttribute('href') || ''))
+  const tabs = [...doc.querySelectorAll('main [role="tab"]')].map(t => t.textContent.trim());
+  check('the blog index no longer shows the Blog Categories section',
+    !doc.querySelector('section[aria-label="Blog Categories"]')
+    && !/Blog Categories/.test(doc.querySelector('main')?.textContent || '')
     && errors.length === 0,
-    links.map(a => a.getAttribute('href')).join(' | '));
-  check('each category link shows its live article count',
-    links.every(a => /\d+ articles?/.test(a.textContent)), links.map(a => a.textContent.replace(/\s+/g, ' ').trim()).join(' | '));
+    (doc.querySelector('main')?.textContent || '').includes('Blog Categories') ? 'section still present' : 'removed');
+  check('the blog index still filters by category with its tabs',
+    tabs.join(', ') === 'All, Core Web Vitals, PageSpeed, WordPress SEO, Google & Indexing', tabs.join(', '));
   dom.window.close();
 }
 for (const [slug, name, count] of [['core-web-vitals', 'Core Web Vitals', 3], ['pagespeed', 'PageSpeed', 3], ['wordpress-seo', 'WordPress SEO', 3], ['google-indexing', 'Google & Indexing', 3]]) {
@@ -648,9 +647,9 @@ for (const [slug, name, count] of [['core-web-vitals', 'Core Web Vitals', 3], ['
   };
   const preload = `localStorage.setItem('seoaudittool:cms:v1', ${JSON.stringify(JSON.stringify(state))});`;
   const { dom } = await boot(preload, '/blog');
-  const links = [...dom.window.document.querySelectorAll('section[aria-label="Blog Categories"] a')].map(a => a.getAttribute('href'));
-  check('a hidden category is left out of the public Blog Categories section',
-    links.length === 1 && links[0] === '/blog/category/core-web-vitals', links.join(' | '));
+  const tabs = [...dom.window.document.querySelectorAll('main [role="tab"]')].map(t => t.textContent.trim());
+  check('a hidden category is left out of the blog filter tabs',
+    tabs.join(', ') === 'All, Core Web Vitals', tabs.join(', '));
   dom.window.close();
   const hidden = await boot(preload, '/blog/category/secret-category');
   check('a hidden category page is not available',
