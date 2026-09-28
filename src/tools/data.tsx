@@ -19,6 +19,188 @@ export interface ToolDef {
   featuredImageAlt?: string;
 }
 
+/**
+ * Card tagline for every tool — the one-or-two-line summary shown on the tool
+ * cards of /free-seo-tools and the category pages.
+ *
+ * It is deliberately separate from `description`: the description is the
+ * full SEO copy (meta description, tool-page intro), while the tagline is
+ * tuned to fit exactly two lines on a four-up card grid. Tools created in the
+ * CMS fall back to their own description, so nothing can render empty.
+ */
+export const toolTaglines: Record<string, string> = {
+  // ---------- Text Analysis ----------
+  'plagiarism-checker': 'Check up to 1,000 words for copied text and get an instant plagiarism percentage score.',
+  'article-rewriter': 'Paste up to 2,000 words and rewrite them with word-by-word synonym suggestions and a fresh tone.',
+  'grammar-checker': 'Find spelling, grammar and punctuation mistakes in US or UK English and fix them in one click.',
+  'word-counter': 'Count words, characters, sentences and paragraphs, and see an instant reading-time estimate.',
+  'spell-checker': 'Catch misspellings, repeated words and common typos before you publish your content.',
+  'online-md5-generator': 'Generate MD5, SHA-1, SHA-256 and SHA-512 hashes from any text or string, instantly.',
+  'case-converter': 'Switch text between UPPERCASE, lowercase, Title Case and eight other writing styles.',
+  'merge-words-online-tool': 'Combine two keyword lists into every possible match for PPC campaigns and long-tail SEO.',
+  'text-to-speech': 'Hear any text read aloud in your browser with adjustable voice, pitch and reading speed.',
+  'small-text-generator': 'Turn normal text into small caps, superscript and subscript characters for bios and posts.',
+  'reverse-text-generator': 'Reverse, mirror or word-flip any text for social posts, puzzles and fun effects.',
+  // ---------- Keyword ----------
+  'keyword-rank-checker': 'Check where a site ranks on Google for up to ten target keywords, country by country.',
+  'keyword-density-checker': 'See word frequency and keyword density percentages so you never over-optimise a page.',
+  'keywords-suggestions-tool': 'Turn one seed keyword into hundreds of short and long-tail keyword ideas you can target.',
+  'website-keywords-suggestions-tool': 'Discover the keywords a website already ranks for by analysing its pages and content.',
+  'keyword-rich-domains-suggestions-tool': 'Find available domain names that contain your target keyword, ready to register.',
+  'related-keywords-finder': 'Uncover semantically related terms, questions and phrases that searchers also type.',
+  'long-tail-keyword-generator': 'Generate low-competition long-tail keyword variations around any seed term.',
+  'keyword-competition-checker': 'Gauge how hard it will be to rank for a keyword, with search volume and CPC.',
+  // ---------- Backlink ----------
+  'backlink-checker': 'Analyse the backlink profile of any site: referring domains, anchor text and link quality.',
+  'backlink-maker': 'Submit your website to well-known directories to build your first genuine backlinks.',
+  'website-links-count-checker': 'Count every internal and external link on a page and spot nofollow and broken ones.',
+  'link-tracker': 'Check whether a backlink is still live, indexed and pointing at the right page.',
+  'link-price-calculator': 'Estimate what a text link is worth using traffic, authority and placement signals.',
+  'reciprocal-link-checker': 'Verify that partner sites still link back to you, and find links they have removed.',
+  'website-link-analyzer-tool': 'Break down every internal and external link on a page by target, anchor and type.',
+  'websites-broken-link-checker': 'Find dead links, 404s and redirect chains that waste crawl budget on your site.',
+  // ---------- Website Management ----------
+  'website-seo-score-checker': 'Get an SEO score out of 100 with a breakdown of title, meta, headings, links and images.',
+  'google-pagerank-checker': 'Estimate the PageRank and modern authority of any domain, and see how link equity works today.',
+  'online-ping-website-tool': 'Notify search engines and ping services about new content and measure live response times.',
+  'website-page-speed-checker': 'Measure load timing, response time, HTML size and resource counts with speed recommendations.',
+  'website-page-size-checker': 'Check the HTML size of a page in KB and see how long it takes to download on real connections.',
+  'meta-tags-analyzer': 'Extract and grade every meta tag on a live page, from title and canonical to Open Graph.',
+  'meta-tag-generator': 'Build SEO titles, meta descriptions and social tags with a live search and share preview.',
+  'xml-sitemap-generator': 'Turn a list of URLs into a valid XML sitemap, ready to submit to search engines.',
+  'website-page-snooper': 'View the raw HTML source of any web page with line numbers, tag stats and highlighting.',
+  'website-hit-counter': 'Create a customisable visitor hit counter in classic or modern styles with embed code.',
+  'url-rewriting-tool': 'Turn dynamic query-string URLs into clean static URLs and generate the matching .htaccess rules.',
+  'screen-resolution-simulator': 'Preview any website on phones, tablets, laptops and desktops at exact pixel resolutions.',
+  'online-url-encoder-decoder': 'Encode or decode URLs and query strings instantly, with a reserved-character reference.',
+  'adsense-calculator': 'Estimate daily, monthly and yearly AdSense earnings from page views, CTR and CPC.',
+  'open-graph-checker': 'Validate the Open Graph tags on a page and see a Facebook and LinkedIn share preview.',
+  'open-graph-generator': 'Build Open Graph meta tags for websites, articles, products and videos with a live preview.',
+  'qr-code-generator': 'Generate high-resolution QR codes for links, Wi-Fi, email, phone and text as PNG or SVG.',
+  'htaccess-redirect-generator': 'Generate .htaccess rules for 301 redirects, HTTPS, www, trailing slashes and domain moves.',
+  'get-http-headers': 'Read the HTTP response headers of any URL: status, server, caching, security and cookies.',
+  'twitter-card-generator': 'Create Twitter/X card meta tags and preview exactly how your shared link will look.',
+  'internet-speed-test': 'Measure your download speed, latency and jitter in the browser, with streaming ratings.',
+  'wordpress-theme-detector': 'Detect WordPress and identify the active theme, child theme, version and plugins in use.',
+  'instant-search-suggestions-tool': 'Expand a seed keyword into hundreds of autocomplete-style suggestions with A-Z patterns.',
+  'avg-antivirus-checker': 'Scan a site for HTTPS issues, mixed content, suspicious scripts and blacklist flags.',
+  'website-screenshot-generator': 'Capture a full-page screenshot at desktop, tablet or mobile size and download it as an image.',
+  'email-privacy': 'Find email addresses exposed to spam bots and generate obfuscated, harvest-proof versions.',
+  'mobile-friendly-test': 'Test viewport settings, tap targets, font sizes and responsive images with a phone preview.',
+  'online-video-downloader': 'Understand what browsers can and cannot save legally, with safe alternatives to downloader sites.',
+  'facebook-video-downloader': 'Learn how to save Facebook videos you own or have permission to use, the official way.',
+  'facebook-story-download': 'Save your own Facebook Stories, manage archives and stay on the right side of privacy.',
+  'facebook-reels-download': 'Official ways to save your own Facebook Reels, plus safe third-party guidance.',
+  'twitter-video-downloader': 'How to save videos from X/Twitter posts using bookmarks and archives, legally.',
+  'tiktok-downloader': 'Use the built-in TikTok save feature, keep your own videos clean and avoid risky tools.',
+  'url-shortener': 'Shorten long URLs instantly, add UTM tracking parameters and generate a QR code for the result.',
+  'website-checker': 'Run a one-click health check: availability, HTTPS, speed, title, headings, links and images.',
+  'html-editor': 'Write HTML and CSS with a live side-by-side preview, starter templates and one-click download.',
+  'html-viewer': 'Paste HTML and render it instantly in a sandboxed preview next to the formatted source.',
+  'xml-formatter': 'Format and validate XML with proper indentation, error detection and element statistics.',
+  'xml-beautifier': 'Beautify compressed XML or sitemaps into a readable, indented structure with validation.',
+  'css-minify': 'Strip whitespace and comments from CSS to cut file size and speed up page loads.',
+  'html-minify': 'Compress HTML by removing whitespace, comments and optional attributes before you deploy.',
+  'javascript-minifier': 'Shrink JavaScript files by stripping spacing, comments and dead characters safely.',
+  'robots-txt-generator': 'Create a correct robots.txt with crawler rules, disallow paths and a sitemap reference.',
+  'php-formatter': 'Beautify messy PHP with consistent indentation, spacing and brace style you can copy.',
+  'html-formatter': 'Reformat minified or messy HTML into clean, indented markup that is easy to read.',
+  // ---------- Website Checker ----------
+  'google-cache-checker': 'See when Google last cached each URL and spot pages that have gone stale.',
+  'whois-checker': 'Look up the owner, registrar, creation date and expiry behind any domain in one click.',
+  'mozrank-checker': 'Check the link-popularity score of any page on the classic 1 to 10 scale.',
+  'page-authority-checker': 'Estimate how well a specific page can rank, based on its own link and content signals.',
+  'google-index-checker': 'Confirm which of your URLs Google has actually indexed, and which it has left out.',
+  'alexa-rank-checker': 'Estimate global and country traffic rank, audience reach and engagement for any site.',
+  'redirect-checker': 'Trace redirect chains hop by hop and see every status code along the way.',
+  'similar-page-checker': 'Compare two pages for duplicate or near-identical content before you publish.',
+  'cloaking-checker': 'Detect whether different content is served to search crawlers and to real visitors.',
+  'google-malware-checker': 'Check whether a domain is flagged for malware, phishing or unwanted software.',
+  'check-gzip-compression': 'Verify GZIP or Brotli compression is on and estimate the bandwidth you are saving.',
+  'ssl-checker': 'Inspect the issuer, validity dates, chain and encryption strength of any SSL certificate.',
+  'server-status-checker': 'Fetch HTTP status codes, response headers and availability for any URL you enter.',
+  'code-to-text-ratio-checker': 'Measure visible text against HTML code on a page and see if the ratio hurts ranking.',
+  'alexa-rank-comparison': 'Compare traffic rank, visitors and engagement for two websites side by side.',
+  'page-comparison': 'Compare two pages on title, meta, headings, word count and technical signals.',
+  'comparison-search': 'See where two websites rank side by side across a set of target keywords.',
+  'pokemon-go-server-status': 'Check the live status of Pokemon Go login, game and trade servers by region.',
+  'blog-finder-tool': 'Find blogs in your niche for outreach, guest posting and link-building campaigns.',
+  'apps-rank-tracking-tool': 'Track an app ranking across store categories and countries over time.',
+  'spider-simulator': 'See a page exactly as a search crawler does: tags, headings, links and visible text.',
+  'what-is-my-browser': 'Detect your browser, version, operating system, screen size and language settings.',
+  'social-stats-checker': 'Check share counts across Facebook, Pinterest, LinkedIn and Reddit for any URL.',
+  'competitor-analysis': 'Compare two websites side by side across on-page, technical, mobile and speed checks.',
+  // ---------- Domain ----------
+  'domain-age-checker': 'Find out exactly when a domain was registered and how many years old it is.',
+  'domain-authority-checker': 'Check the overall authority score of a domain out of 100 and see how it stacks up.',
+  'domain-ip-lookup': 'Resolve the IP address a domain points to, plus the location behind it.',
+  'domain-hosting-checker': 'Identify which hosting company and nameservers are powering any domain.',
+  'find-dns-records': 'Look up A, AAAA, MX, TXT, CNAME and NS records for any domain in seconds.',
+  'domain-name-search': 'Check whether a domain name is available across the most popular TLDs instantly.',
+  'blacklist-lookup': 'Check whether a domain or IP appears on major spam and blacklist databases.',
+  'expired-domains-tool': 'Discover recently expired domains that still carry authority you could register.',
+  // ---------- IP ----------
+  'what-is-my-ip': 'See your public IPv4 and IPv6 address, ISP, location, timezone and connection details.',
+  'reverse-ip-domain-check': 'Find other websites hosted on the same server IP as any domain you enter.',
+  'ip-location': 'Find the city, region, country, coordinates, ISP and timezone of any IP address.',
+  'geo-ip-locator': 'Pinpoint an IP on a map with latitude, longitude and the distance from your location.',
+  'free-daily-proxy-list': 'Browse a refreshed list of HTTP, HTTPS and SOCKS proxies with country and anonymity.',
+  'class-c-ip-checker': 'Check whether several domains share one Class C IP range, a key link-network signal.',
+  // ---------- PDF ----------
+  'merge-pdf': 'Combine several PDFs into one file, reorder the pages, then compress it further if you want.',
+  'rotate-pdf': 'Rotate all pages or a selection by 90, 180 or 270 degrees with live thumbnails, then save.',
+  'unlock-pdf': 'Remove the open password from a PDF and clear printing or copying restrictions you own.',
+  'lock-pdf': 'Protect a PDF with an open password, owner permissions and 128-bit AES encryption.',
+  'pdf-to-word': 'Convert PDF text into an editable Word document with paragraphs and page breaks kept.',
+  'word-to-pdf': 'Turn a Word file or typed text into a clean PDF with selectable text and page options.',
+  'pdf-to-jpg': 'Render every PDF page as a JPG or PNG between 72 and 300 DPI and download them together.',
+  'jpg-to-pdf': 'Combine JPG, PNG and WebP images into one PDF with page size, margins and fit options.',
+  'powerpoint-to-pdf': 'Turn PowerPoint text or slide notes into a PDF deck, one slide per page in 16:9 or 4:3.',
+  'text-to-pdf': 'Convert notes, text or code into a paginated PDF with font, margin and numbering options.',
+  'split-pdf': 'Extract page ranges, split every page into its own file or divide a PDF into equal chunks.',
+  'compress-pdf': 'Shrink a PDF with lossless optimisation or adjustable image quality, and see the saving.',
+  'compress-pdf-to-50kb': 'Shrink a PDF below 50 KB for strict upload forms, with each quality attempt shown.',
+  'compress-pdf-to-100kb': 'Compress a PDF below 100 KB for email attachments and forms while keeping text legible.',
+  'compress-pdf-to-200kb': 'Reduce a PDF below 200 KB for exam and visa uploads with automatic quality tuning.',
+  'compress-pdf-to-300kb': 'Bring scanned or image-heavy PDFs below 300 KB with a balanced quality setting.',
+  'compress-pdf-to-500kb': 'Compress large PDFs below 500 KB while keeping pages readable for sharing or archiving.',
+  'excel-to-pdf': 'Turn CSV data or pasted cells into a PDF table with fitted columns and page numbers.',
+  // ---------- Image ----------
+  'image-compressor': 'Compress JPG and PNG images in your browser with a quality slider and instant preview.',
+  'image-resizer': 'Resize images to exact pixel dimensions, keep the aspect ratio and download the result.',
+  'image-to-text-converter': 'Extract readable text from screenshots and photos with in-browser OCR.',
+  // ---------- Calculator ----------
+  'percentage-calculator': 'Work out percentages, percentage change and X as a percent of Y in one calculator.',
+  'average-calculator': 'Find the mean, median, mode and range of any list of numbers, instantly.',
+  'age-calculator': 'Calculate exact age in years, months and days between any two dates.',
+  'bmi-calculator': 'Calculate body-mass index in metric or imperial units with a clear BMI category.',
+  'gst-calculator': 'Add or remove GST at 5%, 10%, 15% or a custom rate, inclusive or exclusive.',
+  'margin-calculator': 'Work out gross margin, mark-up, cost and selling price from any two inputs.',
+  'sales-tax-calculator': 'Add sales tax or VAT at any rate, or extract tax and net amount from a total.',
+  'discount-calculator': 'Find the sale price, the saving and the discount percentage from any two values.',
+  'cpm-calculator': 'Work out cost per thousand impressions from ad spend and impressions, or the reverse.',
+  'ltv-calculator': 'Estimate customer lifetime value from order value, purchase frequency and lifespan.',
+  'probability-calculator': 'Calculate single-event, combined and conditional probability for independent events.',
+  'paypal-fee-calculator': 'Estimate PayPal fees for standard, business and international transfers before you send.',
+  'earnings-per-share-calculator': 'Calculate basic and diluted EPS from net income and outstanding share counts.',
+  'confidence-interval-calculator': 'Calculate 90%, 95% and 99% confidence intervals from mean, SD and sample size.',
+  // ---------- Unit Converter ----------
+  'unit-converter': 'Convert length, mass, temperature, volume, speed, data, pressure and more in one place.',
+  'length-converter': 'Convert between millimetres, centimetres, metres, kilometres, inches, feet and miles.',
+  'weight-converter': 'Convert between kilograms, grams, pounds, ounces, stones and tonnes instantly.',
+  'temperature-converter': 'Convert Celsius, Fahrenheit and Kelvin instantly, with a handy reference chart.',
+  'speed-converter': 'Convert between km/h, mph, m/s, knots and ft/s with instant, accurate results.',
+  'area-converter': 'Convert square metres, square feet, acres, hectares and square yards in one step.',
+  'pressure-conversion': 'Convert pascals, kilopascals, bar, atmospheres, PSI, mmHg and torr instantly.',
+  'voltage-conversion': 'Convert between volts, millivolts, kilovolts and microvolts in a single click.',
+  'power-conversion': 'Convert between watts, kilowatts, horsepower and BTU per hour instantly.',
+  'time-zone-converter': 'Convert the time between any two IANA time zones and see both local times now.',
+};
+
+/** Two-line card copy for a tool: its tagline, or its description as a fallback. */
+export const toolTagline = (tool: { slug: string; description: string }): string =>
+  toolTaglines[tool.slug] || tool.description;
+
 export const categoryLabels: Record<ToolCategory, string> = {
   text: 'Text Analysis Tools',
   keyword: 'Keyword Tools',
@@ -47,6 +229,72 @@ export const categoryDescriptions: Record<ToolCategory, string> = {
   converter: 'Length, weight, temperature, speed, area and other unit conversions.',
 };
 
+/**
+ * Public URL slug of every category. The slug is the category name in
+ * lower-case with hyphens — "IP Tools" → /ip-tools,
+ * "Website Checker Tools" → /website-checker-tools. Each category is a real
+ * page (its own canonical URL, title block and tool list), not a ?cat= filter.
+ */
+export const categorySlugs: Record<ToolCategory, string> = {
+  text: 'text-analysis-tools',
+  keyword: 'keyword-tools',
+  backlink: 'backlink-tools',
+  management: 'website-management-tools',
+  checker: 'website-checker-tools',
+  domain: 'domain-tools',
+  ip: 'ip-tools',
+  pdf: 'pdf-tools',
+  image: 'image-tools',
+  calculator: 'calculator-tools',
+  converter: 'unit-converter-tools',
+};
+
+/** Label of a category key — the built-in name, or the key itself when the
+ *  category was added in the admin (its name lives in the CMS). */
+export const categoryLabel = (key: string): string => categoryLabels[key as ToolCategory] || key;
+
+/** Badge style of a category key, with a neutral fallback for the categories
+ *  added in Admin → Tool Categories. */
+export const categoryStyle = (key: string): string =>
+  categoryStyles[key as ToolCategory] || 'bg-slate-100 text-slate-700 border-slate-200';
+
+/** Canonical path of a category page, e.g. '/ip-tools'. */
+export const categoryHref = (category: ToolCategory): string => `/${categorySlugs[category]}`;
+
+/** Category behind a URL slug, or null when the slug belongs to another route. */
+export const categoryFromSlug = (slug: string): ToolCategory | null => {
+  const key = (Object.keys(categorySlugs) as ToolCategory[]).find(c => categorySlugs[c] === slug);
+  return key || null;
+};
+
+/** Category behind its internal key (`ip`, `checker`, …), or null when the
+ *  value is not a category. Used by the `cat/<key>` route id. */
+export const categoryFromKey = (key: string): ToolCategory | null =>
+  (categoryOrder as string[]).includes(key) ? (key as ToolCategory) : null;
+
+/**
+ * SEO introduction shown under a category heading — on the tools index and on
+ * that category's own page (/ip-tools, /website-checker-tools, …).
+ *
+ * Written per category, not templated: it names the tools in the group, what
+ * each one does for the visitor and why it is worth using, which is the copy
+ * search engines read on the category URL. `categoryDescriptions` above stays
+ * the one-line summary used on the home-page cards and in meta descriptions.
+ */
+export const categoryIntros: Record<ToolCategory, string> = {
+  text: 'Check every piece of writing before it goes live: run plagiarism and grammar checks, rewrite articles, count words and characters, generate hashes and clean up formatting. All eleven Text Analysis Tools are free, need no sign-up, and your text never leaves your browser.',
+  keyword: 'Find the exact phrases your audience types into Google. Research keyword density, generate short and long-tail ideas, discover the terms a site already ranks for, and measure how hard a term is to win before you write a single word. Eight free keyword research tools, instant results.',
+  backlink: 'Build and audit the links that lift your pages up the rankings. Inspect any site\'s backlink profile and anchor text, check whether your links are still live and indexed, value a sponsored link, and find the broken links wasting your crawl budget. Eight free backlink tools, no account needed.',
+  management: 'The day-to-day utilities of running a website: generate meta tags, XML sitemaps and robots.txt files, test page speed and page size, read HTTP headers, fix redirects, build QR codes, short URLs and Open Graph tags, and minify the code you ship. 45 free website management tools that work on any site.',
+  checker: 'Audit any URL in seconds. Check Google indexing and caching, SSL certificates, redirect chains, GZIP compression, malware flags, code-to-text ratio and server status, then compare two pages or two websites side by side. 24 free website checking tools, with live results straight from your browser.',
+  domain: 'Everything you need before you register or buy a domain: age and expiry dates, WHOIS ownership, authority scores, DNS records, hosting and nameservers, spam blacklist status and recently expired domains worth registering. Eight free domain lookup tools with instant results.',
+  ip: 'See what the internet sees when it looks at your connection. Find your public IPv4 and IPv6 address, trace any IP\'s location on a map, discover other websites on the same server, and check Class C ranges or a freshly updated proxy list. All six IP tools are free and run in your browser.',
+  pdf: 'Work with PDFs without uploading your documents to a stranger\'s server. Merge, split, rotate, compress, lock and unlock files, or convert between PDF, Word, Excel, PowerPoint, JPG and plain text — 18 free PDF tools that process every file locally on your device.',
+  image: 'Compress, resize and read images right in your browser. Shrink JPG and PNG files for faster-loading pages, resize photos to exact pixel dimensions, or pull readable text out of screenshots and photos with OCR. Three free image tools with no watermark and no sign-up.',
+  calculator: 'Fast, accurate answers for everyday maths and business numbers: percentages, averages, age, BMI, GST and sales tax, profit margins, discounts, CPM, customer lifetime value, PayPal fees, earnings per share and probability. 14 free calculators that update as you type.',
+  converter: 'Convert units without hunting through conversion tables. Length, weight, temperature, speed, area, pressure, voltage, power and time zones — ten free converters with instant, accurate results in both directions and no page reloads.',
+};
+
 export const categoryOrder: ToolCategory[] = ['text', 'keyword', 'backlink', 'management', 'checker', 'domain', 'ip', 'pdf', 'image', 'calculator', 'converter'];
 
 export const categoryStyles: Record<ToolCategory, string> = {
@@ -63,9 +311,9 @@ export const categoryStyles: Record<ToolCategory, string> = {
   converter: 'bg-orange-50 text-orange-700 border-orange-100',
 };
 
-export const ToolIcon: React.FC<{ category: ToolCategory; className?: string }> = ({ category, className = 'w-5 h-5' }) => {
+export const ToolIcon: React.FC<{ category: string; className?: string }> = ({ category, className = 'w-5 h-5' }) => {
   const common = { className, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const };
-  switch (category) {
+  switch (category as ToolCategory) {
     case 'text':
       return <svg {...common}><path d="M4 7V4h16v3" /><path d="M9 20h6" /><path d="M12 4v16" /></svg>;
     case 'keyword':
@@ -88,6 +336,9 @@ export const ToolIcon: React.FC<{ category: ToolCategory; className?: string }> 
       return <svg {...common}><polyline points="17 1 21 5 17 9" /><path d="M3 11V9a4 4 0 0 1 4-4h14" /><polyline points="7 23 3 19 7 15" /><path d="M21 13v2a4 4 0 0 1-4 4H3" /></svg>;
     case 'image':
       return <svg {...common}><rect x="3" y="3" width="18" height="18" rx="2" ry="2" /><circle cx="9" cy="9" r="2" /><path d="m21 15-3.09-3.09a2 2 0 0 0-2.82 0L6 21" /></svg>;
+    default:
+      // A category added in the admin — a tag icon keeps the same visual weight.
+      return <svg {...common}><path d="M20.6 13.4 13.4 20.6a2 2 0 0 1-2.8 0L3 13V3h10l7.6 7.6a2 2 0 0 1 0 2.8z" /><circle cx="7.5" cy="7.5" r="1.5" /></svg>;
   }
 };
 
@@ -216,7 +467,7 @@ export const tools: ToolDef[] = [
   { slug: 'class-c-ip-checker', name: 'Class C IP Checker', description: 'Check whether multiple domains share the same Class C IP range, a key link-network signal.', category: 'ip', input: 'text', engine: 'classc', placeholder: 'Enter up to 20 domains, one per line\nexample.com\nexample.org' },
 
   // ---------- PDF Tools (all processing happens in the browser) ----------
-  { slug: 'merge-pdf', name: 'Merge PDF', description: 'Combine multiple PDF files into one document. Reorder files by drag-free arrows, see page counts and sizes, and download the merged PDF instantly. Files never leave your device.', category: 'pdf', input: 'none', engine: 'pdf-merge' },
+  { slug: 'merge-pdf', name: 'Merge PDF', description: 'Combine multiple PDF files into one document. Reorder files by drag-free arrows, see page counts and sizes, shrink the merged PDF with the optional compressor, and download it instantly. Files never leave your device.', category: 'pdf', input: 'none', engine: 'pdf-merge' },
   { slug: 'rotate-pdf', name: 'Rotate PDF', description: 'Rotate all pages or selected pages by 90°, 180° or 270° with live page thumbnails, then save a permanently rotated PDF.', category: 'pdf', input: 'none', engine: 'pdf-rotate' },
   { slug: 'unlock-pdf', name: 'Unlock PDF', description: 'Remove the open password and permission restrictions (printing, copying, editing) from a PDF you have the right to unlock.', category: 'pdf', input: 'none', engine: 'pdf-unlock' },
   { slug: 'lock-pdf', name: 'Lock PDF', description: 'Protect a PDF with an open password and owner password, set permissions for printing, copying and editing, using 128-bit AES encryption.', category: 'pdf', input: 'none', engine: 'pdf-lock' },

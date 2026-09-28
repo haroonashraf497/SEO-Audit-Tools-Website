@@ -3,7 +3,7 @@
 import assert from 'node:assert/strict';
 const origin = process.argv[2];
 if (!origin) throw new Error('Pass your Apache/LiteSpeed staging origin');
-for (const path of ['/about', '/free-tools?cat=calculator', '/tool/percentage-calculator', '/blog']) {
+for (const path of ['/about', '/free-seo-tools', '/calculator-tools', '/percentage-calculator', '/blog']) {
   const response = await fetch(new URL(path, origin), { redirect: 'manual' });
   assert.equal(response.status, 200, `${path} must serve the shell, not redirect to /`);
   assert.match(await response.text(), /id="root"/);
@@ -12,11 +12,25 @@ for (const path of ['/about', '/free-tools?cat=calculator', '/tool/percentage-ca
 for (const [path, destination] of [
   ['/index.html?from=test', '/?from=test'],
   ['/p/about?from=test', '/about?from=test'],
-  ['/tool', '/free-tools'],
   ['/about.html', '/about'],
-  ['/tools', '/free-tools'],
-  ['/tools/', '/free-tools'],
-  ['/tool//percentage-calculator', '/tool/percentage-calculator'],
+  // the tools index answers on /free-seo-tools; every older spelling 301s to it
+  ['/tools', '/free-seo-tools'],
+  ['/tools/', '/free-seo-tools'],
+  ['/tool', '/free-seo-tools'],
+  ['/free-tools', '/free-seo-tools'],
+  ['/free-seo-tool', '/free-seo-tools'],
+  // a legacy ?cat= filter 301s onto the category page
+  ['/free-seo-tools?cat=pdf', '/pdf-tools'],
+  ['/free-seo-tools?cat=ip', '/ip-tools'],
+  ['/free-seo-tools?cat=checker', '/website-checker-tools'],
+  // tool pages are top level: every older nesting 301s onto the bare slug
+  ['/free-seo-tools//percentage-calculator', '/percentage-calculator'],
+  ['/free-seo-tools/percentage-calculator', '/percentage-calculator'],
+  ['/free-seo-tools/percentage-calculator/', '/percentage-calculator'],
+  ['/tool/percentage-calculator', '/percentage-calculator'],
+  ['/tool/percentage-calculator/', '/percentage-calculator'],
+  ['/free-tools/percentage-calculator', '/percentage-calculator'],
+  ['/free-seo-tool/percentage-calculator', '/percentage-calculator'],
 ]) {
   const response = await fetch(new URL(path, origin), { redirect: 'manual' });
   assert.equal(response.status, 301, path);
@@ -30,20 +44,13 @@ for (const path of ['/robots.txt', '/sitemap.xml', '/favicon.svg', '/og.jpg']) {
   console.log(`PASS asset ${path}`);
 }
 
-// Code-split build: the hashed /assets chunks must be deployed alongside
-// index.html and served with long-lived immutable caching. Chunk names are
-// read from the local dist/ output, which is the deployment source.
-import { readdirSync } from 'node:fs';
-const entry = readdirSync(new URL('../dist/assets', import.meta.url)).find(f => /^index-[^/]+\.js$/.test(f));
-const routeChunk = readdirSync(new URL('../dist/assets', import.meta.url)).find(f => /^Tools-[^/]+\.js$/.test(f));
-if (!entry || !routeChunk) throw new Error('Run npm run build first — dist/assets chunks are missing');
-for (const path of [`/assets/${entry}`, `/assets/${routeChunk}`]) {
-  const response = await fetch(new URL(path, origin));
-  assert.equal(response.status, 200, `${path} must be uploaded with index.html`);
-  assert.match(response.headers.get('content-type') || '', /javascript/, `${path} wrong content-type`);
-  assert.match(response.headers.get('cache-control') || '', /max-age=\d{4,}/, `${path} should be cached long-term (immutable)`);
-  console.log(`PASS asset ${path}`);
-}
+// Single-file build: dist/index.html carries the whole application inline,
+// so a deployment is that one document plus the public files (nothing under
+// /assets). Check that the deployed shell really is self-contained.
 const html = await (await fetch(new URL('/', origin))).text();
-assert.match(html, new RegExp(`<script[^>]+src="/assets/${entry}"`), 'index.html must reference the deployed entry chunk');
-console.log('PASS entry chunk referenced by index.html');
+assert.match(html, /<script type="module"/, 'index.html must inline the application script');
+assert.doesNotMatch(html, /<script[^>]+src="\/assets\//, 'index.html must not reference external chunks');
+assert.match(html, /id="root"/, 'index.html must contain the app root');
+const assets = await fetch(new URL('/assets/', origin), { redirect: 'manual' });
+assert.ok(assets.status === 404 || assets.status === 403, 'no /assets directory should be deployed');
+console.log('PASS single-file shell (no external chunks)');

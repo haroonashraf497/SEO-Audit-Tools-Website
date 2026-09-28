@@ -1,28 +1,34 @@
-import React, { Suspense, useState, useCallback, useMemo, useEffect, useRef } from 'react';
-import { categoryDescriptions, categoryLabels, ToolIcon } from './tools/data';
+import React, { useState, useCallback, useMemo, useEffect, useLayoutEffect, useRef } from 'react';
+import { ToolIcon } from './tools/data';
 import { fetchPageData, type LivePageData } from './utils/pageFetch';
 import { fetchDomainInfo, type DomainInfo } from './utils/domainLookup';
 import { sanitizeRichHtml } from './utils/sanitize';
-import { CmsProvider, useCms, liveTools, livePosts, findPage, blocksToHtml } from './cms/store';
+import {
+  CmsProvider, useCms, liveTools, livePosts, findPage, blocksToHtml, renderCopyright, defaultFooterColumns,
+  resolveToolCategory, toolCategoriesOf, toolCategoryHref, toolCategoryName, toolCategorySummary, type SocialLinks,
+} from './cms/store';
+import { ToolCategoriesMenu, ToolCategoriesMobileSection } from './components/ToolCategoriesMenu';
 import SerpPreview from './components/SerpPreview';
 import { SeoManager } from './utils/seo';
-import { cleanHref, getRoute, navigate, rewriteLegacyLinks, subscribe } from './router';
-import { lazyRoute } from './utils/lazyRetry';
-import { LoadingFallback, RouteBoundary } from './components/ErrorBoundary';
+import { categoryKeyOfRoute, cleanHref, getRoute, lastNavigationKind, navigate, rewriteLegacyLinks, storedSlugForRoute, subscribe, TOOLS_PATH } from './router';
+import { RouteBoundary } from './components/ErrorBoundary';
+import { BlogList, BlogArticlePage, BlogCategoryPage } from './blog/Blog';
+import { ToolsList, ToolPage } from './tools/Tools';
+import CompetitorAnalysis, { CompetitorToolContent } from './tools/CompetitorAnalysis';
+import { AdminApp } from './cms/Admin';
+import { AdminLoginPage, AdminResetPage } from './cms/AdminLogin';
 
-// Route modules are evaluated only when visited. The production build keeps
-// them as separate chunks, so each one is a network request that can fail or
-// stall: `lazyRoute` retries the import and hands a permanent failure to
-// <RouteBoundary> instead of leaving the fallback spinner on screen forever.
-const BlogList = lazyRoute(() => import('./blog/Blog').then(m => ({ default: m.BlogList })));
-const BlogArticlePage = lazyRoute(() => import('./blog/Blog').then(m => ({ default: m.BlogArticlePage })));
-const ToolsList = lazyRoute(() => import('./tools/Tools').then(m => ({ default: m.ToolsList })));
-const ToolPage = lazyRoute(() => import('./tools/Tools').then(m => ({ default: m.ToolPage })));
-const CompetitorAnalysis = lazyRoute(() => import('./tools/CompetitorAnalysis'));
-const CompetitorToolContent = lazyRoute(() => import('./tools/CompetitorAnalysis').then(m => ({ default: m.CompetitorToolContent })));
-const AdminApp = lazyRoute(() => import('./cms/Admin').then(m => ({ default: m.AdminApp })));
-const AdminLoginPage = lazyRoute(() => import('./cms/AdminLogin').then(m => ({ default: m.AdminLoginPage })));
-const AdminResetPage = lazyRoute(() => import('./cms/AdminLogin').then(m => ({ default: m.AdminResetPage })));
+/* ---------------- route modules (all eager) ----------------
+   Every route is a plain static import, so all of them are evaluated as part
+   of the initial script and render synchronously on the very first click:
+   there is no `React.lazy`, no `<Suspense>` and no fallback anywhere in the
+   app. Switching routes swaps the content in a single React commit, so the
+   visitor never sees an empty frame, a spinner or a "Loading…" state.
+
+   Normally eager imports would mean a bigger first download — but the build is
+   one self-contained dist/index.html with `inlineDynamicImports`, so this code
+   was already part of the document. Removing the asynchronous boundary is
+   therefore free: nothing extra is downloaded, and nothing is deferred. */
 
 // Inline SVG icons for critical UI (no JS overhead)
 const InlineIcons = {
@@ -229,7 +235,7 @@ const IssueCard: React.FC<{ issue: SEOIssue; expanded: boolean; onToggle: () => 
       >
         <span className={iconColor}><IconComp /></span>
         <div className="flex-1 min-w-0">
-          <h4 className="font-semibold text-slate-800 truncate">{issue.title}</h4>
+          <h4 className="heading-card font-semibold text-slate-800 truncate">{issue.title}</h4>
           <p className="text-sm text-slate-500 line-clamp-1">{issue.description}</p>
         </div>
         <span className={`px-2 py-1 rounded-full text-xs font-medium whitespace-nowrap ${priorityClass}`}>
@@ -279,7 +285,7 @@ const CategoryCard: React.FC<{
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-white/20 rounded-lg text-white">{icon}</div>
-            <h3 className="text-lg font-semibold text-white">{title}</h3>
+            <h3 className="heading-card text-lg font-semibold text-white">{title}</h3>
           </div>
           <ScoreGauge score={score} size="sm" />
         </div>
@@ -407,7 +413,7 @@ const OnPageResults: React.FC<{ details: OnPageDetails }> = ({ details }) => {
           <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-xl flex items-center justify-center text-white">
             <CategoryIcon.onPage />
           </div>
-          <h3 className="text-2xl font-bold text-slate-900">On-Page SEO Results</h3>
+          <h3 className="font-bold text-slate-900">On-Page SEO Results</h3>
         </div>
         <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-full pl-3 pr-4 py-1.5 shadow-sm">
           <span className="text-xs text-slate-400">Primary keyword:</span>
@@ -424,7 +430,7 @@ const OnPageResults: React.FC<{ details: OnPageDetails }> = ({ details }) => {
         {/* Title Tag */}
         <article className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
           <div className="flex items-center justify-between mb-3">
-            <h4 className="font-semibold text-slate-800">Title Tag</h4>
+            <h4 className="heading-card font-semibold text-slate-800">Title Tag</h4>
             <StatusBadge status={details.titleTag.status} />
           </div>
           {details.titleTag.value ? (
@@ -451,7 +457,7 @@ const OnPageResults: React.FC<{ details: OnPageDetails }> = ({ details }) => {
         {/* Meta Description */}
         <article className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
           <div className="flex items-center justify-between mb-3">
-            <h4 className="font-semibold text-slate-800">Meta Description</h4>
+            <h4 className="heading-card font-semibold text-slate-800">Meta Description</h4>
             <StatusBadge status={details.metaDescription.status} />
           </div>
           {details.metaDescription.value ? (
@@ -478,7 +484,7 @@ const OnPageResults: React.FC<{ details: OnPageDetails }> = ({ details }) => {
         <article className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h4 className="font-semibold text-slate-800">URL Vulnerability</h4>
+              <h4 className="heading-card font-semibold text-slate-800">URL Vulnerability</h4>
               <p className="text-xs text-slate-500 mt-0.5">Checks structures that create duplicate URLs or crawl waste.</p>
             </div>
             <StatusBadge status={details.urlInfo.status} />
@@ -492,7 +498,7 @@ const OnPageResults: React.FC<{ details: OnPageDetails }> = ({ details }) => {
         {/* H1 & Heading Structure */}
         <article className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
           <div className="flex items-center justify-between mb-3">
-            <h4 className="font-semibold text-slate-800">H1 &amp; Heading Structure</h4>
+            <h4 className="heading-card font-semibold text-slate-800">H1 &amp; Heading Structure</h4>
             <StatusBadge status={details.h1.status} />
           </div>
           <div className="bg-slate-50 rounded-lg p-3 border border-slate-100 mb-4">
@@ -518,7 +524,7 @@ const OnPageResults: React.FC<{ details: OnPageDetails }> = ({ details }) => {
         {/* Images & Alt Text */}
         <article className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
           <div className="flex items-center justify-between mb-4">
-            <h4 className="font-semibold text-slate-800">Images &amp; Alt Text</h4>
+            <h4 className="heading-card font-semibold text-slate-800">Images &amp; Alt Text</h4>
             <StatusBadge status={details.images.status} />
           </div>
           <div className="grid grid-cols-3 gap-3 mb-4">
@@ -551,7 +557,7 @@ const OnPageResults: React.FC<{ details: OnPageDetails }> = ({ details }) => {
         <article className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm md:col-span-2">
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h4 className="font-semibold text-slate-800">Internal &amp; External Link Analysis</h4>
+              <h4 className="heading-card font-semibold text-slate-800">Internal &amp; External Link Analysis</h4>
               <p className="text-xs text-slate-500 mt-0.5">Crawlable links, external references and rel="nofollow" attributes.</p>
             </div>
             <div className="flex items-center gap-2">
@@ -643,7 +649,7 @@ const OnPageResults: React.FC<{ details: OnPageDetails }> = ({ details }) => {
         {/* Content & Canonical */}
         <article className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
           <div className="flex items-center justify-between mb-4">
-            <h4 className="font-semibold text-slate-800">Content &amp; Canonical</h4>
+            <h4 className="heading-card font-semibold text-slate-800">Content &amp; Canonical</h4>
             <StatusBadge status={details.wordCount.status} />
           </div>
           <div className="flex items-center gap-4 mb-4">
@@ -672,7 +678,7 @@ const OnPageResults: React.FC<{ details: OnPageDetails }> = ({ details }) => {
         {/* Social Tags & Technical Meta */}
         <article className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
           <div className="flex items-center justify-between mb-4">
-            <h4 className="font-semibold text-slate-800">Social Tags &amp; Meta</h4>
+            <h4 className="heading-card font-semibold text-slate-800">Social Tags &amp; Meta</h4>
             <StatusBadge status={details.social.status} />
           </div>
           <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide mb-2">Open Graph &amp; Twitter</p>
@@ -691,7 +697,7 @@ const OnPageResults: React.FC<{ details: OnPageDetails }> = ({ details }) => {
         {/* Keyword Optimization Checklist (full width) */}
         <article className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm md:col-span-2">
           <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
-            <h4 className="font-semibold text-slate-800">Keyword Optimization Checklist</h4>
+            <h4 className="heading-card font-semibold text-slate-800">Keyword Optimization Checklist</h4>
             <span className={`text-xs font-bold rounded-full px-3 py-1 ${checksPassed === details.keywordChecks.length ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>
               {checksPassed}/{details.keywordChecks.length} checks passed
             </span>
@@ -712,7 +718,7 @@ const OnPageResults: React.FC<{ details: OnPageDetails }> = ({ details }) => {
         {/* Keyword Density (full width) */}
         <article className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm md:col-span-2">
           <div className="flex items-center justify-between mb-4">
-            <h4 className="font-semibold text-slate-800">Top Keywords &amp; Density</h4>
+            <h4 className="heading-card font-semibold text-slate-800">Top Keywords &amp; Density</h4>
             <span className="text-xs text-slate-400">Ideal density: 1–3% · calculated against {details.wordCount.value.toLocaleString()} words</span>
           </div>
           <div className="space-y-3">
@@ -1279,36 +1285,84 @@ const AudienceIcon: React.FC<{ type: string }> = ({ type }) => {
 };
 
 // Routing lives in src/router.ts — the route is derived from the clean URL
-// pathname (/tools, /blog/slug, /about, …). Legacy #/ hash links are rewritten
-// to it before the first render, and .htaccess 301s the old /p/… paths.
+// pathname (/free-seo-tools, /blog/slug, /about, …). Legacy #/ hash links are
+// rewritten to it before the first render, and .htaccess 301s both the old
+// /p/… paths and /tools → /free-seo-tools.
 
-// Footer social links — placeholder platform URLs, replace with real profiles.
-const footerSocials = [
-  { label: 'X (Twitter)', href: 'https://x.com/', icon: () => (<svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zM17.083 19.77h1.833L7.084 4.126H5.117z" /></svg>) },
-  { label: 'Facebook', href: 'https://www.facebook.com/', icon: () => (<svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" /></svg>) },
+/** The five social profiles the CMS can fill in (Admin → Sections & Nav →
+ *  Brand & footer). A blank URL hides that icon, so the footer only ever
+ *  links to profiles the site owner actually configured. */
+const SOCIAL_META: { key: keyof SocialLinks; label: string; icon: React.FC }[] = [
+  { key: 'facebook', label: 'Facebook', icon: () => (<svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" /></svg>) },
+  { key: 'x', label: 'X (Twitter)', icon: () => (<svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zM17.083 19.77h1.833L7.084 4.126H5.117z" /></svg>) },
+  { key: 'linkedin', label: 'LinkedIn', icon: () => (<svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M20.45 20.45h-3.55v-5.57c0-1.33-.02-3.04-1.85-3.04-1.85 0-2.13 1.45-2.13 2.94v5.67H9.36V9h3.41v1.56h.05c.47-.9 1.63-1.85 3.36-1.85 3.6 0 4.27 2.37 4.27 5.45v6.29zM5.34 7.43a2.06 2.06 0 1 1 0-4.12 2.06 2.06 0 0 1 0 4.12zm1.78 13.02H3.56V9h3.56v11.45zM22.22 0H1.77C.79 0 0 .77 0 1.72v20.56C0 23.23.79 24 1.77 24h20.45c.98 0 1.78-.77 1.78-1.72V1.72C24 .77 23.2 0 22.22 0z" /></svg>) },
+  { key: 'instagram', label: 'Instagram', icon: () => (<svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2.16c3.2 0 3.58.01 4.85.07 1.17.05 1.8.25 2.23.41.56.22.96.48 1.38.9.42.42.68.82.9 1.38.16.42.36 1.06.41 2.23.06 1.27.07 1.65.07 4.85s-.01 3.58-.07 4.85c-.05 1.17-.25 1.8-.41 2.23-.22.56-.48.96-.9 1.38-.42.42-.82.68-1.38.9-.42.16-1.06.36-2.23.41-1.27.06-1.65.07-4.85.07s-3.58-.01-4.85-.07c-1.17-.05-1.8-.25-2.23-.41a3.7 3.7 0 0 1-1.38-.9 3.7 3.7 0 0 1-.9-1.38c-.16-.42-.36-1.06-.41-2.23C2.17 15.58 2.16 15.2 2.16 12s.01-3.58.07-4.85c.05-1.17.25-1.8.41-2.23.22-.56.48-.96.9-1.38.42-.42.82-.68 1.38-.9.42-.16 1.06-.36 2.23-.41C8.42 2.17 8.8 2.16 12 2.16Zm0 3.68a6.16 6.16 0 1 0 0 12.32 6.16 6.16 0 0 0 0-12.32Zm0 10.16a4 4 0 1 1 0-8 4 4 0 0 1 0 8Zm7.85-10.4a1.44 1.44 0 1 1-2.88 0 1.44 1.44 0 0 1 2.88 0Z" /></svg>) },
+  { key: 'youtube', label: 'YouTube', icon: () => (<svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M23.5 6.2a3.02 3.02 0 0 0-2.12-2.14C19.5 3.55 12 3.55 12 3.55s-7.5 0-9.38.51A3.02 3.02 0 0 0 .5 6.2C0 8.09 0 12 0 12s0 3.91.5 5.8a3.02 3.02 0 0 0 2.12 2.14c1.88.51 9.38.51 9.38.51s7.5 0 9.38-.51a3.02 3.02 0 0 0 2.12-2.14C24 15.91 24 12 24 12s0-3.91-.5-5.8ZM9.55 15.57V8.43L15.82 12l-6.27 3.57Z" /></svg>) },
 ];
 
+/** The three legal documents on their canonical short URLs, as shown in the
+ *  footer's bottom bar. `short` is the compact label; the full title stays as
+ *  the tooltip / accessible name. */
+const FOOTER_LEGAL_LINKS: { label: string; short: string; href: string }[] = [
+  { label: 'Privacy Policy', short: 'Privacy', href: '/privacy' },
+  { label: 'Cookie Policy', short: 'Cookie', href: '/cookies' },
+  { label: 'Terms & Conditions', short: 'Terms', href: '/terms' },
+];
+
+/**
+ * Jump to a scroll offset without animating. `html { scroll-behavior: smooth }`
+ * is set for in-page anchors, but a route change must land instantly — an
+ * animated scroll just after a page swap reads as a flash of the wrong
+ * position.
+ */
+const scrollInstantly = (top: number): void => {
+  const root = document.documentElement;
+  const previous = root.style.scrollBehavior;
+  root.style.scrollBehavior = 'auto';
+  window.scrollTo(0, Math.max(0, top));
+  root.style.scrollBehavior = previous;
+};
+
 type Crumb = { label: string; href?: string };
+
+/** Home › <category page> › <tool>, used by every tool URL. */
+const toolCrumbs = (home: Crumb, slug: string, state: ReturnType<typeof useCms>['state']): Crumb[] => {
+  const tool = state.tools.find(t => t.slug === slug);
+  const catLabel = tool ? toolCategoryName(state, tool.category) : 'Free SEO Tools';
+  const catHref = tool ? toolCategoryHref(state, tool.category) : TOOLS_PATH;
+  return [home, { label: catLabel, href: catHref }, { label: tool?.name || 'Tool' }];
+};
 const SiteBreadcrumbs: React.FC<{ route: string }> = ({ route }) => {
   const { state } = useCms();
   const crumbs: Crumb[] = (() => {
     const home: Crumb = { label: 'Home', href: '/' };
     if (route === 'home') return [];
     if (route === 'free-tools' || route === 'tools') return [home, { label: 'Free SEO Tools' }];
-    if (route.startsWith('tool/')) {
-      const tool = state.tools.find(t => t.slug === route.slice(5));
-      const catLabel = tool ? (categoryLabels[tool.category] || 'Free SEO Tools') : 'Free SEO Tools';
-      const catHref = tool ? `/free-tools?cat=${tool.category}` : '/free-tools';
-      return [home, { label: catLabel, href: catHref }, { label: tool?.name || 'Tool' }];
+    if (route.startsWith('cat/')) {
+      const cat = categoryKeyOfRoute(route) || route.slice(4);
+      return [home, { label: 'Free SEO Tools', href: TOOLS_PATH }, { label: cat ? toolCategoryName(state, cat) : 'Tools' }];
+    }
+    if (route.startsWith('toolcat/')) {
+      const slug = route.slice('toolcat/'.length);
+      return [home, { label: 'Free SEO Tools', href: TOOLS_PATH }, { label: resolveToolCategory(state, slug)?.name || 'Tools' }];
+    }
+    if (route.startsWith('tool/')) return toolCrumbs(home, route.slice(5), state);
+    // root slug: a tool page (or a CMS page, handled below)
+    if (route.startsWith('p/') && state.tools.some(t => t.slug === route.slice(2))) {
+      return toolCrumbs(home, route.slice(2), state);
     }
     if (route === 'blog') return [home, { label: 'Blog' }];
+    if (route.startsWith('blogcat/')) {
+      const cat = (state.blogCategories || []).find(c => c.slug === route.slice('blogcat/'.length));
+      return [home, { label: 'Blog', href: '/blog' }, { label: cat?.name || 'Category' }];
+    }
     if (route.startsWith('blog/')) {
       const post = state.posts.find(p => p.slug === route.slice(5));
       return [home, { label: 'Blog', href: '/blog' }, { label: post?.title || 'Article' }];
     }
     if (route === 'competitor-analysis') return [home, { label: 'Competitor Analysis' }];
     if (route.startsWith('p/')) {
-      const page = findPage(state, route.slice(2));
+      const page = findPage(state, storedSlugForRoute(route.slice(2)));
       return [home, { label: page?.title || 'Page' }];
     }
     if (route === 'admin') return [home, { label: 'Admin' }];
@@ -1390,22 +1444,41 @@ const SiteApp: React.FC = () => {
     return () => document.removeEventListener('keydown', onKey);
   }, [mobileMenuOpen]);
 
-  useEffect(() => {
-    // Plain in-page fragments (#features, #audiences) scroll to their section;
-    // every other navigation starts from the top.
+  // Scroll handling runs in a layout effect, so it happens in the same frame as
+  // the route swap: the new page is never painted at the previous page's offset
+  // and then yanked to the top.
+  useLayoutEffect(() => {
+    const kind = lastNavigationKind();
+    // A fragment (#features, #audiences) jumps straight to its section.
     const frag = window.location.hash.slice(1);
     if (frag) {
       const el = document.getElementById(frag);
       if (el) {
-        el.scrollIntoView();
+        scrollInstantly(window.scrollY + el.getBoundingClientRect().top - 96); // 96px = scroll-padding-top
         return;
       }
     }
-    window.scrollTo(0, 0);
+    // Back/forward and the first paint keep the reader's position — the browser
+    // restores it, and forcing the top would throw it away.
+    if (kind === 'pop' || kind === 'init') return;
+    // A link click opens the new page at the top, immediately.
+    scrollInstantly(0);
   }, [route]);
 
-  const isBlog = route === 'blog' || route.startsWith('blog/');
-  const isTools = route === 'free-tools' || route === 'tools' || route.startsWith('tool/');
+  const isBlog = route === 'blog' || route.startsWith('blog/') || route.startsWith('blogcat/');
+  const isAdminRoute = route === 'admin' || route === 'admin-login' || route === 'admin-reset';
+  const isTools = route === 'free-tools' || route === 'tools' || route.startsWith('tool/') || route.startsWith('cat/') || route.startsWith('toolcat/') || (route.startsWith('p/') && cms.state.tools.some(t => t.slug === route.slice(2)) && !findPage(cms.state, storedSlugForRoute(route.slice(2))));
+
+  // Footer content is live: every value below is read straight from the CMS
+  // store, so a save in Admin → Sections & Nav → Brand & footer updates the
+  // rendered footer immediately (and persists across reloads).
+  const footerLogo = (cms.state.settings.footerLogoUrl || '').trim();
+  const footerNote = (cms.state.settings.footerNote || '').trim();
+  // All four footer columns are CMS-driven (Admin → Sections & Nav → Brand & footer).
+  const footerColumns = cms.state.footerColumns?.length ? cms.state.footerColumns : defaultFooterColumns;
+  const footerSocials = SOCIAL_META
+    .map(meta => ({ ...meta, href: (cms.state.settings.social?.[meta.key] || '').trim() }))
+    .filter(entry => entry.href);
 
   const handleAnalyze = useCallback(async () => {
     const trimmed = url.trim();
@@ -1513,16 +1586,19 @@ const SiteApp: React.FC = () => {
               </span>
             </a>
 
+            {/* Every header link comes from Admin → Sections & Nav, in list order. */}
             <div className="hidden md:flex items-center gap-7">
-              <a href="/" aria-current={route === 'home' ? 'page' : undefined} className={`rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 ${route === 'home' ? 'text-indigo-600 font-semibold' : 'text-slate-600 hover:text-indigo-600'}`}>Home</a>
               {cms.state.nav.filter(n => n.visible && (!(n.href || '').includes('/admin') || cms.loggedIn)).map(n => {
-                const href = cleanHref(n.href) || n.href;
-                const active = (isTools && (href.includes('tools') || href.includes('free-tools'))) || (isBlog && href.includes('blog')) || href.includes('competitor');
+                if (n.kind === 'tool-categories') return <ToolCategoriesMenu key={n.id} route={route} label={n.label} />;
+                const href = cleanHref(n.href) || n.href || '/';
+                const active = (href === '/' && route === 'home')
+                  || (isTools && (href.includes('tools') || href.includes('free-tools')))
+                  || (isBlog && href.includes('blog'))
+                  || (href.includes('competitor') && route === 'competitor-analysis');
                 return (
-                  <a key={n.id} href={href} aria-current={active ? 'page' : undefined} className={`rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 ${active ? 'text-indigo-600 font-semibold' : 'text-slate-600 hover:text-indigo-600'}`}>{n.label}</a>
+                  <a key={n.id} href={href} aria-current={active ? 'page' : undefined} className={`rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 ${active ? 'text-indigo-600' : 'text-slate-600 hover:text-indigo-600'}`}>{n.label}</a>
                 );
               })}
-              <a href="/competitor-analysis" aria-current={route === 'competitor-analysis' ? 'page' : undefined} className={`rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 ${route === 'competitor-analysis' ? 'text-indigo-600 font-semibold' : 'text-slate-600 hover:text-indigo-600'}`}>Competitor Analysis</a>
               {cms.loggedIn && (
                 <>
                   <a href="/admin" className="text-slate-600 hover:text-indigo-600 transition-colors" title="Content manager">Admin</a>
@@ -1546,15 +1622,17 @@ const SiteApp: React.FC = () => {
 
         <div id="site-mobile-menu" className={`md:hidden bg-white border-t border-slate-200 py-4 -mx-4 px-4 ${mobileMenuOpen ? '' : 'hidden'}`}>
           <div className="flex flex-col gap-4">
-            <a href="/" aria-current={route === 'home' ? 'page' : undefined} className={`rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 ${route === 'home' ? 'text-indigo-600 font-semibold' : 'text-slate-600 hover:text-indigo-600'}`} onClick={() => setMobileMenuOpen(false)}>Home</a>
             {cms.state.nav.filter(n => n.visible && (!(n.href || '').includes('/admin') || cms.loggedIn)).map(n => {
-              const href = cleanHref(n.href) || n.href;
-              const active = (isTools && (href.includes('tools') || href.includes('free-tools'))) || (isBlog && href.includes('blog')) || href.includes('competitor');
+              if (n.kind === 'tool-categories') return <ToolCategoriesMobileSection key={n.id} onNavigate={() => setMobileMenuOpen(false)} label={n.label} />;
+              const href = cleanHref(n.href) || n.href || '/';
+              const active = (href === '/' && route === 'home')
+                || (isTools && (href.includes('tools') || href.includes('free-tools')))
+                || (isBlog && href.includes('blog'))
+                || (href.includes('competitor') && route === 'competitor-analysis');
               return (
-                <a key={n.id} href={href} aria-current={active ? 'page' : undefined} className={`rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 ${active ? 'text-indigo-600 font-semibold' : 'text-slate-600 hover:text-indigo-600'}`} onClick={() => setMobileMenuOpen(false)}>{n.label}</a>
+                <a key={n.id} href={href} aria-current={active ? 'page' : undefined} className={`rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 ${active ? 'text-indigo-600' : 'text-slate-600 hover:text-indigo-600'}`} onClick={() => setMobileMenuOpen(false)}>{n.label}</a>
               );
             })}
-            <a href="/competitor-analysis" aria-current={route === 'competitor-analysis' ? 'page' : undefined} className={`rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 ${route === 'competitor-analysis' ? 'text-indigo-600 font-semibold' : 'text-slate-600 hover:text-indigo-600'}`} onClick={() => setMobileMenuOpen(false)}>Competitor Analysis</a>
             {cms.loggedIn && (
               <>
                 <a href="/admin" className="rounded-md text-slate-600 hover:text-indigo-600 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500" onClick={() => setMobileMenuOpen(false)}>Admin</a>
@@ -1565,26 +1643,31 @@ const SiteApp: React.FC = () => {
         </div>
       </nav>
       <div className="h-16 shrink-0" aria-hidden="true" />
-      <main id="main-content" tabIndex={-1}>
+      {/* content-shell keeps the content column at least one viewport tall
+          (minus the 4rem header), so the footer always sits below the fold
+          instead of touching the navigation on short pages. */}
+      <main id="main-content" tabIndex={-1} className={`content-shell${isAdminRoute ? ' admin-shell' : ''}`}>
       <SiteBreadcrumbs route={route} />
-      {/* keyed by route: navigating away from a failed chunk gets a fresh
-          boundary instead of keeping the error panel on screen */}
+      {/* keyed by route: if a page ever fails to render, navigating elsewhere
+          gets a fresh boundary instead of keeping the error panel on screen */}
       <RouteBoundary key={route} label={`route ${route}`}>
-      <Suspense fallback={<LoadingFallback />}>
 
       {/* Blog routes */}
       {route === 'blog' && <BlogList />}
+      {route.startsWith('blogcat/') && <BlogCategoryPage slug={route.slice('blogcat/'.length)} />}
       {route.startsWith('blog/') && <BlogArticlePage slug={route.slice(5)} />}
 
       {/* Tools routes */}
       {(route === 'free-tools' || route === 'tools') && <ToolsList />}
+      {route.startsWith('cat/') && <ToolsList category={categoryKeyOfRoute(route) || undefined} />}
+      {route.startsWith('toolcat/') && <ToolsList categorySlug={route.slice('toolcat/'.length)} />}
       {route.startsWith('tool/') && <ToolPage slug={route.slice(5)} />}
 
       {/* Admin (CMS) */}
       {route === 'admin' && cms.loggedIn && <AdminApp />}
       {route === 'admin-login' && <AdminLoginPage />}
       {route === 'admin-reset' && <AdminResetPage />}
-      {route.startsWith('p/') && <CmsPageView slug={route.slice(2)} />}
+      {route.startsWith('p/') && <RootSlugView slug={route.slice(2)} />}
       {route === 'notfound' && <NotFoundView />}
 
       {/* Competitor Analysis */}
@@ -1599,14 +1682,12 @@ const SiteApp: React.FC = () => {
 
       {route === 'home' && (<>
       {/* Hero Section */}
-      <section className={`pt-16 pb-20 px-4 bg-gradient-to-br from-indigo-100 via-violet-50 to-purple-100 ${cms.state.sections.hero ? '' : 'hidden'}`}>
+      <section className={`px-4 py-16 md:py-20 bg-gradient-to-br from-indigo-100 via-violet-50 to-purple-100 ${cms.state.sections.hero ? '' : 'hidden'}`}>
         <div className="max-w-7xl mx-auto">
-          <header className="text-center mb-12">
-            <div className="inline-flex items-center gap-2 bg-white/80 backdrop-blur-sm px-4 py-2 rounded-full border border-slate-200 mb-6">
-              <span className="text-indigo-500"><InlineIcons.Award /></span>
-              <span className="text-sm font-medium text-slate-600">Trusted by 10,000+ websites across Pakistan &amp; beyond</span>
-            </div>
-            <h1 className="text-4xl md:text-6xl font-bold text-slate-900 mb-6 leading-tight">
+          {/* no trailing margin here: the section's own padding is the whole
+              gap, so the band keeps equal space above and below its content */}
+          <header className="text-center">
+            <h1 className="font-bold text-slate-900 mb-6 leading-tight">
               Free{' '}
               <span className="bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
                 SEO Audit Tool
@@ -1709,7 +1790,7 @@ const SiteApp: React.FC = () => {
           <div className="max-w-7xl mx-auto">
             <div className="flex flex-wrap items-center justify-between gap-4 mb-8">
               <div>
-                <h2 className="text-3xl font-bold text-slate-900">SEO Audit Report</h2>
+                <h2 className="font-bold text-slate-900">SEO Audit Report</h2>
                 <p className="text-slate-600 mt-1 break-all">{result.url}</p>
               </div>
               <button
@@ -1757,7 +1838,7 @@ const SiteApp: React.FC = () => {
               {/* Live registry information is part of the score overview */}
               <div className="mt-6 pt-6 border-t border-slate-200">
                 <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-                  <div><h4 className="font-bold text-slate-900">Domain Information</h4><p className="text-xs text-slate-500 mt-0.5">Registration and expiry data from the public RDAP registry.</p></div>
+                  <div><h4 className="heading-card font-bold text-slate-900">Domain Information</h4><p className="text-xs text-slate-500 mt-0.5">Registration and expiry data from the public RDAP registry.</p></div>
                   {result.domainInfo.live ? <span className="inline-flex items-center gap-1.5 text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-100 rounded-full px-2.5 py-1"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />Registry data</span> : <span className="inline-flex items-center gap-1.5 text-[11px] font-bold bg-amber-50 text-amber-700 border border-amber-100 rounded-full px-2.5 py-1"><span className="w-1.5 h-1.5 rounded-full bg-amber-500" />Registry unavailable</span>}
                 </div>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -1779,7 +1860,7 @@ const SiteApp: React.FC = () => {
             <OnPageResults details={result.onPageDetails} />
 
             {/* Category Cards */}
-            <h3 className="text-2xl font-bold text-slate-900 mb-6">Detailed Category Breakdown</h3>
+            <h3 className="font-bold text-slate-900 mb-6">Detailed Category Breakdown</h3>
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
               {categoryCards.map((cat) => (
                 <CategoryCard key={cat.title} {...cat} />
@@ -1793,7 +1874,7 @@ const SiteApp: React.FC = () => {
       <section id="features" className={`scroll-mt-24 py-20 px-4 cv-auto ${cms.state.sections.features ? '' : 'hidden'}`}>
         <div className="max-w-7xl mx-auto">
           <header className="text-center mb-16">
-            <h2 className="text-3xl md:text-4xl font-bold text-slate-900 mb-4">
+            <h2 className="font-bold text-slate-900 mb-4">
               Everything You Need for Complete SEO Analysis
             </h2>
             <p className="text-lg text-slate-600 max-w-2xl mx-auto">
@@ -1809,7 +1890,7 @@ const SiteApp: React.FC = () => {
                     <path d="M9 11l3 3L22 4" /><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
                   </svg>
                 </div>
-                <h3 className="text-lg font-semibold text-slate-800 mb-2">{feature.title}</h3>
+                <h3 className="heading-card text-lg font-semibold text-slate-800 mb-2">{feature.title}</h3>
                 <p className="text-slate-600 text-sm leading-relaxed">{feature.description}</p>
               </article>
             ))}
@@ -1821,7 +1902,7 @@ const SiteApp: React.FC = () => {
       <section id="how-it-works" className={`scroll-mt-24 py-20 px-4 bg-white cv-auto ${cms.state.sections.howItWorks ? '' : 'hidden'}`}>
         <div className="max-w-7xl mx-auto">
           <header className="text-center mb-16">
-            <h2 className="text-3xl md:text-4xl font-bold text-slate-900 mb-4">
+            <h2 className="font-bold text-slate-900 mb-4">
               Get Your SEO Audit in 4 Simple Steps
             </h2>
             <p className="text-lg text-slate-600 max-w-2xl mx-auto">
@@ -1835,7 +1916,7 @@ const SiteApp: React.FC = () => {
                 <div className="w-16 h-16 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl flex items-center justify-center text-white text-2xl font-bold shadow-lg mb-4">
                   {i + 1}
                 </div>
-                <h3 className="text-lg font-semibold text-slate-800 mb-2">{step.title}</h3>
+                <h3 className="heading-card text-lg font-semibold text-slate-800 mb-2">{step.title}</h3>
                 <p className="text-slate-600 text-sm max-w-xs">{step.description}</p>
               </article>
             ))}
@@ -1849,7 +1930,7 @@ const SiteApp: React.FC = () => {
           <div className="bg-gradient-to-br from-slate-900 to-slate-800 rounded-3xl p-8 md:p-12 text-white">
             <div className="grid md:grid-cols-2 gap-12 items-center">
               <div>
-                <h2 className="text-3xl md:text-4xl font-bold mb-6">
+                <h2 className="font-bold mb-6">
                   Why Is an SEO Audit Important?
                 </h2>
                 <p className="text-slate-300 mb-6 leading-relaxed">
@@ -1884,7 +1965,7 @@ const SiteApp: React.FC = () => {
       <section id="audiences" className={`scroll-mt-24 py-20 px-4 bg-white cv-auto ${cms.state.sections.whoBenefits ? '' : 'hidden'}`}>
         <div className="max-w-7xl mx-auto">
           <header className="text-center mb-16">
-            <h2 className="text-3xl md:text-4xl font-bold text-slate-900 mb-4">
+            <h2 className="font-bold text-slate-900 mb-4">
               Who Can Benefit from Our SEO Audit Tool?
             </h2>
             <p className="text-lg text-slate-600 max-w-2xl mx-auto">
@@ -1898,7 +1979,7 @@ const SiteApp: React.FC = () => {
                 <div className="w-14 h-14 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center text-white mb-4">
                   <AudienceIcon type={item.icon} />
                 </div>
-                <h3 className="text-lg font-semibold text-slate-800 mb-2">{item.title}</h3>
+                <h3 className="heading-card text-lg font-semibold text-slate-800 mb-2">{item.title}</h3>
                 <p className="text-slate-600 text-sm">{item.description}</p>
               </article>
             ))}
@@ -1910,7 +1991,7 @@ const SiteApp: React.FC = () => {
       <section className={`py-20 px-4 cv-auto ${cms.state.sections.freeTools ? '' : 'hidden'}`}>
         <div className="max-w-7xl mx-auto">
           <header className="text-center mb-12">
-            <h2 className="text-3xl md:text-4xl font-bold text-slate-900 mb-4">
+            <h2 className="font-bold text-slate-900 mb-4">
               {visibleTools.length}+ Free{' '}
               <span className="bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">SEO Tools</span>
             </h2>
@@ -1920,13 +2001,13 @@ const SiteApp: React.FC = () => {
             </p>
           </header>
 
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4 mb-10 items-stretch">
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4 items-stretch">
             {visibleTools.filter(t => t.custom ? false : ['plagiarism-checker', 'percentage-calculator', 'bmi-calculator', 'what-is-my-ip', 'keyword-density-checker', 'backlink-checker', 'unit-converter', 'website-seo-score-checker'].includes(t.slug)).slice(0, 8).map(t => (
-              <a key={t.slug} href={`/tool/${t.slug}`}
+              <a key={t.slug} href={`/${t.slug}`}
                 className="group h-full flex flex-col bg-white rounded-2xl border border-slate-200 p-5 shadow-sm hover:shadow-lg hover:border-indigo-200 transition-all">
                 <div className="flex items-center gap-3 mb-2 min-h-[1.25rem]">
                   <span className="text-indigo-600 flex-shrink-0"><ToolIcon category={t.category} className="w-5 h-5" /></span>
-                  <h3 className="font-bold text-slate-900 text-sm group-hover:text-indigo-600 transition-colors truncate">{t.name}</h3>
+                  <h3 className="heading-card font-bold text-slate-900 text-sm group-hover:text-indigo-600 transition-colors truncate">{t.name}</h3>
                 </div>
                 <p className="text-xs text-slate-500 leading-relaxed line-clamp-2 h-10">{t.description}</p>
               </a>
@@ -1934,25 +2015,25 @@ const SiteApp: React.FC = () => {
           </div>
 
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 items-stretch">
-            {(['text', 'keyword', 'backlink', 'checker', 'domain', 'ip', 'management', 'pdf', 'image', 'calculator', 'converter'] as const).map(cat => {
-              const count = visibleTools.filter(t => t.category === cat).length;
+            {toolCategoriesOf(cms.state).map(cat => {
+              const count = visibleTools.filter(t => t.category === cat.key).length;
               return (
-                <a key={cat} href={`/free-tools?cat=${cat}`} className="group h-full flex flex-col bg-white rounded-2xl border border-slate-200 p-5 shadow-sm hover:shadow-lg hover:border-indigo-200 transition-all">
+                <a key={cat.key} href={toolCategoryHref(cms.state, cat.key)} className="group h-full flex flex-col bg-white rounded-2xl border border-slate-200 p-5 shadow-sm hover:shadow-lg hover:border-indigo-200 transition-all">
                   <div className="flex items-center justify-between gap-3 mb-2 min-h-[1.25rem]">
                     <span className="flex items-center gap-3 min-w-0">
-                      <span className="text-indigo-600 flex-shrink-0"><ToolIcon category={cat} className="w-5 h-5" /></span>
-                      <h3 className="font-bold text-slate-900 text-sm group-hover:text-indigo-600 transition-colors truncate">{categoryLabels[cat]}</h3>
+                      <span className="text-indigo-600 flex-shrink-0"><ToolIcon category={cat.key} className="w-5 h-5" /></span>
+                      <h3 className="heading-card font-bold text-slate-900 text-sm group-hover:text-indigo-600 transition-colors truncate">{cat.name}</h3>
                     </span>
                     <span className="text-xs text-slate-500 font-medium whitespace-nowrap">{count} tools</span>
                   </div>
-                  <p className="text-xs text-slate-500 leading-relaxed line-clamp-2 h-10">{categoryDescriptions[cat]}</p>
+                  <p className="text-xs text-slate-500 leading-relaxed line-clamp-2 h-10">{toolCategorySummary(cms.state, cat.key)}</p>
                 </a>
               );
             })}
           </div>
 
           <div className="text-center mt-10">
-            <a href="/free-tools" className="inline-block bg-gradient-to-r from-indigo-500 to-purple-600 text-white px-8 py-3.5 rounded-xl font-semibold hover:shadow-lg hover:shadow-indigo-500/25 transition-all">
+            <a href="/free-seo-tools" className="inline-block bg-gradient-to-r from-indigo-500 to-purple-600 text-white px-8 py-3.5 rounded-xl font-semibold hover:shadow-lg hover:shadow-indigo-500/25 transition-all">
               Explore All {visibleTools.length} Free Tools
             </a>
           </div>
@@ -1963,7 +2044,7 @@ const SiteApp: React.FC = () => {
       <section className={`py-20 px-4 cv-auto bg-white ${cms.state.sections.fromBlog ? '' : 'hidden'}`}>
         <div className="max-w-7xl mx-auto">
           <header className="text-center mb-12">
-            <h2 className="text-3xl md:text-4xl font-bold text-slate-900 mb-4">From the Blog</h2>
+            <h2 className="font-bold text-slate-900 mb-4">From the Blog</h2>
             <p className="text-lg text-slate-600 max-w-2xl mx-auto">
               Practical guides on the SEO problems people are actually struggling with right now.
             </p>
@@ -1972,7 +2053,7 @@ const SiteApp: React.FC = () => {
             {visiblePosts.slice(0, 3).map(article => (
               <article key={article.slug} className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm hover:shadow-lg hover:border-indigo-200 transition-all flex flex-col">
                 <span className="text-xs font-semibold text-indigo-600 mb-3">{article.category}</span>
-                <h3 className="text-lg font-bold text-slate-900 leading-snug mb-3">
+                <h3 className="heading-card text-lg font-bold text-slate-900 leading-snug mb-3">
                   <a href={`/blog/${article.slug}`} className="hover:text-indigo-600 transition-colors">{article.title}</a>
                 </h3>
                 <p className="text-sm text-slate-600 leading-relaxed mb-4 flex-1">{article.excerpt}</p>
@@ -1993,7 +2074,7 @@ const SiteApp: React.FC = () => {
       {/* CTA Section */}
       <section id="cta" className={`scroll-mt-24 py-20 px-4 ${cms.state.sections.cta ? '' : 'hidden'}`}>
         <div className="max-w-4xl mx-auto text-center">
-          <h2 className="text-3xl md:text-4xl font-bold text-slate-900 mb-6">
+          <h2 className="font-bold text-slate-900 mb-6">
             Ready to Improve Your Website's SEO?
           </h2>
           <p className="text-lg text-slate-600 mb-8 max-w-2xl mx-auto">
@@ -2020,74 +2101,87 @@ const SiteApp: React.FC = () => {
       </section>
       </>)}
 
-      </Suspense>
       </RouteBoundary>
       </main>
 
       {/* Footer — simple, lightweight */}
       <footer className={`bg-slate-900 text-white pt-10 pb-6 px-4 ${cms.state.sections.footer ? '' : 'hidden'}`}>
         <div className="max-w-7xl mx-auto">
-          {/* Brand + social icons */}
+          {/* Brand + social icons — every value here comes from the CMS */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-5 pb-8 border-b border-slate-800">
             <a href="/" className="flex items-center gap-2.5">
-              <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center text-white">
-                <InlineIcons.BarChart3 />
-              </div>
+              {footerLogo ? (
+                <img
+                  src={footerLogo}
+                  alt={`${cms.state.settings.name} logo`}
+                  width={40}
+                  height={40}
+                  loading="lazy"
+                  decoding="async"
+                  className="w-10 h-10 rounded-xl object-cover bg-white/5"
+                />
+              ) : (
+                <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center text-white">
+                  <InlineIcons.BarChart3 />
+                </div>
+              )}
               <span>
                 <span className="block text-lg font-bold leading-tight">{cms.state.settings.name}</span>
                 <span className="block text-xs text-slate-400">{cms.state.settings.tagline}</span>
               </span>
             </a>
-            <div className="flex items-center gap-2">
-              {footerSocials.map(s => (
-                <a key={s.label} href={s.href} target="_blank" rel="noopener noreferrer" aria-label={s.label} title={s.label} className="w-9 h-9 rounded-lg bg-slate-800 hover:bg-indigo-600 flex items-center justify-center text-slate-400 hover:text-white transition-colors">
-                  <s.icon />
-                </a>
+            {footerSocials.length > 0 && (
+              <div className="flex items-center gap-2">
+                {footerSocials.map(s => (
+                  <a key={s.key} href={s.href} target="_blank" rel="noopener noreferrer" aria-label={s.label} title={s.label} className="w-9 h-9 rounded-lg bg-slate-800 hover:bg-indigo-600 flex items-center justify-center text-slate-400 hover:text-white transition-colors">
+                    <s.icon />
+                  </a>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {footerNote && (
+            <p className="pt-8 text-sm text-slate-400 leading-relaxed max-w-3xl">{footerNote}</p>
+          )}
+
+          {/* Four equal columns: Quick Links, SEO Tools, Resources, Company —
+              all four editable from Admin → Sections & Nav → Brand & footer
+              (title + links per column). The legal links live in the bottom bar
+              below, next to the cookie-preferences control. */}
+          <div className="grid grid-cols-2 gap-8 py-10 md:grid-cols-4">
+            {footerColumns.map(col => {
+              const links = col.links.filter(link => link.visible && link.label.trim());
+              return (
+                <nav key={col.id} aria-label={col.title}>
+                  <h3 className="heading-card text-[18px] font-bold capitalize tracking-[0px] text-slate-400 mb-4">{col.title}</h3>
+                  <ul className="space-y-2.5">
+                    {links.map(l => (
+                      <li key={l.id}><a href={cleanHref(l.href) || l.href} className="text-sm text-slate-400 hover:text-white transition-colors">{l.label}</a></li>
+                    ))}
+                  </ul>
+                </nav>
+              );
+            })}
+          </div>
+
+          {/* Bottom bar — copyright on the left, the short legal links and the
+              cookie-preferences control on the right:
+                Privacy · Cookie · Terms · Cookie preferences
+              The copyright line stays editable (Admin → Brand & footer); the
+              links carry their full name as the accessible name / tooltip. */}
+          <div className="border-t border-slate-800 pt-6 flex flex-col gap-3 text-xs text-slate-400 sm:flex-row sm:items-center sm:justify-between">
+            <p>{renderCopyright(cms.state.settings.footerCopyright, cms.state.settings.name, cms.state.settings.domain)}</p>
+            <nav aria-label="Legal documents" className="flex flex-wrap items-center gap-x-2 gap-y-1 sm:justify-end">
+              {FOOTER_LEGAL_LINKS.map((l, i) => (
+                <React.Fragment key={l.label}>
+                  {i > 0 && <span aria-hidden="true" className="text-slate-600">·</span>}
+                  <a href={l.href} title={l.label} aria-label={l.label} className="hover:text-white transition-colors">{l.short}</a>
+                </React.Fragment>
               ))}
-            </div>
-          </div>
-
-          {/* Four link columns */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-8 py-10">
-            {[
-              { title: 'SEO Tools', links: [
-                { label: 'Free SEO Audit', href: '/' },
-                { label: 'Free SEO Tools', href: '/free-tools' },
-                { label: 'Competitor Analysis', href: '/competitor-analysis' },
-              ] },
-              { title: 'Resources', links: [
-                { label: 'Blog', href: '/blog' },
-                { label: 'FAQ', href: '/faq' },
-                { label: "Who It's For", href: '/#audiences' },
-              ] },
-              { title: 'Company', links: [
-                { label: 'About', href: '/about' },
-                { label: 'Contact', href: '/contact' },
-              ] },
-            ].map(col => (
-              <nav key={col.title} aria-label={col.title}>
-                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-4">{col.title}</h3>
-                <ul className="space-y-2.5">
-                  {col.links.map(l => (
-                    <li key={l.label}><a href={l.href} className="text-sm text-slate-400 hover:text-white transition-colors">{l.label}</a></li>
-                  ))}
-                </ul>
-              </nav>
-            ))}
-            <nav aria-label="Legal">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-4">Legal</h3>
-              <ul className="space-y-2.5">
-                <li><a href="/privacy-policy" className="text-sm text-slate-400 hover:text-white transition-colors">Privacy Policy</a></li>
-                <li><a href="/cookie-policy" className="text-sm text-slate-400 hover:text-white transition-colors">Cookie Policy</a></li>
-                <li><a href="/terms-of-service" className="text-sm text-slate-400 hover:text-white transition-colors">Terms &amp; Conditions</a></li>
-                <li><button type="button" onClick={() => setCookiePrefsOpen(true)} className="text-sm text-slate-400 hover:text-white transition-colors underline decoration-dotted underline-offset-4">Cookie preferences</button></li>
-              </ul>
+              <span aria-hidden="true" className="text-slate-600">·</span>
+              <button type="button" onClick={() => setCookiePrefsOpen(true)} className="hover:text-white transition-colors">Cookie preferences</button>
             </nav>
-          </div>
-
-          {/* Bottom bar */}
-          <div className="border-t border-slate-800 pt-6 text-xs text-slate-400">
-            <p>© {new Date().getFullYear()} EKSTRUH LTD · Trading as {cms.state.settings.name} ({cms.state.settings.domain}) · Free SEO tools for Pakistan &amp; worldwide. All rights reserved.</p>
           </div>
         </div>
       </footer>
@@ -2103,16 +2197,32 @@ const SiteApp: React.FC = () => {
 // Pages are edited as a single rich-text document. Legacy block-based pages
 // are converted once at load time (withPageContent), and any stored
 // #/… links are rewritten to clean paths at render time.
+/**
+ * A top-level slug carries either a CMS page (/about, /privacy) or a tool page
+ * (/plagiarism-checker, /merge-pdf). The store is consulted synchronously, so
+ * the right view renders on the first paint — no loading state, no redirect.
+ * A slug that matches neither falls through to the 404 view.
+ */
+const RootSlugView: React.FC<{ slug: string }> = ({ slug }) => {
+  const { state } = useCms();
+  const page = findPage(state, storedSlugForRoute(slug));
+  if (page) return <CmsPageView slug={slug} />;
+  if (state.tools.some(t => t.slug === slug && t.status === 'live')) return <ToolPage slug={slug} />;
+  return <NotFoundView />;
+};
+
 const CmsPageView: React.FC<{ slug: string }> = ({ slug }) => {
   const { state } = useCms();
-  const page = findPage(state, slug);
+  // Short legal URLs (/privacy) render the page stored under its CMS slug
+  // (privacy-policy) — see LEGAL_PAGE_ALIASES in router.ts.
+  const page = findPage(state, storedSlugForRoute(slug));
   useEffect(() => {
     window.scrollTo(0, 0);
   }, [page]);
   if (!page || page.status !== 'live') {
     return (
       <div className="pt-10 pb-24 px-4 text-center min-h-screen">
-        <h1 className="text-3xl font-bold text-slate-900 mb-3">Page not available</h1>
+        <h1 className="font-bold text-slate-900 mb-3">Page not available</h1>
         <p className="text-slate-600 mb-6">This page has not been published yet.</p>
         <Btn href="/" />
       </div>
@@ -2122,7 +2232,7 @@ const CmsPageView: React.FC<{ slug: string }> = ({ slug }) => {
   return (
     <section className="pt-10 pb-20 px-4 bg-white min-h-screen">
       <div className="max-w-7xl mx-auto w-full">
-        <h1 className="text-3xl md:text-5xl font-extrabold text-slate-900 mb-8">{page.title}</h1>
+        <h1 className="font-extrabold text-slate-900 mb-8">{page.title}</h1>
         {page.featuredImage && (
           <figure className="mb-8 overflow-hidden rounded-2xl border border-slate-200 bg-slate-100 aspect-[1.91/1]">
             <img src={page.featuredImage} alt={page.featuredImageAlt || page.title} width="1200" height="630" loading="lazy" decoding="async" className="w-full h-full object-cover" onError={e => { e.currentTarget.parentElement?.classList.add('hidden'); }} />
@@ -2140,11 +2250,11 @@ const CmsPageView: React.FC<{ slug: string }> = ({ slug }) => {
 const NotFoundView: React.FC = () => (
   <div className="pt-10 pb-24 px-4 text-center min-h-screen bg-white">
     <p className="text-6xl font-extrabold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent mb-4">404</p>
-    <h1 className="text-3xl font-bold text-slate-900 mb-3">Page not found</h1>
+    <h1 className="font-bold text-slate-900 mb-3">Page not found</h1>
     <p className="text-slate-600 mb-8 max-w-md mx-auto">The page you are looking for does not exist or has been moved. Head back to the free SEO audit tool.</p>
     <div className="flex items-center justify-center gap-3">
       <Btn href="/" />
-      <a href="/free-tools" className="inline-block bg-white text-slate-700 px-6 py-3 rounded-xl font-semibold border border-slate-300 hover:bg-slate-50 transition-colors">Browse tools</a>
+      <a href="/free-seo-tools" className="inline-block bg-white text-slate-700 px-6 py-3 rounded-xl font-semibold border border-slate-300 hover:bg-slate-50 transition-colors">Browse tools</a>
     </div>
   </div>
 );
@@ -2212,7 +2322,7 @@ const CookieConsent: React.FC<{ prefsOpen: boolean; onPrefsOpen: (v: boolean) =>
       <div className="fixed inset-0 z-[70] flex items-end sm:items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm" role="dialog" aria-modal="true" aria-label="Cookie preferences">
         <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl border border-slate-200 overflow-hidden">
           <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
-            <h2 className="font-bold text-slate-900">Manage cookie preferences</h2>
+            <h2 className="heading-card font-bold text-slate-900">Manage cookie preferences</h2>
             <button type="button" onClick={() => onPrefsOpen(false)} aria-label="Close cookie preferences" className="cookie-close text-slate-500 hover:text-slate-600 text-xl leading-none">&times;</button>
           </div>
           <div className="px-5 py-2 divide-y divide-slate-100">
@@ -2222,7 +2332,7 @@ const CookieConsent: React.FC<{ prefsOpen: boolean; onPrefsOpen: (v: boolean) =>
             <CookieToggle title="Affiliate tracking" description="Credits referrals when you click partner links, at no cost to you." checked={draft.affiliate} onChange={v => setDraft(d => ({ ...d, affiliate: v }))} />
           </div>
           <div className="px-5 py-4 border-t border-slate-100 bg-slate-50 flex flex-col sm:flex-row items-center justify-between gap-3">
-            <a href="/cookie-policy" onClick={() => onPrefsOpen(false)} className="text-xs font-semibold text-indigo-600 hover:underline">Read our Cookie Policy</a>
+            <a href="/cookies" onClick={() => onPrefsOpen(false)} className="text-xs font-semibold text-indigo-600 hover:underline">Read our Cookie Policy</a>
             <button type="button" autoFocus onClick={() => save(draft)} className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-bold text-sm hover:shadow-lg transition-shadow">Save Preferences</button>
           </div>
         </div>
@@ -2233,10 +2343,10 @@ const CookieConsent: React.FC<{ prefsOpen: boolean; onPrefsOpen: (v: boolean) =>
         <div className="max-w-5xl mx-auto bg-white border border-slate-200 rounded-2xl shadow-2xl p-4 sm:p-5">
           <div className="flex flex-col lg:flex-row lg:items-center gap-4">
             <div className="flex-1 min-w-0">
-              <h2 className="text-sm font-bold text-slate-900">We use cookies</h2>
+              <h2 className="heading-card text-sm font-bold text-slate-900">We use cookies</h2>
               <p className="text-xs sm:text-[13px] text-slate-600 mt-1 leading-relaxed">
                 We use essential cookies to make our site work. With your consent, we may also use analytics, advertising, and affiliate tracking cookies to improve your experience and understand how visitors use our site.{' '}
-                <a href="/cookie-policy" className="font-semibold text-indigo-600 hover:underline">Read our Cookie Policy</a>.
+                <a href="/cookies" className="font-semibold text-indigo-600 hover:underline">Read our Cookie Policy</a>.
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-2 flex-shrink-0">

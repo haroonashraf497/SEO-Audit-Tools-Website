@@ -10,7 +10,7 @@ export const articlesPageSpeed: BlogArticle[] = [
     category: 'PageSpeed',
     date: '2025-01-20',
     readTime: '6 min read',
-    author: 'SEO Audit Pro Team',
+    author: 'SAT Team',
     excerpt: 'A 95 Lighthouse score means almost nothing if your real users are on cheap phones with weak signal. Understanding the lab vs field split will save you months of confusion.',
     content: `
 Here's a conversation I have at least once a month. A site owner shows me a Lighthouse score of 95, green across the board, genuinely proud of it. Then they open Search Console and it says the same URLs fail Core Web Vitals. "Which one is lying?"
@@ -88,7 +88,7 @@ Get comfortable with that reading order and you'll never again waste a weekend c
     category: 'PageSpeed',
     date: '2024-12-30',
     readTime: '7 min read',
-    author: 'SEO Audit Pro Team',
+    author: 'SAT Team',
     excerpt: 'Your visitors stare at a white screen while the browser downloads stylesheets they mostly don\u2019t need yet. Here\u2019s how render-blocking works and how to break the logjam.',
     content: `
 Open PageSpeed Insights, test almost any website, and there it is in the diagnostics: "Eliminate render-blocking resources." It's probably the most common performance warning on the web. It's also one of the most misunderstood, and the auto-fix plugins that promise to handle it break sites weekly.
@@ -170,7 +170,7 @@ On typical WordPress or ecommerce sites, cleaning up the render path is worth so
     category: 'PageSpeed',
     date: '2024-12-12',
     readTime: '7 min read',
-    author: 'SEO Audit Pro Team',
+    author: 'SAT Team',
     excerpt: 'The average web page is mostly images by weight. Getting them right is the highest-leverage speed work most sites can do, and most sites are doing at least one part wrong.',
     content: `
 Strip any typical web page down to bytes and images dominate. HTTP Archive data has shown this for years: on a median page, images outweigh the HTML, CSS, and often the JavaScript. Which means if you only have time to optimize one thing, this is the thing.

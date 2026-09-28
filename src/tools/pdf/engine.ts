@@ -39,6 +39,20 @@ export const loadPdfJs = (): Promise<PdfJsModule> => {
   return pdfJsP;
 };
 
+/**
+ * pdf.js TRANSFERS the buffer it is given to its worker thread, which detaches
+ * the caller's ArrayBuffer. Every buffer handed to pdf.js therefore gets a
+ * private copy first, so a document can be rendered more than once (the
+ * compression ladder renders the same file several times, and thumbnails are
+ * rendered before other tools touch the file).
+ */
+export const copyBuffer = (buf: ArrayBuffer): Uint8Array => {
+  const view = new Uint8Array(buf);
+  const copy = new Uint8Array(view.byteLength);
+  copy.set(view);
+  return copy;
+};
+
 export const fmtBytes = (b: number) => (b >= 1048576 ? `${(b / 1048576).toFixed(2)} MB` : b >= 1024 ? `${(b / 1024).toFixed(1)} KB` : `${b} B`);
 
 export const readFile = (f: File): Promise<ArrayBuffer> => new Promise((res, rej) => {
@@ -101,7 +115,8 @@ export const renderPages = async (
   buf: ArrayBuffer, opts: { scale?: number; quality?: number; pages?: number[]; onProgress?: (done: number, total: number) => void; type?: 'image/jpeg' | 'image/png'; password?: string } = {},
 ): Promise<{ blob: Blob; width: number; height: number; page: number }[]> => {
   const pdfjs = await loadPdfJs();
-  const doc = await pdfjs.getDocument({ data: new Uint8Array(buf), password: opts.password }).promise;
+  // copyBuffer: pdf.js detaches the buffer it receives (see above).
+  const doc = await pdfjs.getDocument({ data: copyBuffer(buf), password: opts.password }).promise;
   const pages = opts.pages ?? Array.from({ length: doc.numPages }, (_, i) => i);
   const out: { blob: Blob; width: number; height: number; page: number }[] = [];
   for (let i = 0; i < pages.length; i++) {
@@ -122,7 +137,7 @@ export const renderPages = async (
 
 export const extractText = async (buf: ArrayBuffer, onProgress?: (d: number, t: number) => void): Promise<string[]> => {
   const pdfjs = await loadPdfJs();
-  const doc = await pdfjs.getDocument({ data: new Uint8Array(buf) }).promise;
+  const doc = await pdfjs.getDocument({ data: copyBuffer(buf) }).promise;
   const pages: string[] = [];
   for (let i = 1; i <= doc.numPages; i++) {
     const page = await doc.getPage(i);
@@ -163,6 +178,8 @@ export const compressToTarget = async (
   const attempts: { scale: number; quality: number; size: number }[] = [];
   // Pass 1: lossless structural re-save (object streams, drop unused)
   onStatus?.('Optimising document structure…');
+  // The source stays valid even after pdf.js detached a copy of it elsewhere.
+  if (buf.byteLength === 0) throw new Error('The file could not be read (empty buffer).');
   const src = await PDFDocument.load(buf, { ignoreEncryption: true });
   const lossless = await src.save({ useObjectStreams: true });
   attempts.push({ scale: 0, quality: 1, size: lossless.byteLength });
@@ -173,11 +190,19 @@ export const compressToTarget = async (
   let best: Uint8Array = lossless;
   for (const [scale, quality] of ladder) {
     onStatus?.(`Re-rendering pages at ${Math.round(scale * 72)} dpi, quality ${Math.round(quality * 100)}%…`);
-    const imgs = await renderPages(buf, { scale, quality });
-    const bytes = await imagesToPdf(imgs, sizes);
-    attempts.push({ scale, quality, size: bytes.byteLength });
-    if (bytes.byteLength < best.byteLength) best = bytes;
-    if (bytes.byteLength <= targetBytes) return { bytes, attempts, lossless: false };
+    try {
+      const imgs = await renderPages(buf, { scale, quality });
+      const bytes = await imagesToPdf(imgs, sizes);
+      attempts.push({ scale, quality, size: bytes.byteLength });
+      if (bytes.byteLength < best.byteLength) best = bytes;
+      if (bytes.byteLength <= targetBytes) return { bytes, attempts, lossless: false };
+    } catch (e) {
+      // One rung failing (huge document, out of memory, a page pdf.js cannot
+      // render) must not throw away the passes that already succeeded.
+      attempts.push({ scale, quality, size: best.byteLength });
+      onStatus?.(`Pass at ${Math.round(scale * 72)} dpi failed — trying a lighter one…`);
+      void e;
+    }
   }
   return { bytes: best, attempts, lossless: false };
 };

@@ -40,8 +40,53 @@ Options -Indexes -MultiViews
   # Legacy page links; keep query strings, tool slugs and blog slugs intact.
   RewriteRule ^p/?$ / [R=301,L]
   RewriteRule ^p/(.+?)/?$ /$1 [R=301,L]
-  RewriteRule ^tool/?$ /free-tools [R=301,L]
-  RewriteRule ^tools/?$ /free-tools [R=301,L]
+  # Tools index canonical URL is /free-seo-tools. /tools, /tool, /free-tools and
+  # /free-seo-tool were older spellings — all four 301 across. A tools index
+  # carries no ?cat= any more (see the category rules below), so the whole
+  # query string is preserved here.
+  RewriteRule ^tools/?$ /free-seo-tools [R=301,L]
+  RewriteRule ^tool/?$ /free-seo-tools [R=301,L]
+  RewriteRule ^free-tools/?$ /free-seo-tools [R=301,L]
+  RewriteRule ^free-seo-tool/?$ /free-seo-tools [R=301,L]
+
+  # Category pages are top level: /ip-tools, /website-checker-tools, …
+  # A legacy ?cat=<key> filter is 301'd onto its page. Applied only when cat is
+  # the sole parameter (a trailing ? drops it), so ?q= and friends are never
+  # silently discarded — the client router upgrades mixed queries instead.
+  RewriteCond %{QUERY_STRING} ^cat=text$
+  RewriteRule ^free-seo-tools/?$ /text-analysis-tools? [R=301,L]
+  RewriteCond %{QUERY_STRING} ^cat=keyword$
+  RewriteRule ^free-seo-tools/?$ /keyword-tools? [R=301,L]
+  RewriteCond %{QUERY_STRING} ^cat=backlink$
+  RewriteRule ^free-seo-tools/?$ /backlink-tools? [R=301,L]
+  RewriteCond %{QUERY_STRING} ^cat=management$
+  RewriteRule ^free-seo-tools/?$ /website-management-tools? [R=301,L]
+  RewriteCond %{QUERY_STRING} ^cat=checker$
+  RewriteRule ^free-seo-tools/?$ /website-checker-tools? [R=301,L]
+  RewriteCond %{QUERY_STRING} ^cat=domain$
+  RewriteRule ^free-seo-tools/?$ /domain-tools? [R=301,L]
+  RewriteCond %{QUERY_STRING} ^cat=ip$
+  RewriteRule ^free-seo-tools/?$ /ip-tools? [R=301,L]
+  RewriteCond %{QUERY_STRING} ^cat=pdf$
+  RewriteRule ^free-seo-tools/?$ /pdf-tools? [R=301,L]
+  RewriteCond %{QUERY_STRING} ^cat=image$
+  RewriteRule ^free-seo-tools/?$ /image-tools? [R=301,L]
+  RewriteCond %{QUERY_STRING} ^cat=calculator$
+  RewriteRule ^free-seo-tools/?$ /calculator-tools? [R=301,L]
+  RewriteCond %{QUERY_STRING} ^cat=converter$
+  RewriteRule ^free-seo-tools/?$ /unit-converter-tools? [R=301,L]
+
+  # Tool pages sit at the top level: /plagiarism-checker, /merge-pdf, …
+  # Every older nesting — including the previous /free-seo-tools/<slug> — 301s
+  # across with the slug kept.
+  RewriteRule ^free-seo-tools/(.+?)/?$ /$1 [R=301,L]
+  RewriteRule ^tool/(.+?)/?$ /$1 [R=301,L]
+  RewriteRule ^free-tools/(.+?)/?$ /$1 [R=301,L]
+  RewriteRule ^free-seo-tool/(.+?)/?$ /$1 [R=301,L]
+  # Legal pages answer on the short canonical URL (same as the client router).
+  RewriteRule ^privacy-policy/?$ /privacy [R=301,L]
+  RewriteRule ^cookie-policy/?$ /cookies [R=301,L]
+  RewriteRule ^terms-of-service/?$ /terms [R=301,L]
   RewriteRule ^(.+)/$ /$1 [R=301,L]
 
   # Serve, don't redirect: the address bar retains the requested route.

@@ -253,7 +253,7 @@ export const PdfToJpg: React.FC = () => {
       {f.error && <ErrorBox msg={f.error} />}
       {imgs.length > 0 && (
         <div className="bg-white rounded-2xl border-2 border-emerald-200 p-6 animate-fade-in">
-          <div className="flex flex-wrap items-center justify-between gap-3 mb-4"><div><h3 className="font-bold text-slate-900">✓ {imgs.length} image{imgs.length === 1 ? '' : 's'} ready</h3><p className="text-xs text-slate-500">{imgs[0].width} × {imgs[0].height} px · {fmtBytes(total)} total</p></div><div className="flex gap-2"><Btn onClick={all}>⬇ Download all</Btn><Btn variant="secondary" onClick={() => setImgs([])}>Change settings</Btn></div></div>
+          <div className="flex flex-wrap items-center justify-between gap-3 mb-4"><div><h3 className="heading-card font-bold text-slate-900">✓ {imgs.length} image{imgs.length === 1 ? '' : 's'} ready</h3><p className="text-xs text-slate-500">{imgs[0].width} × {imgs[0].height} px · {fmtBytes(total)} total</p></div><div className="flex gap-2"><Btn onClick={all}>⬇ Download all</Btn><Btn variant="secondary" onClick={() => setImgs([])}>Change settings</Btn></div></div>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">{imgs.map(i => <div key={i.page} className="rounded-xl border border-slate-200 overflow-hidden bg-slate-50"><img src={i.url} alt={`Page ${i.page}`} className="w-full h-auto" loading="lazy" /><div className="flex items-center justify-between px-3 py-2 text-xs"><span className="text-slate-600">Page {i.page} · {fmtBytes(i.blob.size)}</span><button type="button" onClick={() => download(i.blob, `${base(f.file!.name)}-page-${i.page}.${ext}`, fmt)} className="font-semibold text-indigo-600">Save</button></div></div>)}</div>
         </div>
       )}

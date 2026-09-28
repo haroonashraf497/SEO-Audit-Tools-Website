@@ -20,7 +20,7 @@ export const Spinner: React.FC<{ label: string }> = ({ label }) => (
 
 export const Card: React.FC<{ title: string; children: React.ReactNode; right?: React.ReactNode; className?: string }> = ({ title, children, right, className = '' }) => (
   <div className={`bg-white rounded-2xl border border-slate-200 p-5 md:p-6 shadow-sm ${className}`}>
-    <div className="flex items-center justify-between mb-4"><h3 className="font-bold text-slate-900">{title}</h3>{right}</div>
+    <div className="flex items-center justify-between mb-4"><h3 className="heading-card font-bold text-slate-900">{title}</h3>{right}</div>
     {children}
   </div>
 );
@@ -127,7 +127,7 @@ export const SeoScoreTool: React.FC = () => {
           <div className="grid md:grid-cols-3 gap-4">
             <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm"><Ring value={score} label="SEO Score" /><p className="text-center text-sm text-slate-600 mt-3">{passed}/{checks.length} checks passed</p></div>
             <div className="md:col-span-2 bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
-              <div className="flex items-center justify-between mb-3"><h3 className="font-bold text-slate-900 break-all">{host(f.data.finalUrl)}</h3><Live ms={f.data.fetchMs} /></div>
+              <div className="flex items-center justify-between mb-3"><h3 className="heading-card font-bold text-slate-900 break-all">{host(f.data.finalUrl)}</h3><Live ms={f.data.fetchMs} /></div>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 <Stat label="Words" value={f.data.wordCount.toLocaleString()} />
                 <Stat label="Images" value={f.data.imageCount} tone={f.data.imagesMissingAlt ? 'warn' : 'good'} />
