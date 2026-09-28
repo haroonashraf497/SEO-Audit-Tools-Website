@@ -656,6 +656,27 @@ for (const [slug, name, count] of [['core-web-vitals', 'Core Web Vitals', 3], ['
   check('the tools index and the category page h1s are capitalised too',
     indexH1.length === 3 && indexH1.every(entry => entry.endsWith(':true')),
     indexH1.join(' '));
+  const pillTexts = [...dom.window.document.querySelectorAll('main span, main p, main div')]
+    .map(el => (el.textContent || '').trim())
+    .filter(text => /^Instant · runs in your browser$/.test(text) || /^Instant$/.test(text));
+  check('no green "Instant · runs in your browser" pill sits above the tool page heading',
+    pillTexts.length === 0 && !/border-emerald-100 px-2\.5 py-1 rounded-full/.test(rawHtml),
+    pillTexts.join(' | '));
+  const toolsIndex = await boot('', '/free-seo-tools');
+  const indexBadges = [...toolsIndex.dom.window.document.querySelectorAll('main span')]
+    .map(el => (el.textContent || '').trim())
+    .filter(text => /^Instant$/.test(text));
+  check('no green "Instant" badge sits above the card headings on /free-seo-tools',
+    indexBadges.length === 0 && !/border-emerald-100 px-2 py-0\.5 rounded-full/.test(rawHtml),
+    indexBadges.join(' | '));
+  const indexCards = [...toolsIndex.dom.window.document.querySelectorAll('main a h3')];
+  check('the tool cards keep their category icon and heading',
+    indexCards.length > 0 && indexCards.every(h => /heading-card/.test(h.getAttribute('class') || ''))
+    && !!toolsIndex.dom.window.document.querySelector('main a span.w-9.h-9'));
+  toolsIndex.dom.window.close();
+  const toolHeader = dom.window.document.querySelector('main h1')?.closest('header');
+  check('the tool page header still carries the category icon and the title',
+    /w-10 h-10/.test(toolHeader?.innerHTML || '') && /tool-page-title/.test(toolHeader?.innerHTML || ''));
   check('the built stylesheet ships both capitalisation rules',
     /\.capitalize\{text-transform:capitalize\}/.test(rawHtml.replace(/\s+/g, ''))
     && /\.tool-page-title\{text-transform:capitalize\}/.test(rawHtml.replace(/\s+/g, '')));

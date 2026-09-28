@@ -668,9 +668,8 @@ export const ToolsList: React.FC<{ category?: ToolCategory; categorySlug?: strin
                       <span className={`w-9 h-9 rounded-lg flex items-center justify-center border ${categoryStyle(t.category)}`}>
                         <ToolIcon category={t.category} className="w-4 h-4" />
                       </span>
-                      {t.engine && (
-                        <span className="text-[10px] font-bold uppercase tracking-wide text-emerald-600 bg-emerald-50 border border-emerald-100 px-2 py-0.5 rounded-full">Instant</span>
-                      )}
+                      {/* the green "Instant" pill that used to sit here (above the
+                          tool name) is gone, like the one on the tool pages */}
                     </div>
                     <h3 className="heading-card font-bold text-slate-900 mb-1.5 group-hover:text-indigo-600 transition-colors" style={TOOL_NAME_SIZE}>{t.name}</h3>
                     {/* line-clamp-2 + a reserved two-line height: every card shows the
@@ -839,15 +838,12 @@ export const ToolPage: React.FC<{ slug: string }> = ({ slug }) => {
 
   const header = (
     <header className={`text-center ${stacked ? 'mb-5 sm:mb-6' : 'mb-6'}`}>
+      {/* only the category icon sits above the title now; the green
+          "Instant · runs in your browser" pill is gone from every tool page */}
       <div className="inline-flex flex-wrap items-center justify-center gap-2 mb-4">
         <span className={`w-10 h-10 rounded-xl flex items-center justify-center border ${categoryStyle(tool.category)}`}>
           <ToolIcon category={tool.category} className="w-5 h-5" />
         </span>
-        {tool.engine && (
-          <span className="text-[11px] font-bold uppercase tracking-wide text-emerald-600 bg-emerald-50 border border-emerald-100 px-2.5 py-1 rounded-full">
-            Instant · runs in your browser
-          </span>
-        )}
       </div>
       <h1 className={`tool-page-title font-extrabold text-slate-900 mb-4${stacked ? ' leading-[1.15]' : ''}`}>{tool.name}</h1>
       <p className={`text-slate-600 max-w-3xl mx-auto leading-relaxed ${stacked ? 'text-[15px] sm:text-base md:text-lg' : 'text-base md:text-lg'}`}>{tool.description}</p>

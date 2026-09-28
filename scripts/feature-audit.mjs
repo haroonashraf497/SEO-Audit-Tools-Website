@@ -836,6 +836,12 @@ check('no artificial letter spacing left on scale headings (no tracking-*, no 0.
   !/^\s*<h[1-6] (?![^>]*heading-card)[^>]*tracking-/m.test(read('src/App.tsx') + read('src/blog/Blog.tsx') + read('src/tools/Tools.tsx')
     + read('src/tools/CompetitorAnalysis.tsx') + read('src/tools/Sidebar.tsx') + read('src/components/SerpPreview.tsx'))
   && !/\.rich-text h[1-6] \{[^}]*04em/.test(read('src/index.css')));
+check('no green "Instant" pill sits above a tool heading any more',
+  !/border-emerald-100 px-2\.5 py-1 rounded-full/.test(read('src/tools/Tools.tsx'))
+  && !/border-emerald-100 px-2 py-0\.5 rounded-full/.test(read('src/tools/Tools.tsx'))
+  && !/border-emerald-100 px-2\.5 py-1 rounded-full/.test(dist)
+  && !/border-emerald-100 px-2 py-0\.5 rounded-full/.test(dist)
+  && !/>Instant<\/span>/.test(read('src/tools/Tools.tsx')));
 check('every h1 on a tool route is capitalised, not uppercase (tool page, category page, index)',
   (read('src/tools/Tools.tsx').match(/className="capitalize font-bold text-slate-900 mb-4"/g) || []).length === 2
   && /<h1 className=\{`tool-page-title font-extrabold text-slate-900 mb-4\$\{stacked \? ' leading-\[1\.15\]' : ''\}`\}>/.test(read('src/tools/Tools.tsx'))
