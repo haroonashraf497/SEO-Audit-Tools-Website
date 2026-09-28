@@ -558,7 +558,7 @@ export const ToolsList: React.FC<{ category?: ToolCategory; categorySlug?: strin
                 <span className="mx-2 text-slate-400" aria-hidden="true">/</span>
                 <span className="text-slate-600">{activeName}</span>
               </nav>
-              <h1 className="font-bold text-slate-900 mb-4">
+              <h1 className="capitalize font-bold text-slate-900 mb-4">
                 <span className="bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">{activeName}</span>
               </h1>
               <p className="text-lg text-slate-600 max-w-2xl mx-auto">
@@ -567,7 +567,7 @@ export const ToolsList: React.FC<{ category?: ToolCategory; categorySlug?: strin
             </>
           ) : (
             <>
-              <h1 className="font-bold text-slate-900 mb-4">
+              <h1 className="capitalize font-bold text-slate-900 mb-4">
                 Free{' '}
                 <span className="bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">SEO Tools</span>
               </h1>
@@ -849,7 +849,7 @@ export const ToolPage: React.FC<{ slug: string }> = ({ slug }) => {
           </span>
         )}
       </div>
-      <h1 className={`font-extrabold text-slate-900 uppercase mb-4${stacked ? ' leading-[1.15]' : ''}`}>{tool.name}</h1>
+      <h1 className={`tool-page-title font-extrabold text-slate-900 mb-4${stacked ? ' leading-[1.15]' : ''}`}>{tool.name}</h1>
       <p className={`text-slate-600 max-w-3xl mx-auto leading-relaxed ${stacked ? 'text-[15px] sm:text-base md:text-lg' : 'text-base md:text-lg'}`}>{tool.description}</p>
     </header>
   );

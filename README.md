@@ -283,6 +283,11 @@ CMS rich-text headings all read the same six variables from `src/index.css`:
 size utilities — those utilities have been removed from the headings altogether, leaving the scale as
 the single source of truth.
 
+Every `h1` on a tool route is **capitalised, not uppercase**: tool pages use the shared
+`.tool-page-title { text-transform: capitalize; }` rule (e.g. *Merge PDF*, *Word Counter*,
+*Text to Speech*) and the tools index / category titles carry Tailwind's `capitalize`, so a name
+written in lower case still reads as a title.
+
 Component headings opt out with a `heading-card` marker class and keep the size their component was
 designed with: the `/free-seo-tools` card headings (category `1.35rem`, tool names `1rem`), the
 footer column headings (`18px`, `capitalize`, `letter-spacing: 0px`), sidebar/report/card panels,
@@ -350,9 +355,9 @@ the store.
 
 ```bash
 npm run typecheck                  # tsc --noEmit
-node scripts/feature-audit.mjs     # 283 checks: global heading scale + letter spacing + hero band spacing, CMS controls, blog categories, managed tool categories, the Competitor Analysis page copy, footer redesign, legal URLs, /free-seo-tools index, text-tool layout/mobile, case-converter grid, Tool Categories mega menu, no-bold top nav, top-level tool URLs (/<slug>), category pages (/ip-tools), Merge PDF compressor, no EKSTRUH, 154 tools
+node scripts/feature-audit.mjs     # 283 checks: global heading scale + letter spacing + capitalised tool titles + hero band spacing, CMS controls, blog categories, managed tool categories, the Competitor Analysis page copy, footer redesign, legal URLs, /free-seo-tools index, text-tool layout/mobile, case-converter grid, Tool Categories mega menu, no-bold top nav, top-level tool URLs (/<slug>), category pages (/ip-tools), Merge PDF compressor, no EKSTRUH, 154 tools
 npm install --no-save jsdom
-node scripts/verify-single-file.mjs  # 250 checks: global heading scale (42/34/28/24/20/18px), letter spacing and equal hero padding, boots the built file, blog + tool category pages, the Competitor Analysis page, instant swap, footer, legal + category URLs, top-level tool pages, legacy redirects, head injection, text-tool layout, mega-menu navigation
+node scripts/verify-single-file.mjs  # 254 checks: global heading scale (42/34/28/24/20/18px), letter spacing, capitalised tool titles and equal hero padding, boots the built file, blog + tool category pages, the Competitor Analysis page, instant swap, footer, legal + category URLs, top-level tool pages, legacy redirects, head injection, text-tool layout, mega-menu navigation
 npm test                           # 34 Playwright tests (needs Chromium)
 ```
 

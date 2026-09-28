@@ -67,6 +67,10 @@ body {
   }
 }
 
+/* Tool page titles are written in capitalised words ("Merge PDF", "Word
+   Counter"), not ALL CAPS: same scale, capitalisation instead of uppercase. */
+.tool-page-title { text-transform: capitalize; }
+
 /* No artificial letter spacing on any heading. */
 main:not(.admin-shell) h1:not(.heading-card),
 main:not(.admin-shell) h2:not(.heading-card),

@@ -631,6 +631,34 @@ for (const [slug, name, count] of [['core-web-vitals', 'Core Web Vitals', 3], ['
     heads[0] === 'H1:Merge PDF' && heads[1] === 'H2:How it works'
     && (heads[2] || '').startsWith('H2:Frequently asked questions'),
     heads.slice(0, 4).join(' | '));
+  const h1Class = dom.window.document.querySelector('main h1')?.getAttribute('class') || '';
+  check('the tool page h1 is capitalised, not uppercase',
+    /(^|\s)tool-page-title(\s|$)/.test(h1Class) && !/(^|\s)uppercase(\s|$)/.test(h1Class)
+    && /\.tool-page-title\{text-transform:capitalize\}/.test(rawHtml.replace(/\s+/g, '')),
+    h1Class);
+  const capitalised = [];
+  for (const path of ['/merge-pdf', '/word-counter', '/plagiarism-checker', '/robots-txt-generator', '/compress-pdf']) {
+    const routed = await boot('', path);
+    const h = routed.dom.window.document.querySelector('main h1');
+    const cls = h?.getAttribute('class') || '';
+    capitalised.push(`${path}:${/(^|\s)tool-page-title(\s|$)/.test(cls) && !/(^|\s)uppercase(\s|$)/.test(cls)}`);
+    routed.dom.window.close();
+  }
+  check('every ordinary tool route renders a capitalised title',
+    capitalised.length === 5 && capitalised.every(entry => entry.endsWith(':true')),
+    capitalised.join(' '));
+  const indexH1 = [];
+  for (const path of ['/free-seo-tools', '/ip-tools', '/pdf-tools']) {
+    const routed = await boot('', path);
+    indexH1.push(`${path}:${/(^|\s)capitalize(\s|$)/.test(routed.dom.window.document.querySelector('main h1')?.getAttribute('class') || '')}`);
+    routed.dom.window.close();
+  }
+  check('the tools index and the category page h1s are capitalised too',
+    indexH1.length === 3 && indexH1.every(entry => entry.endsWith(':true')),
+    indexH1.join(' '));
+  check('the built stylesheet ships both capitalisation rules',
+    /\.capitalize\{text-transform:capitalize\}/.test(rawHtml.replace(/\s+/g, ''))
+    && /\.tool-page-title\{text-transform:capitalize\}/.test(rawHtml.replace(/\s+/g, '')));
   dom.window.close();
 }
 

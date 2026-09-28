@@ -836,8 +836,12 @@ check('no artificial letter spacing left on scale headings (no tracking-*, no 0.
   !/^\s*<h[1-6] (?![^>]*heading-card)[^>]*tracking-/m.test(read('src/App.tsx') + read('src/blog/Blog.tsx') + read('src/tools/Tools.tsx')
     + read('src/tools/CompetitorAnalysis.tsx') + read('src/tools/Sidebar.tsx') + read('src/components/SerpPreview.tsx'))
   && !/\.rich-text h[1-6] \{[^}]*04em/.test(read('src/index.css')));
-check('the tool page h1 keeps its uppercase look, tight leading only, and no size override',
-  /uppercase mb-4\$\{stacked \? ' leading-\[1\.15\]' : ''\}/.test(read('src/tools/Tools.tsx')));
+check('every h1 on a tool route is capitalised, not uppercase (tool page, category page, index)',
+  (read('src/tools/Tools.tsx').match(/className="capitalize font-bold text-slate-900 mb-4"/g) || []).length === 2
+  && /<h1 className=\{`tool-page-title font-extrabold text-slate-900 mb-4\$\{stacked \? ' leading-\[1\.15\]' : ''\}`\}>/.test(read('src/tools/Tools.tsx'))
+  && !/<h1 className=\{`[^`]*uppercase/.test(read('src/tools/Tools.tsx'))
+  && /\.tool-page-title \{ text-transform: capitalize; \}/.test(read('src/index.css'))
+  && /\.tool-page-title\{text-transform:capitalize\}/.test(dist.replace(/\s+/g, '')));
 check('rich-text (CMS) headings use the same scale and no letter spacing',
   ['h1', 'h2', 'h3', 'h4', 'h5', 'h6'].every(tag =>
     new RegExp(`\\.rich-text ${tag} \\{ font-size: var\\(--heading-${tag}\\); font-weight: \\d+; color: #[0-9a-f]{6}; `).test(css)
