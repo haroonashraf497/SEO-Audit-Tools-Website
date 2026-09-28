@@ -1684,11 +1684,7 @@ const SiteApp: React.FC = () => {
       <section className={`pt-16 pb-20 px-4 bg-gradient-to-br from-indigo-100 via-violet-50 to-purple-100 ${cms.state.sections.hero ? '' : 'hidden'}`}>
         <div className="max-w-7xl mx-auto">
           <header className="text-center mb-12">
-            <div className="inline-flex items-center gap-2 bg-white/80 backdrop-blur-sm px-4 py-2 rounded-full border border-slate-200 mb-6">
-              <span className="text-indigo-500"><InlineIcons.Award /></span>
-              <span className="text-sm font-medium text-slate-600">Trusted by 10,000+ websites across Pakistan &amp; beyond</span>
-            </div>
-            <h1 className="text-4xl md:text-6xl font-bold text-slate-900 mb-6 leading-tight">
+            <h1 className="text-[3rem] font-bold text-slate-900 mb-6 leading-tight">
               Free{' '}
               <span className="bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
                 SEO Audit Tool

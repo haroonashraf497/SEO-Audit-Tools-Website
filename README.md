@@ -247,6 +247,20 @@ as a pill at the right-hand end of the row that links to that category's own pag
 (`/blog/category/<slug>`). Every built-in article is bylined *SAT Team*, and a post created in the
 CMS defaults to the same name, so no post shows an empty or stale author.
 
+### Heading structure
+
+Every page keeps the outline search engines read: **exactly one `h1`** (the page's own subject, first
+heading in the main content), then `h2` sections and `h3` sub-items — no skipped levels and no `h2`
+that just repeats the `h1`.
+
+- the home hero `h1` (*Free SEO Audit Tool*) is set to **3rem**; the "Trusted by 10,000+ websites"
+  pill above it is gone;
+- the blog index and the blog category pages use `h2` article cards (the related list on an article
+  keeps its `h3` cards under the *Keep reading* `h2`);
+- a tool category page labels its list **"All IP Tools"** etc. instead of repeating the `h1`;
+- the PDF tool-guide panels (*How it works*, *Frequently asked questions*) are `h2`, so tool pages
+  never jump `h1 → h3`.
+
 ### Single article sidebar
 
 The sidebar on a single blog post reads **search bar → Latest Articles → Other Relevant Tools**,
@@ -308,9 +322,9 @@ the store.
 
 ```bash
 npm run typecheck                  # tsc --noEmit
-node scripts/feature-audit.mjs     # 263 checks: CMS controls, blog categories, managed tool categories, the Competitor Analysis page copy, footer redesign, legal URLs, /free-seo-tools index, text-tool layout/mobile, case-converter grid, Tool Categories mega menu, no-bold top nav, top-level tool URLs (/<slug>), category pages (/ip-tools), Merge PDF compressor, no EKSTRUH, 154 tools
+node scripts/feature-audit.mjs     # 270 checks: CMS controls, blog categories, managed tool categories, the Competitor Analysis page copy, footer redesign, legal URLs, /free-seo-tools index, text-tool layout/mobile, case-converter grid, Tool Categories mega menu, no-bold top nav, top-level tool URLs (/<slug>), category pages (/ip-tools), Merge PDF compressor, no EKSTRUH, 154 tools
 npm install --no-save jsdom
-node scripts/verify-single-file.mjs  # 231 checks: boots the built file, blog + tool category pages, the Competitor Analysis page, instant swap, footer, legal + category URLs, top-level tool pages, legacy redirects, head injection, text-tool layout, mega-menu navigation
+node scripts/verify-single-file.mjs  # 242 checks: boots the built file, blog + tool category pages, the Competitor Analysis page, instant swap, footer, legal + category URLs, top-level tool pages, legacy redirects, head injection, text-tool layout, mega-menu navigation
 npm test                           # 34 Playwright tests (needs Chromium)
 ```
 

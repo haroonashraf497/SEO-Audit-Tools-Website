@@ -107,7 +107,9 @@ const formatDate = (iso: string): string => {
 };
 
 // ---------- Article card ----------
-const ArticleCard: React.FC<{ article: BlogArticle }> = ({ article }) => (
+/* The card heading follows the page: h2 on the blog index and the category
+ * pages (so the outline never jumps h1 → h3), h3 inside the related list. */
+const ArticleCard: React.FC<{ article: BlogArticle; level?: 2 | 3 }> = ({ article, level = 3 }) => (
   <article className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm hover:shadow-lg hover:border-indigo-200 transition-all flex flex-col">
     {article.featuredImage && (
       <a href={`/blog/${article.slug}`} className="block -mx-1 -mt-1 mb-5 overflow-hidden rounded-xl bg-slate-100 aspect-[1.91/1]">
@@ -120,11 +122,19 @@ const ArticleCard: React.FC<{ article: BlogArticle }> = ({ article }) => (
       </span>
       <span className="text-xs text-slate-400">{article.readTime}</span>
     </div>
-    <h3 className="text-lg font-bold text-slate-900 leading-snug mb-3">
-      <a href={`/blog/${article.slug}`} className="hover:text-indigo-600 transition-colors">
-        {article.title}
-      </a>
-    </h3>
+    {level === 2 ? (
+      <h2 className="text-lg font-bold text-slate-900 leading-snug mb-3">
+        <a href={`/blog/${article.slug}`} className="hover:text-indigo-600 transition-colors">
+          {article.title}
+        </a>
+      </h2>
+    ) : (
+      <h3 className="text-lg font-bold text-slate-900 leading-snug mb-3">
+        <a href={`/blog/${article.slug}`} className="hover:text-indigo-600 transition-colors">
+          {article.title}
+        </a>
+      </h3>
+    )}
     <p className="text-sm text-slate-600 leading-relaxed mb-4 flex-1">{article.excerpt}</p>
     <div className="flex items-center justify-between pt-4 border-t border-slate-100">
       <time dateTime={article.date} className="text-xs text-slate-400">{formatDate(article.date)}</time>
@@ -198,7 +208,7 @@ export const BlogList: React.FC = () => {
 
           <div className="grid md:grid-cols-2 gap-6">
             {filtered.map(article => (
-              <ArticleCard key={article.slug} article={article} />
+              <ArticleCard key={article.slug} article={article} level={2} />
             ))}
           </div>
         </div>
@@ -248,7 +258,7 @@ export const BlogCategoryPage: React.FC<{ slug: string }> = ({ slug }) => {
             <p className="text-slate-600">No published articles in this category yet. <a href="/blog" className="text-indigo-600 font-semibold hover:underline">Browse every article</a>.</p>
           ) : (
             <div className="grid md:grid-cols-2 gap-6">
-              {posts.map(article => <ArticleCard key={article.slug} article={article} />)}
+              {posts.map(article => <ArticleCard key={article.slug} article={article} level={2} />)}
             </div>
           )}
           <p className="mt-10"><a href="/blog" className="text-indigo-600 font-semibold hover:underline">← All blog categories</a></p>

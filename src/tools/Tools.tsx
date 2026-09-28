@@ -639,7 +639,9 @@ export const ToolsList: React.FC<{ category?: ToolCategory; categorySlug?: strin
                     <span className={`w-9 h-9 rounded-lg flex items-center justify-center border ${categoryStyle(cat.key)}`}>
                       <ToolIcon category={cat.key} />
                     </span>
-                    <h2 className="font-bold text-slate-900" style={CATEGORY_HEADING_SIZE}>{cat.name}</h2>
+                    {/* The H1 above already names the category, so the section
+                        heading labels the list instead of repeating it. */}
+                    <h2 className="font-bold text-slate-900" style={CATEGORY_HEADING_SIZE}>All {cat.name}</h2>
                   </>
                 ) : (
                   <a

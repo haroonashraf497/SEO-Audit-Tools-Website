@@ -308,7 +308,7 @@ check('the category heading links to that category page on the index',
   /href=\{cat\.builtin \? `\/\$\{cat\.slug\}` : toolCategoryPath\(cat\.slug\)\}/.test(listSrcCards)
   && /group-hover\/heading:text-indigo-600/.test(listSrcCards));
 check('a category page does not link its own heading back to itself',
-  /\{activeKey \? \([\s\S]{0,400}<h2 className="font-bold text-slate-900" style=\{CATEGORY_HEADING_SIZE\}>\{cat\.name\}<\/h2>/.test(listSrcCards));
+  /\{activeKey \? \([\s\S]{0,460}<h2 className="font-bold text-slate-900" style=\{CATEGORY_HEADING_SIZE\}>All \{cat\.name\}<\/h2>/.test(listSrcCards));
 check('every card description is clamped to exactly two lines',
   /line-clamp-2 min-h-\[2\.5rem\]/.test(listSrcCards) && /toolTagline\(t\)/.test(listSrcCards));
 const taglineBlock = dataSrcCards.slice(dataSrcCards.indexOf('export const toolTaglines'), dataSrcCards.indexOf('export const toolTagline ='));
@@ -754,7 +754,7 @@ check('the category pill closes the same row and links to its category page',
   && /<a href=\{categoryHref\} className=\{`inline-block px-2\.5 py-1 rounded-full text-xs font-semibold border \$\{categoryBadge\(article\.category\)\}`\}>/.test(blogPage));
 check('the 154 tools and the rest of the blog page are untouched',
   (tools.match(/slug: '/g) || []).length === 154
-  && /<ArticleCard key=\{article\.slug\} article=\{article\} \/>/.test(blogPage)
+  && /<ArticleCard key=\{article\.slug\} article=\{article\} level=\{2\} \/>/.test(blogPage)
   && /export const BlogCategoryPage: React\.FC<\{ slug: string \}>/.test(blogPage));
 
 console.log('\n=== 📚 Blog article sidebar (order + full titles) ===');
@@ -784,6 +784,28 @@ check('the sidebar still renders search, tools, popular, widgets, latest and CTA
   && /const popularPanel = cfg\.popular \?/.test(sidebarSrc) && /const latestPanel = cfg\.latest/.test(sidebarSrc)
   && /const ctaPanel = cfg\.cta \?/.test(sidebarSrc) && /const widgetPanels = widgets\.map/.test(sidebarSrc)
   && /<aside className="space-y-5">/.test(sidebarSrc));
+
+console.log('\n=== 🪜 Heading pattern (SEO) ===');
+check('the home hero has no trusted-by line',
+  !/Trusted by/.test(app) && !/Trusted by/.test(dist));
+check('the home h1 uses the exact 3rem size',
+  /<h1 className="text-\[3rem\] font-bold text-slate-900 mb-6 leading-tight">/.test(app)
+  && /\.text-\\\[3rem\\\]\{font-size:3rem\}/.test(dist.replace(/\s+/g, '')));
+check('every page has exactly one h1 (each route renders a single header level)',
+  (app.match(/<h1 /g) || []).length >= 3
+  && (blogPage.match(/<h1 /g) || []).length >= 3
+  && !/<h1[\s\S]{0,200}<h1/.test(app));
+check('blog cards take a heading level so list pages use h2',
+  /const ArticleCard: React\.FC<\{ article: BlogArticle; level\?: 2 \| 3 \}> = \(\{ article, level = 3 \}\) => \(/.test(blogPage)
+  && (blogPage.match(/<ArticleCard key=\{article\.slug\} article=\{article\} level=\{2\} \/>/g) || []).length === 2
+  && /<ArticleCard key=\{a\.slug\} article=\{a\} \/>/.test(blogPage));
+check('a category page labels its tool list instead of repeating the h1',
+  /<h2 className="font-bold text-slate-900" style=\{CATEGORY_HEADING_SIZE\}>All \{cat\.name\}<\/h2>/.test(read('src/tools/Tools.tsx')));
+check('the PDF guide sections are h2 (no h1 → h3 jump on tool pages)',
+  /<h2 className="font-bold text-slate-900 mb-4">How it works<\/h2>/.test(read('src/tools/pdf/PdfGuide.tsx'))
+  && /<h2 className="font-bold text-slate-900 mb-4">Frequently asked questions<\/h2>/.test(read('src/tools/pdf/PdfGuide.tsx')));
+check('the heading levels in the built file never jump two steps in one section',
+  !/<h1[^>]*>[^<]{0,120}<\/h1>\s*<h3/.test(dist));
 
 console.log('\n=== ✅ Preserved ===');
 check('no "Loading page" anywhere in src', !/Loading page/.test(read('src/App.tsx') + read('src/components/ErrorBoundary.tsx') + read('src/tools/Tools.tsx')));

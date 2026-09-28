@@ -515,6 +515,86 @@ for (const [slug, name, count] of [['core-web-vitals', 'Core Web Vitals', 3], ['
   dom.window.close();
 }
 
+/* 3g. heading pattern: one h1 per page, no skipped levels, no h2 that just
+      repeats the h1 — the structure search engines read */
+{
+  const routes = ['/', '/plagiarism-checker', '/merge-pdf', '/compress-pdf', '/free-seo-tools', '/ip-tools',
+    '/website-management-tools', '/blog', '/blog/google-not-indexing-pages', '/blog/category/google-indexing',
+    '/competitor-analysis', '/about', '/privacy-policy', '/terms-of-service', '/contact', '/faq', '/nope-404'];
+  const bad = { h1: [], first: [], skip: [], dup: [] };
+  for (const route of routes) {
+    const { dom } = await boot('', route);
+    const heads = [...dom.window.document.querySelectorAll('main h1, main h2, main h3, main h4, main h5, main h6')];
+    const h1s = heads.filter(h => h.tagName === 'H1');
+    if (h1s.length !== 1) bad.h1.push(`${route}(${h1s.length})`);
+    if (heads[0] && heads[0].tagName !== 'H1') bad.first.push(`${route}:${heads[0].tagName}`);
+    let prev = 0;
+    for (const h of heads) {
+      const lvl = Number(h.tagName[1]);
+      if (prev && lvl > prev + 1) bad.skip.push(`${route} ${prev}->${lvl} "${(h.textContent || '').trim().slice(0, 20)}"`);
+      prev = lvl;
+    }
+    const h1Text = (h1s[0]?.textContent || '').trim().toLowerCase();
+    if (heads.some(h => h.tagName === 'H2' && (h.textContent || '').trim().toLowerCase() === h1Text)) bad.dup.push(route);
+    dom.window.close();
+  }
+  check('every page has exactly one h1', bad.h1.length === 0, bad.h1.join(' | '));
+  check('the h1 is the first heading on every page', bad.first.length === 0, bad.first.join(' | '));
+  check('no page skips a heading level (h1 → h2 → h3 …)', bad.skip.length === 0, bad.skip.join(' | '));
+  check('no page repeats its h1 text as an h2', bad.dup.length === 0, bad.dup.join(' | '));
+}
+{
+  const { dom } = await boot('', '/');
+  const h1 = dom.window.document.querySelector('main h1');
+  check('the home h1 is the 3rem heading and the trusted-by line is gone',
+    (h1?.textContent || '').replace(/\s+/g, ' ').trim() === 'Free SEO Audit Tool'
+    && /(^|\s)text-\[3rem\](\s|$)/.test(h1?.className || '')
+    && !/Trusted by/.test(dom.window.document.querySelector('main')?.textContent || '')
+    && /font-size:3rem/.test(rawHtml.replace(/\s+/g, '')),
+    `${h1?.className} | trusted-by=${/Trusted by/.test(dom.window.document.body.textContent || '')}`);
+  check('the rest of the hero still renders (subtitle, form, button)',
+    /Analyze your website's SEO performance/.test(dom.window.document.querySelector('main')?.textContent || '')
+    && !!dom.window.document.querySelector('main input[type="url"], main input[placeholder*="example"]'));
+  dom.window.close();
+}
+{
+  const blog = await boot('', '/blog');
+  const cards = [...blog.dom.window.document.querySelectorAll('main article')];
+  check('blog cards are h2 under the page h1, so the outline never jumps to h3',
+    cards.length === 12 && cards.every(card => !!card.querySelector('h2') && !card.querySelector('h3')),
+    cards.map(card => card.querySelector('h2,h3')?.tagName || 'none').join(' '));
+  blog.dom.window.close();
+  const cat = await boot('', '/blog/category/google-indexing');
+  check('blog category pages use the same h2 cards',
+    [...cat.dom.window.document.querySelectorAll('main article')].every(card => !!card.querySelector('h2') && !card.querySelector('h3')));
+  cat.dom.window.close();
+  const article = await boot('', '/blog/google-not-indexing-pages');
+  const related = [...article.dom.window.document.querySelectorAll('main h2')].some(h => h.textContent.trim() === 'Keep reading');
+  check('the related list on an article keeps h3 cards under its h2',
+    related && [...article.dom.window.document.querySelectorAll('main article')].every(card => !!card.querySelector('h3')),
+    [...article.dom.window.document.querySelectorAll('main article')].length + ' related cards');
+  article.dom.window.close();
+}
+{
+  const { dom } = await boot('', '/ip-tools');
+  const doc = dom.window.document;
+  check('a category page labels its list ("All IP Tools") instead of repeating the h1',
+    (doc.querySelector('main h1')?.textContent || '').trim() === 'IP Tools'
+    && [...doc.querySelectorAll('main h2')].some(h => h.textContent.trim() === 'All IP Tools')
+    && [...doc.querySelectorAll('main h3')].length === 6,
+    [...doc.querySelectorAll('main h1, main h2')].map(h => `${h.tagName}:${h.textContent.trim()}`).join(' | '));
+  dom.window.close();
+}
+{
+  const { dom } = await boot('', '/merge-pdf');
+  const heads = [...dom.window.document.querySelectorAll('main h1, main h2')].map(h => `${h.tagName}:${h.textContent.trim().slice(0, 40)}`);
+  check('the PDF guide sections are h2, so the tool pages keep a clean outline',
+    heads[0] === 'H1:Merge PDF' && heads[1] === 'H2:How it works'
+    && (heads[2] || '').startsWith('H2:Frequently asked questions'),
+    heads.slice(0, 4).join(' | '));
+  dom.window.close();
+}
+
 /* 3f. the header navigation is the CMS menu: every live link is listed in
       Admin → Sections & Nav and an edit shows up in the header straight away */
 {
