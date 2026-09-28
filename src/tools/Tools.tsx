@@ -664,13 +664,6 @@ export const ToolsList: React.FC<{ category?: ToolCategory; categorySlug?: strin
                 {list.map(t => (
                   <a key={t.slug} href={`/${t.slug}`}
                     className="group bg-white rounded-2xl border border-slate-200 p-5 shadow-sm hover:shadow-lg hover:border-indigo-200 transition-all flex flex-col">
-                    <div className="flex items-center justify-between mb-3">
-                      <span className={`w-9 h-9 rounded-lg flex items-center justify-center border ${categoryStyle(t.category)}`}>
-                        <ToolIcon category={t.category} className="w-4 h-4" />
-                      </span>
-                      {/* the green "Instant" pill that used to sit here (above the
-                          tool name) is gone, like the one on the tool pages */}
-                    </div>
                     <h3 className="heading-card font-bold text-slate-900 mb-1.5 group-hover:text-indigo-600 transition-colors" style={TOOL_NAME_SIZE}>{t.name}</h3>
                     {/* line-clamp-2 + a reserved two-line height: every card shows the
                         same two-line description block, whatever the tagline length. */}
@@ -838,13 +831,9 @@ export const ToolPage: React.FC<{ slug: string }> = ({ slug }) => {
 
   const header = (
     <header className={`text-center ${stacked ? 'mb-5 sm:mb-6' : 'mb-6'}`}>
-      {/* only the category icon sits above the title now; the green
-          "Instant · runs in your browser" pill is gone from every tool page */}
-      <div className="inline-flex flex-wrap items-center justify-center gap-2 mb-4">
-        <span className={`w-10 h-10 rounded-xl flex items-center justify-center border ${categoryStyle(tool.category)}`}>
-          <ToolIcon category={tool.category} className="w-5 h-5" />
-        </span>
-      </div>
+      {/* the title is the first thing in the header: the category icon and the
+          green "Instant · runs in your browser" pill that used to sit above it
+          are both gone from every tool page */}
       <h1 className={`tool-page-title font-extrabold text-slate-900 mb-4${stacked ? ' leading-[1.15]' : ''}`}>{tool.name}</h1>
       <p className={`text-slate-600 max-w-3xl mx-auto leading-relaxed ${stacked ? 'text-[15px] sm:text-base md:text-lg' : 'text-base md:text-lg'}`}>{tool.description}</p>
     </header>

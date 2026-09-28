@@ -836,6 +836,11 @@ check('no artificial letter spacing left on scale headings (no tracking-*, no 0.
   !/^\s*<h[1-6] (?![^>]*heading-card)[^>]*tracking-/m.test(read('src/App.tsx') + read('src/blog/Blog.tsx') + read('src/tools/Tools.tsx')
     + read('src/tools/CompetitorAnalysis.tsx') + read('src/tools/Sidebar.tsx') + read('src/components/SerpPreview.tsx'))
   && !/\.rich-text h[1-6] \{[^}]*04em/.test(read('src/index.css')));
+check('no icon sits above a tool heading any more (tool page + tool cards)',
+  !/<div className="inline-flex flex-wrap items-center justify-center gap-2 mb-4">/.test(read('src/tools/Tools.tsx'))
+  && !/<div className="flex items-center justify-between mb-3">/.test(read('src/tools/Tools.tsx'))
+  && !/w-10 h-10 rounded-xl flex items-center justify-center border/.test(dist)
+  && (read('src/tools/Tools.tsx').match(/w-9 h-9 rounded-lg flex items-center justify-center border/g) || []).length === 2);
 check('no green "Instant" pill sits above a tool heading any more',
   !/border-emerald-100 px-2\.5 py-1 rounded-full/.test(read('src/tools/Tools.tsx'))
   && !/border-emerald-100 px-2 py-0\.5 rounded-full/.test(read('src/tools/Tools.tsx'))

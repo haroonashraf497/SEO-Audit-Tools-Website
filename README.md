@@ -284,9 +284,11 @@ CMS rich-text headings all read the same six variables from `src/index.css`:
 size utilities — those utilities have been removed from the headings altogether, leaving the scale as
 the single source of truth.
 
-The green **"Instant · runs in your browser"** pill (and the smaller **"Instant"** badge on the
-`/free-seo-tools` cards) that used to sit above the tool's heading is gone: a tool page now opens
-with its category icon and the title. The category-coloured icon badge stays.
+Nothing sits above a tool's heading any more: the green **"Instant · runs in your browser"** pill,
+the **"Instant"** badge on the `/free-seo-tools` cards and the **category icon badge** are all gone.
+A tool page opens straight with its title (then the description) and each `/free-seo-tools` card
+starts with the tool name. The category section headings on the index and the icons beside the tool
+names on the home grid are inline with their heading, so they stay.
 
 Every `h1` on a tool route is **capitalised, not uppercase**: tool pages use the shared
 `.tool-page-title { text-transform: capitalize; }` rule (e.g. *Merge PDF*, *Word Counter*,
@@ -360,9 +362,9 @@ the store.
 
 ```bash
 npm run typecheck                  # tsc --noEmit
-node scripts/feature-audit.mjs     # 284 checks: global heading scale + letter spacing + capitalised tool titles + no green tool pills + hero band spacing, CMS controls, blog categories, managed tool categories, the Competitor Analysis page copy, footer redesign, legal URLs, /free-seo-tools index, text-tool layout/mobile, case-converter grid, Tool Categories mega menu, no-bold top nav, top-level tool URLs (/<slug>), category pages (/ip-tools), Merge PDF compressor, no EKSTRUH, 154 tools
+node scripts/feature-audit.mjs     # 285 checks: global heading scale + letter spacing + capitalised tool titles + no badges or icons above tool headings + hero band spacing, CMS controls, blog categories, managed tool categories, the Competitor Analysis page copy, footer redesign, legal URLs, /free-seo-tools index, text-tool layout/mobile, case-converter grid, Tool Categories mega menu, no-bold top nav, top-level tool URLs (/<slug>), category pages (/ip-tools), Merge PDF compressor, no EKSTRUH, 154 tools
 npm install --no-save jsdom
-node scripts/verify-single-file.mjs  # 258 checks: global heading scale (42/34/28/24/20/18px), letter spacing, capitalised tool titles, no green tool pills and equal hero padding, boots the built file, blog + tool category pages, the Competitor Analysis page, instant swap, footer, legal + category URLs, top-level tool pages, legacy redirects, head injection, text-tool layout, mega-menu navigation
+node scripts/verify-single-file.mjs  # 259 checks: global heading scale (42/34/28/24/20/18px), letter spacing, capitalised tool titles, no badges or icons above tool headings and equal hero padding, boots the built file, blog + tool category pages, the Competitor Analysis page, instant swap, footer, legal + category URLs, top-level tool pages, legacy redirects, head injection, text-tool layout, mega-menu navigation
 npm test                           # 34 Playwright tests (needs Chromium)
 ```
 

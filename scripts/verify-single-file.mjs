@@ -670,13 +670,23 @@ for (const [slug, name, count] of [['core-web-vitals', 'Core Web Vitals', 3], ['
     indexBadges.length === 0 && !/border-emerald-100 px-2 py-0\.5 rounded-full/.test(rawHtml),
     indexBadges.join(' | '));
   const indexCards = [...toolsIndex.dom.window.document.querySelectorAll('main a h3')];
-  check('the tool cards keep their category icon and heading',
-    indexCards.length > 0 && indexCards.every(h => /heading-card/.test(h.getAttribute('class') || ''))
-    && !!toolsIndex.dom.window.document.querySelector('main a span.w-9.h-9'));
+  check('the tool cards start with the name (no icon above it)',
+    indexCards.length > 0 && indexCards.every(h => {
+      const card = h.closest('a');
+      return /heading-card/.test(h.getAttribute('class') || '')
+        && card?.firstElementChild === h
+        && !card.querySelector('span.w-9, span.w-10');
+    }),
+    indexCards.filter(h => h.closest('a')?.firstElementChild !== h).length + ' cards not starting with the name');
+  check('the /free-seo-tools category headings keep their category icon',
+    [...toolsIndex.dom.window.document.querySelectorAll('main section h2')]
+      .every(h => !!h.parentElement?.querySelector('span.w-9')));
   toolsIndex.dom.window.close();
   const toolHeader = dom.window.document.querySelector('main h1')?.closest('header');
-  check('the tool page header still carries the category icon and the title',
-    /w-10 h-10/.test(toolHeader?.innerHTML || '') && /tool-page-title/.test(toolHeader?.innerHTML || ''));
+  check('the tool page header starts with the title (no icon above it)',
+    /tool-page-title/.test(toolHeader?.innerHTML || '')
+    && !/w-10 h-10/.test(toolHeader?.innerHTML || '')
+    && (toolHeader?.firstElementChild?.tagName || '') === 'H1');
   check('the built stylesheet ships both capitalisation rules',
     /\.capitalize\{text-transform:capitalize\}/.test(rawHtml.replace(/\s+/g, ''))
     && /\.tool-page-title\{text-transform:capitalize\}/.test(rawHtml.replace(/\s+/g, '')));
