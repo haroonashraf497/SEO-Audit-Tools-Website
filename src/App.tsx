@@ -1682,9 +1682,11 @@ const SiteApp: React.FC = () => {
 
       {route === 'home' && (<>
       {/* Hero Section */}
-      <section className={`pt-16 pb-20 px-4 bg-gradient-to-br from-indigo-100 via-violet-50 to-purple-100 ${cms.state.sections.hero ? '' : 'hidden'}`}>
+      <section className={`px-4 py-16 md:py-20 bg-gradient-to-br from-indigo-100 via-violet-50 to-purple-100 ${cms.state.sections.hero ? '' : 'hidden'}`}>
         <div className="max-w-7xl mx-auto">
-          <header className="text-center mb-12">
+          {/* no trailing margin here: the section's own padding is the whole
+              gap, so the band keeps equal space above and below its content */}
+          <header className="text-center">
             <h1 className="font-bold text-slate-900 mb-6 leading-tight">
               Free{' '}
               <span className="bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">

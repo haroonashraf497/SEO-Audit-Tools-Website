@@ -555,6 +555,16 @@ for (const [slug, name, count] of [['core-web-vitals', 'Core Web Vitals', 3], ['
     && /main:not\(\.admin-shell\)h1:not\(\.heading-card\)\{font-size:var\(--heading-h1\)\}/.test(flatCss)
     && !/Trusted by/.test(dom.window.document.querySelector('main')?.textContent || ''),
     `${h1?.className} | trusted-by=${/Trusted by/.test(dom.window.document.body.textContent || '')}`);
+  const hero = dom.window.document.querySelector('main section');
+  const heroClass = hero?.getAttribute('class') || '';
+  const heroHeader = hero?.querySelector('header');
+  check('the home hero band keeps equal space above and below its content',
+    /(^|\s)py-16(\s|$)/.test(heroClass) && /(^|\s)md:py-20(\s|$)/.test(heroClass)
+    && !/(^|\s)pt-16(\s|$)/.test(heroClass) && !/(^|\s)pb-20(\s|$)/.test(heroClass)
+    && !/(^|\s)mb-/.test(heroHeader?.getAttribute('class') || '')
+    && /\.py-16\{padding-block:calc\(var\(--spacing\)\*16\)\}/.test(flatCss)
+    && /\.md\\:py-20\{padding-block:calc\(var\(--spacing\)\*20\)\}/.test(flatCss),
+    `${heroClass} | header=${heroHeader?.getAttribute('class')}`);
   check('the built page ships the 42/34/28/24/20/18px desktop heading scale',
     ['h1:2.625rem', 'h2:2.125rem', 'h3:1.75rem', 'h4:1.5rem', 'h5:1.25rem', 'h6:1.125rem']
       .every(step => flatCss.includes(`--heading-${step}`)));

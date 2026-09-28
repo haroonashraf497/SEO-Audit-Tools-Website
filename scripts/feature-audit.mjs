@@ -791,6 +791,12 @@ check('the sidebar still renders search, tools, popular, widgets, latest and CTA
 console.log('\n=== 🪜 Heading pattern (SEO) ===');
 check('the home hero has no trusted-by line',
   !/Trusted by/.test(app) && !/Trusted by/.test(dist));
+check('the home hero band has equal space above and below (symmetric padding)',
+  /<section className=\{`px-4 py-16 md:py-20 bg-gradient-to-br from-indigo-100 via-violet-50 to-purple-100 \$\{cms\.state\.sections\.hero \? '' : 'hidden'\}`\}>/
+    .test(app)
+  && !/pt-16 pb-20 px-4 bg-gradient-to-br/.test(app)
+  && /<header className="text-center">/.test(app)
+  && !/mb-12/.test(app.slice(app.indexOf('{/* Hero Section */}'), app.indexOf('{/* Results Section */}'))));
 check('the home h1 takes the global h1 size (42px desktop)',
   /<h1 className="font-bold text-slate-900 mb-6 leading-tight">/.test(app)
   && /main:not\(.admin-shell\) h1:not\(.heading-card\) \{ font-size: var\(--heading-h1\); \}/.test(css)

@@ -255,6 +255,9 @@ that just repeats the `h1`.
 
 - the home hero `h1` (*Free SEO Audit Tool*) takes the global `h1` size (`--heading-h1`, 42px on
   desktop, 36px on tablets, 30px on phones); the "Trusted by 10,000+ websites" pill above it is gone;
+- the hero band keeps **equal space above and below** its content: the section carries a symmetric
+  `py-16 md:py-20` (64px on phones and tablets, 80px on desktop, top *and* bottom) and the trailing
+  `mb-12` that used to add a second helping of space under the trust row is gone;
 - the blog index and the blog category pages use `h2` article cards (the related list on an article
   keeps its `h3` cards under the *Keep reading* `h2`);
 - a tool category page labels its list **"All IP Tools"** etc. instead of repeating the `h1`;
@@ -347,9 +350,9 @@ the store.
 
 ```bash
 npm run typecheck                  # tsc --noEmit
-node scripts/feature-audit.mjs     # 282 checks: global heading scale + letter spacing, CMS controls, blog categories, managed tool categories, the Competitor Analysis page copy, footer redesign, legal URLs, /free-seo-tools index, text-tool layout/mobile, case-converter grid, Tool Categories mega menu, no-bold top nav, top-level tool URLs (/<slug>), category pages (/ip-tools), Merge PDF compressor, no EKSTRUH, 154 tools
+node scripts/feature-audit.mjs     # 283 checks: global heading scale + letter spacing + hero band spacing, CMS controls, blog categories, managed tool categories, the Competitor Analysis page copy, footer redesign, legal URLs, /free-seo-tools index, text-tool layout/mobile, case-converter grid, Tool Categories mega menu, no-bold top nav, top-level tool URLs (/<slug>), category pages (/ip-tools), Merge PDF compressor, no EKSTRUH, 154 tools
 npm install --no-save jsdom
-node scripts/verify-single-file.mjs  # 249 checks: global heading scale (42/34/28/24/20/18px) and letter spacing, boots the built file, blog + tool category pages, the Competitor Analysis page, instant swap, footer, legal + category URLs, top-level tool pages, legacy redirects, head injection, text-tool layout, mega-menu navigation
+node scripts/verify-single-file.mjs  # 250 checks: global heading scale (42/34/28/24/20/18px), letter spacing and equal hero padding, boots the built file, blog + tool category pages, the Competitor Analysis page, instant swap, footer, legal + category URLs, top-level tool pages, legacy redirects, head injection, text-tool layout, mega-menu navigation
 npm test                           # 34 Playwright tests (needs Chromium)
 ```
 
