@@ -282,7 +282,7 @@ export const ArticleRewriter: React.FC = () => {
       {step === 2 && (
         <div className="bg-white rounded-2xl border border-slate-200 p-10 md:p-16 text-center shadow-sm">
           <div className="w-20 h-20 mx-auto rounded-full border-4 border-blue-100 border-t-blue-500 animate-spin mb-6" />
-          <h3 className="text-2xl font-bold text-slate-900 mb-2">Processing your article</h3>
+          <h3 className="font-bold text-slate-900 mb-2">Processing your article</h3>
           <p className="text-slate-600 mb-6">{stage}</p>
           <div className="max-w-md mx-auto h-2 bg-slate-200 rounded-full overflow-hidden">
             <div className="h-full bg-blue-500 transition-all" style={{ width: `${progress}%` }} />

@@ -164,7 +164,7 @@ export const CompressMore: React.FC<{
     <div className="mt-4 bg-slate-50 border border-slate-200 rounded-xl p-4">
       <div className="flex items-start justify-between gap-3 mb-3">
         <div>
-          <h4 className="font-bold text-slate-900 text-sm">Compress more</h4>
+          <h4 className="heading-card font-bold text-slate-900 text-sm">Compress more</h4>
           <p className="text-xs text-slate-500 mt-0.5">Optional — shrink the merged file before you download it. “Lossless” keeps real text; the other levels re-render pages as images, which takes a few seconds on large documents.</p>
         </div>
         <span className="text-xs font-semibold text-slate-500 flex-shrink-0">{fmtBytes(bytes.byteLength)}</span>
@@ -245,7 +245,7 @@ export const ResultPanel: React.FC<{ title: string; bytes: number; before?: numb
   return (
     <div className="bg-white rounded-2xl border-2 border-emerald-200 p-6 shadow-sm animate-fade-in">
       <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-        <div className="flex items-center gap-3"><span className="w-10 h-10 rounded-full bg-emerald-500 text-white flex items-center justify-center text-lg">✓</span><div><h3 className="font-bold text-slate-900">{title}</h3>{fileName && <p className="text-xs text-slate-500">{fileName}</p>}</div></div>
+        <div className="flex items-center gap-3"><span className="w-10 h-10 rounded-full bg-emerald-500 text-white flex items-center justify-center text-lg">✓</span><div><h3 className="heading-card font-bold text-slate-900">{title}</h3>{fileName && <p className="text-xs text-slate-500">{fileName}</p>}</div></div>
         <div className="flex gap-2"><Btn onClick={onDownload}>⬇ Download</Btn><Btn variant="secondary" onClick={onReset}>Start over</Btn></div>
       </div>
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">

@@ -132,7 +132,7 @@ export const SplitPdf: React.FC = () => {
       {f.error && <ErrorBox msg={f.error} />}
       {outs.length > 0 && (
         <div className="bg-white rounded-2xl border-2 border-emerald-200 p-6 animate-fade-in">
-          <div className="flex flex-wrap items-center justify-between gap-3 mb-4"><h3 className="font-bold text-slate-900">✓ {outs.length} file{outs.length === 1 ? '' : 's'} ready</h3><div className="flex gap-2"><Btn onClick={downloadAll}>⬇ Download all</Btn><Btn variant="secondary" onClick={() => setOuts([])}>Back</Btn></div></div>
+          <div className="flex flex-wrap items-center justify-between gap-3 mb-4"><h3 className="heading-card font-bold text-slate-900">✓ {outs.length} file{outs.length === 1 ? '' : 's'} ready</h3><div className="flex gap-2"><Btn onClick={downloadAll}>⬇ Download all</Btn><Btn variant="secondary" onClick={() => setOuts([])}>Back</Btn></div></div>
           <div className="divide-y divide-slate-100 max-h-80 overflow-y-auto">{outs.map(o => <div key={o.name} className="py-2.5 flex items-center justify-between gap-3 text-sm"><div className="min-w-0"><p className="font-semibold text-slate-800 truncate">{o.name}</p><p className="text-xs text-slate-500">Pages {o.pages} · {fmtBytes(o.bytes.byteLength)}</p></div><button type="button" onClick={() => download(o.bytes, o.name)} className="px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-xs font-semibold text-slate-700 flex-shrink-0">Download</button></div>)}</div>
         </div>
       )}

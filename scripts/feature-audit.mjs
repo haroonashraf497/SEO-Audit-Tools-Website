@@ -65,7 +65,8 @@ check('columns are labelled Column 1-4', /Column \{index \+ 1\} — \{column\.ti
 check('live footer renders every stored column', /const footerColumns = cms\.state\.footerColumns\?\.length \? cms\.state\.footerColumns : defaultFooterColumns/.test(app)
   && /\{footerColumns\.map\(col => \{[\s\S]{0,500}<nav key=\{col\.id\} aria-label=\{col\.title\}>/.test(app));
 check('hidden rows stay saved but are not rendered', /const links = col\.links\.filter\(link => link\.visible && link\.label\.trim\(\)\)/.test(app));
-check('footer column headings use the requested CSS', /<h3 className="text-\[18px\] font-bold capitalize tracking-\[0px\] text-slate-400 mb-4">\{col\.title\}<\/h3>/.test(app)
+check('footer column headings keep their own 18px / capitalize / 0 letter-spacing spec',
+  /<h3 className="heading-card text-\[18px\] font-bold capitalize tracking-\[0px\] text-slate-400 mb-4">\{col\.title\}<\/h3>/.test(app)
   && !/<h3 className="text-xs font-bold uppercase/.test(app));
 check('footer column titles editable per column', /<Field label="Section title"><input className=\{inputCls \+ ' max-w-xs'\} value=\{title\} onChange=\{e => setTitle\(e\.target\.value\)\}/.test(admin));
 check('store owns the four columns + a dedicated setter', /export interface FooterColumn \{ id: string; title: string; links: FooterLink\[\] \}/.test(store)
@@ -308,7 +309,7 @@ check('the category heading links to that category page on the index',
   /href=\{cat\.builtin \? `\/\$\{cat\.slug\}` : toolCategoryPath\(cat\.slug\)\}/.test(listSrcCards)
   && /group-hover\/heading:text-indigo-600/.test(listSrcCards));
 check('a category page does not link its own heading back to itself',
-  /\{activeKey \? \([\s\S]{0,460}<h2 className="font-bold text-slate-900" style=\{CATEGORY_HEADING_SIZE\}>All \{cat\.name\}<\/h2>/.test(listSrcCards));
+  /\{activeKey \? \([\s\S]{0,460}<h2 className="heading-card font-bold text-slate-900" style=\{CATEGORY_HEADING_SIZE\}>All \{cat\.name\}<\/h2>/.test(listSrcCards));
 check('every card description is clamped to exactly two lines',
   /line-clamp-2 min-h-\[2\.5rem\]/.test(listSrcCards) && /toolTagline\(t\)/.test(listSrcCards));
 const taglineBlock = dataSrcCards.slice(dataSrcCards.indexOf('export const toolTaglines'), dataSrcCards.indexOf('export const toolTagline ='));
@@ -385,7 +386,9 @@ check('other categories keep the classic two-column layout',
   /if \(stacked\) \{[\s\S]{0,1400}return \(\s*<div className="pt-10 pb-20 px-4 min-h-screen">/.test(toolsSrc));
 check('text tools use tighter mobile page padding', /<>pt-8 sm:pt-10 pb-16 sm:pb-20 px-3 sm:px-4 min-h-screen<|className="pt-8 sm:pt-10 pb-16 sm:pb-20 px-3 sm:px-4 min-h-screen"/.test(toolsSrc)
   || /pt-8 sm:pt-10 pb-16 sm:pb-20 px-3 sm:px-4/.test(toolsSrc));
-check('text-tool heading scales from 26px on phones', /stacked \? 'text-\[26px\] leading-\[1\.15\] sm:text-3xl md:text-5xl'/.test(toolsSrc));
+check('text-tool heading follows the global h1 scale and only tightens its leading',
+  /stacked \? ' leading-\[1\.15\]' : ''/.test(toolsSrc)
+  && !/stacked \? 'text-\[26px\]/.test(toolsSrc));
 check('grammar checker editor shrinks on phones', /min-h-\[300px\] sm:min-h-\[420px\] p-4 sm:p-6 md:p-8/.test(grammar));
 check('grammar checker selects fill the row on phones', /flex flex-1 min-w-0 sm:flex-none items-center rounded-lg/.test(grammar)
   && /appearance-none w-full bg-transparent px-3 sm:px-4 py-3 text-slate-800 text-sm sm:text-\[15px\]/.test(grammar)
@@ -514,7 +517,7 @@ check('the blog filter tabs come from the CMS categories',
 check('a category page lists that category only, with its own heading',
   /export const BlogCategoryPage: React\.FC<\{ slug: string \}> = \(\{ slug \}\) => \{/.test(blogSrc)
   && /postsInBlogCategory\(state, category\.name\)/.test(blogSrc)
-  && /<h1 className="text-3xl md:text-4xl font-bold text-slate-900 leading-tight mb-4">\{category\.name\} articles<\/h1>/.test(blogSrc));
+  && /<h1 className="font-bold text-slate-900 leading-tight mb-4">\{category\.name\} articles<\/h1>/.test(blogSrc));
 check('the router resolves /blog/category/<slug> before the article route',
   /if \(seg\.startsWith\('blog\/category\/'\)\) return `blogcat\/\$\{seg\.slice\('blog\/category\/'\.length\)\}`;\s*if \(seg\.startsWith\('blog\/'\)\) return `blog\/\$\{seg\.slice\(5\)\}`;/.test(read('src/router.ts')));
 check('the app renders the category page and its breadcrumb',
@@ -713,7 +716,7 @@ check('the three sections and the FAQs render from the CMS copy',
   && /splitRichSections\(copy\.faqsContent\)/.test(read('src/tools/CompetitorAnalysis.tsx')));
 check('the benefit cards and the FAQ accordion keep their design',
   /benefitItems\.map\(benefit => \(/.test(read('src/tools/CompetitorAnalysis.tsx'))
-  && /<h3 className="text-sm font-bold text-slate-800">\{benefit\.title\}<\/h3>/.test(read('src/tools/CompetitorAnalysis.tsx'))
+  && /<h3 className="heading-card text-sm font-bold text-slate-800">\{benefit\.title\}<\/h3>/.test(read('src/tools/CompetitorAnalysis.tsx'))
   && /faqItems\.map\(\(faq, index\) => \(/.test(read('src/tools/CompetitorAnalysis.tsx'))
   && /sanitizeRichHtml\(faq\.body\)/.test(read('src/tools/CompetitorAnalysis.tsx'))
   && /dangerouslySetInnerHTML=\{\{ __html: sanitizeRichHtml\(benefit\.body\) \}\}/.test(read('src/tools/CompetitorAnalysis.tsx')));
@@ -741,7 +744,7 @@ check('a post created in the CMS defaults to the same byline',
   /author: p\.author \|\| 'SAT Team',/.test(store));
 check('the article header has no badge/date/read-time row above the title',
   !/className="flex items-center gap-3 mb-5"/.test(blogPage)
-  && /<header className="mb-10">\s*<h1 className="text-3xl md:text-4xl font-bold text-slate-900 leading-tight mb-4">\{article\.title\}<\/h1>/.test(blogPage));
+  && /<header className="mb-10">\s*<h1 className="font-bold text-slate-900 leading-tight mb-4">\{article\.title\}<\/h1>/.test(blogPage));
 check('the byline puts the article date directly under the team name',
   /<p className="text-sm font-semibold text-slate-800">\{article\.author\}<\/p>\s*<p className="text-xs text-slate-400">\s*<time dateTime=\{article\.date\}>\{formatDate\(article\.date\)\}<\/time>/.test(blogPage));
 check('the read time sits in front of the byline after a divider',
@@ -788,9 +791,10 @@ check('the sidebar still renders search, tools, popular, widgets, latest and CTA
 console.log('\n=== 🪜 Heading pattern (SEO) ===');
 check('the home hero has no trusted-by line',
   !/Trusted by/.test(app) && !/Trusted by/.test(dist));
-check('the home h1 uses the exact 3rem size',
-  /<h1 className="text-\[3rem\] font-bold text-slate-900 mb-6 leading-tight">/.test(app)
-  && /\.text-\\\[3rem\\\]\{font-size:3rem\}/.test(dist.replace(/\s+/g, '')));
+check('the home h1 takes the global h1 size (42px desktop)',
+  /<h1 className="font-bold text-slate-900 mb-6 leading-tight">/.test(app)
+  && /main:not\(.admin-shell\) h1:not\(.heading-card\) \{ font-size: var\(--heading-h1\); \}/.test(css)
+  && /--heading-h1: 2\.625rem/.test(css));
 check('every page has exactly one h1 (each route renders a single header level)',
   (app.match(/<h1 /g) || []).length >= 3
   && (blogPage.match(/<h1 /g) || []).length >= 3
@@ -800,12 +804,55 @@ check('blog cards take a heading level so list pages use h2',
   && (blogPage.match(/<ArticleCard key=\{article\.slug\} article=\{article\} level=\{2\} \/>/g) || []).length === 2
   && /<ArticleCard key=\{a\.slug\} article=\{a\} \/>/.test(blogPage));
 check('a category page labels its tool list instead of repeating the h1',
-  /<h2 className="font-bold text-slate-900" style=\{CATEGORY_HEADING_SIZE\}>All \{cat\.name\}<\/h2>/.test(read('src/tools/Tools.tsx')));
+  /<h2 className="heading-card font-bold text-slate-900" style=\{CATEGORY_HEADING_SIZE\}>All \{cat\.name\}<\/h2>/.test(read('src/tools/Tools.tsx')));
 check('the PDF guide sections are h2 (no h1 → h3 jump on tool pages)',
   /<h2 className="font-bold text-slate-900 mb-4">How it works<\/h2>/.test(read('src/tools/pdf/PdfGuide.tsx'))
   && /<h2 className="font-bold text-slate-900 mb-4">Frequently asked questions<\/h2>/.test(read('src/tools/pdf/PdfGuide.tsx')));
 check('the heading levels in the built file never jump two steps in one section',
   !/<h1[^>]*>[^<]{0,120}<\/h1>\s*<h3/.test(dist));
+
+console.log('\n=== Heading typography: one global scale + no artificial letter spacing ===');
+check('desktop scale is 42 / 34 / 28 / 24 / 20 / 18px',
+  /--heading-h1: 2\.625rem/.test(css) && /--heading-h2: 2\.125rem/.test(css) && /--heading-h3: 1\.75rem/.test(css)
+  && /--heading-h4: 1\.5rem/.test(css) && /--heading-h5: 1\.25rem/.test(css) && /--heading-h6: 1\.125rem/.test(css));
+check('tablet step down (<=1023px) and mobile step down (<=639px) exist',
+  /@media \(max-width: 1023px\)[\s\S]{0,400}--heading-h1: 2\.25rem/.test(css)
+  && /@media \(max-width: 639px\)[\s\S]{0,400}--heading-h1: 1\.875rem/.test(css));
+check('h1-h6 on the public site read from the scale (admin dashboard excluded)',
+  ['h1', 'h2', 'h3', 'h4', 'h5', 'h6'].every(tag =>
+    new RegExp(`main:not\\(\\.admin-shell\\) ${tag}:not\\(\\.heading-card\\) \\{ font-size: var\\(--heading-${tag}\\); \\}`).test(css)));
+check('heading-card is the documented opt-out used by component headings',
+  /\.heading-card/.test(read('src/index.css')) && /<h3 className="heading-card text-\[18px\]/.test(app)
+  && /<h3 className="heading-card text-sm font-bold text-slate-800">\{benefit\.title\}<\/h3>/.test(read('src/tools/CompetitorAnalysis.tsx')));
+check('h1-h6 letter-spacing is normal on the public site',
+  /main:not\(\.admin-shell\) h1:not\(\.heading-card\),[\s\S]{0,400}h6:not\(\.heading-card\) \{\s*letter-spacing: normal;/.test(css));
+check('no artificial letter spacing left on scale headings (no tracking-*, no 0.04em)',
+  !/^\s*<h[1-6] (?![^>]*heading-card)[^>]*tracking-/m.test(read('src/App.tsx') + read('src/blog/Blog.tsx') + read('src/tools/Tools.tsx')
+    + read('src/tools/CompetitorAnalysis.tsx') + read('src/tools/Sidebar.tsx') + read('src/components/SerpPreview.tsx'))
+  && !/\.rich-text h[1-6] \{[^}]*04em/.test(read('src/index.css')));
+check('the tool page h1 keeps its uppercase look, tight leading only, and no size override',
+  /uppercase mb-4\$\{stacked \? ' leading-\[1\.15\]' : ''\}/.test(read('src/tools/Tools.tsx')));
+check('rich-text (CMS) headings use the same scale and no letter spacing',
+  ['h1', 'h2', 'h3', 'h4', 'h5', 'h6'].every(tag =>
+    new RegExp(`\\.rich-text ${tag} \\{ font-size: var\\(--heading-${tag}\\); font-weight: \\d+; color: #[0-9a-f]{6}; `).test(css)
+    || new RegExp(`\\.rich-text ${tag} \\{ font-size: var\\(--heading-${tag}\\);`).test(css))
+  && !/\.rich-text h[1-6] \{[^}]*font-size: [0-9.]+rem/.test(css)
+  && (css.match(/\.rich-text h6 \{[^}]*letter-spacing: normal;/g) || []).length === 1);
+check('no page-specific size utilities left on scale headings',
+  !/^\s*<h[1-6] className="(?![^"]*heading-card)[^"]*text-(\[|sm\b|base\b|lg\b|xl\b|2xl\b|3xl\b|4xl\b|5xl\b|6xl\b)/m
+    .test(read('src/App.tsx') + read('src/blog/Blog.tsx') + read('src/tools/Tools.tsx') + read('src/tools/Sidebar.tsx')
+      + read('src/components/SerpPreview.tsx') + read('src/tools/CompetitorAnalysis.tsx') + read('src/tools/toolContent.tsx')
+      + read('src/tools/pdf/PdfGuide.tsx')));
+check('no heading carries an inline font-size style',
+  !/<h[1-6][^>]{0,200}style=\{\{[^}]*fontSize/.test(read('src/App.tsx') + read('src/blog/Blog.tsx') + read('src/tools/Tools.tsx')
+    + read('src/tools/CompetitorAnalysis.tsx') + read('src/tools/Sidebar.tsx')));
+check('the built CSS ships the scale and letter-spacing: normal',
+  /--heading-h1:2\.625rem/.test(dist.replace(/\s+/g, ''))
+  && /main:not\(\.admin-shell\)h1:not\(\.heading-card\)\{font-size:var\(--heading-h1\)\}/.test(dist.replace(/\s+/g, ''))
+  && /main:not\(\.admin-shell\)h1:not\(\.heading-card\),main:not\(\.admin-shell\)h2:not\(\.heading-card\)[\s\S]{0,300}\{letter-spacing:normal\}/.test(dist.replace(/\s+/g, '')));
+check('all three responsive steps are in the built CSS',
+  /--heading-h1:2\.625rem/.test(dist.replace(/\s+/g, '')) && /--heading-h1:2\.25rem/.test(dist.replace(/\s+/g, ''))
+  && /--heading-h1:1\.875rem/.test(dist.replace(/\s+/g, '')) && /--heading-h2:1\.625rem/.test(dist.replace(/\s+/g, '')));
 
 console.log('\n=== ✅ Preserved ===');
 check('no "Loading page" anywhere in src', !/Loading page/.test(read('src/App.tsx') + read('src/components/ErrorBoundary.tsx') + read('src/tools/Tools.tsx')));
@@ -814,7 +861,10 @@ check('no Suspense / lazyRoute in the app', !/<Suspense|React\.lazy\(|lazyRoute\
   && !existsSync('src/utils/lazyRetry.ts'));
 check('no loading state in the built file', !/Loading page|Loading PDF engine/.test(dist));
 check('content-shell min-height for the footer', /\.content-shell \{[\s\S]{0,120}min-height: calc\(100vh - 4rem\)/.test(css) && /@supports \(height: 100dvh\)/.test(css));
-check('main uses content-shell', /<main id="main-content" tabIndex=\{-1\} className="content-shell">/.test(app));
+check('main uses content-shell and scopes the admin dashboard out of the heading scale',
+  /<main id="main-content" tabIndex=\{-1\} className=\{`content-shell\$\{isAdminRoute \? ' admin-shell' : ''\}`\}>/.test(app)
+  && /const isAdminRoute = route === 'admin' \|\| route === 'admin-login' \|\| route === 'admin-reset';/.test(app)
+  && /<h3 className="heading-card text-\[18px\] font-bold capitalize tracking-\[0px\] text-slate-400 mb-4">\{col\.title\}<\/h3>/.test(app));
 check('154 built-in tools intact', (tools.match(/slug: '/g) || []).length === 154, String((tools.match(/slug: '/g) || []).length));
 check('admin login page + default creds intact', /AdminLoginPage/.test(app) && /passcode: 'admin123'/.test(store) && /export const AdminLoginPage/.test(read('src/cms/AdminLogin.tsx')));
 check('no EKSTRUH in src/public/index.html', !/EKSTRUH/.test(read('src/App.tsx') + store + admin + seo + read('index.html') + htaccess));

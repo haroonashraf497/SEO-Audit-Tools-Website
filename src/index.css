@@ -26,6 +26,67 @@ body {
   margin: 0;
 }
 
+/* ---------------------------------------------------------------------------
+   Global heading scale
+   ---------------------------------------------------------------------------
+   One scale for the public site - page titles, section headings, hero and
+   prose headings all read from these variables, so no page invents its own
+   size. Desktop 42/34/28/24/20/18px, then two steps down for tablets and
+   phones so nothing overflows or crowds.
+
+   Component headings (cards, sidebar panels, report tables, the footer
+   columns, tool UIs) opt out with the `heading-card` class and keep the exact
+   size their component was designed with. The admin dashboard is excluded as
+   a whole - it is a UI, not site content. */
+:root {
+  --heading-h1: 2.625rem; /* 42px */
+  --heading-h2: 2.125rem; /* 34px */
+  --heading-h3: 1.75rem;  /* 28px */
+  --heading-h4: 1.5rem;   /* 24px */
+  --heading-h5: 1.25rem;  /* 20px */
+  --heading-h6: 1.125rem; /* 18px */
+}
+@media (max-width: 1023px) {
+  :root {
+    --heading-h1: 2.25rem;   /* 36px */
+    --heading-h2: 1.875rem;  /* 30px */
+    --heading-h3: 1.5625rem; /* 25px */
+    --heading-h4: 1.3125rem; /* 21px */
+    --heading-h5: 1.125rem;  /* 18px */
+    --heading-h6: 1.0625rem; /* 17px */
+  }
+}
+@media (max-width: 639px) {
+  :root {
+    --heading-h1: 1.875rem;  /* 30px */
+    --heading-h2: 1.625rem;  /* 26px */
+    --heading-h3: 1.375rem;  /* 22px */
+    --heading-h4: 1.1875rem; /* 19px */
+    --heading-h5: 1.0625rem; /* 17px */
+    --heading-h6: 1rem;      /* 16px */
+  }
+}
+
+/* No artificial letter spacing on any heading. */
+main:not(.admin-shell) h1:not(.heading-card),
+main:not(.admin-shell) h2:not(.heading-card),
+main:not(.admin-shell) h3:not(.heading-card),
+main:not(.admin-shell) h4:not(.heading-card),
+main:not(.admin-shell) h5:not(.heading-card),
+main:not(.admin-shell) h6:not(.heading-card) {
+  letter-spacing: normal;
+}
+main:not(.admin-shell) h1:not(.heading-card) { font-size: var(--heading-h1); }
+main:not(.admin-shell) h2:not(.heading-card) { font-size: var(--heading-h2); }
+main:not(.admin-shell) h3:not(.heading-card) { font-size: var(--heading-h3); }
+main:not(.admin-shell) h4:not(.heading-card) { font-size: var(--heading-h4); }
+main:not(.admin-shell) h5:not(.heading-card) { font-size: var(--heading-h5); }
+main:not(.admin-shell) h6:not(.heading-card) { font-size: var(--heading-h6); }
+
+/* Headings written in the CMS rich-text editor (page bodies, articles) keep
+   their own margins and weights — their sizes are set with the scale further
+   down, next to the rest of the rich-text typography. */
+
 /* Line clamp utility for better performance */
 .line-clamp-1 {
   display: -webkit-box;
@@ -94,8 +155,8 @@ svg {
    Shared by pages, blog posts and tool "About" sections.
    ============================================================ */
 .rich-text { line-height: 1.75; }
-.rich-text h2 { font-size: 1.5rem; font-weight: 800; color: #0f172a; margin: 2rem 0 0.75rem; line-height: 1.3; }
-.rich-text h3 { font-size: 1.25rem; font-weight: 700; color: #0f172a; margin: 1.5rem 0 0.5rem; line-height: 1.35; }
+.rich-text h2 { font-size: var(--heading-h2); font-weight: 800; color: #0f172a; margin: 2rem 0 0.75rem; line-height: 1.3; letter-spacing: normal; }
+.rich-text h3 { font-size: var(--heading-h3); font-weight: 700; color: #0f172a; margin: 1.5rem 0 0.5rem; line-height: 1.35; letter-spacing: normal; }
 .rich-text p { margin: 0.875rem 0; color: #334155; }
 .rich-text ul, .rich-text ol { margin: 0.875rem 0; padding-left: 1.5rem; color: #334155; }
 .rich-text ul { list-style: disc; }
@@ -112,10 +173,10 @@ svg {
 .rich-text img { max-width: 100%; border-radius: 0.75rem; margin: 1rem 0; }
 
 /* Headings 1 and 4–6 plus the extra inline formats the visual editor can produce. */
-.rich-text h1 { font-size: 1.875rem; font-weight: 800; color: #0f172a; margin: 2rem 0 0.875rem; line-height: 1.2; }
-.rich-text h4 { font-size: 1.125rem; font-weight: 700; color: #0f172a; margin: 1.25rem 0 0.5rem; line-height: 1.4; }
-.rich-text h5 { font-size: 1rem; font-weight: 700; color: #1e293b; margin: 1rem 0 0.4rem; line-height: 1.45; }
-.rich-text h6 { font-size: 0.875rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: #475569; margin: 1rem 0 0.4rem; }
+.rich-text h1 { font-size: var(--heading-h1); font-weight: 800; color: #0f172a; margin: 2rem 0 0.875rem; line-height: 1.2; letter-spacing: normal; }
+.rich-text h4 { font-size: var(--heading-h4); font-weight: 700; color: #0f172a; margin: 1.25rem 0 0.5rem; line-height: 1.4; letter-spacing: normal; }
+.rich-text h5 { font-size: var(--heading-h5); font-weight: 700; color: #1e293b; margin: 1rem 0 0.4rem; line-height: 1.45; letter-spacing: normal; }
+.rich-text h6 { font-size: var(--heading-h6); font-weight: 700; text-transform: uppercase; letter-spacing: normal; color: #475569; margin: 1rem 0 0.4rem; }
 .rich-text h1:first-child, .rich-text h2:first-child, .rich-text h3:first-child,
 .rich-text h4:first-child, .rich-text h5:first-child, .rich-text h6:first-child { margin-top: 0; }
 .rich-text p:first-child { margin-top: 0; }

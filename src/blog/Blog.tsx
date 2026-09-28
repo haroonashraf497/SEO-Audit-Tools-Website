@@ -123,13 +123,13 @@ const ArticleCard: React.FC<{ article: BlogArticle; level?: 2 | 3 }> = ({ articl
       <span className="text-xs text-slate-400">{article.readTime}</span>
     </div>
     {level === 2 ? (
-      <h2 className="text-lg font-bold text-slate-900 leading-snug mb-3">
+      <h2 className="heading-card text-lg font-bold text-slate-900 leading-snug mb-3">
         <a href={`/blog/${article.slug}`} className="hover:text-indigo-600 transition-colors">
           {article.title}
         </a>
       </h2>
     ) : (
-      <h3 className="text-lg font-bold text-slate-900 leading-snug mb-3">
+      <h3 className="heading-card text-lg font-bold text-slate-900 leading-snug mb-3">
         <a href={`/blog/${article.slug}`} className="hover:text-indigo-600 transition-colors">
           {article.title}
         </a>
@@ -173,7 +173,7 @@ export const BlogList: React.FC = () => {
       <div className="max-w-7xl mx-auto grid lg:grid-cols-[minmax(0,1fr)_minmax(0,300px)] gap-8 items-start">
         <div className="min-w-0">
           <header className="text-center mb-10">
-            <h1 className="text-4xl md:text-5xl font-bold text-slate-900 mb-4">
+            <h1 className="font-bold text-slate-900 mb-4">
               The SEO Audit Tool{' '}
               <span className="bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">Blog</span>
             </h1>
@@ -231,7 +231,7 @@ export const BlogCategoryPage: React.FC<{ slug: string }> = ({ slug }) => {
   if (!category || !category.visible) {
     return (
       <div className="pt-16 pb-20 px-4 text-center min-h-screen">
-        <h1 className="text-3xl font-bold text-slate-900 mb-4">Category not found</h1>
+        <h1 className="font-bold text-slate-900 mb-4">Category not found</h1>
         <p className="text-slate-600 mb-8">That blog category does not exist or is not visible.</p>
         <a href="/blog" className="inline-block bg-gradient-to-r from-indigo-500 to-purple-600 text-white px-6 py-3 rounded-xl font-semibold">Back to the blog</a>
       </div>
@@ -249,7 +249,7 @@ export const BlogCategoryPage: React.FC<{ slug: string }> = ({ slug }) => {
           </nav>
           <header className="mb-10">
             <span className={`inline-block px-2.5 py-1 rounded-full text-xs font-semibold border mb-4 ${categoryBadge(category.name)}`}>{category.name}</span>
-            <h1 className="text-3xl md:text-4xl font-bold text-slate-900 leading-tight mb-4">{category.name} articles</h1>
+            <h1 className="font-bold text-slate-900 leading-tight mb-4">{category.name} articles</h1>
             <p className="text-lg text-slate-600 leading-relaxed">
               {posts.length} practical guide{posts.length === 1 ? '' : 's'} filed under {category.name} — written for website owners who want fixes, not theory.
             </p>
@@ -281,7 +281,7 @@ export const BlogArticlePage: React.FC<{ slug: string }> = ({ slug }) => {
   if (!article) {
     return (
       <div className="pt-16 pb-20 px-4 text-center min-h-screen">
-        <h1 className="text-3xl font-bold text-slate-900 mb-4">Article not found</h1>
+        <h1 className="font-bold text-slate-900 mb-4">Article not found</h1>
         <a href="/blog" className="text-indigo-600 font-semibold hover:underline">Back to the blog</a>
       </div>
     );
@@ -298,7 +298,7 @@ export const BlogArticlePage: React.FC<{ slug: string }> = ({ slug }) => {
       <div className="max-w-7xl mx-auto grid lg:grid-cols-[minmax(0,1fr)_minmax(0,300px)] gap-8 items-start">
       <article className="min-w-0 w-full">
         <header className="mb-10">
-          <h1 className="text-3xl md:text-4xl font-bold text-slate-900 leading-tight mb-4">{article.title}</h1>
+          <h1 className="font-bold text-slate-900 leading-tight mb-4">{article.title}</h1>
           <p className="text-lg text-slate-600 leading-relaxed">{article.excerpt}</p>
           {/* Byline row: team + date on the left, read time, category on the right */}
           <div className="flex flex-wrap items-center gap-x-4 gap-y-3 mt-6 pt-6 border-t border-slate-200">
@@ -341,7 +341,7 @@ export const BlogArticlePage: React.FC<{ slug: string }> = ({ slug }) => {
 
         {/* CTA */}
         <div className="mt-10 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl p-8 text-white text-center">
-          <h2 className="text-2xl font-bold mb-2">Check your own site in 30 seconds</h2>
+          <h2 className="font-bold mb-2">Check your own site in 30 seconds</h2>
           <p className="text-indigo-100 mb-6">Run a free SEO audit and see exactly where your pages stand on the issues covered in this article.</p>
           <a href="/" className="inline-block bg-white text-indigo-600 px-8 py-3 rounded-xl font-semibold hover:shadow-lg transition-shadow">
             Run Free SEO Audit
@@ -351,7 +351,7 @@ export const BlogArticlePage: React.FC<{ slug: string }> = ({ slug }) => {
         {/* Related */}
         {related.length > 0 && (
           <div className="mt-14">
-            <h2 className="text-2xl font-bold text-slate-900 mb-6">Keep reading</h2>
+            <h2 className="font-bold text-slate-900 mb-6">Keep reading</h2>
             <div className="grid md:grid-cols-2 gap-6">
               {related.map(a => (
                 <ArticleCard key={a.slug} article={a} />

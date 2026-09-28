@@ -21,7 +21,7 @@ const InfoGrid: React.FC<{ rows: [string, React.ReactNode][]; cols?: 2 | 3 }> = 
 const Section: React.FC<{ title: string; children: React.ReactNode; badge?: React.ReactNode }> = ({ title, children, badge }) => (
   <div className="bg-white rounded-2xl border border-slate-200 p-5 md:p-6 shadow-sm">
     <div className="flex items-center justify-between mb-4">
-      <h3 className="font-bold text-slate-900">{title}</h3>
+      <h3 className="heading-card font-bold text-slate-900">{title}</h3>
       {badge}
     </div>
     {children}

@@ -496,7 +496,7 @@ export const GrammarChecker: React.FC = () => {
 
           <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-200 p-4 sm:p-6 shadow-sm">
             <div className="flex flex-wrap items-center justify-between gap-1 mb-4">
-              <h4 className="font-bold text-slate-900">All issues</h4>
+              <h4 className="heading-card font-bold text-slate-900">All issues</h4>
               <span className="text-xs text-slate-400">Tap any row or highlighted phrase to review</span>
             </div>
             {issues.length === 0 ? (

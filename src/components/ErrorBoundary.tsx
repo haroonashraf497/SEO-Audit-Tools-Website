@@ -19,7 +19,7 @@ interface PanelAction { label: string; onClick: () => void }
 
 const Panel: React.FC<{ title: string; detail: string; actions: PanelAction[] }> = ({ title, detail, actions }) => (
   <div role="alert" className="mx-auto my-16 max-w-lg rounded-2xl border border-rose-200 bg-white p-6 text-center shadow-sm">
-    <h2 className="text-lg font-bold text-slate-900">{title}</h2>
+    <h2 className="heading-card text-lg font-bold text-slate-900">{title}</h2>
     <p className="mt-2 text-sm text-slate-600">{detail}</p>
     <div className="mt-5 flex flex-wrap items-center justify-center gap-3">
       {actions.map((action) => (

@@ -65,7 +65,7 @@ const statusStyle: Record<RowStatus, { dot: string; text: string; label: string 
 const ReportView: React.FC<{ report: SimReport }> = ({ report }) => (
   <div className="animate-fade-in">
     <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm mb-6">
-      <h3 className="text-lg font-bold text-slate-900 mb-1 break-all">{report.headline}</h3>
+      <h3 className="heading-card text-lg font-bold text-slate-900 mb-1 break-all">{report.headline}</h3>
       <p className="text-sm text-slate-500 mb-5">{report.summary}</p>
       <div className="grid sm:grid-cols-2 gap-3">
         {report.rows.map((row, i) => (
@@ -528,7 +528,7 @@ export const ToolsList: React.FC<{ category?: ToolCategory; categorySlug?: strin
       <div className="pt-16 pb-20 px-4 text-center min-h-screen">
         <div className="max-w-xl mx-auto">
           <p className="text-sm font-semibold text-indigo-600 uppercase tracking-wide mb-3">Tools</p>
-          <h1 className="text-3xl font-bold text-slate-900 mb-4">Category not found</h1>
+          <h1 className="font-bold text-slate-900 mb-4">Category not found</h1>
           <p className="text-slate-600 mb-8">That tool category is not available. Browse the free SEO tools directory instead.</p>
           <a href={TOOLS_PATH} className="inline-block px-6 py-3 rounded-xl bg-indigo-600 text-white font-semibold hover:bg-indigo-700 transition-colors">Browse all free SEO tools</a>
         </div>
@@ -558,7 +558,7 @@ export const ToolsList: React.FC<{ category?: ToolCategory; categorySlug?: strin
                 <span className="mx-2 text-slate-400" aria-hidden="true">/</span>
                 <span className="text-slate-600">{activeName}</span>
               </nav>
-              <h1 className="text-4xl md:text-5xl font-bold text-slate-900 mb-4">
+              <h1 className="font-bold text-slate-900 mb-4">
                 <span className="bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">{activeName}</span>
               </h1>
               <p className="text-lg text-slate-600 max-w-2xl mx-auto">
@@ -567,7 +567,7 @@ export const ToolsList: React.FC<{ category?: ToolCategory; categorySlug?: strin
             </>
           ) : (
             <>
-              <h1 className="text-4xl md:text-5xl font-bold text-slate-900 mb-4">
+              <h1 className="font-bold text-slate-900 mb-4">
                 Free{' '}
                 <span className="bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">SEO Tools</span>
               </h1>
@@ -641,7 +641,7 @@ export const ToolsList: React.FC<{ category?: ToolCategory; categorySlug?: strin
                     </span>
                     {/* The H1 above already names the category, so the section
                         heading labels the list instead of repeating it. */}
-                    <h2 className="font-bold text-slate-900" style={CATEGORY_HEADING_SIZE}>All {cat.name}</h2>
+                    <h2 className="heading-card font-bold text-slate-900" style={CATEGORY_HEADING_SIZE}>All {cat.name}</h2>
                   </>
                 ) : (
                   <a
@@ -651,7 +651,7 @@ export const ToolsList: React.FC<{ category?: ToolCategory; categorySlug?: strin
                     <span className={`w-9 h-9 rounded-lg flex items-center justify-center border ${categoryStyle(cat.key)}`}>
                       <ToolIcon category={cat.key} />
                     </span>
-                    <h2 className="font-bold text-slate-900 group-hover/heading:text-indigo-600 transition-colors" style={CATEGORY_HEADING_SIZE}>{cat.name}</h2>
+                    <h2 className="heading-card font-bold text-slate-900 group-hover/heading:text-indigo-600 transition-colors" style={CATEGORY_HEADING_SIZE}>{cat.name}</h2>
                   </a>
                 )}
                 <span className="text-sm text-slate-400">({list.length})</span>
@@ -672,7 +672,7 @@ export const ToolsList: React.FC<{ category?: ToolCategory; categorySlug?: strin
                         <span className="text-[10px] font-bold uppercase tracking-wide text-emerald-600 bg-emerald-50 border border-emerald-100 px-2 py-0.5 rounded-full">Instant</span>
                       )}
                     </div>
-                    <h3 className="font-bold text-slate-900 mb-1.5 group-hover:text-indigo-600 transition-colors" style={TOOL_NAME_SIZE}>{t.name}</h3>
+                    <h3 className="heading-card font-bold text-slate-900 mb-1.5 group-hover:text-indigo-600 transition-colors" style={TOOL_NAME_SIZE}>{t.name}</h3>
                     {/* line-clamp-2 + a reserved two-line height: every card shows the
                         same two-line description block, whatever the tagline length. */}
                     <p className="text-xs text-slate-500 leading-relaxed line-clamp-2 min-h-[2.5rem]">{toolTagline(t)}</p>
@@ -723,7 +723,7 @@ export const ToolPage: React.FC<{ slug: string }> = ({ slug }) => {
   if (!tool) {
     return (
       <div className="pt-16 pb-20 px-4 text-center min-h-screen">
-        <h1 className="text-3xl font-bold text-slate-900 mb-4">Tool not found</h1>
+        <h1 className="font-bold text-slate-900 mb-4">Tool not found</h1>
         <a href="/free-seo-tools" className="text-indigo-600 font-semibold hover:underline">Browse all tools</a>
       </div>
     );
@@ -849,7 +849,7 @@ export const ToolPage: React.FC<{ slug: string }> = ({ slug }) => {
           </span>
         )}
       </div>
-      <h1 className={`font-extrabold text-slate-900 uppercase tracking-tight mb-4 ${stacked ? 'text-[26px] leading-[1.15] sm:text-3xl md:text-5xl' : 'text-3xl md:text-5xl'}`}>{tool.name}</h1>
+      <h1 className={`font-extrabold text-slate-900 uppercase mb-4${stacked ? ' leading-[1.15]' : ''}`}>{tool.name}</h1>
       <p className={`text-slate-600 max-w-3xl mx-auto leading-relaxed ${stacked ? 'text-[15px] sm:text-base md:text-lg' : 'text-base md:text-lg'}`}>{tool.description}</p>
     </header>
   );

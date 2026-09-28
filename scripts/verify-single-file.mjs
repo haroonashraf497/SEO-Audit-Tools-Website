@@ -546,12 +546,41 @@ for (const [slug, name, count] of [['core-web-vitals', 'Core Web Vitals', 3], ['
 {
   const { dom } = await boot('', '/');
   const h1 = dom.window.document.querySelector('main h1');
-  check('the home h1 is the 3rem heading and the trusted-by line is gone',
+  const flatCss = rawHtml.replace(/\s+/g, '');
+  check('the home h1 takes the global h1 scale and the trusted-by line is gone',
     (h1?.textContent || '').replace(/\s+/g, ' ').trim() === 'Free SEO Audit Tool'
-    && /(^|\s)text-\[3rem\](\s|$)/.test(h1?.className || '')
-    && !/Trusted by/.test(dom.window.document.querySelector('main')?.textContent || '')
-    && /font-size:3rem/.test(rawHtml.replace(/\s+/g, '')),
+    && !/(^|\s)text-\[3rem\](\s|$)/.test(h1?.className || '')
+    && !/(^|\s)(?:sm:|md:|lg:|xl:)?text-(?:xs|sm|base|lg|xl|[2-9]xl|\[)/.test(h1?.className || '')
+    && /--heading-h1:2\.625rem/.test(flatCss)
+    && /main:not\(\.admin-shell\)h1:not\(\.heading-card\)\{font-size:var\(--heading-h1\)\}/.test(flatCss)
+    && !/Trusted by/.test(dom.window.document.querySelector('main')?.textContent || ''),
     `${h1?.className} | trusted-by=${/Trusted by/.test(dom.window.document.body.textContent || '')}`);
+  check('the built page ships the 42/34/28/24/20/18px desktop heading scale',
+    ['h1:2.625rem', 'h2:2.125rem', 'h3:1.75rem', 'h4:1.5rem', 'h5:1.25rem', 'h6:1.125rem']
+      .every(step => flatCss.includes(`--heading-${step}`)));
+  check('tablet and mobile steps are shipped too',
+    flatCss.includes('--heading-h1:2.25rem') && flatCss.includes('--heading-h1:1.875rem')
+    && flatCss.includes('--heading-h2:1.875rem') && flatCss.includes('--heading-h2:1.625rem'));
+  check('every heading level is wired to the scale (admin dashboard excluded)',
+    ['h1', 'h2', 'h3', 'h4', 'h5', 'h6'].every(tag =>
+      flatCss.includes(`main:not(.admin-shell)${tag}:not(.heading-card){font-size:var(--heading-${tag})}`)));
+  check('h1-h6 letter-spacing is normal and no artificial tracking is shipped',
+    /main:not\(\.admin-shell\)h1:not\(\.heading-card\),[\s\S]{0,400}\{letter-spacing:normal\}/.test(flatCss)
+    && !/\.rich-text h[1-6]\{[^}]*04em/.test(flatCss));
+  const headings = [...dom.window.document.querySelectorAll('main h1, main h2, main h3, main h4, main h5, main h6')];
+  const oversized = headings.filter(h => /(?:^|\s)(?:sm:|md:|lg:|xl:)?text-(?:xs|sm|base|lg|xl|[2-9]xl|\[)/
+    .test(h.getAttribute('class') || '') && !/heading-card/.test(h.getAttribute('class') || ''));
+  check('no rendered heading carries a page-specific size utility or inline font-size',
+    headings.length > 0 && oversized.length === 0,
+    oversized.map(h => `${h.tagName}:${h.getAttribute('class')}`).join(' | '));
+  check('no rendered heading uses tracking utilities outside the component opt-out',
+    headings.every(h => !/tracking-/.test(h.getAttribute('class') || '') || /heading-card/.test(h.getAttribute('class') || '')));
+  const footerHeads = [...dom.window.document.querySelectorAll('footer h3')];
+  check('the footer column headings keep their component spec (18px / capitalize / 0 letter-spacing)',
+    footerHeads.length === 4 && footerHeads.every(h => /heading-card/.test(h.getAttribute('class') || '')
+      && /text-\[18px\]/.test(h.getAttribute('class') || '') && /capitalize/.test(h.getAttribute('class') || '')
+      && /tracking-\[0px\]/.test(h.getAttribute('class') || '')),
+    footerHeads.map(h => h.getAttribute('class')).join(' | '));
   check('the rest of the hero still renders (subtitle, form, button)',
     /Analyze your website's SEO performance/.test(dom.window.document.querySelector('main')?.textContent || '')
     && !!dom.window.document.querySelector('main input[type="url"], main input[placeholder*="example"]'));
@@ -1200,7 +1229,7 @@ for (const legacy of ['/tools', '/tool', '/free-tools', '/free-seo-tool']) {
   // The column headings' own CSS: 18px, capitalised, no letter-spacing.
   const compactCss = rawHtml.replace(/\s+/g, '');
   check('column headings carry the 18px / capitalize / 0 letter-spacing classes',
-    /<h3class="text-\[18px\]font-boldcapitalizetracking-\[0px\]text-slate-400mb-4"/.test(compactCss),
+    /<h3class="heading-cardtext-\[18px\]font-boldcapitalizetracking-\[0px\]text-slate-400mb-4"/.test(compactCss),
     (rawHtml.match(/<h3 class="[^"]*">Quick links<\/h3>/) || ['not found'])[0]);
   check('the built stylesheet declares those three properties',
     compactCss.includes('.text-\\[18px\\]{font-size:18px}')

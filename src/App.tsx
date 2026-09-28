@@ -235,7 +235,7 @@ const IssueCard: React.FC<{ issue: SEOIssue; expanded: boolean; onToggle: () => 
       >
         <span className={iconColor}><IconComp /></span>
         <div className="flex-1 min-w-0">
-          <h4 className="font-semibold text-slate-800 truncate">{issue.title}</h4>
+          <h4 className="heading-card font-semibold text-slate-800 truncate">{issue.title}</h4>
           <p className="text-sm text-slate-500 line-clamp-1">{issue.description}</p>
         </div>
         <span className={`px-2 py-1 rounded-full text-xs font-medium whitespace-nowrap ${priorityClass}`}>
@@ -285,7 +285,7 @@ const CategoryCard: React.FC<{
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-white/20 rounded-lg text-white">{icon}</div>
-            <h3 className="text-lg font-semibold text-white">{title}</h3>
+            <h3 className="heading-card text-lg font-semibold text-white">{title}</h3>
           </div>
           <ScoreGauge score={score} size="sm" />
         </div>
@@ -413,7 +413,7 @@ const OnPageResults: React.FC<{ details: OnPageDetails }> = ({ details }) => {
           <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-xl flex items-center justify-center text-white">
             <CategoryIcon.onPage />
           </div>
-          <h3 className="text-2xl font-bold text-slate-900">On-Page SEO Results</h3>
+          <h3 className="font-bold text-slate-900">On-Page SEO Results</h3>
         </div>
         <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-full pl-3 pr-4 py-1.5 shadow-sm">
           <span className="text-xs text-slate-400">Primary keyword:</span>
@@ -430,7 +430,7 @@ const OnPageResults: React.FC<{ details: OnPageDetails }> = ({ details }) => {
         {/* Title Tag */}
         <article className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
           <div className="flex items-center justify-between mb-3">
-            <h4 className="font-semibold text-slate-800">Title Tag</h4>
+            <h4 className="heading-card font-semibold text-slate-800">Title Tag</h4>
             <StatusBadge status={details.titleTag.status} />
           </div>
           {details.titleTag.value ? (
@@ -457,7 +457,7 @@ const OnPageResults: React.FC<{ details: OnPageDetails }> = ({ details }) => {
         {/* Meta Description */}
         <article className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
           <div className="flex items-center justify-between mb-3">
-            <h4 className="font-semibold text-slate-800">Meta Description</h4>
+            <h4 className="heading-card font-semibold text-slate-800">Meta Description</h4>
             <StatusBadge status={details.metaDescription.status} />
           </div>
           {details.metaDescription.value ? (
@@ -484,7 +484,7 @@ const OnPageResults: React.FC<{ details: OnPageDetails }> = ({ details }) => {
         <article className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h4 className="font-semibold text-slate-800">URL Vulnerability</h4>
+              <h4 className="heading-card font-semibold text-slate-800">URL Vulnerability</h4>
               <p className="text-xs text-slate-500 mt-0.5">Checks structures that create duplicate URLs or crawl waste.</p>
             </div>
             <StatusBadge status={details.urlInfo.status} />
@@ -498,7 +498,7 @@ const OnPageResults: React.FC<{ details: OnPageDetails }> = ({ details }) => {
         {/* H1 & Heading Structure */}
         <article className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
           <div className="flex items-center justify-between mb-3">
-            <h4 className="font-semibold text-slate-800">H1 &amp; Heading Structure</h4>
+            <h4 className="heading-card font-semibold text-slate-800">H1 &amp; Heading Structure</h4>
             <StatusBadge status={details.h1.status} />
           </div>
           <div className="bg-slate-50 rounded-lg p-3 border border-slate-100 mb-4">
@@ -524,7 +524,7 @@ const OnPageResults: React.FC<{ details: OnPageDetails }> = ({ details }) => {
         {/* Images & Alt Text */}
         <article className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
           <div className="flex items-center justify-between mb-4">
-            <h4 className="font-semibold text-slate-800">Images &amp; Alt Text</h4>
+            <h4 className="heading-card font-semibold text-slate-800">Images &amp; Alt Text</h4>
             <StatusBadge status={details.images.status} />
           </div>
           <div className="grid grid-cols-3 gap-3 mb-4">
@@ -557,7 +557,7 @@ const OnPageResults: React.FC<{ details: OnPageDetails }> = ({ details }) => {
         <article className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm md:col-span-2">
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h4 className="font-semibold text-slate-800">Internal &amp; External Link Analysis</h4>
+              <h4 className="heading-card font-semibold text-slate-800">Internal &amp; External Link Analysis</h4>
               <p className="text-xs text-slate-500 mt-0.5">Crawlable links, external references and rel="nofollow" attributes.</p>
             </div>
             <div className="flex items-center gap-2">
@@ -649,7 +649,7 @@ const OnPageResults: React.FC<{ details: OnPageDetails }> = ({ details }) => {
         {/* Content & Canonical */}
         <article className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
           <div className="flex items-center justify-between mb-4">
-            <h4 className="font-semibold text-slate-800">Content &amp; Canonical</h4>
+            <h4 className="heading-card font-semibold text-slate-800">Content &amp; Canonical</h4>
             <StatusBadge status={details.wordCount.status} />
           </div>
           <div className="flex items-center gap-4 mb-4">
@@ -678,7 +678,7 @@ const OnPageResults: React.FC<{ details: OnPageDetails }> = ({ details }) => {
         {/* Social Tags & Technical Meta */}
         <article className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
           <div className="flex items-center justify-between mb-4">
-            <h4 className="font-semibold text-slate-800">Social Tags &amp; Meta</h4>
+            <h4 className="heading-card font-semibold text-slate-800">Social Tags &amp; Meta</h4>
             <StatusBadge status={details.social.status} />
           </div>
           <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide mb-2">Open Graph &amp; Twitter</p>
@@ -697,7 +697,7 @@ const OnPageResults: React.FC<{ details: OnPageDetails }> = ({ details }) => {
         {/* Keyword Optimization Checklist (full width) */}
         <article className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm md:col-span-2">
           <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
-            <h4 className="font-semibold text-slate-800">Keyword Optimization Checklist</h4>
+            <h4 className="heading-card font-semibold text-slate-800">Keyword Optimization Checklist</h4>
             <span className={`text-xs font-bold rounded-full px-3 py-1 ${checksPassed === details.keywordChecks.length ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>
               {checksPassed}/{details.keywordChecks.length} checks passed
             </span>
@@ -718,7 +718,7 @@ const OnPageResults: React.FC<{ details: OnPageDetails }> = ({ details }) => {
         {/* Keyword Density (full width) */}
         <article className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm md:col-span-2">
           <div className="flex items-center justify-between mb-4">
-            <h4 className="font-semibold text-slate-800">Top Keywords &amp; Density</h4>
+            <h4 className="heading-card font-semibold text-slate-800">Top Keywords &amp; Density</h4>
             <span className="text-xs text-slate-400">Ideal density: 1–3% · calculated against {details.wordCount.value.toLocaleString()} words</span>
           </div>
           <div className="space-y-3">
@@ -1466,6 +1466,7 @@ const SiteApp: React.FC = () => {
   }, [route]);
 
   const isBlog = route === 'blog' || route.startsWith('blog/') || route.startsWith('blogcat/');
+  const isAdminRoute = route === 'admin' || route === 'admin-login' || route === 'admin-reset';
   const isTools = route === 'free-tools' || route === 'tools' || route.startsWith('tool/') || route.startsWith('cat/') || route.startsWith('toolcat/') || (route.startsWith('p/') && cms.state.tools.some(t => t.slug === route.slice(2)) && !findPage(cms.state, storedSlugForRoute(route.slice(2))));
 
   // Footer content is live: every value below is read straight from the CMS
@@ -1645,7 +1646,7 @@ const SiteApp: React.FC = () => {
       {/* content-shell keeps the content column at least one viewport tall
           (minus the 4rem header), so the footer always sits below the fold
           instead of touching the navigation on short pages. */}
-      <main id="main-content" tabIndex={-1} className="content-shell">
+      <main id="main-content" tabIndex={-1} className={`content-shell${isAdminRoute ? ' admin-shell' : ''}`}>
       <SiteBreadcrumbs route={route} />
       {/* keyed by route: if a page ever fails to render, navigating elsewhere
           gets a fresh boundary instead of keeping the error panel on screen */}
@@ -1684,7 +1685,7 @@ const SiteApp: React.FC = () => {
       <section className={`pt-16 pb-20 px-4 bg-gradient-to-br from-indigo-100 via-violet-50 to-purple-100 ${cms.state.sections.hero ? '' : 'hidden'}`}>
         <div className="max-w-7xl mx-auto">
           <header className="text-center mb-12">
-            <h1 className="text-[3rem] font-bold text-slate-900 mb-6 leading-tight">
+            <h1 className="font-bold text-slate-900 mb-6 leading-tight">
               Free{' '}
               <span className="bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
                 SEO Audit Tool
@@ -1787,7 +1788,7 @@ const SiteApp: React.FC = () => {
           <div className="max-w-7xl mx-auto">
             <div className="flex flex-wrap items-center justify-between gap-4 mb-8">
               <div>
-                <h2 className="text-3xl font-bold text-slate-900">SEO Audit Report</h2>
+                <h2 className="font-bold text-slate-900">SEO Audit Report</h2>
                 <p className="text-slate-600 mt-1 break-all">{result.url}</p>
               </div>
               <button
@@ -1835,7 +1836,7 @@ const SiteApp: React.FC = () => {
               {/* Live registry information is part of the score overview */}
               <div className="mt-6 pt-6 border-t border-slate-200">
                 <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-                  <div><h4 className="font-bold text-slate-900">Domain Information</h4><p className="text-xs text-slate-500 mt-0.5">Registration and expiry data from the public RDAP registry.</p></div>
+                  <div><h4 className="heading-card font-bold text-slate-900">Domain Information</h4><p className="text-xs text-slate-500 mt-0.5">Registration and expiry data from the public RDAP registry.</p></div>
                   {result.domainInfo.live ? <span className="inline-flex items-center gap-1.5 text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-100 rounded-full px-2.5 py-1"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />Registry data</span> : <span className="inline-flex items-center gap-1.5 text-[11px] font-bold bg-amber-50 text-amber-700 border border-amber-100 rounded-full px-2.5 py-1"><span className="w-1.5 h-1.5 rounded-full bg-amber-500" />Registry unavailable</span>}
                 </div>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -1857,7 +1858,7 @@ const SiteApp: React.FC = () => {
             <OnPageResults details={result.onPageDetails} />
 
             {/* Category Cards */}
-            <h3 className="text-2xl font-bold text-slate-900 mb-6">Detailed Category Breakdown</h3>
+            <h3 className="font-bold text-slate-900 mb-6">Detailed Category Breakdown</h3>
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
               {categoryCards.map((cat) => (
                 <CategoryCard key={cat.title} {...cat} />
@@ -1871,7 +1872,7 @@ const SiteApp: React.FC = () => {
       <section id="features" className={`scroll-mt-24 py-20 px-4 cv-auto ${cms.state.sections.features ? '' : 'hidden'}`}>
         <div className="max-w-7xl mx-auto">
           <header className="text-center mb-16">
-            <h2 className="text-3xl md:text-4xl font-bold text-slate-900 mb-4">
+            <h2 className="font-bold text-slate-900 mb-4">
               Everything You Need for Complete SEO Analysis
             </h2>
             <p className="text-lg text-slate-600 max-w-2xl mx-auto">
@@ -1887,7 +1888,7 @@ const SiteApp: React.FC = () => {
                     <path d="M9 11l3 3L22 4" /><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
                   </svg>
                 </div>
-                <h3 className="text-lg font-semibold text-slate-800 mb-2">{feature.title}</h3>
+                <h3 className="heading-card text-lg font-semibold text-slate-800 mb-2">{feature.title}</h3>
                 <p className="text-slate-600 text-sm leading-relaxed">{feature.description}</p>
               </article>
             ))}
@@ -1899,7 +1900,7 @@ const SiteApp: React.FC = () => {
       <section id="how-it-works" className={`scroll-mt-24 py-20 px-4 bg-white cv-auto ${cms.state.sections.howItWorks ? '' : 'hidden'}`}>
         <div className="max-w-7xl mx-auto">
           <header className="text-center mb-16">
-            <h2 className="text-3xl md:text-4xl font-bold text-slate-900 mb-4">
+            <h2 className="font-bold text-slate-900 mb-4">
               Get Your SEO Audit in 4 Simple Steps
             </h2>
             <p className="text-lg text-slate-600 max-w-2xl mx-auto">
@@ -1913,7 +1914,7 @@ const SiteApp: React.FC = () => {
                 <div className="w-16 h-16 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl flex items-center justify-center text-white text-2xl font-bold shadow-lg mb-4">
                   {i + 1}
                 </div>
-                <h3 className="text-lg font-semibold text-slate-800 mb-2">{step.title}</h3>
+                <h3 className="heading-card text-lg font-semibold text-slate-800 mb-2">{step.title}</h3>
                 <p className="text-slate-600 text-sm max-w-xs">{step.description}</p>
               </article>
             ))}
@@ -1927,7 +1928,7 @@ const SiteApp: React.FC = () => {
           <div className="bg-gradient-to-br from-slate-900 to-slate-800 rounded-3xl p-8 md:p-12 text-white">
             <div className="grid md:grid-cols-2 gap-12 items-center">
               <div>
-                <h2 className="text-3xl md:text-4xl font-bold mb-6">
+                <h2 className="font-bold mb-6">
                   Why Is an SEO Audit Important?
                 </h2>
                 <p className="text-slate-300 mb-6 leading-relaxed">
@@ -1962,7 +1963,7 @@ const SiteApp: React.FC = () => {
       <section id="audiences" className={`scroll-mt-24 py-20 px-4 bg-white cv-auto ${cms.state.sections.whoBenefits ? '' : 'hidden'}`}>
         <div className="max-w-7xl mx-auto">
           <header className="text-center mb-16">
-            <h2 className="text-3xl md:text-4xl font-bold text-slate-900 mb-4">
+            <h2 className="font-bold text-slate-900 mb-4">
               Who Can Benefit from Our SEO Audit Tool?
             </h2>
             <p className="text-lg text-slate-600 max-w-2xl mx-auto">
@@ -1976,7 +1977,7 @@ const SiteApp: React.FC = () => {
                 <div className="w-14 h-14 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center text-white mb-4">
                   <AudienceIcon type={item.icon} />
                 </div>
-                <h3 className="text-lg font-semibold text-slate-800 mb-2">{item.title}</h3>
+                <h3 className="heading-card text-lg font-semibold text-slate-800 mb-2">{item.title}</h3>
                 <p className="text-slate-600 text-sm">{item.description}</p>
               </article>
             ))}
@@ -1988,7 +1989,7 @@ const SiteApp: React.FC = () => {
       <section className={`py-20 px-4 cv-auto ${cms.state.sections.freeTools ? '' : 'hidden'}`}>
         <div className="max-w-7xl mx-auto">
           <header className="text-center mb-12">
-            <h2 className="text-3xl md:text-4xl font-bold text-slate-900 mb-4">
+            <h2 className="font-bold text-slate-900 mb-4">
               {visibleTools.length}+ Free{' '}
               <span className="bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">SEO Tools</span>
             </h2>
@@ -2004,7 +2005,7 @@ const SiteApp: React.FC = () => {
                 className="group h-full flex flex-col bg-white rounded-2xl border border-slate-200 p-5 shadow-sm hover:shadow-lg hover:border-indigo-200 transition-all">
                 <div className="flex items-center gap-3 mb-2 min-h-[1.25rem]">
                   <span className="text-indigo-600 flex-shrink-0"><ToolIcon category={t.category} className="w-5 h-5" /></span>
-                  <h3 className="font-bold text-slate-900 text-sm group-hover:text-indigo-600 transition-colors truncate">{t.name}</h3>
+                  <h3 className="heading-card font-bold text-slate-900 text-sm group-hover:text-indigo-600 transition-colors truncate">{t.name}</h3>
                 </div>
                 <p className="text-xs text-slate-500 leading-relaxed line-clamp-2 h-10">{t.description}</p>
               </a>
@@ -2019,7 +2020,7 @@ const SiteApp: React.FC = () => {
                   <div className="flex items-center justify-between gap-3 mb-2 min-h-[1.25rem]">
                     <span className="flex items-center gap-3 min-w-0">
                       <span className="text-indigo-600 flex-shrink-0"><ToolIcon category={cat.key} className="w-5 h-5" /></span>
-                      <h3 className="font-bold text-slate-900 text-sm group-hover:text-indigo-600 transition-colors truncate">{cat.name}</h3>
+                      <h3 className="heading-card font-bold text-slate-900 text-sm group-hover:text-indigo-600 transition-colors truncate">{cat.name}</h3>
                     </span>
                     <span className="text-xs text-slate-500 font-medium whitespace-nowrap">{count} tools</span>
                   </div>
@@ -2041,7 +2042,7 @@ const SiteApp: React.FC = () => {
       <section className={`py-20 px-4 cv-auto bg-white ${cms.state.sections.fromBlog ? '' : 'hidden'}`}>
         <div className="max-w-7xl mx-auto">
           <header className="text-center mb-12">
-            <h2 className="text-3xl md:text-4xl font-bold text-slate-900 mb-4">From the Blog</h2>
+            <h2 className="font-bold text-slate-900 mb-4">From the Blog</h2>
             <p className="text-lg text-slate-600 max-w-2xl mx-auto">
               Practical guides on the SEO problems people are actually struggling with right now.
             </p>
@@ -2050,7 +2051,7 @@ const SiteApp: React.FC = () => {
             {visiblePosts.slice(0, 3).map(article => (
               <article key={article.slug} className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm hover:shadow-lg hover:border-indigo-200 transition-all flex flex-col">
                 <span className="text-xs font-semibold text-indigo-600 mb-3">{article.category}</span>
-                <h3 className="text-lg font-bold text-slate-900 leading-snug mb-3">
+                <h3 className="heading-card text-lg font-bold text-slate-900 leading-snug mb-3">
                   <a href={`/blog/${article.slug}`} className="hover:text-indigo-600 transition-colors">{article.title}</a>
                 </h3>
                 <p className="text-sm text-slate-600 leading-relaxed mb-4 flex-1">{article.excerpt}</p>
@@ -2071,7 +2072,7 @@ const SiteApp: React.FC = () => {
       {/* CTA Section */}
       <section id="cta" className={`scroll-mt-24 py-20 px-4 ${cms.state.sections.cta ? '' : 'hidden'}`}>
         <div className="max-w-4xl mx-auto text-center">
-          <h2 className="text-3xl md:text-4xl font-bold text-slate-900 mb-6">
+          <h2 className="font-bold text-slate-900 mb-6">
             Ready to Improve Your Website's SEO?
           </h2>
           <p className="text-lg text-slate-600 mb-8 max-w-2xl mx-auto">
@@ -2151,7 +2152,7 @@ const SiteApp: React.FC = () => {
               const links = col.links.filter(link => link.visible && link.label.trim());
               return (
                 <nav key={col.id} aria-label={col.title}>
-                  <h3 className="text-[18px] font-bold capitalize tracking-[0px] text-slate-400 mb-4">{col.title}</h3>
+                  <h3 className="heading-card text-[18px] font-bold capitalize tracking-[0px] text-slate-400 mb-4">{col.title}</h3>
                   <ul className="space-y-2.5">
                     {links.map(l => (
                       <li key={l.id}><a href={cleanHref(l.href) || l.href} className="text-sm text-slate-400 hover:text-white transition-colors">{l.label}</a></li>
@@ -2219,7 +2220,7 @@ const CmsPageView: React.FC<{ slug: string }> = ({ slug }) => {
   if (!page || page.status !== 'live') {
     return (
       <div className="pt-10 pb-24 px-4 text-center min-h-screen">
-        <h1 className="text-3xl font-bold text-slate-900 mb-3">Page not available</h1>
+        <h1 className="font-bold text-slate-900 mb-3">Page not available</h1>
         <p className="text-slate-600 mb-6">This page has not been published yet.</p>
         <Btn href="/" />
       </div>
@@ -2229,7 +2230,7 @@ const CmsPageView: React.FC<{ slug: string }> = ({ slug }) => {
   return (
     <section className="pt-10 pb-20 px-4 bg-white min-h-screen">
       <div className="max-w-7xl mx-auto w-full">
-        <h1 className="text-3xl md:text-5xl font-extrabold text-slate-900 mb-8">{page.title}</h1>
+        <h1 className="font-extrabold text-slate-900 mb-8">{page.title}</h1>
         {page.featuredImage && (
           <figure className="mb-8 overflow-hidden rounded-2xl border border-slate-200 bg-slate-100 aspect-[1.91/1]">
             <img src={page.featuredImage} alt={page.featuredImageAlt || page.title} width="1200" height="630" loading="lazy" decoding="async" className="w-full h-full object-cover" onError={e => { e.currentTarget.parentElement?.classList.add('hidden'); }} />
@@ -2247,7 +2248,7 @@ const CmsPageView: React.FC<{ slug: string }> = ({ slug }) => {
 const NotFoundView: React.FC = () => (
   <div className="pt-10 pb-24 px-4 text-center min-h-screen bg-white">
     <p className="text-6xl font-extrabold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent mb-4">404</p>
-    <h1 className="text-3xl font-bold text-slate-900 mb-3">Page not found</h1>
+    <h1 className="font-bold text-slate-900 mb-3">Page not found</h1>
     <p className="text-slate-600 mb-8 max-w-md mx-auto">The page you are looking for does not exist or has been moved. Head back to the free SEO audit tool.</p>
     <div className="flex items-center justify-center gap-3">
       <Btn href="/" />
@@ -2319,7 +2320,7 @@ const CookieConsent: React.FC<{ prefsOpen: boolean; onPrefsOpen: (v: boolean) =>
       <div className="fixed inset-0 z-[70] flex items-end sm:items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm" role="dialog" aria-modal="true" aria-label="Cookie preferences">
         <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl border border-slate-200 overflow-hidden">
           <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
-            <h2 className="font-bold text-slate-900">Manage cookie preferences</h2>
+            <h2 className="heading-card font-bold text-slate-900">Manage cookie preferences</h2>
             <button type="button" onClick={() => onPrefsOpen(false)} aria-label="Close cookie preferences" className="cookie-close text-slate-500 hover:text-slate-600 text-xl leading-none">&times;</button>
           </div>
           <div className="px-5 py-2 divide-y divide-slate-100">
@@ -2340,7 +2341,7 @@ const CookieConsent: React.FC<{ prefsOpen: boolean; onPrefsOpen: (v: boolean) =>
         <div className="max-w-5xl mx-auto bg-white border border-slate-200 rounded-2xl shadow-2xl p-4 sm:p-5">
           <div className="flex flex-col lg:flex-row lg:items-center gap-4">
             <div className="flex-1 min-w-0">
-              <h2 className="text-sm font-bold text-slate-900">We use cookies</h2>
+              <h2 className="heading-card text-sm font-bold text-slate-900">We use cookies</h2>
               <p className="text-xs sm:text-[13px] text-slate-600 mt-1 leading-relaxed">
                 We use essential cookies to make our site work. With your consent, we may also use analytics, advertising, and affiliate tracking cookies to improve your experience and understand how visitors use our site.{' '}
                 <a href="/cookies" className="font-semibold text-indigo-600 hover:underline">Read our Cookie Policy</a>.

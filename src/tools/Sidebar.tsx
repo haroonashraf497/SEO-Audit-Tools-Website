@@ -111,7 +111,7 @@ const POPULAR: [string, string?][] = [
 
 const ListPanel: React.FC<{ title: React.ReactNode; items: { href: string; label: string; badge?: string }[]; arrowClass?: string; wrap?: boolean }> = ({ title, items, arrowClass, wrap }) => (
   <div className="bg-white border border-slate-200 rounded-xl shadow-sm">
-    <h3 className="text-xl font-bold text-slate-900 px-6 pt-6 pb-4">{title}</h3>
+    <h3 className="heading-card text-xl font-bold text-slate-900 px-6 pt-6 pb-4">{title}</h3>
     <ul className="divide-y divide-slate-100">
       {items.map(it => (
         <li key={it.href}>
@@ -162,12 +162,12 @@ const CmsSidebarWidget: React.FC<{ widget: SidebarWidget; tools: ToolDef[]; post
     const body = looksLikeHtml(note)
       ? <div className="rich-text text-sm text-slate-600" dangerouslySetInnerHTML={{ __html: rewriteLegacyLinks(sanitizeRichHtml(note)) }} />
       : <p className="text-sm text-slate-600 leading-relaxed whitespace-pre-line">{note || 'Add text to this sidebar section from the CMS.'}</p>;
-    return <section className="bg-white border border-slate-200 rounded-xl shadow-sm p-5"><h3 className="text-xl font-bold text-slate-900 mb-3">{widget.title || 'Sidebar note'}</h3>{body}</section>;
+    return <section className="bg-white border border-slate-200 rounded-xl shadow-sm p-5"><h3 className="heading-card text-xl font-bold text-slate-900 mb-3">{widget.title || 'Sidebar note'}</h3>{body}</section>;
   }
   if (widget.type === 'image') {
-    return <section className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">{widget.title && <h3 className="text-xl font-bold text-slate-900 px-5 pt-5">{widget.title}</h3>}{widget.imageUrl ? <a href={cleanHref(widget.imageHref || '') || '/'} className="block m-3 overflow-hidden rounded-lg bg-slate-100"><img src={widget.imageUrl} alt={widget.imageAlt || widget.title || ''} width="1200" height="630" loading="lazy" decoding="async" className="w-full h-auto object-cover" /></a> : <p className="px-5 pb-5 pt-3 text-sm text-slate-500">Add an image URL in the CMS to display this section.</p>}</section>;
+    return <section className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">{widget.title && <h3 className="heading-card text-xl font-bold text-slate-900 px-5 pt-5">{widget.title}</h3>}{widget.imageUrl ? <a href={cleanHref(widget.imageHref || '') || '/'} className="block m-3 overflow-hidden rounded-lg bg-slate-100"><img src={widget.imageUrl} alt={widget.imageAlt || widget.title || ''} width="1200" height="630" loading="lazy" decoding="async" className="w-full h-auto object-cover" /></a> : <p className="px-5 pb-5 pt-3 text-sm text-slate-500">Add an image URL in the CMS to display this section.</p>}</section>;
   }
-  return <section className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">{widget.title && <h3 className="text-xl font-bold text-slate-900 px-5 pt-5">{widget.title}</h3>}<iframe title={widget.title || 'Custom sidebar code'} srcDoc={safeEmbed(widget.content || '')} sandbox="" className="w-full min-h-[100px] border-0 mt-3" /></section>;
+  return <section className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">{widget.title && <h3 className="heading-card text-xl font-bold text-slate-900 px-5 pt-5">{widget.title}</h3>}<iframe title={widget.title || 'Custom sidebar code'} srcDoc={safeEmbed(widget.content || '')} sandbox="" className="w-full min-h-[100px] border-0 mt-3" /></section>;
 };
 
 // ---------- The sidebar ----------

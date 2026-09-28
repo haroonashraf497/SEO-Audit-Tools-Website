@@ -313,7 +313,7 @@ export const PlagiarismChecker: React.FC = () => {
             <div className="md:col-span-2 bg-white rounded-2xl border border-slate-200 p-4 sm:p-6 shadow-sm">
               <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
                 <div className="min-w-0">
-                  <h3 className="text-lg sm:text-xl font-bold text-slate-900">Plagiarism Report</h3>
+                  <h3 className="heading-card text-lg sm:text-xl font-bold text-slate-900">Plagiarism Report</h3>
                   <p className="text-xs text-slate-400">Checked {result.checkedAt} · {result.duration}</p>
                 </div>
                 <button type="button" onClick={download} className="w-full sm:w-auto px-4 py-2 rounded-lg bg-slate-900 text-white text-sm font-semibold hover:bg-slate-700">Download Report</button>
@@ -339,7 +339,7 @@ export const PlagiarismChecker: React.FC = () => {
           <div className="grid lg:grid-cols-3 gap-5">
             <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-200 p-4 sm:p-6 shadow-sm">
               <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
-                <h4 className="font-bold text-slate-900">Sentence-level analysis</h4>
+                <h4 className="heading-card font-bold text-slate-900">Sentence-level analysis</h4>
                 <div className="flex items-center gap-4 text-xs text-slate-500">
                   <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-emerald-100 border border-emerald-300" /> Unique</span>
                   <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-red-100 border border-red-300" /> Matched</span>
@@ -355,7 +355,7 @@ export const PlagiarismChecker: React.FC = () => {
               </div>
             </div>
             <div className="bg-white rounded-2xl border border-slate-200 p-4 sm:p-6 shadow-sm">
-              <h4 className="font-bold text-slate-900 mb-4">Matched sources</h4>
+              <h4 className="heading-card font-bold text-slate-900 mb-4">Matched sources</h4>
               {result.sources.length === 0 ? (
                 <p className="text-sm text-emerald-600 font-semibold">No matching sources found.</p>
               ) : (

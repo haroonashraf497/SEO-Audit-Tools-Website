@@ -143,7 +143,7 @@ const getAudit = async (url: string) => { const clean = normalise(url); const li
 const tone = (n: number) => n >= 80 ? 'text-emerald-600' : n >= 60 ? 'text-amber-600' : 'text-red-600';
 const stroke = (n: number) => n >= 80 ? '#10b981' : n >= 60 ? '#f59e0b' : '#ef4444';
 const scoreLabel = (n: number) => n >= 80 ? 'Strong' : n >= 60 ? 'Needs work' : 'Weak';
-const sectionHeading = 'text-xl font-bold text-slate-900';
+const sectionHeading = 'heading-card text-xl font-bold text-slate-900';
 const Input: React.FC<React.InputHTMLAttributes<HTMLInputElement>> = props => <input {...props} className={`${inputClass} ${props.className || ''}`} />;
 
 const AuditOverview: React.FC<{ audit: Audit; label: string; accent: string }> = ({ audit, label, accent }) => (
@@ -151,7 +151,7 @@ const AuditOverview: React.FC<{ audit: Audit; label: string; accent: string }> =
     <div className="flex items-start justify-between gap-3">
       <div className="min-w-0">
         <p className={`text-[11px] font-bold uppercase tracking-wide ${accent}`}>{label}</p>
-        <h2 className="text-base font-bold text-slate-900 break-all mt-0.5">{audit.host}</h2>
+        <h2 className="heading-card text-base font-bold text-slate-900 break-all mt-0.5">{audit.host}</h2>
         <p className="text-[11px] text-slate-500 break-all">{audit.url}</p>
       </div>
       <span className={`h-fit text-[10px] font-bold border rounded-full px-2 py-0.5 ${audit.live ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 'bg-amber-50 text-amber-700 border-amber-100'}`}>{audit.live ? 'Live HTML' : 'Estimated fallback'}</span>
@@ -458,23 +458,23 @@ export const CompetitorToolContent: React.FC = () => {
     <div className="space-y-8 mt-10">
       <section className="bg-white rounded-2xl border border-slate-200 p-6 md:p-8 shadow-sm">
         <p className="text-xs font-bold uppercase tracking-wide text-indigo-600 mb-2">{copy.aboutEyebrow}</p>
-        <h2 className="text-2xl md:text-3xl font-extrabold text-slate-900">{copy.aboutHeading}</h2>
+        <h2 className="font-extrabold text-slate-900">{copy.aboutHeading}</h2>
         <div className="rich-text space-y-4 text-slate-600 leading-relaxed mt-4" dangerouslySetInnerHTML={{ __html: sanitizeRichHtml(copy.aboutContent) }} />
         {extraAbout && <div className="rich-text text-slate-600 leading-relaxed mt-4" dangerouslySetInnerHTML={{ __html: extraAbout }} />}
       </section>
       <section className="grid md:grid-cols-2 gap-6">
         <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
-          <h2 className="text-xl font-bold text-slate-900 mb-4">{copy.howToHeading}</h2>
+          <h2 className="heading-card text-xl font-bold text-slate-900 mb-4">{copy.howToHeading}</h2>
           <div className="rich-text text-sm text-slate-600" dangerouslySetInnerHTML={{ __html: sanitizeRichHtml(copy.howToContent) }} />
         </div>
         <div className="bg-gradient-to-br from-indigo-50 to-white rounded-2xl border border-indigo-100 p-6">
-          <h2 className="text-xl font-bold text-slate-900 mb-4">{copy.benefitsHeading}</h2>
+          <h2 className="heading-card text-xl font-bold text-slate-900 mb-4">{copy.benefitsHeading}</h2>
           {copy.benefitsIntro && <p className="text-sm text-slate-600 mb-4 leading-relaxed">{copy.benefitsIntro}</p>}
           <div className="grid gap-3">
             {benefitItems.map(benefit => (
               benefit.title ? (
                 <div key={benefit.id} className="bg-white rounded-xl border border-slate-200 p-4">
-                  <h3 className="text-sm font-bold text-slate-800">{benefit.title}</h3>
+                  <h3 className="heading-card text-sm font-bold text-slate-800">{benefit.title}</h3>
                   {benefit.body && <div className="rich-text text-xs text-slate-500 mt-1 leading-relaxed" dangerouslySetInnerHTML={{ __html: sanitizeRichHtml(benefit.body) }} />}
                 </div>
               ) : (
@@ -486,13 +486,13 @@ export const CompetitorToolContent: React.FC = () => {
       </section>
       <section className="bg-white rounded-2xl border border-slate-200 p-6 md:p-8 shadow-sm">
         <p className="text-xs font-bold uppercase tracking-wide text-indigo-600 mb-2">{copy.faqEyebrow}</p>
-        <h2 className="text-2xl font-extrabold text-slate-900 mb-5">{copy.faqHeading}</h2>
+        <h2 className="font-extrabold text-slate-900 mb-5">{copy.faqHeading}</h2>
         <div className="divide-y divide-slate-100 border-y border-slate-100">
           {faqItems.map((faq, index) => (
             faq.title ? (
             <div key={faq.id}>
               <button type="button" onClick={() => setOpen(open === index ? -1 : index)} className="w-full flex items-center justify-between gap-4 text-left py-4">
-                <h3 className="text-sm md:text-base font-bold text-slate-800">{faq.title}</h3>
+                <h3 className="heading-card text-sm md:text-base font-bold text-slate-800">{faq.title}</h3>
                 <span className={`text-indigo-600 transition-transform ${open === index ? 'rotate-45' : ''}`}>+</span>
               </button>
               {open === index && faq.body && (
@@ -537,7 +537,7 @@ const CompetitorAnalysis: React.FC = () => {
     <div className="space-y-6">
       <section className="text-center bg-gradient-to-br from-indigo-500 to-purple-600 rounded-3xl p-8 md:p-10 text-white">
         <p className="text-xs font-bold uppercase tracking-[.18em] text-indigo-200 mb-3">{copy.heroSubtitle}</p>
-        <h1 className="text-3xl md:text-4xl font-extrabold">{copy.heroTitle}</h1>
+        <h1 className="font-extrabold">{copy.heroTitle}</h1>
         <p className="max-w-2xl mx-auto text-indigo-100 mt-3">{copy.heroIntro}</p>
       </section>
       <section className="bg-white rounded-2xl border border-slate-200 p-5 md:p-6 shadow-sm">
@@ -571,7 +571,7 @@ const CompetitorAnalysis: React.FC = () => {
     <div className="space-y-8">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl md:text-3xl font-extrabold text-slate-900">SEO Competitor Comparison</h1>
+          <h1 className="font-extrabold text-slate-900">SEO Competitor Comparison</h1>
           <p className="text-sm text-slate-500 mt-1">Two full audit reports, side by side.</p>
         </div>
         <button onClick={() => { setYourAudit(null); setTheirAudit(null); setYourDomain(null); setTheirDomain(null); setProgress(0); }} className="px-4 py-2 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-sm font-semibold">Compare different URLs</button>
@@ -686,7 +686,7 @@ const CompetitorAnalysis: React.FC = () => {
                       <p className="text-[11px] uppercase tracking-wide font-bold text-slate-500">{g.category}</p>
                       <span className={`text-[10px] font-bold uppercase tracking-wide rounded-full px-2 py-0.5 ${g.state === 'error' ? 'bg-rose-100 text-rose-800' : 'bg-amber-100 text-amber-800'}`}>{g.state === 'error' ? 'Error' : 'Warning'}</span>
                     </div>
-                    <h3 className="text-sm font-bold text-slate-900 mt-1">{g.label}</h3>
+                    <h3 className="heading-card text-sm font-bold text-slate-900 mt-1">{g.label}</h3>
                     <p className="text-sm text-slate-700 mt-2 rounded-lg bg-white/90 px-3 py-2 leading-relaxed"><span className="font-semibold">Fix:</span> {g.fix}</p>
                   </div>
                 </div>

@@ -253,13 +253,38 @@ Every page keeps the outline search engines read: **exactly one `h1`** (the page
 heading in the main content), then `h2` sections and `h3` sub-items — no skipped levels and no `h2`
 that just repeats the `h1`.
 
-- the home hero `h1` (*Free SEO Audit Tool*) is set to **3rem**; the "Trusted by 10,000+ websites"
-  pill above it is gone;
+- the home hero `h1` (*Free SEO Audit Tool*) takes the global `h1` size (`--heading-h1`, 42px on
+  desktop, 36px on tablets, 30px on phones); the "Trusted by 10,000+ websites" pill above it is gone;
 - the blog index and the blog category pages use `h2` article cards (the related list on an article
   keeps its `h3` cards under the *Keep reading* `h2`);
 - a tool category page labels its list **"All IP Tools"** etc. instead of repeating the `h1`;
 - the PDF tool-guide panels (*How it works*, *Frequently asked questions*) are `h2`, so tool pages
   never jump `h1 → h3`.
+
+### Heading scale and letter spacing
+
+One scale drives every heading on the public site — page titles, section headings, hero headings and
+CMS rich-text headings all read the same six variables from `src/index.css`:
+
+| level | desktop | tablet (≤1023px) | phone (≤639px) |
+| --- | --- | --- | --- |
+| `h1` | 42px | 36px | 30px |
+| `h2` | 34px | 30px | 26px |
+| `h3` | 28px | 25px | 22px |
+| `h4` | 24px | 21px | 19px |
+| `h5` | 20px | 18px | 17px |
+| `h6` | 18px | 17px | 16px |
+
+`h1`–`h6` carry `letter-spacing: normal` (the previous `.rich-text h6`/`th` `0.04em` and the tool-page
+`tracking-tight` are gone), and the heading rules are unlayered, so they win over the old Tailwind
+size utilities — those utilities have been removed from the headings altogether, leaving the scale as
+the single source of truth.
+
+Component headings opt out with a `heading-card` marker class and keep the size their component was
+designed with: the `/free-seo-tools` card headings (category `1.35rem`, tool names `1rem`), the
+footer column headings (`18px`, `capitalize`, `letter-spacing: 0px`), sidebar/report/card panels,
+benefit cards and FAQ questions. The admin dashboard (`main.admin-shell`) is excluded from the scale
+as a whole — it is a UI, not site content.
 
 ### Single article sidebar
 
@@ -322,9 +347,9 @@ the store.
 
 ```bash
 npm run typecheck                  # tsc --noEmit
-node scripts/feature-audit.mjs     # 270 checks: CMS controls, blog categories, managed tool categories, the Competitor Analysis page copy, footer redesign, legal URLs, /free-seo-tools index, text-tool layout/mobile, case-converter grid, Tool Categories mega menu, no-bold top nav, top-level tool URLs (/<slug>), category pages (/ip-tools), Merge PDF compressor, no EKSTRUH, 154 tools
+node scripts/feature-audit.mjs     # 282 checks: global heading scale + letter spacing, CMS controls, blog categories, managed tool categories, the Competitor Analysis page copy, footer redesign, legal URLs, /free-seo-tools index, text-tool layout/mobile, case-converter grid, Tool Categories mega menu, no-bold top nav, top-level tool URLs (/<slug>), category pages (/ip-tools), Merge PDF compressor, no EKSTRUH, 154 tools
 npm install --no-save jsdom
-node scripts/verify-single-file.mjs  # 242 checks: boots the built file, blog + tool category pages, the Competitor Analysis page, instant swap, footer, legal + category URLs, top-level tool pages, legacy redirects, head injection, text-tool layout, mega-menu navigation
+node scripts/verify-single-file.mjs  # 249 checks: global heading scale (42/34/28/24/20/18px) and letter spacing, boots the built file, blog + tool category pages, the Competitor Analysis page, instant swap, footer, legal + category URLs, top-level tool pages, legacy redirects, head injection, text-tool layout, mega-menu navigation
 npm test                           # 34 Playwright tests (needs Chromium)
 ```
 
