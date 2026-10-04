@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { PrimaryBtn } from './engines';
 import { Seeded } from './simulator';
 import { fetchPageData, type LivePageData } from '../utils/pageFetch';
+import { jinaFallback } from './KeywordTools';
 
 // ---------- Shared UI ----------
 export const UrlBar: React.FC<{ value: string; onChange: (v: string) => void; onRun: () => void; busy: boolean; label?: string; placeholder?: string }> = ({ value, onChange, onRun, busy, label = 'Analyze', placeholder }) => (
@@ -60,39 +61,61 @@ const useFetch = () => {
   const [data, setData] = useState<LivePageData | null>(null);
   const [failed, setFailed] = useState(false);
   const run = async () => {
-    if (!url.trim()) return;
+    const u = url.trim();
+    if (!u) return;
     setBusy(true); setFailed(false); setData(null);
-    const d = await fetchPageData(url.trim()).catch(() => null);
+    // Race the HTML relays against the CORS-open markdown reader IN PARALLEL and
+    // keep whichever succeeds (full HTML preferred). Slow or blocked relays no
+    // longer stall the tool, and sites that reject crawlers still get analysed.
+    const target = /^https?:\/\//i.test(u) ? u : `https://${u}`;
+    const [relay, reader] = await Promise.all([
+      fetchPageData(target).catch(() => null),
+      jinaFallback(target).catch(() => null),
+    ]);
+    const d = relay || reader;
     if (!d) setFailed(true);
     setData(d); setBusy(false);
   };
   return { url, setUrl, busy, data, failed, run };
 };
 
+/** Source badge: honest about whether raw HTML or the text reader was used. */
+const Src: React.FC<{ d: LivePageData }> = ({ d }) => d.reader ? (
+  <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold bg-amber-50 text-amber-700 border border-amber-100 rounded-full px-2.5 py-0.5">
+    <span className="w-1.5 h-1.5 rounded-full bg-amber-500" /> Via text reader — markup checks limited
+  </span>
+) : <Src d={d} />;
+
 const kb = (b: number) => (b > 1048576 ? `${(b / 1048576).toFixed(2)} MB` : `${(b / 1024).toFixed(1)} KB`);
 const host = (u: string) => u.replace(/^https?:\/\//, '').split('/')[0];
 
 // ---------- SEO score checks (shared with Website Checker) ----------
-const seoChecks = (d: LivePageData): Check[] => [
-  { label: 'HTTPS', pass: d.finalUrl.startsWith('https://'), detail: d.finalUrl.startsWith('https://') ? 'Page is served securely.' : 'Serve the page over HTTPS.', weight: 8 },
-  { label: 'Title tag', pass: d.title.length >= 30 && d.title.length <= 60, detail: d.title ? `${d.title.length} characters: “${d.title.slice(0, 80)}”` : 'No title tag found.', weight: 10 },
-  { label: 'Meta description', pass: d.description.length >= 120 && d.description.length <= 160, detail: d.description ? `${d.description.length} characters.` : 'Missing meta description.', weight: 8 },
-  { label: 'Single H1 heading', pass: d.headingCounts.H1 === 1, detail: `${d.headingCounts.H1} H1 tag(s) found${d.h1s[0] ? `: “${d.h1s[0].slice(0, 70)}”` : ''}.`, weight: 8 },
-  { label: 'Heading hierarchy', pass: d.headingCounts.H2 > 0, detail: `H2: ${d.headingCounts.H2}, H3: ${d.headingCounts.H3}, H4: ${d.headingCounts.H4}.`, weight: 4 },
-  { label: 'Image alt attributes', pass: d.imagesMissingAlt === 0, detail: `${d.imagesMissingAlt} of ${d.imageCount} images missing alt text.`, weight: 6 },
-  { label: 'Content length', pass: d.wordCount >= 300, detail: `${d.wordCount.toLocaleString()} words of readable text.`, weight: 8 },
-  { label: 'Code to text ratio', pass: d.textRatio >= 10, detail: `${d.textRatio}% text (aim for 10%+).`, weight: 4 },
-  { label: 'Canonical tag', pass: !!d.canonical, detail: d.canonical || 'No canonical link.', weight: 5 },
-  { label: 'Viewport meta (mobile)', pass: d.viewport, detail: d.viewport ? 'Responsive viewport declared.' : 'Add <meta name="viewport">.', weight: 8 },
-  { label: 'Language attribute', pass: !!d.lang, detail: d.lang ? `lang="${d.lang}"` : 'Add lang attribute to <html>.', weight: 3 },
-  { label: 'Charset declared', pass: d.charset, detail: d.charset ? 'UTF-8 charset present.' : 'Declare a character set.', weight: 2 },
-  { label: 'Robots directive', pass: !/noindex/i.test(d.robots), detail: `robots: ${d.robots}`, weight: 6 },
-  { label: 'Open Graph tags', pass: d.ogTitle && d.ogDescription && d.ogImage, detail: `og:title ${d.ogTitle ? '✓' : '✗'} · og:description ${d.ogDescription ? '✓' : '✗'} · og:image ${d.ogImage ? '✓' : '✗'}`, weight: 5 },
-  { label: 'Twitter card', pass: d.twitterCard, detail: d.twitterCard ? 'twitter:card present.' : 'Add twitter:card meta.', weight: 3 },
-  { label: 'Structured data (JSON-LD)', pass: d.hasJsonLd, detail: d.hasJsonLd ? 'Schema.org JSON-LD detected.' : 'No JSON-LD structured data found.', weight: 5 },
-  { label: 'Internal linking', pass: d.internalLinks >= 5, detail: `${d.internalLinks} internal, ${d.externalLinks} external, ${d.nofollowLinks} nofollow.`, weight: 4 },
-  { label: 'Page weight (HTML)', pass: d.codeSize < 150000, detail: `${kb(d.codeSize)} of HTML.`, weight: 3 },
-];
+// When the page only came back through the text reader (d.reader), markup that
+// the reader cannot see is reported as unknown (–) instead of a false fail.
+const seoChecks = (d: LivePageData): Check[] => {
+  const R = !!d.reader;
+  const un = (known: boolean): boolean | null => (R && !known ? null : known);
+  return [
+    { label: 'HTTPS', pass: d.finalUrl.startsWith('https://'), detail: d.finalUrl.startsWith('https://') ? 'Page is served securely.' : 'Serve the page over HTTPS.', weight: 8 },
+    { label: 'Title tag', pass: un(!!d.title) === null ? null : d.title.length >= 30 && d.title.length <= 60, detail: d.title ? `${d.title.length} characters: “${d.title.slice(0, 80)}”` : R ? 'No title exposed by the reader.' : 'No title tag found.', weight: 10 },
+    { label: 'Meta description', pass: un(!!d.description) === null ? null : d.description.length >= 120 && d.description.length <= 160, detail: d.description ? `${d.description.length} characters.` : R ? 'Not visible to the text reader — check the raw HTML.' : 'Missing meta description.', weight: 8 },
+    { label: 'Single H1 heading', pass: un(d.headingCounts.H1 > 0) === null ? null : d.headingCounts.H1 === 1, detail: `${d.headingCounts.H1 || 0} H1 tag(s) found${d.h1s[0] ? `: “${d.h1s[0].slice(0, 70)}”` : ''}.`, weight: 8 },
+    { label: 'Heading hierarchy', pass: un(d.headingCounts.H2 > 0) === null ? null : d.headingCounts.H2 > 0, detail: R ? 'Only H1-level headings survive the text reader.' : `H2: ${d.headingCounts.H2}, H3: ${d.headingCounts.H3}, H4: ${d.headingCounts.H4}.`, weight: 4 },
+    { label: 'Image alt attributes', pass: un(d.imageCount > 0) === null ? null : d.imagesMissingAlt === 0, detail: R ? 'Images are not visible in reader output.' : `${d.imagesMissingAlt} of ${d.imageCount} images missing alt text.`, weight: 6 },
+    { label: 'Content length', pass: d.wordCount >= 300, detail: `${d.wordCount.toLocaleString()} words of readable text.`, weight: 8 },
+    { label: 'Code to text ratio', pass: un(!R && d.textRatio >= 10) === null ? null : d.textRatio >= 10, detail: R ? 'HTML payload unknown via reader.' : `${d.textRatio}% text (aim for 10%+).`, weight: 4 },
+    { label: 'Canonical tag', pass: un(!!d.canonical) === null ? null : !!d.canonical, detail: d.canonical || (R ? 'Not visible to the text reader.' : 'No canonical link.'), weight: 5 },
+    { label: 'Viewport meta (mobile)', pass: un(d.viewport) === null ? null : d.viewport, detail: d.viewport ? 'Responsive viewport declared.' : R ? 'Meta tags are not visible to the text reader.' : 'Add <meta name="viewport">.', weight: 8 },
+    { label: 'Language attribute', pass: un(!!d.lang) === null ? null : !!d.lang, detail: d.lang ? `lang="${d.lang}"` : R ? 'Not visible to the text reader.' : 'Add lang attribute to <html>.', weight: 3 },
+    { label: 'Charset declared', pass: un(d.charset) === null ? null : d.charset, detail: d.charset ? 'UTF-8 charset present.' : R ? 'Not visible to the text reader.' : 'Declare a character set.', weight: 2 },
+    { label: 'Robots directive', pass: un(!!d.robots) === null ? null : !/noindex/i.test(d.robots), detail: d.robots ? `robots: ${d.robots}` : R ? 'Not visible to the text reader.' : 'robots: not set (indexable by default).', weight: 6 },
+    { label: 'Open Graph tags', pass: un(d.ogTitle || d.ogDescription || d.ogImage) === null ? null : d.ogTitle && d.ogDescription && d.ogImage, detail: R ? 'Meta tags are not visible to the text reader.' : `og:title ${d.ogTitle ? '✓' : '✗'} · og:description ${d.ogDescription ? '✓' : '✗'} · og:image ${d.ogImage ? '✓' : '✗'}`, weight: 5 },
+    { label: 'Twitter card', pass: un(d.twitterCard) === null ? null : d.twitterCard, detail: d.twitterCard ? 'twitter:card present.' : R ? 'Not visible to the text reader.' : 'Add twitter:card meta.', weight: 3 },
+    { label: 'Structured data (JSON-LD)', pass: un(d.hasJsonLd) === null ? null : d.hasJsonLd, detail: d.hasJsonLd ? 'Schema.org JSON-LD detected.' : R ? 'Not visible to the text reader.' : 'No JSON-LD structured data found.', weight: 5 },
+    { label: 'Internal linking', pass: d.internalLinks >= 5, detail: `${d.internalLinks} internal, ${d.externalLinks} external, ${d.nofollowLinks} nofollow.`, weight: 4 },
+    { label: 'Page weight (HTML)', pass: un(!R && d.codeSize < 150000) === null ? null : d.codeSize < 150000, detail: R ? 'HTML payload unknown via reader.' : `${kb(d.codeSize)} of HTML.`, weight: 3 },
+  ];
+};
 
 const scoreOf = (checks: Check[]) => {
   const total = checks.reduce((a, c) => a + (c.weight || 1), 0);
@@ -127,7 +150,7 @@ export const SeoScoreTool: React.FC = () => {
           <div className="grid md:grid-cols-3 gap-4">
             <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm"><Ring value={score} label="SEO Score" /><p className="text-center text-sm text-slate-600 mt-3">{passed}/{checks.length} checks passed</p></div>
             <div className="md:col-span-2 bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
-              <div className="flex items-center justify-between mb-3"><h3 className="heading-card font-bold text-slate-900 break-all">{host(f.data.finalUrl)}</h3><Live ms={f.data.fetchMs} /></div>
+              <div className="flex items-center justify-between mb-3"><h3 className="heading-card font-bold text-slate-900 break-all">{host(f.data.finalUrl)}</h3><Src d={f.data} /></div>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 <Stat label="Words" value={f.data.wordCount.toLocaleString()} />
                 <Stat label="Images" value={f.data.imageCount} tone={f.data.imagesMissingAlt ? 'warn' : 'good'} />
@@ -158,11 +181,12 @@ export const SeoScoreTool: React.FC = () => {
 export const MetaAnalyzerTool: React.FC = () => {
   const f = useFetch();
   const important = ['title', 'description', 'keywords', 'robots', 'viewport', 'charset', 'author', 'generator', 'theme-color', 'og:title', 'og:description', 'og:image', 'og:url', 'og:type', 'og:site_name', 'twitter:card', 'twitter:title', 'twitter:description', 'twitter:image', 'canonical'];
-  const grade = (name: string, content: string): [string, 'good' | 'warn' | 'bad'] => {
+  const grade = (name: string, content: string, reader: boolean): [string, 'good' | 'warn' | 'bad'] => {
     if (name === 'title') return content.length >= 30 && content.length <= 60 ? ['Optimal length', 'good'] : content.length ? [content.length > 60 ? 'Too long (>60)' : 'Too short (<30)', 'warn'] : ['Missing', 'bad'];
     if (name === 'description') return content.length >= 120 && content.length <= 160 ? ['Optimal length', 'good'] : content.length ? [content.length > 160 ? 'Too long (>160)' : 'Too short (<120)', 'warn'] : ['Missing', 'bad'];
     if (name === 'keywords') return content ? ['Ignored by Google', 'warn'] : ['Not needed', 'good'];
-    if (name === 'robots') return /noindex/i.test(content) ? ['Blocks indexing!', 'bad'] : ['OK', 'good'];
+    if (name === 'robots') return /noindex/i.test(content) ? ['Blocks indexing!', 'bad'] : reader ? ['Unknown via reader', 'warn'] : ['OK', 'good'];
+    if (!content && reader && name !== 'title' && name !== 'description') return ['Unknown via reader', 'warn'];
     return content ? ['Present', 'good'] : ['Missing', name.startsWith('og:') || name.startsWith('twitter:') ? 'warn' : 'bad'];
   };
   return (
@@ -175,7 +199,7 @@ export const MetaAnalyzerTool: React.FC = () => {
         const map = new Map<string, string>();
         map.set('title', d.title); map.set('canonical', d.canonical);
         d.metaTags.forEach(m => { if (!map.has(m.name.toLowerCase())) map.set(m.name.toLowerCase(), m.content); });
-        const rows = important.map(n => ({ name: n, content: map.get(n) || '', g: grade(n, map.get(n) || '') }));
+        const rows = important.map(n => ({ name: n, content: map.get(n) || '', g: grade(n, map.get(n) || '', !!d.reader) }));
         const others = d.metaTags.filter(m => !important.includes(m.name.toLowerCase()));
         const good = rows.filter(r => r.g[1] === 'good').length;
         return (
@@ -186,7 +210,7 @@ export const MetaAnalyzerTool: React.FC = () => {
               <Stat label="Title length" value={`${d.title.length} chars`} tone={d.title.length >= 30 && d.title.length <= 60 ? 'good' : 'warn'} />
               <Stat label="Description length" value={`${d.description.length} chars`} tone={d.description.length >= 120 && d.description.length <= 160 ? 'good' : 'warn'} />
             </div>
-            <Card title="Important SEO & social meta tags" right={<Live ms={d.fetchMs} />}>
+            <Card title="Important SEO & social meta tags" right={<Src d={d} />}>
               <div className="overflow-x-auto"><table className="w-full text-sm">
                 <thead><tr className="bg-slate-50 text-xs uppercase text-slate-500"><th className="text-left px-3 py-2">Tag</th><th className="text-left px-3 py-2">Content</th><th className="text-left px-3 py-2">Status</th></tr></thead>
                 <tbody>{rows.map(r => (
@@ -227,7 +251,7 @@ export const OgCheckerTool: React.FC = () => {
         return (
           <>
             <div className="grid lg:grid-cols-2 gap-5">
-              <Card title="Facebook / LinkedIn share preview" right={<Live ms={d.fetchMs} />}>
+              <Card title="Facebook / LinkedIn share preview" right={<Src d={d} />}>
                 <div className="rounded-xl border border-slate-300 overflow-hidden bg-white max-w-md">
                   <div className="aspect-[1.91/1] bg-slate-100 flex items-center justify-center text-slate-400 text-sm overflow-hidden">
                     {img ? <img src={img} alt="" className="w-full h-full object-cover" loading="lazy" onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} /> : 'No og:image — link will show without an image'}
@@ -271,6 +295,7 @@ export const SnooperTool: React.FC = () => {
       {f.failed && <Fail />}
       {f.data && (
         <>
+          {f.data.reader && <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-xs text-amber-800">The raw HTML was unreachable, so the page is shown as returned by the text reader (markdown) — tag counts below are approximate.</div>}
           <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2">
             <Stat label="Lines" value={lines.length.toLocaleString()} /><Stat label="Size" value={kb(f.data.codeSize)} /><Stat label="<div>" value={tagCount(f.data, 'div')} /><Stat label="<a>" value={tagCount(f.data, 'a')} />
             <Stat label="<img>" value={tagCount(f.data, 'img')} /><Stat label="<script>" value={f.data.scripts} /><Stat label="<link>" value={tagCount(f.data, 'link')} /><Stat label="<iframe>" value={f.data.iframes} />
@@ -405,6 +430,7 @@ export const WpDetectorTool: React.FC = () => {
             <div className={`rounded-2xl p-6 text-white ${isWp ? 'bg-gradient-to-br from-indigo-500 to-purple-600' : 'bg-slate-800'}`}>
               <p className="text-sm opacity-80">{host(f.data.finalUrl)}</p>
               <p className="text-3xl font-extrabold mt-1">{isWp ? 'WordPress detected' : `Not WordPress — ${cms}`}</p>
+              {f.data.reader && <p className="text-sm mt-2 opacity-90">Fetched via text reader — theme/plugin asset paths are not visible, so detection is limited to text signatures.</p>}
               {isWp && themes[0] && <p className="text-lg mt-2">Active theme: <strong>{pretty(themes[0])}</strong>{themes[1] && <span className="opacity-80"> (parent: {pretty(themes[1])})</span>}</p>}
             </div>
             <div className="grid sm:grid-cols-4 gap-3">
@@ -440,12 +466,12 @@ export const MobileTestTool: React.FC = () => {
           { label: 'Viewport meta tag', pass: !!vp, detail: vp ? `content="${vp}"` : 'Missing — the page will render at desktop width on phones.', weight: 30 },
           { label: 'Viewport uses device-width', pass: /device-width/.test(vp), detail: /device-width/.test(vp) ? 'Layout adapts to screen width.' : 'Use width=device-width, initial-scale=1.', weight: 15 },
           { label: 'Zoom not disabled', pass: !/user-scalable\s*=\s*(no|0)|maximum-scale\s*=\s*1(\.0)?\b/.test(vp), detail: /user-scalable\s*=\s*(no|0)/.test(vp) ? 'user-scalable=no harms accessibility.' : 'Users can pinch-zoom.', weight: 10 },
-          { label: 'Responsive images (srcset)', pass: /srcset=/i.test(d.html), detail: /srcset=/i.test(d.html) ? 'srcset detected for responsive images.' : 'No srcset found; phones may download desktop-size images.', weight: 10 },
-          { label: 'Images have dimensions', pass: d.imagesWithoutDimensions === 0, detail: `${d.imagesWithoutDimensions} of ${d.imageCount} images lack width/height (causes layout shift).`, weight: 10 },
-          { label: 'Legible font sizes', pass: !d.smallFontRisk, detail: d.smallFontRisk ? 'Inline font-size below 12px detected.' : 'No tiny inline font sizes found.', weight: 10 },
-          { label: 'No Flash / plugins', pass: !/<(embed|object)[^>]+(swf|flash)/i.test(d.html), detail: 'Plugins are unsupported on mobile browsers.', weight: 5 },
-          { label: 'Reasonable page weight', pass: d.codeSize < 200000, detail: `${kb(d.codeSize)} of HTML.`, weight: 5 },
-          { label: 'Limited render-blocking scripts', pass: d.externalScripts <= 15, detail: `${d.externalScripts} external scripts.`, weight: 5 },
+          { label: 'Responsive images (srcset)', pass: d.reader ? null : /srcset=/i.test(d.html), detail: d.reader ? 'Not visible to the text reader.' : /srcset=/i.test(d.html) ? 'srcset detected for responsive images.' : 'No srcset found; phones may download desktop-size images.', weight: 10 },
+          { label: 'Images have dimensions', pass: d.reader ? null : d.imagesWithoutDimensions === 0, detail: d.reader ? 'Not visible to the text reader.' : `${d.imagesWithoutDimensions} of ${d.imageCount} images lack width/height (causes layout shift).`, weight: 10 },
+          { label: 'Legible font sizes', pass: d.reader ? null : !d.smallFontRisk, detail: d.reader ? 'Not visible to the text reader.' : d.smallFontRisk ? 'Inline font-size below 12px detected.' : 'No tiny inline font sizes found.', weight: 10 },
+          { label: 'No Flash / plugins', pass: d.reader ? null : !/<(embed|object)[^>]+(swf|flash)/i.test(d.html), detail: d.reader ? 'Not visible to the text reader.' : 'Plugins are unsupported on mobile browsers.', weight: 5 },
+          { label: 'Reasonable page weight', pass: d.reader ? null : d.codeSize < 200000, detail: d.reader ? 'HTML payload unknown via reader.' : `${kb(d.codeSize)} of HTML.`, weight: 5 },
+          { label: 'Limited render-blocking scripts', pass: d.reader ? null : d.externalScripts <= 15, detail: d.reader ? 'Not visible to the text reader.' : `${d.externalScripts} external scripts.`, weight: 5 },
         ];
         const score = scoreOf(checks);
         return (
@@ -454,7 +480,7 @@ export const MobileTestTool: React.FC = () => {
               <div className="space-y-4">
                 <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm flex items-center gap-6">
                   <Ring value={score} label="Mobile" />
-                  <div><p className={`text-2xl font-extrabold ${score >= 80 ? 'text-emerald-600' : score >= 60 ? 'text-amber-600' : 'text-red-600'}`}>{score >= 80 ? 'Mobile friendly' : score >= 60 ? 'Needs improvement' : 'Not mobile friendly'}</p><p className="text-sm text-slate-600 mt-1">{checks.filter(c => c.pass).length}/{checks.length} checks passed for {host(d.finalUrl)}</p><div className="mt-2"><Live ms={d.fetchMs} /></div></div>
+                  <div><p className={`text-2xl font-extrabold ${score >= 80 ? 'text-emerald-600' : score >= 60 ? 'text-amber-600' : 'text-red-600'}`}>{score >= 80 ? 'Mobile friendly' : score >= 60 ? 'Needs improvement' : 'Not mobile friendly'}</p><p className="text-sm text-slate-600 mt-1">{checks.filter(c => c.pass).length}/{checks.length} checks passed for {host(d.finalUrl)}</p><div className="mt-2"><Src d={d} /></div></div>
                 </div>
                 <Card title="Mobile usability checks"><CheckList checks={checks} /></Card>
               </div>
@@ -484,22 +510,22 @@ export const PageSpeedTool: React.FC = () => {
         const d = f.data;
         const est3g = ((d.codeSize * 8) / 1_600_000 + 0.3).toFixed(1);
         const est4g = ((d.codeSize * 8) / 9_000_000 + 0.1).toFixed(2);
-        const grade = d.fetchMs < 600 ? 'A' : d.fetchMs < 1200 ? 'B' : d.fetchMs < 2500 ? 'C' : 'D';
+        const grade = d.reader ? '' : d.fetchMs < 600 ? 'A' : d.fetchMs < 1200 ? 'B' : d.fetchMs < 2500 ? 'C' : 'D';
         const recs = [
           d.externalScripts > 10 && `Reduce the ${d.externalScripts} external scripts; defer non-critical JavaScript.`,
           d.stylesheets > 4 && `Combine or inline critical CSS (${d.stylesheets} stylesheets).`,
           d.codeSize > 150000 && `HTML is ${kb(d.codeSize)}; remove inline SVG/data URIs and unused markup.`,
           d.imagesWithoutDimensions > 0 && `Add width/height to ${d.imagesWithoutDimensions} images to prevent layout shift (CLS).`,
-          !/srcset=/i.test(d.html) && 'Serve responsive images with srcset and modern formats (WebP/AVIF).',
+          !d.reader && !/srcset=/i.test(d.html) && 'Serve responsive images with srcset and modern formats (WebP/AVIF).',
           d.iframes > 2 && `${d.iframes} iframes detected; lazy-load embeds.`,
-          d.textRatio < 10 && `Code-to-text ratio is ${d.textRatio}%; trim template bloat.`,
-          !/loading="lazy"/i.test(d.html) && 'Use loading="lazy" on below-the-fold images.',
-          !/rel="preconnect"|rel="preload"/i.test(d.html) && 'Add preconnect/preload hints for critical third-party origins and fonts.',
+          !d.reader && d.textRatio < 10 && `Code-to-text ratio is ${d.textRatio}%; trim template bloat.`,
+          !d.reader && !/loading="lazy"/i.test(d.html) && 'Use loading="lazy" on below-the-fold images.',
+          !d.reader && !/rel="preconnect"|rel="preload"/i.test(d.html) && 'Add preconnect/preload hints for critical third-party origins and fonts.',
         ].filter(Boolean) as string[];
         return (
           <>
             <div className="grid md:grid-cols-[200px_1fr] gap-5">
-              <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm text-center"><p className="text-xs text-slate-500 uppercase font-semibold">Speed grade</p><p className={`text-7xl font-extrabold ${grade === 'A' ? 'text-emerald-500' : grade === 'B' ? 'text-lime-500' : grade === 'C' ? 'text-amber-500' : 'text-red-500'}`}>{grade}</p><p className="text-sm text-slate-600">{d.fetchMs} ms to fetch HTML</p></div>
+              <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm text-center"><p className="text-xs text-slate-500 uppercase font-semibold">Speed grade</p>{d.reader ? (<><p className="text-5xl font-extrabold text-slate-400">—</p><p className="text-sm text-slate-600">timing needs raw HTML; page came via reader</p></>) : (<><p className={`text-7xl font-extrabold ${grade === 'A' ? 'text-emerald-500' : grade === 'B' ? 'text-lime-500' : grade === 'C' ? 'text-amber-500' : 'text-red-500'}`}>{grade}</p><p className="text-sm text-slate-600">{d.fetchMs} ms to fetch HTML</p></>)}</div>
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 content-start">
                 <Stat label="Server response (HTML)" value={`${d.fetchMs} ms`} tone={d.fetchMs < 800 ? 'good' : d.fetchMs < 2000 ? 'warn' : 'bad'} />
                 <Stat label="HTML size" value={kb(d.codeSize)} tone={d.codeSize < 100000 ? 'good' : 'warn'} />
@@ -509,7 +535,7 @@ export const PageSpeedTool: React.FC = () => {
                 <Stat label="Est. HTML on 3G" value={`${est3g}s`} /><Stat label="Est. HTML on 4G" value={`${est4g}s`} />
               </div>
             </div>
-            <Card title={`Recommendations (${recs.length})`} right={<Live ms={d.fetchMs} />}>
+            <Card title={`Recommendations (${recs.length})`} right={<Src d={d} />}>
               {recs.length ? <ul className="space-y-2 text-sm text-slate-700">{recs.map(r => <li key={r} className="flex gap-2"><span className="text-indigo-500">▸</span>{r}</li>)}</ul> : <p className="text-sm text-emerald-600 font-semibold">No obvious front-end bottlenecks detected in the HTML.</p>}
               <p className="text-xs text-slate-400 mt-4">Timing measures the HTML document only (via proxy). For full Core Web Vitals (LCP/INP/CLS) use field data from PageSpeed Insights; read our <a href="/blog/pagespeed-lab-vs-field-data" className="underline">lab vs field guide</a>.</p>
             </Card>
@@ -533,11 +559,11 @@ export const PageSizeTool: React.FC = () => {
         const conns: [string, number][] = [['2G (50 kbps)', 50_000], ['3G (1.6 Mbps)', 1_600_000], ['4G (9 Mbps)', 9_000_000], ['5G / Fibre (100 Mbps)', 100_000_000]];
         return (
           <>
-            <div className="bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl p-6 text-white"><p className="text-indigo-100 text-sm">{host(d.finalUrl)} — HTML document size</p><p className="text-4xl font-extrabold">{kb(bytes)} <span className="text-lg font-semibold opacity-80">({bytes.toLocaleString()} bytes)</span></p><p className="text-sm mt-2 text-indigo-100">{bytes < 50000 ? 'Lean — well under the 100 KB HTML guideline.' : bytes < 150000 ? 'Average — consider trimming inline scripts/styles.' : 'Heavy — large HTML delays first render on slow connections.'}</p></div>
+            <div className="bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl p-6 text-white"><p className="text-indigo-100 text-sm">{host(d.finalUrl)} — HTML document size</p>{d.reader ? <p className="text-2xl font-extrabold">size needs raw HTML — page came via text reader</p> : <p className="text-4xl font-extrabold">{kb(bytes)} <span className="text-lg font-semibold opacity-80">({bytes.toLocaleString()} bytes)</span></p>}<p className="text-sm mt-2 text-indigo-100">{bytes < 50000 ? 'Lean — well under the 100 KB HTML guideline.' : bytes < 150000 ? 'Average — consider trimming inline scripts/styles.' : 'Heavy — large HTML delays first render on slow connections.'}</p></div>
             <div className="grid sm:grid-cols-4 gap-3">
               <Stat label="Visible text" value={kb(d.textSize)} /><Stat label="Text ratio" value={`${d.textRatio}%`} tone={d.textRatio >= 10 ? 'good' : 'warn'} /><Stat label="Inline <style> blocks" value={d.inlineStyles} /><Stat label="Inline <script> blocks" value={d.scripts - d.externalScripts} />
             </div>
-            <Card title="Estimated HTML download time" right={<Live ms={d.fetchMs} />}>
+            <Card title="Estimated HTML download time" right={<Src d={d} />}>
               <div className="space-y-3">{conns.map(([n, bps]) => { const s = (bytes * 8) / bps; return <div key={n}><div className="flex justify-between text-sm mb-1"><span className="text-slate-700">{n}</span><span className="font-semibold text-slate-800">{s < 1 ? `${Math.round(s * 1000)} ms` : `${s.toFixed(1)} s`}</span></div><div className="h-2 bg-slate-100 rounded-full overflow-hidden"><div className="h-full bg-indigo-500" style={{ width: `${Math.min(100, (s / 5) * 100)}%` }} /></div></div>; })}</div>
               <p className="text-xs text-slate-400 mt-4">Median web page HTML is ~30 KB; total page weight with images and scripts is typically 2 MB+. This tool measures the HTML document only.</p>
             </Card>
@@ -558,6 +584,7 @@ export const SafetyTool: React.FC = () => {
       {f.failed && <Fail />}
       {f.data && (() => {
         const d = f.data; const h = d.html;
+        const R = !!d.reader;
         const mixed = d.finalUrl.startsWith('https://') && /(src|href)=["']http:\/\//i.test(h);
         const obfuscated = /eval\(|unescape\(|fromCharCode|document\.write\(unescape/i.test(h);
         const hiddenIframe = /<iframe[^>]+(display:\s*none|width=["']?0|height=["']?0)/i.test(h);
@@ -566,20 +593,20 @@ export const SafetyTool: React.FC = () => {
         const popups = /window\.open\(/i.test(h);
         const checks: Check[] = [
           { label: 'HTTPS encryption', pass: d.finalUrl.startsWith('https://'), detail: d.finalUrl.startsWith('https://') ? 'Traffic is encrypted.' : 'Site served over plain HTTP.', weight: 20 },
-          { label: 'No mixed content', pass: !mixed, detail: mixed ? 'HTTP resources loaded on an HTTPS page.' : 'All detected resources use HTTPS.', weight: 10 },
-          { label: 'No obfuscated scripts', pass: !obfuscated, detail: obfuscated ? 'eval/unescape/fromCharCode patterns found — common in malware.' : 'No obfuscation patterns found.', weight: 20 },
-          { label: 'No hidden iframes', pass: !hiddenIframe, detail: hiddenIframe ? 'Zero-size or hidden iframe detected.' : `${d.iframes} visible iframe(s), none hidden.`, weight: 15 },
-          { label: 'No forced redirects', pass: !suspiciousRedirect, detail: suspiciousRedirect ? 'Meta refresh or JS redirect to another URL.' : 'No automatic redirects in HTML.', weight: 10 },
-          { label: 'No crypto-mining scripts', pass: !cryptoMiner, detail: cryptoMiner ? 'Browser-mining library detected!' : 'No known mining libraries.', weight: 15 },
-          { label: 'No pop-up scripts', pass: !popups, detail: popups ? 'window.open() found — may spawn pop-ups.' : 'No pop-up calls found.', weight: 5 },
-          { label: 'Reasonable third-party scripts', pass: d.externalScripts <= 20, detail: `${d.externalScripts} external scripts loaded.`, weight: 5 },
+          { label: 'No mixed content', pass: R ? null : !mixed, detail: R ? 'Raw markup not available via reader.' : mixed ? 'HTTP resources loaded on an HTTPS page.' : 'All detected resources use HTTPS.', weight: 10 },
+          { label: 'No obfuscated scripts', pass: R ? null : !obfuscated, detail: R ? 'Raw markup not available via reader.' : obfuscated ? 'eval/unescape/fromCharCode patterns found — common in malware.' : 'No obfuscation patterns found.', weight: 20 },
+          { label: 'No hidden iframes', pass: R ? null : !hiddenIframe, detail: R ? 'Raw markup not available via reader.' : hiddenIframe ? 'Zero-size or hidden iframe detected.' : `${d.iframes} visible iframe(s), none hidden.`, weight: 15 },
+          { label: 'No forced redirects', pass: R ? null : !suspiciousRedirect, detail: R ? 'Raw markup not available via reader.' : suspiciousRedirect ? 'Meta refresh or JS redirect to another URL.' : 'No automatic redirects in HTML.', weight: 10 },
+          { label: 'No crypto-mining scripts', pass: R ? null : !cryptoMiner, detail: R ? 'Raw markup not available via reader.' : cryptoMiner ? 'Browser-mining library detected!' : 'No known mining libraries.', weight: 15 },
+          { label: 'No pop-up scripts', pass: R ? null : !popups, detail: R ? 'Raw markup not available via reader.' : popups ? 'window.open() found — may spawn pop-ups.' : 'No pop-up calls found.', weight: 5 },
+          { label: 'Reasonable third-party scripts', pass: R ? null : d.externalScripts <= 20, detail: R ? 'Raw markup not available via reader.' : `${d.externalScripts} external scripts loaded.`, weight: 5 },
         ];
         const score = scoreOf(checks);
         return (
           <>
             <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm flex flex-wrap items-center gap-6">
               <Ring value={score} label="Safety" />
-              <div><p className={`text-2xl font-extrabold ${score >= 85 ? 'text-emerald-600' : score >= 60 ? 'text-amber-600' : 'text-red-600'}`}>{score >= 85 ? 'Looks safe' : score >= 60 ? 'Some risks found' : 'Potentially unsafe'}</p><p className="text-sm text-slate-600 mt-1">{host(d.finalUrl)} · {checks.filter(c => c.pass).length}/{checks.length} checks passed</p><div className="mt-2"><Live ms={d.fetchMs} /></div></div>
+              <div><p className={`text-2xl font-extrabold ${score >= 85 ? 'text-emerald-600' : score >= 60 ? 'text-amber-600' : 'text-red-600'}`}>{score >= 85 ? 'Looks safe' : score >= 60 ? 'Some risks found' : 'Potentially unsafe'}</p><p className="text-sm text-slate-600 mt-1">{host(d.finalUrl)} · {checks.filter(c => c.pass).length}/{checks.length} checks passed</p><div className="mt-2"><Src d={d} /></div></div>
             </div>
             <Card title="Security checks"><CheckList checks={checks} /></Card>
             <p className="text-xs text-slate-400">Static analysis of the HTML source. For full malware scanning use Google Safe Browsing, VirusTotal or AVG/Avast Online Security in addition.</p>
@@ -611,7 +638,7 @@ export const EmailPrivacyTool: React.FC = () => {
         <div className={`rounded-2xl p-6 text-white ${list.length ? 'bg-gradient-to-br from-amber-500 to-orange-600' : 'bg-gradient-to-br from-emerald-500 to-teal-600'}`}>
           <p className="text-sm opacity-90">{host(f.data.finalUrl)}</p>
           <p className="text-3xl font-extrabold">{list.length ? `${list.length} exposed email${list.length > 1 ? 's' : ''} found` : 'No plain-text emails exposed'}</p>
-          <p className="text-sm mt-1 opacity-90">{list.length ? 'These addresses can be harvested by spam bots.' : 'Good — harvesters will not find addresses in this page\u2019s HTML.'}</p>
+          <p className="text-sm mt-1 opacity-90">{list.length ? 'These addresses can be harvested by spam bots.' : f.data.reader ? 'No emails visible in the reader text (mailto markup is not exposed).' : 'Good — harvesters will not find addresses in this page\u2019s HTML.'}</p>
           {list.length > 0 && <ul className="mt-3 flex flex-wrap gap-2">{list.map(e => <li key={e} className="bg-white/20 rounded-full px-3 py-1 font-mono text-sm">{e}</li>)}</ul>}
         </div>
       )}

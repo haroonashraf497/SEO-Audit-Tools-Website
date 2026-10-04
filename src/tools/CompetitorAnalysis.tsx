@@ -23,8 +23,6 @@ type CompareRow = { label: string; yours: string | number; theirs: string | numb
 const inputClass = 'w-full px-4 py-4 rounded-xl border border-slate-300 bg-white outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20';
 const normalise = (url: string) => /^https?:\/\//i.test(url.trim()) ? url.trim() : `https://${url.trim()}`;
 const hostOf = (url: string) => { try { return new URL(normalise(url)).hostname.replace(/^www\./, ''); } catch { return url; } };
-const hash = (value: string) => Array.from(value).reduce((a, c) => Math.imul(a ^ c.charCodeAt(0), 16777619) >>> 0, 2166136261);
-const randomFor = (value: string) => { let x = hash(value) || 1; return () => { x ^= x << 13; x ^= x >>> 17; x ^= x << 5; return (x >>> 0) / 4294967295; }; };
 const makeCheck = (label: string, detail: string, fix: string, state: State): Check => ({ label, detail, fix, state });
 const score = (checks: Check[]) => Math.round(checks.reduce((n, c) => n + (c.state === 'pass' ? 100 : c.state === 'warning' ? 52 : 12), 0) / checks.length);
 const lengthState = (n: number, min: number, max: number): State => !n ? 'error' : n >= min && n <= max ? 'pass' : 'warning';
@@ -36,49 +34,6 @@ const extractKeywords = (page: LivePageData) => {
   words.forEach(word => { if (!STOP_WORDS.has(word) && !/^\d+$/.test(word)) counts.set(word, (counts.get(word) || 0) + 1); });
   const total = Math.max(1, words.length);
   return Array.from(counts.entries()).sort((a, b) => b[1] - a[1]).slice(0, 40).map(([term, count]) => ({ term, count, density: Math.round((count / total) * 1000) / 10 }));
-};
-
-const fallback = (url: string): LivePageData => {
-  const rnd = randomFor(url);
-  const host = hostOf(url);
-  const brand = host.split('.')[0].replace(/[-_]/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
-  const words = Math.round(400 + rnd() * 1500), images = Math.round(5 + rnd() * 20);
-  return {
-    ok: true, finalUrl: normalise(url), title: `${brand} | Professional Online Services`,
-    description: `Explore ${brand} services, resources and practical online solutions. Compare options and find useful information for your needs.`,
-    h1s: [`${brand} Services`], headingCounts: { H1: 1, H2: Math.round(3 + rnd() * 6), H3: Math.round(2 + rnd() * 7), H4: 0, H5: 0, H6: 0 },
-    imageCount: images, imagesMissingAlt: Math.round(rnd() * Math.min(5, images)), imagesAltWithKeyword: 1,
-    internalLinks: 25, externalLinks: 15, nofollowLinks: 5, internalNofollowLinks: 0, externalNofollowLinks: 5,
-    wordCount: words, canonical: normalise(url), favicon: '', charset: true, viewport: rnd() > .12, lang: 'en', robots: 'index, follow',
-    ogTitle: rnd() > .2, ogDescription: rnd() > .25, ogImage: rnd() > .35, ogUrl: rnd() > .2, twitterCard: rnd() > .35,
-    codeSize: Math.round(55000 + rnd() * 160000), textSize: words * 6, textRatio: Math.round((5 + rnd() * 16) * 10) / 10,
-    linksSample: (() => {
-      const origin = normalise(url).replace(/\/$/, '');
-      const internals = ['Home', 'About', 'Services', 'Contact', 'Blog', 'Pricing', 'FAQ', 'Careers', 'Privacy', 'Terms', 'Support', 'Login', 'Products', 'Case Studies', 'Resources', 'News', 'Team', 'Locations', 'Partners', 'Docs', 'Help', 'Features', 'Customers', 'Integrations', 'Sitemap'].map((anchor, i) => ({
-        href: i === 0 ? `${origin}/` : `${origin}/${anchor.toLowerCase().replace(/\s+/g, '-')}/`,
-        internal: true, nofollow: false, anchor,
-      }));
-      const externals = [
-        ['Google', 'https://www.google.com/', false],
-        ['LinkedIn', 'https://www.linkedin.com/', true],
-        ['X', 'https://x.com/', true],
-        ['YouTube', 'https://www.youtube.com/', false],
-        ['Facebook', 'https://www.facebook.com/', true],
-        ['Wikipedia', 'https://www.wikipedia.org/', false],
-        ['GitHub', 'https://github.com/', false],
-        ['Bing', 'https://www.bing.com/', false],
-        ['Instagram', 'https://www.instagram.com/', true],
-        ['Reddit', 'https://www.reddit.com/', true],
-        ['Crunchbase', 'https://www.crunchbase.com/', false],
-        ['Trustpilot', 'https://www.trustpilot.com/', false],
-        ['Apple App Store', 'https://apps.apple.com/', false],
-        ['Google Play', 'https://play.google.com/', false],
-        ['Cloudflare', 'https://www.cloudflare.com/', false],
-      ].map(([anchor, href, nofollow]) => ({ href: String(href), internal: false, nofollow: Boolean(nofollow), anchor: String(anchor) }));
-      return [...internals, ...externals];
-    })(), bodyText: `${brand} professional services online solutions resources information customers business guide support pricing results quality website digital`, html: '', fetchMs: Math.round(250 + rnd() * 1300), scripts: Math.round(5 + rnd() * 24), externalScripts: Math.round(3 + rnd() * 16), stylesheets: Math.round(2 + rnd() * 8), inlineStyles: 1,
-    iframes: Math.round(rnd() * 3), forms: 1, emails: [], metaTags: [], linkTags: [], generator: '', hasJsonLd: rnd() > .4, imagesWithoutDimensions: Math.round(rnd() * Math.min(4, images)), smallFontRisk: rnd() > .84,
-  };
 };
 
 const buildAudit = (input: string, page: LivePageData, live: boolean): Audit => {
@@ -139,7 +94,9 @@ const buildAudit = (input: string, page: LivePageData, live: boolean): Audit => 
 };
 
 const timeout = (ms: number) => new Promise<null>(resolve => window.setTimeout(() => resolve(null), ms));
-const getAudit = async (url: string) => { const clean = normalise(url); const live = await Promise.race([fetchPageData(clean).catch(() => null), timeout(12000)]); return buildAudit(url, live || fallback(clean), Boolean(live)); };
+/** Real audits only: when the page cannot be fetched live, the tool says so
+    instead of inventing numbers. */
+const getAudit = async (url: string): Promise<Audit | null> => { const clean = normalise(url); const live = await Promise.race([fetchPageData(clean).catch(() => null), timeout(15000)]); return live ? buildAudit(url, live, true) : null; };
 const tone = (n: number) => n >= 80 ? 'text-emerald-600' : n >= 60 ? 'text-amber-600' : 'text-red-600';
 const stroke = (n: number) => n >= 80 ? '#10b981' : n >= 60 ? '#f59e0b' : '#ef4444';
 const scoreLabel = (n: number) => n >= 80 ? 'Strong' : n >= 60 ? 'Needs work' : 'Weak';
@@ -527,7 +484,13 @@ const CompetitorAnalysis: React.FC = () => {
       Promise.race([fetchDomainInfo(yours).catch(() => null), timeout(12000)]),
       Promise.race([fetchDomainInfo(theirs).catch(() => null), timeout(12000)]),
     ]);
-    window.clearInterval(timer); setProgress(100); setStatus('Comparison report ready.');
+    window.clearInterval(timer); setProgress(100);
+    if (!a || !b) {
+      const failed = [!a ? yours.trim() : null, !b ? theirs.trim() : null].filter(Boolean).join(' and ');
+      setError(`The live page could not be fetched for ${failed}. The site may be down, behind bot protection, or need JavaScript to render — no comparison is shown rather than guessed data. Try a direct page URL or another address.`);
+      setBusy(false); return;
+    }
+    setStatus('Comparison report ready.');
     setYourAudit(a); setTheirAudit(b); setYourDomain(da); setTheirDomain(db); setBusy(false);
   };
   const rows = useMemo(() => yourAudit && theirAudit ? comparison(yourAudit, theirAudit, yourDomain, theirDomain) : [], [yourAudit, theirAudit, yourDomain, theirDomain]);

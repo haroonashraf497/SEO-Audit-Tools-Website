@@ -121,6 +121,23 @@ interface SEOIssue {
 interface KeywordCheck { label: string; pass: boolean; detail: string }
 interface LinkSample { href: string; internal: boolean; nofollow: boolean; anchor: string }
 
+/** One live external-mention source behind the Backlinks & Authority section. */
+interface AuthoritySignal {
+  source: string;
+  label: string;
+  value: string;
+  status: IssueType;
+  detail: string;
+}
+interface AuthorityData {
+  /** false when no public source could be reached from this network. */
+  available: boolean;
+  score: number | null;
+  firstArchived: string | null;
+  archivedMonths: number | null;
+  signals: AuthoritySignal[];
+}
+
 interface OnPageDetails {
   primaryKeyword: string;
   pageName: string;
@@ -167,7 +184,9 @@ interface AuditResult {
     mobile: { score: number; issues: SEOIssue[] };
     security: { score: number; issues: SEOIssue[] };
     performance: { score: number; issues: SEOIssue[] };
+    backlinks: { score: number; issues: SEOIssue[] };
   };
+  authority: AuthorityData;
   summary: {
     totalIssues: number;
     errors: number;
@@ -739,8 +758,89 @@ const OnPageResults: React.FC<{ details: OnPageDetails }> = ({ details }) => {
   );
 };
 
-// Generate mock audit data
-const generateMockAudit = (url: string, live: LivePageData | null = null, fetchedDomainInfo: DomainInfo | null = null): AuditResult => {
+/** DNS-over-HTTPS lookup via dns.google (CORS-open, no key). */
+const doh = async (name: string, type: string): Promise<string[] | null> => {
+  try {
+    const r = await Promise.race([
+      fetch(`https://dns.google/resolve?name=${encodeURIComponent(name)}&type=${type}`),
+      new Promise<Response>((_res, rej) => setTimeout(() => rej(new Error('doh timeout')), 6000)),
+    ]);
+    if (!r.ok) return null;
+    const j = await r.json() as { Answer?: { data: string }[] };
+    return (j.Answer || []).map(a => a.data.replace(/^"|"$/g, ''));
+  } catch { return null; }
+};
+
+interface DnsSignals { mx: number | null; spf: boolean | null; dmarc: boolean | null }
+const fetchDnsSignals = async (domain: string): Promise<DnsSignals> => {
+  const [mx, txt, dmarc] = await Promise.all([doh(domain, 'MX'), doh(domain, 'TXT'), doh(`_dmarc.${domain}`, 'TXT')]);
+  return {
+    mx: mx ? mx.length : null,
+    spf: txt ? txt.some(t => /v=spf1/i.test(t)) : null,
+    dmarc: dmarc ? dmarc.some(t => /v=DMARC1/i.test(t)) : null,
+  };
+};
+
+/** robots.txt + sitemap.xml probed through the CORS relays. */
+const fetchCrawlBasics = async (domain: string): Promise<{ robots: 'present' | 'missing' | 'unknown'; sitemap: 'present' | 'missing' | 'unknown' }> => {
+  const probe = async (path: string, okRe: RegExp): Promise<'present' | 'missing' | 'unknown'> => {
+    try {
+      const page = await Promise.race([fetchPageData(`https://${domain}${path}`), new Promise<null>(r => setTimeout(() => r(null), 6000))]);
+      if (!page) return 'unknown';
+      return okRe.test(page.html || page.bodyText || '') ? 'present' : 'missing';
+    } catch { return 'unknown'; }
+  };
+  const [robots, sitemap] = await Promise.all([
+    probe('/robots.txt', /user-agent\s*:/i),
+    probe('/sitemap.xml', /<urlset|<sitemapindex/i),
+  ]);
+  return { robots, sitemap };
+};
+
+/**
+ * Real backlink/authority evidence from public, keyless, CORS-open sources:
+ * Hacker News (Algolia), GitHub repository search, Stack Exchange search and
+ * the Internet Archive CDX (first crawl + archived months).
+ */
+const fetchAuthoritySignals = async (domain: string): Promise<AuthorityData> => {
+  const cap = <T,>(p: Promise<T>, fb: T): Promise<T> =>
+    Promise.race([p, new Promise<T>(r => setTimeout(() => r(fb), 6000))]).catch(() => fb);
+  const num = (r: Promise<Response>, pick: (j: unknown) => number | null) =>
+    r.then(res => (res.ok ? res.json() : null)).then(pick);
+  const [hn, gh, so, first, months] = await Promise.all([
+    cap(num(fetch(`https://hn.algolia.com/api/v1/search?query=${encodeURIComponent(domain)}`), j => (j && typeof (j as { nbHits?: unknown }).nbHits === 'number' ? (j as { nbHits: number }).nbHits : null)), null),
+    cap(num(fetch(`https://api.github.com/search/repositories?q=${encodeURIComponent(domain)}&per_page=1`, { headers: { Accept: 'application/vnd.github+json' } }), j => (j && typeof (j as { total_count?: unknown }).total_count === 'number' ? (j as { total_count: number }).total_count : null)), null),
+    cap(num(fetch(`https://api.stackexchange.com/2.3/search/advanced?order=desc&sort=activity&q=${encodeURIComponent(domain)}&site=stackoverflow`), j => (j && typeof (j as { total?: unknown }).total === 'number' ? (j as { total: number }).total : null)), null),
+    cap(fetch(`https://web.archive.org/cdx/search/cdx?url=${encodeURIComponent(domain)}&output=json&fl=timestamp&limit=1`).then(r => (r.ok ? r.json() : null)).then(j => (Array.isArray(j) && j[1] ? String(j[1][0]) : null)), null),
+    cap(fetch(`https://web.archive.org/cdx/search/cdx?url=${encodeURIComponent(domain)}&output=json&fl=timestamp&collapse=timestamp:6&limit=1000`).then(r => (r.ok ? r.json() : null)).then(j => (Array.isArray(j) ? Math.max(0, j.length - 1) : null)), null),
+  ]);
+  const available = [hn, gh, so, first, months].some(v => v !== null);
+  const years = first ? Math.max(0, (Date.now() - new Date(`${first.slice(0, 4)}-01-01T00:00:00Z`).getTime()) / 31557600000) : null;
+  const mention = (n: number | null, strong: number): IssueType => (n === null ? 'warning' : n >= strong ? 'success' : n >= 1 ? 'warning' : 'error');
+  const signals: AuthoritySignal[] = [
+    { source: 'Hacker News', label: 'Hacker News mentions', value: hn === null ? '—' : String(hn), status: hn === null ? 'warning' : mention(hn, 10), detail: hn === null ? 'The HN Algolia API was unreachable from your network.' : hn === 0 ? `No Hacker News stories or comments reference ${domain}.` : `${hn} Hacker News stories/comments reference ${domain} — real editorial discussion and links.` },
+    { source: 'GitHub', label: 'GitHub repositories referencing', value: gh === null ? '—' : String(gh), status: gh === null ? 'warning' : mention(gh, 10), detail: gh === null ? 'The GitHub search API was unreachable from your network.' : gh === 0 ? `No public GitHub repositories mention ${domain}.` : `${gh} public GitHub repositories mention ${domain} — developer-world citations.` },
+    { source: 'Stack Exchange', label: 'Stack Overflow questions', value: so === null ? '—' : String(so), status: so === null ? 'warning' : mention(so, 5), detail: so === null ? 'The Stack Exchange API was unreachable from your network.' : so === 0 ? `No Stack Overflow questions mention ${domain}.` : `${so} Stack Overflow questions mention ${domain}.` },
+    { source: 'Internet Archive', label: 'First archived', value: first ? `${first.slice(0, 4)}-${first.slice(4, 6)}-${first.slice(6, 8)}` : '—', status: first === null ? 'warning' : (years ?? 0) >= 5 ? 'success' : 'warning', detail: first === null ? 'The Internet Archive CDX API was unreachable.' : `The Wayback Machine first crawled ${domain} in ${first.slice(0, 4)} — ${Math.floor(years ?? 0)} years of public history.` },
+    { source: 'Internet Archive', label: 'Archived months (sample, max 1,000)', value: months === null ? '—' : String(months), status: months === null ? 'warning' : months > 0 ? 'success' : 'warning', detail: months === null ? 'Snapshot data unavailable.' : `${months} distinct months have archived snapshots of ${domain} — a proxy for long-term crawl interest.` },
+  ];
+  const ls = (n: number | null, w: number) => (n === null ? 0 : w * Math.log10(1 + n));
+  const score = available
+    ? Math.max(3, Math.min(100, Math.round(ls(hn, 22) + ls(gh, 22) + ls(so, 18) + Math.min(38, (years ?? 0) * 3))))
+    : null;
+  return { available, score, firstArchived: first, archivedMonths: months, signals };
+};
+
+/** Category score derived from its own checks instead of a dice roll. */
+const scoreFromIssues = (issues: SEOIssue[]): number => {
+  const e = issues.filter(i => i.type === 'error').length;
+  const w = issues.filter(i => i.type === 'warning').length;
+  return Math.max(5, Math.min(100, 100 - e * 18 - w * 8));
+};
+
+// Generate the audit from the live measurements (simulated values only stand in
+// when the page itself could not be fetched, and that fact is flagged).
+const generateMockAudit = (url: string, live: LivePageData | null = null, fetchedDomainInfo: DomainInfo | null = null, authority: AuthorityData | null = null, crawl: { robots: 'present' | 'missing' | 'unknown'; sitemap: 'present' | 'missing' | 'unknown' } | null = null, dns: DnsSignals | null = null): AuditResult => {
   // Deterministic seed based on URL for consistent results
   let seed = url.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0);
   const random = () => {
@@ -748,58 +848,10 @@ const generateMockAudit = (url: string, live: LivePageData | null = null, fetche
     return seed / 233280;
   };
 
-  const baseScore = Math.floor(random() * 30) + 60;
 
-  const makeIssues = (categories: Array<[string, IssueType, string, string, string, IssuePriority]>, offset: number): SEOIssue[] =>
-    categories.map((cat, i) => ({
-      id: String(offset + i),
-      type: cat[1],
-      category: cat[0],
-      title: cat[2],
-      description: cat[3],
-      recommendation: cat[4],
-      priority: cat[5],
-    }));
-
-  const onPageIssues = makeIssues([
-    ['On-Page', 'error', 'Missing Meta Description', 'The homepage is missing a meta description tag.', 'Add a compelling meta description between 150-160 characters that includes your target keywords.', 'high'],
-    ['On-Page', 'warning', 'Title Tag Too Long', 'Your title tag is 78 characters. Recommended maximum is 60.', 'Shorten your title tag to ensure it displays properly in search results.', 'medium'],
-    ['On-Page', 'success', 'H1 Tag Present', 'Your page has a properly structured H1 tag.', 'Continue using descriptive H1 tags that include target keywords.', 'low'],
-    ['On-Page', 'warning', 'Missing Alt Text on Images', '5 images are missing alt text attributes.', 'Add descriptive alt text to all images for better accessibility and SEO.', 'medium'],
-    ['On-Page', 'error', 'Duplicate Title Tags', '3 pages have identical title tags.', 'Create unique, descriptive title tags for each page.', 'high'],
-  ], 1);
-
-  const technicalIssues = makeIssues([
-    ['Technical', 'success', 'XML Sitemap Found', 'XML sitemap detected at /sitemap.xml', 'Ensure your sitemap is kept up-to-date with new content.', 'low'],
-    ['Technical', 'error', 'Broken Internal Links', '12 internal links return 404 errors.', 'Fix or remove broken links to improve user experience and crawlability.', 'high'],
-    ['Technical', 'warning', 'Redirect Chains Detected', '3 URLs have redirect chains (3+ hops).', 'Update links to point directly to the final destination.', 'medium'],
-    ['Technical', 'success', 'Robots.txt Valid', 'Robots.txt file is properly configured.', 'Regularly review robots.txt when making site changes.', 'low'],
-    ['Technical', 'warning', 'Missing Schema Markup', 'No structured data detected on key pages.', 'Implement schema.org markup for better search result appearance.', 'medium'],
-  ], 6);
-
-  const mobileIssues = makeIssues([
-    ['Mobile', 'success', 'Mobile-Friendly Design', 'Page is responsive and mobile-friendly.', 'Continue testing on various device sizes.', 'low'],
-    ['Mobile', 'warning', 'Touch Elements Too Close', 'Some clickable elements are too close together on mobile.', 'Increase spacing between interactive elements for better usability.', 'medium'],
-    ['Mobile', 'error', 'Viewport Not Configured', 'Viewport meta tag is missing or incorrect.', 'Add proper viewport meta tag: <meta name="viewport" content="width=device-width, initial-scale=1">', 'high'],
-  ], 11);
-
-  const securityIssues = makeIssues([
-    ['Security', 'success', 'HTTPS Enabled', 'Site is served over HTTPS with valid SSL certificate.', 'Ensure SSL certificate is renewed before expiration.', 'low'],
-    ['Security', 'warning', 'Mixed Content Warnings', '2 resources are loaded over HTTP on HTTPS pages.', 'Update all resource URLs to use HTTPS.', 'medium'],
-    ['Security', 'success', 'HSTS Header Present', 'HTTP Strict Transport Security header is configured.', 'Consider increasing max-age value for stronger security.', 'low'],
-  ], 14);
-
-  const performanceIssues = makeIssues([
-    ['Performance', 'warning', 'Slow LCP', 'Largest Contentful Paint is 3.2s (target: <2.5s)', 'Optimize images, reduce server response time, and eliminate render-blocking resources.', 'high'],
-    ['Performance', 'success', 'Good CLS Score', 'Cumulative Layout Shift is 0.05 (target: <0.1)', 'Continue maintaining stable layout during page load.', 'low'],
-    ['Performance', 'warning', 'High TBT', 'Total Blocking Time is 450ms (target: <300ms)', 'Reduce JavaScript execution time and break up long tasks.', 'medium'],
-    ['Performance', 'error', 'Unoptimized Images', '8 images could be compressed further, saving ~2.3MB.', 'Use modern image formats (WebP, AVIF) and implement lazy loading.', 'high'],
-  ], 17);
-
-  const allIssues = [...onPageIssues, ...technicalIssues, ...mobileIssues, ...securityIssues, ...performanceIssues];
-  const errors = allIssues.filter(i => i.type === 'error').length;
-  const warnings = allIssues.filter(i => i.type === 'warning').length;
-  const passed = allIssues.filter(i => i.type === 'success').length;
+  // Issue lists are derived further down from the measured onPageDetails
+  // values (and the live robots/sitemap/DNS/authority probes), so every
+  // finding quotes a real measurement instead of canned copy.
 
   // ---------- Parse the EXACT URL the user submitted ----------
   let workUrl = url.trim();
@@ -1120,18 +1172,188 @@ const generateMockAudit = (url: string, live: LivePageData | null = null, fetche
     keywords,
   };
 
+  // ---------- Derive every issue from the measurements ----------
+  const d = onPageDetails;
+  let issueId = 0;
+  const iss = (type: IssueType, category: string, title: string, description: string, recommendation: string, priority: IssuePriority): SEOIssue =>
+    ({ id: String(++issueId), type, category, title, description, recommendation, priority });
+  const onPageIssues: SEOIssue[] = [];
+  const technicalIssues: SEOIssue[] = [];
+  const mobileIssues: SEOIssue[] = [];
+  const securityIssues: SEOIssue[] = [];
+  const performanceIssues: SEOIssue[] = [];
+  const backlinkIssues: SEOIssue[] = [];
+
+  if (!live) onPageIssues.push(iss('warning', 'On-Page', 'Live page could not be fetched', `${fullUrl} was unreachable through every relay, so the on-page numbers below are estimates rather than measurements.`, 'Re-run the audit; the site may block proxy crawlers.', 'medium'));
+
+  onPageIssues.push(
+    d.titleTag.status === 'success'
+      ? iss('success', 'On-Page', 'Title tag well sized', `“${d.titleTag.value.slice(0, 80)}” — ${d.titleTag.length} characters, within the 30–60 range search results show in full.`, 'Keep every page title unique and keyword-led.', 'low')
+      : d.titleTag.status === 'error'
+        ? iss('error', 'On-Page', d.titleTag.length === 0 ? 'Missing title tag' : `Title tag too ${d.titleTag.length > 70 ? 'long' : 'short'}`, d.titleTag.length === 0 ? 'The page has no <title> at all.' : `Title is ${d.titleTag.length} characters; ${d.titleTag.length > 70 ? 'anything past ~70 is truncated in results.' : 'under 30 wastes the result line.'}`, 'Rewrite to 30–60 characters with the primary keyword near the start.', 'high')
+        : iss('warning', 'On-Page', 'Title tag length off-target', `Title is ${d.titleTag.length} characters — usable, but not optimal.`, 'Aim for 30–60 characters.', 'medium'));
+
+  onPageIssues.push(
+    d.metaDescription.status === 'success'
+      ? iss('success', 'On-Page', 'Meta description well sized', `${d.metaDescription.length} characters — inside the 120–160 window.`, 'Make every description a compelling ad for the page.', 'low')
+      : d.metaDescription.status === 'error'
+        ? iss('error', 'On-Page', d.metaDescription.length === 0 ? 'Missing meta description' : 'Meta description too long', d.metaDescription.length === 0 ? 'No meta description tag was found.' : `Description is ${d.metaDescription.length} characters; search snippets cut off around 160.`, 'Write a 120–160 character description including the primary keyword.', 'high')
+        : iss('warning', 'On-Page', 'Meta description too short', `Description is only ${d.metaDescription.length} characters.`, 'Expand to 120–160 characters.', 'medium'));
+
+  onPageIssues.push(
+    d.h1.status === 'success'
+      ? iss('success', 'On-Page', 'Exactly one H1', `“${d.h1.value.slice(0, 80)}” — a single, properly structured H1.`, 'Keep one H1 per page, mirroring the title topic.', 'low')
+      : iss('error', 'On-Page', d.h1.count === 0 ? 'No H1 heading' : `${d.h1.count} H1 headings`, d.h1.count === 0 ? 'The page has no H1 heading.' : 'Multiple H1s dilute the page topic.', 'Use exactly one H1 that states the page topic.', 'high'));
+
+  onPageIssues.push(
+    d.images.total === 0
+      ? iss('warning', 'On-Page', 'No images detected', 'The page markup contains no <img> tags — visual content aids engagement and image search.', 'Add relevant images with descriptive alt text.', 'low')
+      : d.images.status === 'success'
+        ? iss('success', 'On-Page', 'All images have alt text', `${d.images.total} images, none missing alt attributes${d.images.altWithKeyword ? `; ${d.images.altWithKeyword} use the keyword` : ''}.`, 'Keep alt text descriptive, not keyword-stuffed.', 'low')
+        : iss(d.images.status === 'error' ? 'error' : 'warning', 'On-Page', `${d.images.missingAlt} of ${d.images.total} images missing alt text`, 'Missing alt attributes hurt accessibility and image search.', 'Add descriptive alt text to every image.', d.images.status === 'error' ? 'high' : 'medium'));
+
+  onPageIssues.push(
+    d.wordCount.status === 'success'
+      ? iss('success', 'On-Page', 'Substantial content', `${d.wordCount.value.toLocaleString()} words of visible text — above the 600-word benchmark.`, 'Keep the copy current and genuinely useful.', 'low')
+      : iss('warning', 'On-Page', 'Thin content', `Only ${d.wordCount.value.toLocaleString()} words of visible text (600+ is the usual benchmark).`, 'Expand the page with original, useful copy.', 'medium'));
+
+  onPageIssues.push(
+    d.canonical.status === 'success'
+      ? iss('success', 'On-Page', 'Self-referencing canonical', `Canonical points at ${d.canonical.value}.`, 'No action needed.', 'low')
+      : iss('warning', 'On-Page', 'Canonical does not match this URL', `Canonical is ${d.canonical.value} but the audited URL is ${fullUrl}.`, 'Point the canonical at the preferred version of this exact page.', 'medium'));
+
+  const ogMissing = [!d.social.ogTitle && 'og:title', !d.social.ogDescription && 'og:description', !d.social.ogImage && 'og:image', !d.social.ogUrl && 'og:url', !d.social.twitterCard && 'twitter:card'].filter(Boolean) as string[];
+  onPageIssues.push(ogMissing.length === 0
+    ? iss('success', 'On-Page', 'Complete social sharing tags', 'og:title, og:description, og:image, og:url and twitter:card are all present.', 'No action needed.', 'low')
+    : iss(ogMissing.length > 2 ? 'error' : 'warning', 'On-Page', 'Incomplete Open Graph tags', `Missing ${ogMissing.join(', ')} — shares will render as bare links.`, 'Add the missing tags so social previews look professional.', 'medium'));
+
+  onPageIssues.push(d.links.internal === 0
+    ? iss('warning', 'On-Page', 'No internal links found', 'The page links to no other page on the site — a dead end for crawlers and users.', 'Add contextual internal links to key pages.', 'medium')
+    : iss('success', 'On-Page', 'Internal linking measured', `${d.links.internal} internal and ${d.links.external} external links; ${d.links.nofollow} carry rel="nofollow".`, 'Keep primary navigation crawlable (avoid sitewide nofollow).', 'low'));
+
+  if (!d.titleTag.keywordPresent && d.titleTag.length) onPageIssues.push(iss('warning', 'On-Page', 'Keyword missing from title', `Primary keyword “${d.primaryKeyword}” does not appear in the title tag.`, 'Add the keyword near the start of the title.', 'medium'));
+  if (!d.metaDescription.keywordPresent && d.metaDescription.length) onPageIssues.push(iss('warning', 'On-Page', 'Keyword missing from meta description', `“${d.primaryKeyword}” is absent from the description snippet.`, 'Weave the keyword into the description naturally.', 'low'));
+  if (!d.h1.keywordPresent && d.h1.count) onPageIssues.push(iss('warning', 'On-Page', 'Keyword missing from H1', 'The H1 does not contain the primary keyword.', 'Mirror the title topic in the H1.', 'low'));
+
+  // ---------- Technical ----------
+  technicalIssues.push(/noindex/i.test(d.metaTags.robots)
+    ? iss('error', 'Technical', 'Robots meta blocks indexing', `The page meta robots is “${d.metaTags.robots}” — search engines will drop it.`, 'Remove noindex unless the page must stay private.', 'high')
+    : iss('success', 'Technical', 'Indexable robots meta', `Meta robots “${d.metaTags.robots || 'not set (indexable by default)'}”.`, 'No action needed.', 'low'));
+  technicalIssues.push(d.metaTags.charset
+    ? iss('success', 'Technical', 'Character encoding declared', 'A charset meta/HTTP declaration was found.', 'Keep UTF-8 declared first in <head>.', 'low')
+    : iss('warning', 'Technical', 'Charset not declared', 'No character-encoding declaration detected.', 'Add <meta charset="utf-8"> as the first head element.', 'medium'));
+  technicalIssues.push(d.metaTags.lang
+    ? iss('success', 'Technical', 'Language declared', 'The html element carries a lang attribute.', 'Add hreflang if you serve multiple locales.', 'low')
+    : iss('warning', 'Technical', 'No lang attribute', 'The html tag declares no language.', 'Set lang (e.g. lang="en") on the html element.', 'low'));
+  technicalIssues.push(d.favicon
+    ? iss('success', 'Technical', 'Favicon linked', 'A favicon reference was found in the markup.', 'Serve it over HTTPS at a stable URL.', 'low')
+    : iss('warning', 'Technical', 'No favicon reference', 'No favicon link detected — browsers still request /favicon.ico.', 'Link a favicon explicitly for brand consistency in tabs and results.', 'low'));
+  const rb = crawl?.robots ?? 'unknown';
+  technicalIssues.push(rb === 'present'
+    ? iss('success', 'Technical', 'robots.txt found', `https://${domain}/robots.txt answers with crawler rules.`, 'Reference the sitemap from robots.txt and review it when sections change.', 'low')
+    : rb === 'missing'
+      ? iss('warning', 'Technical', 'No robots.txt', `https://${domain}/robots.txt returned no crawler rules.`, 'Publish a robots.txt and reference your XML sitemap.', 'medium')
+      : iss('warning', 'Technical', 'robots.txt could not be probed', 'The relay probe could not reach robots.txt this run.', `Re-run, or fetch https://${domain}/robots.txt manually.`, 'medium'));
+  const sm = crawl?.sitemap ?? 'unknown';
+  technicalIssues.push(sm === 'present'
+    ? iss('success', 'Technical', 'XML sitemap found', `https://${domain}/sitemap.xml is a valid urlset/sitemapindex.`, 'Keep it updated and submitted in Search Console.', 'low')
+    : sm === 'missing'
+      ? iss('warning', 'Technical', 'No XML sitemap at /sitemap.xml', 'The default sitemap path returned no urlset.', 'Generate a sitemap and reference it in robots.txt.', 'medium')
+      : iss('warning', 'Technical', 'Sitemap could not be probed', 'The relay probe could not reach sitemap.xml this run.', `Re-run, or fetch https://${domain}/sitemap.xml manually.`, 'medium'));
+  if (live) technicalIssues.push(live.hasJsonLd
+    ? iss('success', 'Technical', 'Structured data (JSON-LD) detected', 'Schema.org JSON-LD was found in the page source.', 'Extend with Organization/WebSite/Breadcrumb markup.', 'low')
+    : iss('warning', 'Technical', 'No structured data', 'No JSON-LD schema found in the source.', 'Add schema.org markup for rich-result eligibility.', 'medium'));
+
+  // ---------- Mobile ----------
+  mobileIssues.push(d.metaTags.viewport
+    ? iss('success', 'Mobile', 'Viewport configured', 'A width=device-width viewport meta is present — the page lays out at device width.', 'Check tap-target spacing on a real phone.', 'low')
+    : iss('error', 'Mobile', 'Viewport not configured', 'Missing/invalid viewport meta — phones render the page zoomed out.', 'Add <meta name="viewport" content="width=device-width, initial-scale=1">.', 'high'));
+  if (live) mobileIssues.push(live.smallFontRisk
+    ? iss('warning', 'Mobile', 'Small-font risk', 'The markup suggests very small base type, hard to read on phones.', 'Use 16px+ body text.', 'medium')
+    : iss('success', 'Mobile', 'Readable type sizes', 'No small-font risk detected in the markup.', 'Keep body copy at 16px+.', 'low'));
+
+  // ---------- Security ----------
+  securityIssues.push(https
+    ? iss('success', 'Security', 'Served over HTTPS', 'The audited URL uses TLS.', 'Renew certificates before expiry.', 'low')
+    : iss('error', 'Security', 'Not HTTPS', 'The audited URL is plain HTTP — browsers flag it as not secure.', 'Install TLS and 301 all HTTP traffic to HTTPS.', 'high'));
+  const mixed = live ? (live.html.match(/(?:src|href)=["']http:\/\/(?!www\.w3\.org)/gi) || []).length : null;
+  if (mixed !== null) securityIssues.push(mixed === 0
+    ? iss('success', 'Security', 'No mixed content', 'No http:// asset references found in the HTTPS markup.', 'Keep new assets on https URLs.', 'low')
+    : iss('warning', 'Security', `${mixed} insecure resource reference${mixed > 1 ? 's' : ''}`, 'The markup loads assets over http:// on an HTTPS page — browsers may block them.', 'Switch every asset URL to HTTPS.', 'medium'));
+  securityIssues.push(dns?.mx == null
+    ? iss('warning', 'Security', 'Mail records unknown', 'The DNS (DoH) lookup for MX records did not complete this run.', 'Re-run, or check MX at dns.google.', 'medium')
+    : dns.mx > 0
+      ? iss('success', 'Security', 'Email infrastructure present', `${dns.mx} MX record${dns.mx > 1 ? 's' : ''} found — the domain can receive mail.`, 'Publish SPF and DMARC alongside MX.', 'low')
+      : iss('warning', 'Security', 'No MX record', 'DNS returns no MX record — email to the domain will not deliver.', 'Add MX records if the domain should receive mail.', 'medium'));
+  securityIssues.push(dns?.spf == null
+    ? iss('warning', 'Security', 'SPF record unknown', 'The TXT lookup did not complete this run.', 'Re-run, or check TXT at dns.google.', 'medium')
+    : dns.spf
+      ? iss('success', 'Security', 'SPF published', 'A v=spf1 TXT record authorises your senders.', 'Keep SPF within 10 DNS lookups.', 'low')
+      : iss('warning', 'Security', 'No SPF record', 'No v=spf1 TXT record — anyone can spoof the domain in email.', 'Publish an SPF record for the domain.', 'medium'));
+  securityIssues.push(dns?.dmarc == null
+    ? iss('warning', 'Security', 'DMARC record unknown', 'The _dmarc TXT lookup did not complete this run.', 'Re-run, or check _dmarc.' + domain + ' at dns.google.', 'medium')
+    : dns.dmarc
+      ? iss('success', 'Security', 'DMARC published', 'A v=DMARC1 policy protects the domain from spoofing.', 'Move toward p=reject once monitoring is clean.', 'low')
+      : iss('warning', 'Security', 'No DMARC record', 'No v=DMARC1 record at _dmarc.' + domain + '.', 'Start with p=none monitoring, then tighten.', 'medium'));
+
+  // ---------- Performance (markup-derived) ----------
+  if (live) {
+    performanceIssues.push(live.scripts > 40
+      ? iss('warning', 'Performance', `${live.scripts} script tags on the page`, `${live.externalScripts} external scripts — heavy JS slows first paint.`, 'Defer non-critical JS; consolidate tag managers.', 'medium')
+      : iss('success', 'Performance', 'Reasonable script count', `${live.scripts} script tags (${live.externalScripts} external).`, 'Continue deferring non-critical JS.', 'low'));
+    performanceIssues.push(live.stylesheets > 8
+      ? iss('warning', 'Performance', `${live.stylesheets} stylesheets`, 'Many blocking stylesheets delay first render.', 'Inline critical CSS; merge the rest.', 'medium')
+      : iss('success', 'Performance', 'Stylesheet count healthy', `${live.stylesheets} linked stylesheets.`, 'No action needed.', 'low'));
+    performanceIssues.push(live.iframes > 2
+      ? iss('warning', 'Performance', `${live.iframes} iframes embedded`, 'Iframes are expensive to load and often invisible to SEO.', 'Lazy-load or replace heavy embeds.', 'medium')
+      : iss('success', 'Performance', 'Few or no iframes', `${live.iframes} iframes on the page.`, 'No action needed.', 'low'));
+    performanceIssues.push(live.imagesWithoutDimensions > 0
+      ? iss('warning', 'Performance', `${live.imagesWithoutDimensions} images without width/height`, 'Missing dimensions cause layout shift while images load.', 'Add width/height attributes (or aspect-ratio CSS).', 'medium')
+      : iss('success', 'Performance', 'Images declare dimensions', 'No dimension-less images detected — layout shift risk is low.', 'Keep explicit dimensions on all media.', 'low'));
+    performanceIssues.push(live.textRatio < 0.05
+      ? iss('warning', 'Performance', `Low text-to-HTML ratio (${(live.textRatio * 100).toFixed(1)}%)`, 'Most of the payload is markup/script rather than content.', 'Trim wrapper markup; server-render key content.', 'medium')
+      : iss('success', 'Performance', 'Healthy text-to-HTML ratio', `${(live.textRatio * 100).toFixed(1)}% of the payload is visible text.`, 'No action needed.', 'low'));
+  } else {
+    performanceIssues.push(iss('warning', 'Performance', 'Performance checks skipped', 'The page could not be fetched, so markup-weight checks did not run.', 'Re-run when the site is reachable.', 'medium'));
+  }
+
+  // ---------- Backlinks & authority (live public sources only) ----------
+  const auth: AuthorityData = authority ?? { available: false, score: null, firstArchived: null, archivedMonths: null, signals: [] };
+  for (const s of auth.signals) {
+    backlinkIssues.push(iss(s.status, 'Backlinks', s.label, s.detail,
+      s.status === 'success' ? 'Healthy external footprint — keep earning genuine mentions.' : 'Earn genuine mentions: publish linkable research, tools and guides; appear where your audience links.',
+      s.status === 'error' ? 'medium' : 'low'));
+  }
+  if (!auth.available) backlinkIssues.push(iss('warning', 'Backlinks', 'Authority sources unreachable this run', 'None of the public mention APIs (Hacker News, GitHub, Stack Exchange, Internet Archive) answered from your network.', 'Re-run on an open network — counts are never invented.', 'medium'));
+
+  // ---------- Scores derived from each category's own checks ----------
+  const onPageScore = scoreFromIssues(onPageIssues);
+  const technicalScore = scoreFromIssues(technicalIssues);
+  const mobileScore = scoreFromIssues(mobileIssues);
+  const securityScore = scoreFromIssues(securityIssues);
+  const performanceScore = scoreFromIssues(performanceIssues);
+  const backlinksScore = auth.available ? (auth.score ?? scoreFromIssues(backlinkIssues)) : 0;
+  const overallScore = Math.round(onPageScore * 0.25 + technicalScore * 0.2 + securityScore * 0.2 + mobileScore * 0.15 + performanceScore * 0.1 + backlinksScore * 0.1);
+
+  const allIssues = [...onPageIssues, ...technicalIssues, ...mobileIssues, ...securityIssues, ...performanceIssues, ...backlinkIssues];
+  const errors = allIssues.filter(i => i.type === 'error').length;
+  const warnings = allIssues.filter(i => i.type === 'warning').length;
+  const passed = allIssues.filter(i => i.type === 'success').length;
+
   return {
     url,
-    overallScore: baseScore,
+    overallScore,
     timestamp: Date.now(),
     domainInfo,
     onPageDetails,
+    authority: auth,
     categories: {
-      onPage: { score: Math.floor(random() * 25) + 65, issues: onPageIssues },
-      technical: { score: Math.floor(random() * 25) + 60, issues: technicalIssues },
-      mobile: { score: Math.floor(random() * 20) + 70, issues: mobileIssues },
-      security: { score: Math.floor(random() * 15) + 75, issues: securityIssues },
-      performance: { score: Math.floor(random() * 25) + 55, issues: performanceIssues },
+      onPage: { score: onPageScore, issues: onPageIssues },
+      technical: { score: technicalScore, issues: technicalIssues },
+      mobile: { score: mobileScore, issues: mobileIssues },
+      security: { score: securityScore, issues: securityIssues },
+      performance: { score: performanceScore, issues: performanceIssues },
+      backlinks: { score: backlinksScore, issues: backlinkIssues },
     },
     summary: { totalIssues: allIssues.length, errors, warnings, passed },
   };
@@ -1189,6 +1411,7 @@ const buildAuditReportHtml = (report: AuditResult): string => {
   <header class="head"><div class="brand">SEO Audit Tool</div><h1>Website SEO Audit Report</h1><div class="url">${escapeReportHtml(report.url)}</div><div class="meta">Generated ${escapeReportHtml(date)} · ${escapeReportHtml(scoreLabel)}</div></header>
   <section class="summary"><div class="scorebox"><b>${report.overallScore}</b><span>Overall score</span></div><div class="cards"><div class="card total"><small>Total checks</small><b>${report.summary.totalIssues}</b></div><div class="card errors"><small>Errors</small><b>${report.summary.errors}</b></div><div class="card warnings"><small>Warnings</small><b>${report.summary.warnings}</b></div><div class="card passed"><small>Passed</small><b>${report.summary.passed}</b></div></div></section>
   <section class="section"><div class="section-head"><h2>Domain Information</h2><span class="score">${domain.live ? 'RDAP registry data' : 'Registry unavailable'}</span></div><div class="grid"><div class="datum"><small>Domain</small><b>${escapeReportHtml(domain.domain)}</b></div><div class="datum"><small>Current registration age</small><b>${escapeReportHtml(domain.ageLabel)}</b><small>Created ${escapeReportHtml(domain.registered || 'date unavailable')}</small></div><div class="datum"><small>Expiry date</small><b class="${domain.daysToExpiry !== null && domain.daysToExpiry < 30 ? 'bad' : ''}">${escapeReportHtml(domain.expiry || 'Unavailable')}</b><small>${domain.daysToExpiry === null ? 'Expiry unavailable' : `${domain.daysToExpiry} days remaining`}</small></div><div class="datum"><small>Registrar</small><b>${escapeReportHtml(domain.registrar || 'Unavailable')}</b><small>${domain.dnssec === null ? 'DNSSEC unknown' : domain.dnssec ? 'DNSSEC enabled' : 'DNSSEC not signed'}</small></div></div><p style="color:#64748b;font-size:9px;margin:8px 0 0">Current registration age is calculated from the registry creation event. If a domain expired and was re-registered, RDAP cannot prove its first-ever historical creation date.</p></section>
+  <section class="section"><div class="section-head"><h2>Backlinks &amp; Authority Signals</h2><span class="score">${report.authority.available ? `${report.authority.score ?? 0}/100` : 'Sources unreachable'}</span></div><div class="grid">${report.authority.signals.map(s => `<div class="datum"><small>${escapeReportHtml(s.label)}</small><b class="${s.status === 'success' ? 'fine' : s.status === 'warning' ? 'warn' : 'bad'}">${escapeReportHtml(s.value)}</b><small>${escapeReportHtml(s.detail)}</small></div>`).join('')}</div><p style="color:#64748b;font-size:9px;margin:8px 0 0">Live mention counts from Hacker News, GitHub, Stack Exchange and the Internet Archive; fetched at audit time, never invented.</p></section>
   <section class="section"><div class="section-head"><h2>URL Vulnerability</h2><span class="score">${escapeReportHtml(detail.urlInfo.full)}</span></div><div class="split"><div>${urlChecks.slice(0,4).map(([label, ok]) => `<div class="check"><span class="${ok ? 'yes' : 'no'}">${ok ? '✓' : '×'}</span>${escapeReportHtml(label as string)}</div>`).join('')}</div><div>${urlChecks.slice(4).map(([label, ok]) => `<div class="check"><span class="${ok ? 'yes' : 'no'}">${ok ? '✓' : '×'}</span>${escapeReportHtml(label as string)}</div>`).join('')}</div></div></section>
   <section class="section"><div class="section-head"><h2>Internal & External Link Analysis</h2><span class="score">${linkTotal} unique links</span></div><div class="grid"><div class="datum"><small>Internal</small><b>${detail.links.internal}</b><small>${detail.links.internalNofollow} nofollow</small></div><div class="datum"><small>External</small><b>${detail.links.external}</b><small>${detail.links.externalNofollow} nofollow</small></div><div class="datum"><small>Total nofollow</small><b>${detail.links.nofollow}</b><small>rel="nofollow" attributes</small></div><div class="datum"><small>Broken links</small><b class="${detail.links.broken === null ? 'warn' : detail.links.broken ? 'bad' : 'fine'}">${detail.links.broken === null ? 'Not crawled' : detail.links.broken}</b><small>${detail.links.broken === null ? 'Use a full crawl to verify' : detail.links.broken ? 'Fix crawl errors' : 'No broken links found'}</small></div></div><div class="split"><div><h3 style="font-size:12px;margin:12px 0 0">Internal URLs (sample)</h3><ul class="url-list">${internalUrls.length ? internalUrls.map(link => `<li><b>${escapeReportHtml(link.anchor)}${link.nofollow ? ' <em class="nofollow">nofollow</em>' : ''}</b><span>${escapeReportHtml(link.href)}</span></li>`).join('') : '<li><span>No internal URL samples available.</span></li>'}</ul></div><div><h3 style="font-size:12px;margin:12px 0 0">External URLs (sample)</h3><ul class="url-list">${externalUrls.length ? externalUrls.map(link => `<li><b>${escapeReportHtml(link.anchor)}${link.nofollow ? ' <em class="nofollow">nofollow</em>' : ''}</b><span>${escapeReportHtml(link.href)}</span></li>`).join('') : '<li><span>No external URL samples available.</span></li>'}</ul></div></div></section>
   ${findings}
@@ -1422,12 +1645,26 @@ const SiteApp: React.FC = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [cookiePrefsOpen, setCookiePrefsOpen] = useState(false);
   const [route, setRoute] = useState<string>(getRoute);
+  // Bumped on every navigation that lands on home, so a logo/Home click while
+  // the audit report is open both clears it and re-runs the scroll effect
+  // (the route string alone stays 'home' and would not trigger either).
+  const [homeTick, setHomeTick] = useState(0);
 
   useEffect(() => {
     // Follow clean-URL navigation (intercepted link clicks + back/forward).
     return subscribe(r => {
       setRoute(r);
       setMobileMenuOpen(false);
+      // Landing on home always shows the fresh landing page: a logo or Home
+      // click (or any other navigation back here) dismisses an open audit
+      // report, and bumping the run counter discards any in-flight analysis.
+      if (r === 'home') {
+        auditRuns.current += 1;
+        setIsAnalyzing(false);
+        setResult(null);
+        setAuditError('');
+        setHomeTick(t => t + 1);
+      }
     });
   }, []);
 
@@ -1463,7 +1700,10 @@ const SiteApp: React.FC = () => {
     if (kind === 'pop' || kind === 'init') return;
     // A link click opens the new page at the top, immediately.
     scrollInstantly(0);
-  }, [route]);
+    // homeTick: re-runs this effect when a logo/Home click lands on home while
+    // already there (route string unchanged) so the cleared report also jumps
+    // back to the top of the landing page.
+  }, [route, homeTick]);
 
   const isBlog = route === 'blog' || route.startsWith('blog/') || route.startsWith('blogcat/');
   const isAdminRoute = route === 'admin' || route === 'admin-login' || route === 'admin-reset';
@@ -1500,6 +1740,12 @@ const SiteApp: React.FC = () => {
       const kwGuess = normalized.replace(/^https?:\/\//, '').split('/').filter(Boolean).slice(1).pop()?.split('?')[0]?.replace(/\.\\w+$/, '').replace(/[-_]+/g, ' ') || '';
       const livePromise = fetchPageData(normalized, kwGuess).catch(() => null);
       const domainPromise = fetchDomainInfo(normalized).catch(() => null);
+      // Backlink/authority evidence + crawl/DNS probes run in parallel with the
+      // page fetch; each source is individually capped and failure-tolerant.
+      const authHost = (() => { try { return new URL(normalized).hostname.replace(/^www\./, ''); } catch { return ''; } })();
+      const authorityPromise = authHost ? fetchAuthoritySignals(authHost).catch(() => null) : Promise.resolve(null);
+      const crawlPromise = authHost ? fetchCrawlBasics(authHost).catch(() => null) : Promise.resolve(null);
+      const dnsPromise = authHost ? fetchDnsSignals(authHost).catch(() => null) : Promise.resolve(null);
 
       const animation = new Promise<void>((resolve) => {
         const start = performance.now();
@@ -1520,16 +1766,19 @@ const SiteApp: React.FC = () => {
 
       // Read page and registry data in parallel: each source is capped, and the
       // whole read has a hard ceiling so the button can never stay disabled.
-      const [live, domainInfo] = await withDeadline(Promise.all([
+      const [live, domainInfo, authority, crawl, dns] = await withDeadline(Promise.all([
         Promise.race([livePromise, new Promise<null>((r) => setTimeout(() => r(null), ANALYSIS_FETCH_MS))]),
         Promise.race([domainPromise, new Promise<null>((r) => setTimeout(() => r(null), ANALYSIS_FETCH_MS))]),
+        Promise.race([authorityPromise, new Promise<null>((r) => setTimeout(() => r(null), ANALYSIS_FETCH_MS))]),
+        Promise.race([crawlPromise, new Promise<null>((r) => setTimeout(() => r(null), ANALYSIS_FETCH_MS))]),
+        Promise.race([dnsPromise, new Promise<null>((r) => setTimeout(() => r(null), ANALYSIS_FETCH_MS))]),
       ]), ANALYSIS_TOTAL_MS);
       if (auditRuns.current !== run) return;
 
       setAnalysisProgress(100);
       await delay(180);
       if (auditRuns.current !== run) return;
-      setResult(generateMockAudit(trimmed, live, domainInfo));
+      setResult(generateMockAudit(trimmed, live, domainInfo, authority, crawl, dns));
       setTimeout(() => {
         document.getElementById('results')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
       }, 50);
@@ -1565,7 +1814,7 @@ const SiteApp: React.FC = () => {
       { title: 'Mobile', icon: <CategoryIcon.mobile />, score: result.categories.mobile.score, issues: result.categories.mobile.issues, color: 'bg-gradient-to-br from-pink-500 to-rose-500' },
       { title: 'Security', icon: <CategoryIcon.security />, score: result.categories.security.score, issues: result.categories.security.issues, color: 'bg-gradient-to-br from-emerald-500 to-teal-500' },
       { title: 'Performance', icon: <CategoryIcon.performance />, score: result.categories.performance.score, issues: result.categories.performance.issues, color: 'bg-gradient-to-br from-amber-500 to-orange-500' },
-      { title: 'Backlinks', icon: <CategoryIcon.backlink />, score: 72, issues: [], color: 'bg-gradient-to-br from-indigo-500 to-blue-500' },
+      { title: 'Backlinks & Authority', icon: <CategoryIcon.backlink />, score: result.categories.backlinks.score, issues: result.categories.backlinks.issues, color: 'bg-gradient-to-br from-indigo-500 to-blue-500' },
     ];
   }, [result]);
 
@@ -1853,6 +2102,28 @@ const SiteApp: React.FC = () => {
                   <span className="text-slate-400">Age uses the RDAP creation event. A re-registered expired domain may have an older history that no public registry exposes.</span>
                 </div>
                 {(result.domainInfo.nameservers.length > 0 || result.domainInfo.statuses.length > 0 || result.domainInfo.error) && <div className="flex flex-wrap gap-2 mt-3 text-xs">{result.domainInfo.nameservers.map(ns => <span key={ns} className="bg-white border border-slate-200 rounded-lg px-2 py-1 font-mono text-slate-600">NS {ns}</span>)}{result.domainInfo.statuses.map(status => <span key={status} className="bg-slate-200 rounded-lg px-2 py-1 text-slate-600">{status}</span>)}{result.domainInfo.error && <span className="text-amber-700">{result.domainInfo.error}</span>}</div>}
+              </div>
+
+              {/* Live backlink / authority evidence from public sources */}
+              <div className="mt-6 pt-6 border-t border-slate-200">
+                <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+                  <div><h4 className="heading-card font-bold text-slate-900">Backlinks &amp; Authority Signals</h4><p className="text-xs text-slate-500 mt-0.5">Live mention counts from public sources — Hacker News, GitHub, Stack Exchange and the Internet Archive.</p></div>
+                  {result.authority.available
+                    ? <span className="inline-flex items-center gap-1.5 text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-100 rounded-full px-2.5 py-1"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />Live signals</span>
+                    : <span className="inline-flex items-center gap-1.5 text-[11px] font-bold bg-amber-50 text-amber-700 border border-amber-100 rounded-full px-2.5 py-1"><span className="w-1.5 h-1.5 rounded-full bg-amber-500" />Sources unreachable</span>}
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                  {result.authority.signals.map(s => (
+                    <div key={s.label} className="bg-white rounded-xl border border-slate-200 p-4">
+                      <p className="text-xs text-slate-500">{s.label}</p>
+                      <p className={`text-lg font-bold tabular-nums ${s.status === 'success' ? 'text-emerald-600' : s.status === 'warning' ? 'text-amber-600' : 'text-rose-600'}`}>{s.value}</p>
+                      <p className="text-[11px] text-slate-400 leading-relaxed">{s.detail}</p>
+                    </div>
+                  ))}
+                </div>
+                <p className="mt-3 text-xs text-slate-500">
+                  Authority score {result.authority.score === null ? 'unavailable — no public source responded from your network' : `${result.authority.score}/100`} · computed from log-scaled mention counts plus archive age. Counts are fetched live and never invented; the detailed category card below lists each signal as a finding.
+                </p>
               </div>
             </div>
 

@@ -4,10 +4,12 @@ import {
   type ToolDef, type ToolCategory,
 } from './data';
 import { resolveToolCategory, toolCategoriesOf, type CmsToolCategory, useCms } from '../cms/store';
+import { sanitizeRichHtml } from '../utils/sanitize';
 import { TOOLS_PATH, navigate, subscribe, toolCategoryPath } from '../router';
-import { buildReport, type SimReport, type RowStatus, Seeded } from './simulator';
+import { buildReport, type SimReport, type RowStatus } from './simulator';
 import { fetchPageData } from '../utils/pageFetch';
 import { WhatIsMyIp, IpLocationTool, ReverseIpTool, ProxyListTool, ClassCTool } from './IpTools';
+import { BacklinkCheckerTool, BacklinkMakerTool, LinksCountTool, LinkTrackerTool, LinkPriceTool, ReciprocalLinkTool, LinkAnalyzerTool, BrokenLinkTool } from './BacklinkTools';
 import { PlagiarismChecker } from './PlagiarismChecker';
 import { GrammarChecker } from './GrammarChecker';
 import { ArticleRewriter } from './ArticleRewriter';
@@ -15,6 +17,7 @@ import { SeoScoreTool, MetaAnalyzerTool, OgCheckerTool, SnooperTool, HeadersTool
 import { QrTool, HtaccessTool, OgGeneratorTool, TwitterCardTool, UrlCodecTool, AdsenseTool, UrlRewriteTool, HitCounterTool, ScreenSimTool, ScreenshotTool, SpeedTestTool, ShortenerTool, SuggestTool, VideoInfoTool } from './WebGenerators';
 import { AgeCalc, AvgCalc, CICalc, GstCalc, MarginCalc, PctCalc, ProbCalc, TaxCalc, LtvCalc, DiscountCalc, CpmCalc, PaypalCalc, EpsCalc, BmiCalc } from './CalculatorTools';
 import { UnitConverter, LengthConverter, TempConverter, TimezoneConverter, PressureConverter, VoltageConverter, PowerConverter, SpeedConverter, AreaConverter, WeightConverter } from './ConverterTools';
+import { SitemapGeneratorTool } from './SitemapGenerator';
 import { HtmlFormatterTool, XmlFormatterTool, PhpFormatterTool, HtmlEditorTool, HtmlViewerTool } from './CodeTools';
 import { Sidebar } from './Sidebar';
 import { PdfGuide } from './pdf/PdfGuide';
@@ -52,7 +55,16 @@ const PdfSwitch: React.FC<{ engine: string }> = ({ engine }) => {
     </RouteBoundary>
   );
 };
-import { WorkingEngine, PrimaryBtn, MetaGen, RobotsGen, ImageTool } from './engines';
+import { WorkingEngine, PrimaryBtn, MetaGen, RobotsGen, ImageTool, ImageToText } from './engines';
+import { DomainAgeTool, DomainAuthorityTool, DomainIpTool, DomainHostingTool, DnsRecordsTool, DomainSearchTool, BlacklistTool, ExpiredDomainsTool } from './DomainTools';
+import { KeywordRankTool, KeywordDensityTool, KeywordSuggestionsTool, WebsiteKeywordsTool, KeywordDomainsTool, RelatedKeywordsTool, LongTailTool, CompetitionTool } from './KeywordTools';
+import {
+  ArchiveCheckerTool, WhoisCheckerTool, MozRankTool, PageAuthorityTool, IndexCheckerTool,
+  TrafficRankTool, RedirectCheckerTool, SimilarPageTool, CloakingCheckerTool, MalwareCheckerTool,
+  GzipCheckerTool, SslCheckerTool, ServerStatusTool, RatioTool, RankCompareTool,
+  PageCompareTool, SpiderSimTool, ComparisonSearchTool, PokemonProbeTool, BlogFinderTool,
+  AppsRankTool, SocialStatsTool,
+} from './CheckerTools';
 
 // ---------- Status dot ----------
 const statusStyle: Record<RowStatus, { dot: string; text: string; label: string }> = {
@@ -259,43 +271,6 @@ const TextRunner: React.FC<{ tool: ToolDef }> = ({ tool }) => {
   );
 };
 
-// ---------- Backlink maker (simulated submissions) ----------
-const DIRECTORIES = ['aboutus.com', 'intellifinder.com', 'hotfrog.com', 'brownbook.net', 'spoke.com', 'cybo.com', 'yelu.com', 'find-us-here.com', 'directory2020.com', 'trustpilot.com', 'yelp.com', 'foursquare.com'];
-const BacklinkMaker: React.FC<{ tool: ToolDef }> = ({ tool }) => {
-  const [domain, setDomain] = useState('');
-  const [results, setResults] = useState<{ site: string; status: string }[]>([]);
-  const [running, setRunning] = useState(false);
-  const run = () => {
-    if (!domain.trim()) return;
-    setRunning(true); setResults([]);
-    const rng = new Seeded(domain);
-    DIRECTORIES.forEach((site, i) => {
-      setTimeout(() => {
-        setResults(prev => [...prev, { site, status: rng.next() > 0.25 ? 'Submitted successfully' : 'Already listed' }]);
-        if (i === DIRECTORIES.length - 1) setRunning(false);
-      }, i * 220);
-    });
-  };
-  return (
-    <div>
-      <div className="flex flex-col sm:flex-row gap-3 mb-5">
-        <input value={domain} onChange={e => setDomain(e.target.value)} placeholder={tool.placeholder} className="flex-1 px-4 py-3.5 rounded-xl border border-slate-300 outline-none text-sm" />
-        <PrimaryBtn type="button" onClick={run} disabled={running}>{running ? 'Submitting…' : 'Create Backlinks'}</PrimaryBtn>
-      </div>
-      {results.length > 0 && (
-        <div className="bg-white rounded-2xl border border-slate-200 divide-y divide-slate-100 overflow-hidden">
-          {results.map((r, i) => (
-            <div key={i} className="flex items-center justify-between px-4 py-3 text-sm">
-              <span className="text-slate-700 font-medium">{r.site}</span>
-              <span className={r.status.includes('success') ? 'text-emerald-600 font-semibold' : 'text-amber-600 font-semibold'}>{r.status}</span>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-};
-
 // ---------- What is my Browser (instant, no request) ----------
 const BrowserInfo: React.FC = () => {
   const info = useMemo(() => {
@@ -347,84 +322,7 @@ const BrowserInfo: React.FC = () => {
   );
 };
 
-// ---------- Pokemon Go server status ----------
-const PokemonStatus: React.FC = () => {
-  const [rows, setRows] = useState<{ name: string; status: string; ok: boolean }[] | null>(null);
-  const check = () => {
-    const rng = new Seeded(Date.now().toString());
-    const defs: [string, number][] = [
-      ['Login / Authentication', 0.95], ['Game Servers (Global)', 0.97],
-      ['Pokemon Trainer Club', 0.9], ['Google Sign-in', 0.97],
-      ['Friends & Gifting', 0.93], ['Trading', 0.9],
-      ['Raid Battles', 0.92], ['GO Battle League', 0.88],
-      ['PokéStops & Gyms', 0.95], ['In-app Purchases', 0.96],
-    ];
-    setRows(defs.map(([name, uptime]) => {
-      const ok = rng.next() < uptime;
-      return { name, ok, status: ok ? (rng.next() > 0.15 ? 'Operational' : 'Intermittent') : 'Down' };
-    }));
-  };
-  return (
-    <div>
-      <PrimaryBtn type="button" onClick={check} className="mb-5">{rows ? 'Refresh Status' : 'Check Server Status'}</PrimaryBtn>
-      {rows && (
-        <div className="bg-white rounded-2xl border border-slate-200 divide-y divide-slate-100 overflow-hidden">
-          {rows.map(s => (
-            <div key={s.name} className="flex items-center justify-between px-5 py-3">
-              <span className="text-sm font-medium text-slate-800">{s.name}</span>
-              <span className={`flex items-center gap-2 text-sm font-semibold ${s.status === 'Down' ? 'text-red-600' : s.status === 'Intermittent' ? 'text-amber-600' : 'text-emerald-600'}`}>
-                <span className={`w-2 h-2 rounded-full ${s.status === 'Down' ? 'bg-red-500' : s.status === 'Intermittent' ? 'bg-amber-500' : 'bg-emerald-500'}`} />
-                {s.status}
-              </span>
-            </div>
-          ))}
-          <div className="px-5 py-3 text-xs text-slate-400">Illustrative status check refreshed on demand. Always verify official channels during outages.</div>
-        </div>
-      )}
-    </div>
-  );
-};
-
 // ---------- Domain availability ----------
-const DomainAvail: React.FC<{ tool: ToolDef }> = ({ tool }) => {
-  const [keyword, setKeyword] = useState('');
-  const [rows, setRows] = useState<{ domain: string; available: boolean; price: string }[]>([]);
-  const run = () => {
-    const k = keyword.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
-    if (!k) return;
-    const tlds = ['.com', '.net', '.org', '.co', '.io', '.info', '.biz', '.online', '.store', '.site'];
-    const rng = new Seeded(k);
-    setRows(tlds.map(t => ({
-      domain: k + t,
-      available: rng.next() > 0.35,
-      price: `$${(rng.next() * 30 + 8).toFixed(2)}/yr`,
-    })));
-  };
-  return (
-    <div>
-      <div className="flex flex-col sm:flex-row gap-3 mb-5">
-        <input value={keyword} onChange={e => setKeyword(e.target.value)} onKeyDown={e => e.key === 'Enter' && run()} placeholder={tool.placeholder} className="flex-1 px-4 py-3.5 rounded-xl border border-slate-300 outline-none text-sm" />
-        <PrimaryBtn type="button" onClick={run}>Search Domains</PrimaryBtn>
-      </div>
-      {rows.length > 0 && (
-        <div className="bg-white rounded-2xl border border-slate-200 divide-y divide-slate-100 overflow-hidden">
-          {rows.map(r => (
-            <div key={r.domain} className="flex items-center justify-between px-4 py-3 text-sm">
-              <span className="font-mono text-slate-800">{r.domain}</span>
-              <span className="flex items-center gap-4">
-                <span className="text-slate-500">{r.price}</span>
-                <span className={`font-semibold ${r.available ? 'text-emerald-600' : 'text-red-500'}`}>
-                  {r.available ? 'Available' : 'Taken'}
-                </span>
-              </span>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-};
-
 // ---------- Tools listing page ----------
 /** Card and heading type scale, exactly as specified by the design:
  *  category heading 1.35rem, tool name 1rem. */
@@ -674,6 +572,14 @@ export const ToolsList: React.FC<{ category?: ToolCategory; categorySlug?: strin
             </section>
           );
         })}
+        {/* Admin-managed rich content for this category page — written in
+            Admin → Tools (editor under the tool list) and rendered here,
+            below the tool grid. Sanitised like every other CMS string. */}
+        {active?.content && (
+          <section className="mb-12 max-w-4xl mx-auto bg-white rounded-2xl border border-slate-200 p-6 sm:p-8 shadow-sm">
+            <div className="rich-text" dangerouslySetInnerHTML={{ __html: sanitizeRichHtml(active.content) }} />
+          </section>
+        )}
         {filtered.length === 0 && categoryIsEmpty && !query.trim() && (
           <div className="text-center py-16 text-slate-500">
             <p className="text-lg font-semibold mb-1">No tools in this category yet</p>
@@ -765,10 +671,54 @@ export const ToolPage: React.FC<{ slug: string }> = ({ slug }) => {
     }
     if (tool.slug === 'meta-tag-generator') return <MetaGen />;
     if (tool.slug === 'robots-txt-generator') return <RobotsGen />;
-    if (tool.slug === 'backlink-maker') return <BacklinkMaker tool={tool} />;
-    if (tool.slug === 'domain-name-search') return <DomainAvail tool={tool} />;
+    if (tool.slug === 'backlink-maker') return <BacklinkMakerTool />;
+    if (tool.slug === 'backlink-checker') return <BacklinkCheckerTool />;
+    if (tool.slug === 'website-links-count-checker') return <LinksCountTool />;
+    if (tool.slug === 'link-tracker') return <LinkTrackerTool />;
+    if (tool.slug === 'link-price-calculator') return <LinkPriceTool />;
+    if (tool.slug === 'reciprocal-link-checker') return <ReciprocalLinkTool />;
+    if (tool.slug === 'website-link-analyzer-tool') return <LinkAnalyzerTool />;
+    if (tool.slug === 'websites-broken-link-checker') return <BrokenLinkTool />;
+    if (tool.slug === 'domain-age-checker') return <DomainAgeTool />;
+    if (tool.slug === 'domain-authority-checker') return <DomainAuthorityTool />;
+    if (tool.slug === 'domain-ip-lookup') return <DomainIpTool />;
+    if (tool.slug === 'domain-hosting-checker') return <DomainHostingTool />;
+    if (tool.slug === 'find-dns-records') return <DnsRecordsTool />;
+    if (tool.slug === 'domain-name-search') return <DomainSearchTool />;
+    if (tool.slug === 'blacklist-lookup') return <BlacklistTool />;
+    if (tool.slug === 'expired-domains-tool') return <ExpiredDomainsTool />;
+    if (tool.slug === 'keyword-rank-checker') return <KeywordRankTool />;
+    if (tool.slug === 'keyword-density-checker') return <KeywordDensityTool />;
+    if (tool.slug === 'keywords-suggestions-tool') return <KeywordSuggestionsTool />;
+    if (tool.slug === 'website-keywords-suggestions-tool') return <WebsiteKeywordsTool />;
+    if (tool.slug === 'keyword-rich-domains-suggestions-tool') return <KeywordDomainsTool />;
+    if (tool.slug === 'related-keywords-finder') return <RelatedKeywordsTool />;
+    if (tool.slug === 'long-tail-keyword-generator') return <LongTailTool />;
+    if (tool.slug === 'keyword-competition-checker') return <CompetitionTool />;
     if (tool.slug === 'what-is-my-browser') return <BrowserInfo />;
-    if (tool.slug === 'pokemon-go-server-status') return <PokemonStatus />;
+    if (tool.slug === 'pokemon-go-server-status') return <PokemonProbeTool />;
+    // Website Checker Tools — real live-data engines (CheckerTools.tsx)
+    if (tool.slug === 'google-cache-checker') return <ArchiveCheckerTool />;
+    if (tool.slug === 'whois-checker') return <WhoisCheckerTool />;
+    if (tool.slug === 'mozrank-checker') return <MozRankTool />;
+    if (tool.slug === 'page-authority-checker') return <PageAuthorityTool />;
+    if (tool.slug === 'google-index-checker') return <IndexCheckerTool />;
+    if (tool.slug === 'alexa-rank-checker') return <TrafficRankTool />;
+    if (tool.slug === 'redirect-checker') return <RedirectCheckerTool />;
+    if (tool.slug === 'similar-page-checker') return <SimilarPageTool />;
+    if (tool.slug === 'cloaking-checker') return <CloakingCheckerTool />;
+    if (tool.slug === 'google-malware-checker') return <MalwareCheckerTool />;
+    if (tool.slug === 'check-gzip-compression') return <GzipCheckerTool />;
+    if (tool.slug === 'ssl-checker') return <SslCheckerTool />;
+    if (tool.slug === 'server-status-checker') return <ServerStatusTool />;
+    if (tool.slug === 'code-to-text-ratio-checker') return <RatioTool />;
+    if (tool.slug === 'alexa-rank-comparison') return <RankCompareTool />;
+    if (tool.slug === 'page-comparison') return <PageCompareTool />;
+    if (tool.slug === 'spider-simulator') return <SpiderSimTool />;
+    if (tool.slug === 'comparison-search') return <ComparisonSearchTool />;
+    if (tool.slug === 'blog-finder-tool') return <BlogFinderTool />;
+    if (tool.slug === 'apps-rank-tracking-tool') return <AppsRankTool />;
+    if (tool.slug === 'social-stats-checker') return <SocialStatsTool />;
     // IP tools (live geolocation APIs, fired only on demand)
     if (tool.slug === 'what-is-my-ip') return <WhatIsMyIp />;
     if (tool.slug === 'ip-location') return <IpLocationTool placeholder={tool.placeholder} />;
@@ -792,6 +742,7 @@ export const ToolPage: React.FC<{ slug: string }> = ({ slug }) => {
     if (tool.slug === 'earnings-per-share-calculator') return <EpsCalc />;
     if (tool.slug === 'bmi-calculator') return <BmiCalc />;
     // Unit converter tools
+    if (tool.slug === 'xml-sitemap-generator') return <SitemapGeneratorTool />;
     if (tool.slug === 'unit-converter') return <UnitConverter />;
     if (tool.slug === 'length-converter') return <LengthConverter />;
     if (tool.slug === 'temperature-converter') return <TempConverter />;
@@ -802,6 +753,7 @@ export const ToolPage: React.FC<{ slug: string }> = ({ slug }) => {
     if (tool.slug === 'speed-converter') return <SpeedConverter />;
     if (tool.slug === 'area-converter') return <AreaConverter />;
     if (tool.slug === 'weight-converter') return <WeightConverter />;
+    if (tool.slug === 'image-to-text-converter') return <ImageToText />;
     if (tool.engine === 'image-compress') return <ImageTool mode="compress" />;
     if (tool.engine === 'image-resize') return <ImageTool mode="resize" />;
     if (tool.engine) return <TextRunner tool={tool} />;
