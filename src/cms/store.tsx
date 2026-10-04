@@ -73,6 +73,8 @@ export interface CmsToolCategory {
   name: string;
   slug: string;
   description: string;
+  /** Rich HTML rendered below the tool grid on this category's public page. */
+  content?: string;
   builtin: boolean;
 }
 
@@ -336,6 +338,7 @@ const migrateToolCategories = (saved?: CmsToolCategory[]): CmsToolCategory[] => 
         description: typeof c.description === 'string' && c.description.trim()
           ? c.description
           : (categoryIntros as Record<string, string>)[key] || '',
+        content: typeof (c as { content?: unknown }).content === 'string' ? (c as { content: string }).content : '',
         builtin: key in categorySlugs,
       };
     });
@@ -400,7 +403,7 @@ export const defaultCompetitor: CmsCompetitor = {
   yourLabel: 'Your website',
   theirLabel: 'Competitor website',
   buttonText: 'Compare Both Websites',
-  fallbackNote: 'If a site blocks browser access, a clearly labelled URL-based fallback keeps the comparison working.',
+  fallbackNote: 'Both audits use live HTML fetched in your browser. If a site blocks access or cannot be reached, the tool says so instead of showing estimated data.',
   aboutEyebrow: 'About the tool',
   aboutHeading: 'What is Website Competitor Analysis?',
   aboutContent: '<p>This tool audits two public web pages with the same checklist, then puts the results next to each other. That makes differences easier to spot than reading two separate reports.</p><p>Use it when a competitor outranks you, when you are planning a new landing page, or when you want a practical benchmark before rewriting content. The report does not copy a competitor’s strategy. It shows where their page is stronger, where yours already leads, and which gaps are worth investigating.</p><p>The comparison covers page titles, descriptions, headings, word count, images, internal and external links, nofollow attributes, responsive signals, security and HTML performance. Keyword frequency is extracted from the visible page copy so you can compare topic coverage without relying on guessed search-volume data.</p>',
@@ -420,7 +423,7 @@ export const defaultCompetitor: CmsCompetitor = {
   faqsContent: joinRichSections([
     { title: 'What does the competitor analysis compare?', body: '<p>It compares both pages across on-page SEO, technical signals, mobile readiness, security, performance, keywords, content depth and link structure. Domain registration and expiry dates for both sites come from public RDAP registry data.</p>' },
     { title: 'Does this tool check an entire website?', body: '<p>It compares the two exact URLs you enter. For a broader view, test matching templates such as both homepages, both service pages, or both product pages.</p>' },
-    { title: 'Why does a report say Estimated fallback?', body: '<p>Some websites block browser or CORS access. In that case the tool completes with stable URL-based sample data so the workflow does not fail, and labels the result clearly.</p>' },
+    { title: 'What happens if a site cannot be fetched?', body: '<p>Both pages are fetched live in your browser. If a site is down, blocks access, or needs JavaScript to render, the tool reports which URL failed instead of showing estimated data. Try a direct page URL or another address.</p>' },
     { title: 'Does a higher SEO score guarantee better rankings?', body: '<p>No. The score measures important technical and on-page signals. Rankings also depend on relevance, backlinks, brand trust, user intent and competition.</p>' },
     { title: 'How should I use the keyword comparison?', body: '<p>Look for meaningful terms your competitor covers that your page misses. Add useful sections where needed, but avoid copying text or stuffing keywords.</p>' },
     { title: 'What should I fix first?', body: '<p>Start with red errors, especially missing titles, noindex directives, missing H1 tags, HTTP pages and mobile viewport problems. Then work through warnings.</p>' },
@@ -1331,7 +1334,7 @@ export const CmsProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         if (slugs.has(catSlug)) { let i = 2; while (slugs.has(`${catSlug}-${i}`)) i += 1; catSlug = `${catSlug}-${i}`; }
         const keys = new Set(cats.map(c => c.key));
         if (keys.has(key)) { let i = 2; while (keys.has(`${key}-${i}`)) i += 1; key = `${key}-${i}`; }
-        return { ...s, toolCategories: [...cats, { id: uid(), key, name: clean, slug: catSlug, description: (description || '').trim(), builtin: false }] };
+        return { ...s, toolCategories: [...cats, { id: uid(), key, name: clean, slug: catSlug, description: (description || '').trim(), content: '', builtin: false }] };
       });
       return key;
     },

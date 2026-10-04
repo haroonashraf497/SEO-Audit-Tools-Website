@@ -324,12 +324,13 @@ const ToolEditor: React.FC<{ tool: CmsTool; onClose: () => void }> = ({ tool, on
 };
 
 const ToolsPane: React.FC = () => {
-  const { state, setToolStatus, deleteTool } = useCms();
+  const { state, setToolStatus, deleteTool, saveToolCategory } = useCms();
   const [q, setQ] = useState('');
   const [cat, setCat] = useState('all');
   const [edit, setEdit] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const filtered = useMemo(() => state.tools.filter(t => (cat === 'all' || t.category === cat) && (t.name.toLowerCase().includes(q.toLowerCase()) || t.slug.includes(q.toLowerCase()))), [state.tools, q, cat]);
+  const activeCat = state.toolCategories.find(c => c.key === cat);
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-center gap-3">
@@ -368,6 +369,31 @@ const ToolsPane: React.FC = () => {
         ))}
         {filtered.length === 0 && <p className="p-6 text-sm text-slate-500">No tools match.</p>}
       </div>
+      {activeCat ? (
+        <div className="bg-white rounded-2xl border border-slate-200 p-5 space-y-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="font-bold text-slate-900">Category page content — {activeCat.name}</p>
+            <span className="text-xs text-slate-400">Saved automatically in this browser</span>
+          </div>
+          <p className="text-sm text-slate-600">
+            Written here, shown to visitors directly <b>below the tool cards</b> on the public{' '}
+            <span className="font-mono text-xs text-indigo-600">{activeCat.builtin ? `/${activeCat.slug}` : `/tools/category/${activeCat.slug}`}</span>{' '}
+            page. Headings, lists, links, colours and images are supported; leave empty to show nothing.
+          </p>
+          <RichTextEditor
+            value={activeCat.content || ''}
+            onChange={html => saveToolCategory(activeCat.key, { content: html })}
+            minHeight={240}
+            placeholder={`Write the ${activeCat.name} category page content…`}
+            draftKey={draftId('toolcat-content', activeCat.key)}
+            ariaLabel={`${activeCat.name} category page content`}
+          />
+        </div>
+      ) : (
+        <div className="bg-slate-50 rounded-2xl border border-slate-200 p-5 text-sm text-slate-600">
+          Pick a category in the filter above to write the content that appears below the tool grid on that category’s public page.
+        </div>
+      )}
       <p className="text-xs text-slate-400">Built-in tools have live engines; hiding one removes it from the directory, sidebar and homepage instantly.</p>
     </div>
   );
