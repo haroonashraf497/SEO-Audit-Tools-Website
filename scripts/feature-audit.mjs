@@ -943,11 +943,21 @@ check('probes resolve on the first usable answer, never on the slowest',
   && /if \(best\) finish\(\);/.test(webTools));
 check('a running probe shows its stage and can be stopped',
   /const \[stage, setStage\] = useState\(''\);/.test(webTools)
-  && /onCancel=\{f\.cancel\}/.test(webTools)
+  // The speed tool's Stop clears its own direct probe as well, so it wraps the
+  // hook's cancel rather than passing it straight through.
+  && /onCancel=\{(?:f\.cancel|stop)\}/.test(webTools)
+  && /const stop = \(\) => \{[^}]*f\.cancel\(\);/.test(webTools)
   && /runId\.current !== me/.test(webTools));
 check('a stalled probe reads as a timeout, a refusal as a block',
   /outcome\.timedOut \? 'timeout' : 'blocked'/.test(webTools)
-  && /f\.failed === 'timeout'/.test(webTools) && /f\.failed === 'blocked'/.test(webTools));
+  // One branch now serves both: the blocked path may still be answered by the
+  // proxy-free measurement before it falls back to the failure note.
+  && /\{f\.failed && \(/.test(webTools) && /f\.failed === 'timeout'/.test(webTools));
+check("a proxy-blocked page is still timed from the visitor's own browser",
+  /mode: 'no-cors'/.test(webTools)
+  && /const browserTiming = async/.test(webTools)
+  && /void browserTiming\(direct\)/.test(webTools)
+  && /void f\.run\(\);/.test(webTools));
 check('all ten URL tools keep using the one shared hook',
   (webTools.match(/const f = useFetch\(\);/g) || []).length === 10
   && (webTools.match(/<Src d=\{d\} \/>/g) || []).length >= 6,

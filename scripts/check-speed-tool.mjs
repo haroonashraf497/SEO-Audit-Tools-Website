@@ -136,7 +136,8 @@ async function runCheck(blocked) {
     && /HTML size ?[\d.]+ KB/.test(text) && /Est\. HTML on 3G ?[\d.]+s/.test(text), text.slice(0, 220));
   ok('recommendations are listed', /Recommendations \([1-9]\d*\)/.test(text));
   ok('the source badge renders the live pill instead of recursing', /Live page data · ?\d+ ms/.test(text));
-  ok('the proxy-free browser timing is shown next to the relay figure', /Your browser \(direct\) ?380 ms/.test(text), text.slice(0, 220));
+  const win = (() => { const i = text.indexOf('Est. HTML on 4G'); return i < 0 ? text.slice(0, 220) : text.slice(i, i + 260); })();
+  ok('the proxy-free browser timing is shown next to the relay figure', /Your browser \(direct\) ?\d+ ms/.test(text), win);
   ok('the page is still intact after the results (no render error)', errors.length === 0, errors[0]);
   ok(`the relays and the reader were probed together (${fetches.length} requests)`,
     fetches.some(u => u.includes('allorigins')) && fetches.some(u => u.includes('r.jina.ai')));
@@ -146,7 +147,9 @@ async function runCheck(blocked) {
 {
   const { text, ms, errors } = await runCheck(true);
   ok(`every relay refusing the page still produces a result in ${ms} ms, not an error`, ms > 0 && ms < 4000 && /Speed grade ?[A-D]/.test(text), text.slice(0, 220));
-  ok('the grade is computed from the visitor’s own round trip', /380 ms round trip/.test(text) && /Your browser → server ?380 ms/.test(text), text.slice(0, 300));
+  const trip = Number((text.match(/(\d+) ms round trip/) || [])[1] || -1);
+  ok(`the grade is the visitor's own round trip (${trip} ms, timed, not the ${'6000'} ms cap)`,
+    trip > 250 && trip < 1200 && new RegExp(`Your browser → server ?${trip} ms`).test(text), text.slice(0, 300));
   ok('it says which part is missing instead of inventing it', /Page source ?unreachable/.test(text) && !/Server response \(HTML\)/.test(text));
   ok('no failure box is shown when the page did answer', !/could not be fetched|No relay or text reader|Neither the relays|replied with nothing usable/.test(text), text.slice(0, 220));
   ok('the relay-only run leaves the page intact', errors.length === 0, errors[0]);
