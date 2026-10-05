@@ -98,14 +98,44 @@ Because content lives in the browser, use **Settings → Export JSON** to versio
 
 ```bash
 npm run build          # → dist/index.html (app + CSS + JS inline) + the public files
+npm run pack           # → public_html/ mirror + public_html-upload.zip
 ```
 
-Copy the **whole `dist/` folder** to the web host: `index.html`, `.htaccess`, `404.html`,
-`favicon.svg`, `og.jpg`, `robots.txt` and `sitemap.xml`. There is no `assets/` directory — every route,
+Copy the **whole `dist/` folder** to the web host — eight files: `index.html`, `.htaccess`,
+`404.html`, `cms-content.json`, `favicon.svg`, `og.jpg`, `robots.txt` and `sitemap.xml`. There is no `assets/` directory — every route,
 tool, editor and admin screen is inside the document, so navigating fetches nothing extra and no screen
 shows a loading placeholder — route switches are synchronous, so a click swaps the page in the same frame. `public/.htaccess` handles the legacy index spellings → `/free-seo-tools`, the old nested tool URLs → `/<slug>`, `?cat=` → the category page and `/p/…`
 301s, security headers and caching. Content entered in one browser is not visible in another unless the
 JSON is imported, so export before publishing from a different machine.
+
+## The shipped content snapshot — `public/cms-content.json`
+
+`public/cms-content.json` is the CMS content the site ships with, written out as JSON and committed.
+It sits in `public/`, so Vite copies it into `dist/` on every build and the deployed `public_html`
+carries it too:
+
+- **what it is** — the exact JSON that Admin → Settings → **Export JSON** would download from a fresh
+  install: version, settings, nav, the four footer columns, sidebar, blog/tool categories, SEO entries,
+  tools, posts and the six pages with their bodies as `content` HTML;
+- **what it is for** — a versioned record of the copy the site says, and a restore point. On any
+  deployment, Admin → Settings → **Import JSON** with this file puts the shipped content straight back,
+  which is how you move a site between machines or recover a browser whose `localStorage` was cleared;
+- **what it is not** — the site never fetches it. The content is compiled into `index.html`; this file
+  is the snapshot an admin imports, not a runtime data source.
+
+Regenerate it after changing any seeded content:
+
+```bash
+npm run build                     # the script reads the built dist/index.html
+npm i --no-save jsdom             # only needed for this script
+npm run cms:export                # → public/cms-content.json
+```
+
+`scripts/export-cms.mjs` runs the real bundle in jsdom rather than re-implementing the store: it boots
+the built document with an empty `localStorage`, then boots it again with that snapshot preloaded so
+`load()` resolves the seeded page `blocks` into `content` HTML, writes the result, and finally boots a
+third time from the finished file to prove it imports and renders `/about`. A snapshot taken before
+that second pass would carry six pages with an empty `content` and import as blank pages.
 
 ## Header verification & ads
 

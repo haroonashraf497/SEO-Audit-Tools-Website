@@ -44,6 +44,20 @@ for (const path of ['/robots.txt', '/sitemap.xml', '/favicon.svg', '/og.jpg']) {
   console.log(`PASS asset ${path}`);
 }
 
+// The CMS snapshot ships with the site so an admin can import it. It must be
+// served as JSON — a host that rewrites unknown paths to the shell would hand
+// back index.html here, which imports as nothing.
+{
+  const response = await fetch(new URL('/cms-content.json', origin), { redirect: 'manual' });
+  assert.equal(response.status, 200, '/cms-content.json must be served, not rewritten');
+  assert.match(response.headers.get('content-type') || '', /json/, '/cms-content.json must be application/json');
+  const content = JSON.parse(await response.text());
+  assert.ok(content.tools?.length && content.posts?.length, 'cms-content.json must carry tools and posts');
+  const blank = (content.pages || []).filter(page => !(page.content || '').trim()).map(page => page.slug);
+  assert.deepEqual(blank, [], `cms-content.json has empty page bodies: ${blank.join(', ')}`);
+  console.log(`PASS asset /cms-content.json (${content.pages.length} pages, ${content.tools.length} tools)`);
+}
+
 // Single-file build: dist/index.html carries the whole application inline,
 // so a deployment is that one document plus the public files (nothing under
 // /assets). Check that the deployed shell really is self-contained.
