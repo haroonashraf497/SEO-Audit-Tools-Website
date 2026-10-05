@@ -114,13 +114,17 @@ script itself contains those strings inside JavaScript literals.
 
 ## Deployment
 
-Deploy the whole `dist/` folder (index.html, `.htaccess` and the public files):
+Deploy the whole `dist/` folder — eight files (index.html, `.htaccess`, `404.html`,
+`cms-content.json` and the four static assets):
 
 ```sh
 npm run build
-rm -rf public_html/assets && cp -r dist/. public_html/
+npm run pack          # makes public_html/ an exact mirror of dist/ + public_html-upload.zip
 node scripts/check-hosting.mjs https://YOUR-STAGING-HOST
 ```
+
+`npm run pack` deletes anything in `public_html/` that `dist/` no longer has, so a leftover
+`assets/` folder or an old `index.html` cannot survive into a deploy.
 
 Apache/LiteSpeed needs `mod_rewrite`, `mod_deflate`, `mod_headers` and
 `mod_expires` with AllowOverride. Verify on staging:
@@ -130,4 +134,6 @@ Apache/LiteSpeed needs `mod_rewrite`, `mod_deflate`, `mod_headers` and
 - `curl --compressed -I "https://YOUR-HOST/free-seo-tools?cat=ip"` → **301** to `/ip-tools`.
 - `curl --compressed -I https://YOUR-HOST/tool/merge-pdf` → **301** to `/merge-pdf`.
 - `curl --compressed -I https://YOUR-HOST/about` → 200 (not redirected to `/`).
+- `curl --compressed -I https://YOUR-HOST/cms-content.json` → 200, `application/json` (the CMS
+  snapshot; `check-hosting.mjs` asserts this).
 - `https://YOUR-HOST/assets/` → 404/403 (nothing should be deployed there).

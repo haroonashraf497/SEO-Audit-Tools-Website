@@ -21,10 +21,18 @@ git checkout arena/01a0dc97-seo-audit-tools-website   # until the PR is merged
 
 npm install          # required: the repo does not commit every build dependency
 npm run build        # → dist/index.html  (the whole site, app + CSS inline)
+npm run pack         # → public_html/ mirror + public_html-upload.zip (the 8 deploy files)
 npm run dev          # optional: local dev server on 0.0.0.0:5173
 ```
 
-`npm run build` prints `dist/index.html  1,279 kB` and creates **one file** —
+Two optional steps sit alongside the build:
+
+```bash
+npm i --no-save jsdom && npm run cms:export   # rewrite public/cms-content.json from the built site
+npm run pack                                  # re-mirror public_html/ and rebuild the upload zip
+```
+
+`npm run build` prints `dist/index.html  1,676.06 kB` and creates **one file** —
 inside it are the homepage markup, the stylesheet, all 154 tools, the blog, the
 CMS/admin screens and both rich-text editors. There is no `assets/` folder and
 nothing is fetched when navigating, so a click swaps the page in the same React
@@ -37,13 +45,18 @@ what is there and deleting any old `assets/` folder:
 
 | File | Purpose |
 | --- | --- |
-| `index.html` | the entire application (1.3 MB, gzip ~358 KB) |
+| `index.html` | the entire application (1.7 MB, gzip ~458 KB) |
 | `.htaccess` | Apache/LiteSpeed: legacy index/tool/category 301s, clean-URL rewrites, security headers, caching |
 | `404.html` | fallback used by hosts that serve it for unknown paths |
+| `cms-content.json` | the CMS content the site ships with — import it in Admin → Settings → Import JSON to restore or move it |
 | `favicon.svg`, `og.jpg`, `robots.txt`, `sitemap.xml` | static files crawlers and browsers request directly |
 
+That is **eight files**, and `npm run pack` writes them to
+`public_html-upload.zip` (files at the archive root, so unpacking it into
+`public_html` deploys the site).
+
 The same files are mirrored in the repo at `public_html/` (kept in sync by
-`npm run build` + copy), so you can also upload straight from a fresh clone
+`npm run pack`), so you can also upload straight from a fresh clone
 without building. Apache/LiteSpeed needs `mod_rewrite`, `mod_deflate`,
 `mod_headers` and `mod_expires` with `AllowOverride`.
 
@@ -385,7 +398,10 @@ src/blog/                   blog list/article views + article data
 src/utils/seo.ts            per-route titles, canonicals, OG/Twitter, JSON-LD
 src/index.css               Tailwind entry + `.content-shell` footer rule
 scripts/prerender.mjs       renders the homepage into dist/index.html + hydration gate
+scripts/export-cms.mjs      writes public/cms-content.json from the built site (needs jsdom)
+scripts/pack-public-html.mjs mirrors dist/ into public_html/ and packs public_html-upload.zip
 public/.htaccess            deployed Apache/LiteSpeed rules
+public/cms-content.json     the shipped CMS content, copied into dist/ on every build
 public_html/                tracked copy of the deployable output
 ```
 

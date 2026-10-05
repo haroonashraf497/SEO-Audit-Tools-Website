@@ -12,3 +12,4 @@ playwright-report/
 test-results/
 __pycache__/
 *.pyc
+public_html-upload.zip
