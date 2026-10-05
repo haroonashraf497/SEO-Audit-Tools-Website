@@ -2,25 +2,25 @@
   "version": 13,
   "blogCategories": [
     {
-      "id": "bfbnm8h",
+      "id": "blogCategories[0]",
       "name": "Core Web Vitals",
       "slug": "core-web-vitals",
       "visible": true
     },
     {
-      "id": "t4jpqj5",
+      "id": "blogCategories[1]",
       "name": "PageSpeed",
       "slug": "pagespeed",
       "visible": true
     },
     {
-      "id": "fupc00a",
+      "id": "blogCategories[2]",
       "name": "WordPress SEO",
       "slug": "wordpress-seo",
       "visible": true
     },
     {
-      "id": "7rxh36k",
+      "id": "blogCategories[3]",
       "name": "Google & Indexing",
       "slug": "google-indexing",
       "visible": true
@@ -28,7 +28,7 @@
   ],
   "toolCategories": [
     {
-      "id": "o8hdilq",
+      "id": "toolCategories[0]",
       "key": "text",
       "name": "Text Analysis Tools",
       "slug": "text-analysis-tools",
@@ -37,7 +37,7 @@
       "builtin": true
     },
     {
-      "id": "9emfqu8",
+      "id": "toolCategories[1]",
       "key": "keyword",
       "name": "Keyword Tools",
       "slug": "keyword-tools",
@@ -46,7 +46,7 @@
       "builtin": true
     },
     {
-      "id": "u05xcqx",
+      "id": "toolCategories[2]",
       "key": "backlink",
       "name": "Backlink Tools",
       "slug": "backlink-tools",
@@ -55,7 +55,7 @@
       "builtin": true
     },
     {
-      "id": "0pognfs",
+      "id": "toolCategories[3]",
       "key": "management",
       "name": "Website Management Tools",
       "slug": "website-management-tools",
@@ -64,7 +64,7 @@
       "builtin": true
     },
     {
-      "id": "8i53a32",
+      "id": "toolCategories[4]",
       "key": "checker",
       "name": "Website Checker Tools",
       "slug": "website-checker-tools",
@@ -73,7 +73,7 @@
       "builtin": true
     },
     {
-      "id": "ylyj7s3",
+      "id": "toolCategories[5]",
       "key": "domain",
       "name": "Domain Tools",
       "slug": "domain-tools",
@@ -82,7 +82,7 @@
       "builtin": true
     },
     {
-      "id": "d589913",
+      "id": "toolCategories[6]",
       "key": "ip",
       "name": "IP Tools",
       "slug": "ip-tools",
@@ -91,7 +91,7 @@
       "builtin": true
     },
     {
-      "id": "0jt3opa",
+      "id": "toolCategories[7]",
       "key": "pdf",
       "name": "PDF Tools",
       "slug": "pdf-tools",
@@ -100,7 +100,7 @@
       "builtin": true
     },
     {
-      "id": "mr5lzds",
+      "id": "toolCategories[8]",
       "key": "image",
       "name": "Image Tools",
       "slug": "image-tools",
@@ -109,7 +109,7 @@
       "builtin": true
     },
     {
-      "id": "heklncp",
+      "id": "toolCategories[9]",
       "key": "calculator",
       "name": "Calculator Tools",
       "slug": "calculator-tools",
@@ -118,7 +118,7 @@
       "builtin": true
     },
     {
-      "id": "rc4eqlk",
+      "id": "toolCategories[10]",
       "key": "converter",
       "name": "Unit Converter Tools",
       "slug": "unit-converter-tools",
@@ -2000,7 +2000,7 @@
   ],
   "pages": [
     {
-      "id": "35yd0xf",
+      "id": "pages[0]",
       "slug": "about",
       "title": "About SEO Audit Tools",
       "status": "live",
@@ -2009,7 +2009,7 @@
       "content": "<p>SEO Audit Tools is a free online platform built to help website owners, business owners, bloggers, digital marketers, and web developers understand and improve their website's performance in search engines. We built this tool to make professional SEO analysis accessible to everyone, without the need for expensive software or technical expertise.</p>\n<p>Our platform is built to serve website owners in Pakistan and around the world, backed by fast, reliable hosting infrastructure. Every report we generate reflects real data from your website, presented in plain English with clear, prioritised recommendations you can act on immediately.</p>\n<h2>Who We Are</h2>\n<p>SEO Audit Tools is an independent web platform built and maintained by a small distributed team. Our team serves website owners across Pakistan — Karachi, Lahore, Islamabad, Peshawar and beyond — as well as users around the world, and we specialise in building practical web tools that help businesses grow their online presence through better search engine optimisation.</p>\n<p>We built this platform because most SEO tools are either too expensive, too complicated, or designed for large agencies rather than everyday website owners. Our goal is to change that by giving every website owner access to the same quality of SEO analysis that professionals use.</p>\n<h2>What We Offer</h2>\n<p>Our tools give you strong analysis features to help you:</p>\n<ul><li>Title tags, meta descriptions, and heading structure</li><li>Image alt text and internal linking</li><li>Page speed and Core Web Vitals</li><li>Mobile usability across the most common device sizes worldwide</li><li>XML sitemap validity and robots.txt configuration</li><li>HTTPS and SSL certificate status</li><li>Canonical tags and URL structure</li><li>Broken links and redirect chains</li></ul>\n<p>Every check feeds into a detailed SEO audit report available to download in PDF format instantly, free of charge.</p>\n<p>We also offer a free SEO Competitor Analysis tool that lets you compare your website directly against competitor domains. Identify which keywords they rank for, how they structure their content, and where your site has the clearest opportunity to gain ground.</p>\n<h2>Why Choose Our SEO Audit Tools?</h2>\n<ul><li>Free with no sign-up required: Enter your website URL and get your full SEO report within seconds. No account, no payment, no software to install.</li><li>Plain English results: Every issue comes explained in simple language with a clear recommendation. You do not need an SEO background to understand and act on your report.</li><li>Comprehensive analysis in one place: On-page SEO, technical issues, page speed, mobile usability, security, and competitor comparison all appear in a single report.</li><li>Downloadable PDF report: Save your report, share it with your development team, or present it to a client in a professional format.</li><li>Reliable, Global Infrastructure: Our tool tests mobile usability across the most common device sizes used by visitors worldwide, giving you accurate, relevant results wherever your audience is based.</li></ul>\n<h2>Our Commitment to Quality</h2>\n<p>We update our SEO audit checks regularly to reflect the latest Google algorithm requirements and best practices. We do not show guesses or placeholder data. Every result in your report comes from a real analysis of your website.</p>\n<p>If you have questions about your results, want to suggest a feature, or need to get in touch with us, visit our Contact Us page. We read every message and aim to respond promptly.</p>\n<p><strong>Questions about your results, or want to suggest a feature?</strong> <a href=\"/contact\">Contact Us</a></p>"
     },
     {
-      "id": "l336673",
+      "id": "pages[1]",
       "slug": "privacy-policy",
       "title": "Privacy Policy",
       "status": "live",
@@ -2018,7 +2018,7 @@
       "content": "<p>Last Updated: 23 SEP 2026</p>\n<h2>1. Introduction</h2>\n<p>Welcome to SEO Audit Tools. We respect your privacy and are committed to protecting your personal data. This privacy policy will inform you about how we handle data when you visit our website, use our free online SEO Audit Tools, and interact with our advertisements or affiliate links. Our services are entirely free to use and do not require you to create an account, register, or provide any login credentials to access any report features.</p>\n<h2>2. Who We Are (Data Controller)</h2>\n<p>The website and the SEO Audit Tools service are operated by the SEO Audit Tools team.</p>\n<ul><li>Site Name: SEO Audit Tools</li><li>Website: https://seoaudittools.pk</li><li>Contact Email: help@seoaudittools.pk</li></ul>\n<p>Because we operate in the United Kingdom, we handle data in accordance with the UK General Data Protection Regulation (UK GDPR) and the Data Protection Act 2018. If you have concerns, you have the right to lodge a complaint with the UK Information Commissioner's Office (ICO) at https://ico.org.uk.</p>\n<p>We have not appointed a Data Protection Officer as we do not meet the threshold requiring one under UK GDPR Article 37.</p>\n<p>Although our base is in the United Kingdom, seoaudittools.pk is built for website owners in Pakistan and worldwide. This policy, and the UK data-protection standards it describes, apply equally to every visitor regardless of where you live.</p>\n<h2>3. The Data We Collect and Process</h2>\n<p>Because our platform requires no user registration, we do not collect identity information like your name, home address, or phone number. However, to run our tool and display ads, we automatically process the following information:</p>\n<ul><li>Technical Data: This includes your Internet Protocol (IP) address, your browser type and version, operating system, and the time/date of your visit.</li><li>Audit Query Data: This includes the third-party website URLs you paste into our search bar to run an SEO analysis. Our backend script must temporarily process this parameter to deliver your score and PDF report.</li><li>Tracking &amp; Interaction Data: Data regarding how you navigate our pages, click on affiliate links, or interact with displayed advertisements.</li></ul>\n<h2>4. Lawful Basis for Processing Your Data</h2>\n<p>Under the UK GDPR, we must have a valid lawful basis for processing your personal data. The following table explains the basis we rely on for each type of data we collect:</p>\n<ul><li>Technical Data (IP address, browser, OS): Processed on the basis of Legitimate Interests (UK GDPR Article 6(1)(f)). We have a legitimate interest in maintaining the security, stability, and performance of our website.</li><li>Audit Query Data (URLs you submit): Processed on the basis of Contract / Service Delivery (UK GDPR Article 6(1)(b)). Processing this data is necessary to provide you with the SEO audit report you requested.</li><li>Advertising &amp; Tracking Cookies (Google AdSense): Processed on the basis of Consent (UK GDPR Article 6(1)(a)). We obtain your consent via our cookie banner before placing advertising or tracking cookies on your device.</li><li>Affiliate Link Tracking Cookies: Processed on the basis of Consent (UK GDPR Article 6(1)(a)). We obtain your consent via our cookie banner before placing affiliate tracking cookies on your device.</li></ul>\n<h2>5. Sessions and Server Logs</h2>\n<p>Our website uses temporary sessions and server logs to deliver your SEO audit results securely and efficiently.</p>\n<ul><li>Sessions: When you submit a URL for an audit, our tool creates a temporary session on our servers to process your request, track your audit progress, and generate your PDF report. This session data is automatically cleared when you close your browser and is never stored permanently.</li><li>Server Logs: For security purposes, our servers automatically maintain activity logs of network requests. We use these logs strictly to diagnose errors, block malicious automated bots, and prevent unauthorised access or server overloads.</li></ul>\n<h2>6. Google AdSense and Third-Party Advertising Cookies</h2>\n<p>We partner with third-party networks, specifically Google AdSense, to display advertisements on our website to keep our tools 100% free to the public.</p>\n<ul><li>Google and its partner vendors use tracking cookies to serve personalised ads to you based on your previous visits to this website or other platforms across the internet.</li><li>These advertising providers may process technical and online identifiers, including IP addresses, browser information, device identifiers, and interaction data, to measure advertising performance and deliver personalised advertisements.</li><li>Your Choices: You can completely opt-out of personalised Google advertising tracking by modifying your preferences at https://adssettings.google.com</li><li>Google Privacy Policy: https://policies.google.com/privacy</li><li>Google AdSense Policy: https://policies.google.com/technologies/ads</li></ul>\n<h2>7. Affiliate Link Disclosures and Tracking Cookies</h2>\n<p>This website contains affiliate links recommending premium external SEO software, web hosting providers, or digital marketing platforms.</p>\n<ul><li>If you click on an affiliate link and subsequently make a purchase on that external vendor's website, a dedicated tracking cookie is placed in your browser by that third-party affiliate network.</li><li>This tracking cookie is used solely to assign referral credit to us so we can earn a small commission at no extra cost to you. We do not have access to your personal billing details or external account details during this transaction.</li></ul>\n<h2>8. Cookie Policy</h2>\n<p>Our website uses cookies to operate correctly, display advertisements, and track affiliate referrals. Cookies are small text files stored on your device by your browser.</p>\n<p>We use the following categories of cookies:</p>\n<ul><li>Essential Cookies: Required for our website and PHP audit tool to function. These include session cookies that manage your audit progress and PDF report generation. These cannot be disabled without breaking core functionality.</li><li>Google Analytics Cookies: Used to help us understand how visitors interact with our website by collecting statistical and usage information such as pages visited, device type, browser information, and approximate geographic location. These cookies are only placed after you provide consent through our cookie banner.</li><li>Advertising Cookies (Google AdSense): Placed by Google to serve personalised advertisements based on your browsing history. These require your consent before being placed.</li><li>Affiliate Tracking Cookies: Placed by third-party affiliate networks when you click an affiliate link on our website. These track referral credits for commission purposes.</li></ul>\n<p>Where we rely on your consent as the lawful basis, you have the right to withdraw that consent at any time. Withdrawing consent will not affect the lawfulness of any processing carried out before you withdrew it.</p>\n<p>You can manage your cookie preferences at any time using our cookie consent tool at the bottom of this page. You can withdraw your consent or manage your cookie preferences at any time by:</p>\n<ul><li>Adjusting your browser settings to block or delete cookies</li><li>Visiting https://adssettings.google.com to manage Google advertising preferences</li><li>Visiting https://www.aboutcookies.org for general guidance on managing cookies in all browsers</li></ul>\n<p>Please note that disabling essential cookies will affect the functionality of our SEO Audit Tools.</p>\n<h2>9. Data Retention</h2>\n<ul><li>Server Logs: Retained automatically for security and debugging for a maximum of 30 days before overwrite.</li><li>Audit Reports: Generated PDF reports are temporarily cached on our servers for download purposes and are automatically deleted within 24 hours.</li></ul>\n<h2>10. International Data Transfers</h2>\n<p>Some of the third-party services we use, including Google AdSense and affiliate tracking networks, may transfer and process your data outside the United Kingdom or European Economic Area (EEA).</p>\n<p>Where such transfers occur, we ensure that appropriate safeguards are in place in accordance with UK GDPR requirements. Google LLC participates in and complies with the UK-US Data Bridge framework, which provides a legal mechanism for transferring personal data from the UK to the United States.</p>\n<p>For more information on how Google handles international data transfers, please visit https://policies.google.com/privacy.</p>\n<h2>11. Your Legal Rights under UK GDPR</h2>\n<p>Even without a registered account profile, you retain legal rights over your technical digital footprint under UK law. Under the UK GDPR, you have the following rights:</p>\n<ul><li>Right of Access: You have the right to request a copy of the personal data we hold about you.</li><li>Right to Rectification: You have the right to request that we correct any inaccurate or incomplete personal data we hold about you.</li><li>Right to Erasure: You have the right to request that we delete your personal data (the \"right to be forgotten\"), where there is no legitimate reason for us to continue processing it.</li><li>Right to Restriction: You have the right to request that we restrict the processing of your personal data in certain circumstances.</li><li>Right to Object: You have the right to object to the processing of your personal data where we rely on legitimate interests as our lawful basis.</li><li>Right to Data Portability: You have the right to request that we transfer your personal data to you or a third party in a structured, commonly used, machine-readable format.</li><li>Automated Decision-Making: We do not carry out any automated decision-making or profiling about you that produces legal or similarly significant effects.</li></ul>\n<p>Please note that our website does not currently respond to Do Not Track (DNT) browser signals.</p>\n<p>To exercise any of these rights, please contact us at help@seoaudittools.pk. We will respond to all requests within 30 days in accordance with UK GDPR requirements.</p>\n<p>If you are not satisfied with our response, you have the right to lodge a complaint with the Information Commissioner's Office (ICO) at https://ico.org.uk.</p>\n<h2>12. Children's Privacy</h2>\n<p>Our SEO Audit Tools is intended for use by website owners, businesses, marketers, and digital professionals. Our services are not directed at children under the age of 18.</p>\n<p>We do not knowingly collect personal data from children under 18. If you are a parent or guardian and believe your child has provided us with personal data, please contact us at help@seoaudittools.pk and we will promptly delete such information from our records.</p>\n<h2>13. Changes to This Privacy Policy</h2>\n<p>We reserve the right to modify this Privacy Policy at any time. The current version of this Privacy Policy is always accessible on this page.</p>\n<p>When we make changes, we will update the Last Updated date at the top of this page. We encourage you to review this Privacy Policy periodically to stay informed about how we protect your information. Where appropriate, we may provide additional notice of significant changes to this Privacy Policy on our website.</p>\n<h2>14. Contact Us</h2>\n<p>If you have any questions, concerns, or requests regarding this Privacy Policy or how we handle your personal data, please contact us: help@seoaudittools.pk</p>"
     },
     {
-      "id": "j4q6itu",
+      "id": "pages[2]",
       "slug": "contact",
       "title": "Contact",
       "status": "live",
@@ -2027,7 +2027,7 @@
       "content": "<h2>Talk to us</h2>\n<p>Found a bug, need a tool we do not have yet, or want to work with us? Email <a href=\"mailto:help@seoaudittools.pk\">help@seoaudittools.pk</a> and we will get back to you, usually within one business day. There is no ticket system and no phone menu — your email goes straight to the people who build the site.</p>\n<h2>Response Time</h2>\n<p>Within one business day (Monday to Friday, Pakistan Standard Time). Urgent data-protection requests are prioritised.</p>\n<h2>Before You Write</h2>\n<p>Check our <a href=\"/privacy\">Privacy Policy</a> and <a href=\"/cookies\">Cookie Policy</a> for data-related questions.</p>\n<p>For tool issues, describe the IP or domain you tried and the error you saw — it helps us fix things faster.</p>\n<h2>Reporting a bug</h2>\n<p>The more you tell us, the faster we can fix it. Helpful things to include: the address of the tool page, the input you gave it, your browser and device, and what you expected to happen versus what actually did. A screenshot never hurts.</p>\n<h2>Questions about your data</h2>\n<p>Because our tools process your inputs in your browser, we usually hold nothing to update or delete. If you want to exercise any right under the UK GDPR — or simply want to know what, if anything, we hold — email us and we will give you a straight answer. You also have the right to complain to the Information Commissioner's Office at ico.org.uk.</p>\n<p><strong>While you are here,</strong> <a href=\"/free-seo-tools\">Browse 150+ free tools</a></p>"
     },
     {
-      "id": "5hui7re",
+      "id": "pages[3]",
       "slug": "faq",
       "title": "FAQ",
       "status": "live",
@@ -2036,7 +2036,7 @@
       "content": "<h2>Your questions, answered</h2>\n<h3>Are the tools really free?</h3>\n<p>Yes — all 150+ of them. No accounts, no paywalls, no \"free trial\" that asks for a card. The SEO Audit Tools team runs the site, and the tools that need revenue to keep the lights on say so honestly rather than hiding it.</p>\n<h3>Do you upload my files or text anywhere?</h3>\n<p>No. Every tool on this site does its work in your browser. When you compress a PDF, the file is read and written by your own device. When you paste text into the grammar or plagiarism checker, it is analysed locally. There is no upload step, because there is no server on our side receiving one.</p>\n<h3>What happens to the URL I audit?</h3>\n<p>When you press the audit button, we fetch the page you entered through public relay services so your browser can read it, and then the audit runs on your machine. Only that URL is sent. We do not store the page, the result or any list of the sites you have checked.</p>\n<h3>Where does the domain registration data come from?</h3>\n<p>From RDAP, the official registry protocol that replaced WHOIS lookups. When you check a domain, we query rdap.org, which routes to the registry that actually manages the domain — Verisign for .com, Nominet for .uk and so on. Registration and expiry dates come straight from the registry record, which is as authoritative as public data gets.</p>\n<h3>Do you use cookies?</h3>\n<p>Only the essential kind until you say otherwise. We set a small piece of storage to remember your cookie choice and to keep the admin session working. Analytics, advertising and affiliate tracking cookies are off unless you accept them in the banner — and you can change your mind any time from the cookie preferences link in the footer. The details are in our Cookie Policy.</p>\n<h3>Can I use the reports for client work?</h3>\n<p>Yes. Run audits on your own sites or your clients' sites and use the reports however helps you. We only ask that you do not resell the tools themselves or present them as your own product.</p>\n<h3>How accurate are the audits?</h3>\n<p>Honest answer: they are a strong diagnostic, not a crystal ball. The checks reflect well-established on-page, technical, mobile, security and performance signals, but no score guarantees rankings — search engines weigh relevance, backlinks and intent in ways no auditor can fully see. Treat the report as a prioritised to-do list, not a verdict.</p>\n<h3>Who is behind the site?</h3>\n<p>SEO Audit Tools is run by a small, independent team that builds and maintains the tools in the open. You can read more on the About page.</p>\n<h3>Something looks wrong — who do I tell?</h3>\n<p>Email help@seoaudittools.pk with the tool's address, what you entered and what happened. Bug reports genuinely make the site better, and we read all of them.</p>"
     },
     {
-      "id": "afzha86",
+      "id": "pages[4]",
       "slug": "cookie-policy",
       "title": "Cookie Policy",
       "status": "live",
@@ -2045,7 +2045,7 @@
       "content": "<p>Last updated: 20 SEP 2026</p>\n<h2>1. Introduction</h2>\n<p>This Cookie Policy explains how SEO Audit Tools (\"we\", \"us\", or \"our\") uses cookies and similar tracking technologies when you visit seoaudittools.pk. It should be read alongside our Privacy Policy.</p>\n<p>By clicking \"Accept All\" on our cookie banner, you consent to the use of all cookies described below. You can withdraw or change your consent at any time by using the Manage Preferences button at the bottom of this page.</p>\n<h2>2. What Are Cookies?</h2>\n<p>Cookies are small text files placed on your device (computer, tablet, or smartphone) when you visit a website. They help the website remember your actions and preferences over a period of time, so you don't have to keep re-entering them whenever you come back to the site or browse from one page to another.</p>\n<p>Cookies can be first-party (set by us) or third-party (set by services we use, such as Google Analytics). They can also be session cookies (deleted when you close your browser) or persistent cookies (remain on your device for a set period).</p>\n<h2>3. Cookies We Use</h2>\n<p>We group our cookies into four categories. The table below lists the cookies currently in use on this website.</p>\n<h3>3.1 Strictly Necessary Cookies</h3>\n<p>These cookies are essential for our SEO Audit Tools to work correctly. They enable core functions such as running your audit and generating your PDF report, and cannot be disabled without breaking that functionality.</p>\n<table><thead><tr><th>Cookie name</th><th>Provider</th><th>Purpose</th><th>Duration</th><th>Type</th></tr></thead><tbody><tr><td>PHPSESSID</td><td>seoaudittools.pk</td><td>Maintains your session while your audit runs and your report is generated</td><td>Session</td><td>Necessary</td></tr><tr><td>cookie_consent</td><td>seoaudittools.pk</td><td>Stores your cookie consent preferences</td><td>1 year</td><td>Necessary</td></tr></tbody></table>\n<h3>3.2 Analytics Cookies</h3>\n<p>These cookies help us understand how visitors use our site — which pages are visited most, where visitors come from, and whether they encounter errors. All information collected is aggregated and anonymised. These are only placed after you consent.</p>\n<table><thead><tr><th>Cookie name</th><th>Provider</th><th>Purpose</th><th>Duration</th><th>Type</th></tr></thead><tbody><tr><td>_ga</td><td>Google Analytics</td><td>Distinguishes unique users by assigning a randomly generated number</td><td>2 years</td><td>Analytics</td></tr><tr><td>_ga_*</td><td>Google Analytics (GA4)</td><td>Persists session state for GA4 measurement</td><td>2 years</td><td>Analytics</td></tr><tr><td>_gid</td><td>Google Analytics</td><td>Distinguishes users — expires after 24 hours</td><td>24 hours</td><td>Analytics</td></tr></tbody></table>\n<h3>3.3 Advertising Cookies</h3>\n<p>These cookies are placed by Google AdSense to serve advertisements that keep our tools free to use, and to measure ad performance. These require your consent before being placed.</p>\n<table><thead><tr><th>Cookie name</th><th>Provider</th><th>Purpose</th><th>Duration</th><th>Type</th></tr></thead><tbody><tr><td>_gcl_au</td><td>Google AdSense</td><td>Used by Google AdSense for experimenting with advertisement efficiency</td><td>3 months</td><td>Advertising</td></tr><tr><td>IDE</td><td>Google DoubleClick</td><td>Used to serve targeted advertisements relevant to users</td><td>1 year</td><td>Advertising</td></tr></tbody></table>\n<h3>3.4 Affiliate Tracking Cookies</h3>\n<p>These cookies are placed by third-party affiliate networks when you click an affiliate link on our website (for example, a link to SEO software or hosting providers). They track referral credit so we can earn a commission at no extra cost to you. These require your consent before being placed.</p>\n<table><thead><tr><th>Cookie name</th><th>Provider</th><th>Purpose</th><th>Duration</th><th>Type</th></tr></thead><tbody><tr><td>affiliate_ref</td><td>Third-party affiliate network (varies by advertiser)</td><td>Assigns referral credit for commission tracking</td><td>Up to 90 days</td><td>Advertising</td></tr></tbody></table>\n<h2>4. Third-Party Cookies</h2>\n<p>Some cookies on our website are set by third-party services. We do not control these cookies. You can learn more about how third parties use cookies by visiting their respective privacy policies:</p>\n<ul><li>Google Analytics / Google Ads — Google Privacy Policy: https://policies.google.com/privacy</li><li>Google DoubleClick — Google Advertising Technologies: https://policies.google.com/technologies/ads</li></ul>\n<p>You can opt out of Google Analytics tracking across all websites by installing the Google Analytics Opt-Out Browser Add-on: https://tools.google.com/dlpage/gaoptout.</p>\n<h2>5. How to Manage Cookies</h2>\n<p>You can manage your cookie preferences in three ways:</p>\n<ul><li>Our preference centre — Use the Manage Preferences button below to choose which cookie categories you accept. Your choice will be saved for 12 months.</li><li>Browser settings — Most browsers allow you to block or delete cookies via their settings. Note that blocking all cookies may affect the functionality of our website. Find instructions for your browser: Chrome (https://support.google.com/chrome/answer/95647), Firefox (https://support.mozilla.org/kb/cookies-information-websites-store-on-your-computer), Edge (https://support.microsoft.com/microsoft-edge), Safari (https://support.apple.com/guide/safari/manage-cookies-sfri11471/mac).</li><li>Opt-out tools — You can also use the Your Online Choices tool (EU, https://www.youronlinechoices.com) or the DAA opt-out page (US, https://optout.aboutads.info) to manage interest-based advertising preferences.</li></ul>\n<h2>6. Legal Basis</h2>\n<p>We rely on the following legal bases under the UK GDPR and the Privacy and Electronic Communications Regulations (PECR) to set cookies:</p>\n<ul><li>Strictly necessary cookies — Legitimate interests (and exempted from consent under PECR Regulation 6(4)).</li><li>Analytics, advertising, and affiliate cookies — Your consent, which you can withdraw at any time.</li></ul>\n<p>Where you are visiting from outside the UK, including from Pakistan, we still apply UK GDPR and PECR consent standards to cookies placed by this website, since we are the data controller for this website.</p>\n<h2>7. Changes to This Policy</h2>\n<p>We may update this Cookie Policy from time to time to reflect changes in the cookies we use or for other operational, legal, or regulatory reasons. The date at the top of this page indicates when the policy was last revised. We recommend checking back periodically.</p>\n<h2>8. Contact Us</h2>\n<p>If you have any questions about our use of cookies, please contact us: help@seoaudittools.pk</p>"
     },
     {
-      "id": "4vsnfau",
+      "id": "pages[5]",
       "slug": "terms-of-service",
       "title": "Terms & Conditions",
       "status": "live",
@@ -2115,31 +2115,31 @@
     "footerMenuTitle": "Quick links",
     "footerLinks": [
       {
-        "id": "ncgf9x0",
+        "id": "settings.footerLinks[0]",
         "label": "Free SEO Audit",
         "href": "/",
         "visible": true
       },
       {
-        "id": "vrote2d",
+        "id": "settings.footerLinks[1]",
         "label": "Free SEO Tools",
         "href": "/free-seo-tools",
         "visible": true
       },
       {
-        "id": "zb96dkm",
+        "id": "settings.footerLinks[2]",
         "label": "Blog",
         "href": "/blog",
         "visible": true
       },
       {
-        "id": "qtwqmip",
+        "id": "settings.footerLinks[3]",
         "label": "About",
         "href": "/about",
         "visible": true
       },
       {
-        "id": "xl9fy2w",
+        "id": "settings.footerLinks[4]",
         "label": "Contact",
         "href": "/contact",
         "visible": true
@@ -2155,28 +2155,28 @@
   },
   "nav": [
     {
-      "id": "4aozdr2",
+      "id": "nav[0]",
       "label": "Home",
       "href": "/",
       "visible": true,
       "kind": "link"
     },
     {
-      "id": "vo8dxa5",
+      "id": "nav[1]",
       "label": "Free SEO Tools",
       "href": "/free-seo-tools",
       "visible": true,
       "kind": "link"
     },
     {
-      "id": "94fp17n",
+      "id": "nav[2]",
       "label": "Tool Categories",
       "href": "",
       "visible": true,
       "kind": "tool-categories"
     },
     {
-      "id": "oph36jf",
+      "id": "nav[3]",
       "label": "Competitor Analysis",
       "href": "/competitor-analysis",
       "visible": true,
@@ -2185,35 +2185,35 @@
   ],
   "footerColumns": [
     {
-      "id": "wrnteoj",
+      "id": "footerColumns[0]",
       "title": "Quick links",
       "links": [
         {
-          "id": "n88cgdo",
+          "id": "footerColumns[0].links[0]",
           "label": "Free SEO Audit",
           "href": "/",
           "visible": true
         },
         {
-          "id": "lldnvui",
+          "id": "footerColumns[0].links[1]",
           "label": "Free SEO Tools",
           "href": "/free-seo-tools",
           "visible": true
         },
         {
-          "id": "a4dhwvy",
+          "id": "footerColumns[0].links[2]",
           "label": "Blog",
           "href": "/blog",
           "visible": true
         },
         {
-          "id": "vg8uu5h",
+          "id": "footerColumns[0].links[3]",
           "label": "About",
           "href": "/about",
           "visible": true
         },
         {
-          "id": "lqgaqha",
+          "id": "footerColumns[0].links[4]",
           "label": "Contact",
           "href": "/contact",
           "visible": true
@@ -2221,23 +2221,23 @@
       ]
     },
     {
-      "id": "8fwwxnh",
+      "id": "footerColumns[1]",
       "title": "SEO Tools",
       "links": [
         {
-          "id": "oy01gab",
+          "id": "footerColumns[1].links[0]",
           "label": "Free SEO Audit",
           "href": "/",
           "visible": true
         },
         {
-          "id": "db0g5gm",
+          "id": "footerColumns[1].links[1]",
           "label": "Free SEO Tools",
           "href": "/free-seo-tools",
           "visible": true
         },
         {
-          "id": "n0hcob7",
+          "id": "footerColumns[1].links[2]",
           "label": "Competitor Analysis",
           "href": "/competitor-analysis",
           "visible": true
@@ -2245,23 +2245,23 @@
       ]
     },
     {
-      "id": "b3a56jy",
+      "id": "footerColumns[2]",
       "title": "Resources",
       "links": [
         {
-          "id": "50u6wch",
+          "id": "footerColumns[2].links[0]",
           "label": "Blog",
           "href": "/blog",
           "visible": true
         },
         {
-          "id": "gewjymh",
+          "id": "footerColumns[2].links[1]",
           "label": "FAQ",
           "href": "/faq",
           "visible": true
         },
         {
-          "id": "tuxj5rw",
+          "id": "footerColumns[2].links[2]",
           "label": "Who It's For",
           "href": "/#audiences",
           "visible": true
@@ -2269,17 +2269,17 @@
       ]
     },
     {
-      "id": "2hu699r",
+      "id": "footerColumns[3]",
       "title": "Company",
       "links": [
         {
-          "id": "hlaw26q",
+          "id": "footerColumns[3].links[0]",
           "label": "About",
           "href": "/about",
           "visible": true
         },
         {
-          "id": "6ck2jg3",
+          "id": "footerColumns[3].links[1]",
           "label": "Contact",
           "href": "/contact",
           "visible": true
