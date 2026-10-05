@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { PrimaryBtn } from './engines';
 import { Seeded } from './simulator';
 import { fetchPageData, type LivePageData } from '../utils/pageFetch';
@@ -13,9 +13,10 @@ export const UrlBar: React.FC<{ value: string; onChange: (v: string) => void; on
   </div>
 );
 
-export const Spinner: React.FC<{ label: string }> = ({ label }) => (
-  <div className="flex items-center gap-3 text-sm text-slate-600 py-8 justify-center">
+export const Spinner: React.FC<{ label: string; onCancel?: () => void }> = ({ label, onCancel }) => (
+  <div className="flex flex-wrap items-center gap-3 text-sm text-slate-600 py-8 justify-center">
     <span className="w-5 h-5 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />{label}
+    {onCancel && <button type="button" onClick={onCancel} className="text-xs font-semibold text-slate-500 underline hover:text-slate-800">Stop</button>}
   </div>
 );
 
@@ -55,28 +56,104 @@ const Fail: React.FC<{ msg?: string }> = ({ msg }) => (
   </div>
 );
 
+/**
+ * Absolute ceiling for a probe. Reaching it means every relay AND the text
+ * reader went unanswered, which is a genuine "this site blocks fetchers" case;
+ * the normal path never gets near it, because the first usable answer wins.
+ */
+const PROBE_BUDGET_MS = 16_000;
+/** When only the markdown reader has answered, give the raw-HTML relays this
+ *  much longer: markup checks (scripts, CSS, srcset, lazy-load) are only
+ *  honest on real HTML, and a half-second is usually all a relay needs. */
+const RELAY_GRACE_MS = 2_500;
+
+/**
+ * Shared "fetch a live page" hook for the URL tools.
+ *
+ * Both probes are launched together and the result is taken as soon as it
+ * exists. It used to be `Promise.all([relay, reader])`, so a tool that had the
+ * full HTML in hand at 1 s still sat there until the markdown reader finished —
+ * up to 15 s of spinner for a 1 s job. `Promise.all` also treated a slow reader
+ * as a hard dependency, which is why the Page Speed Checker looked frozen on
+ * "Timing the page download…" for sites that answer slowly.
+ */
 const useFetch = () => {
   const [url, setUrl] = useState('');
   const [busy, setBusy] = useState(false);
+  const [stage, setStage] = useState('');
+  const [elapsed, setElapsed] = useState(0);
   const [data, setData] = useState<LivePageData | null>(null);
-  const [failed, setFailed] = useState(false);
+  // null = nothing failed; 'timeout' and 'blocked' pick different copy, because
+  // "nobody answered" and "everybody answered with nothing usable" need the
+  // user to do different things.
+  const [failed, setFailed] = useState<null | 'blocked' | 'timeout'>(null);
+  const runId = useRef(0);
+  const ticker = useRef<ReturnType<typeof setInterval> | null>(null);
+  const clearTicker = () => { if (ticker.current) { clearInterval(ticker.current); ticker.current = null; } };
+  useEffect(() => clearTicker, []);
+
+  /** Discards an in-flight probe; late answers are matched to `runId` below. */
+  const cancel = () => { runId.current += 1; clearTicker(); setBusy(false); setStage(''); };
+
   const run = async () => {
     const u = url.trim();
     if (!u) return;
-    setBusy(true); setFailed(false); setData(null);
-    // Race the HTML relays against the CORS-open markdown reader IN PARALLEL and
-    // keep whichever succeeds (full HTML preferred). Slow or blocked relays no
-    // longer stall the tool, and sites that reject crawlers still get analysed.
+    const me = ++runId.current;
     const target = /^https?:\/\//i.test(u) ? u : `https://${u}`;
-    const [relay, reader] = await Promise.all([
-      fetchPageData(target).catch(() => null),
-      jinaFallback(target).catch(() => null),
-    ]);
-    const d = relay || reader;
-    if (!d) setFailed(true);
-    setData(d); setBusy(false);
+    clearTicker();
+    setBusy(true); setFailed(null); setData(null); setElapsed(0); setStage('Contacting the page…');
+    const t0 = Date.now();
+    ticker.current = setInterval(() => { if (runId.current === me) setElapsed(Math.round((Date.now() - t0) / 1000)); }, 200);
+
+    const outcome = await new Promise<{ data: LivePageData | null; timedOut: boolean }>(resolve => {
+      let settled = false, relayDone = false, readerDone = false;
+      let best: LivePageData | null = null;
+      let grace: ReturnType<typeof setTimeout> | null = null;
+      let budget: ReturnType<typeof setTimeout> | null = null;
+      const finish = (timedOut = false) => {
+        if (settled) return;
+        settled = true;
+        if (grace) clearTimeout(grace);
+        if (budget) clearTimeout(budget);
+        resolve({ data: best, timedOut });
+      };
+      fetchPageData(target)
+        .then(d => { if (d) best = d; })
+        .catch(() => undefined)
+        .finally(() => {
+          relayDone = true;
+          // Full HTML beats anything the reader can say about markup.
+          if (best) finish();
+          else if (readerDone) finish();
+        });
+      setStage('Fetching the HTML (relays and text reader)…');
+      jinaFallback(target)
+        .then(d => {
+          if (d && !best) {
+            best = d;
+            // Enough for a check to be honest, but not enough to ignore a relay
+            // that is about to deliver the real markup.
+            grace = setTimeout(() => finish(), RELAY_GRACE_MS);
+          }
+        })
+        .catch(() => undefined)
+        .finally(() => {
+          readerDone = true;
+          if (relayDone) finish();
+          else setStage('Relay is slow — analysing the text-reader copy…');
+        });
+      budget = setTimeout(() => finish(true), PROBE_BUDGET_MS);
+    });
+
+    clearTicker();
+    if (runId.current !== me) return;      // cancelled or superseded by a newer run
+    setData(outcome.data);
+    setFailed(outcome.data ? null : (outcome.timedOut ? 'timeout' : 'blocked'));
+    setStage('');
+    setBusy(false);
   };
-  return { url, setUrl, busy, data, failed, run };
+
+  return { url, setUrl, busy, data, failed, run, cancel, stage, elapsed };
 };
 
 /** Source badge: honest about whether raw HTML or the text reader was used. */
@@ -84,7 +161,7 @@ const Src: React.FC<{ d: LivePageData }> = ({ d }) => d.reader ? (
   <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold bg-amber-50 text-amber-700 border border-amber-100 rounded-full px-2.5 py-0.5">
     <span className="w-1.5 h-1.5 rounded-full bg-amber-500" /> Via text reader — markup checks limited
   </span>
-) : <Src d={d} />;
+) : <Live ms={d.fetchMs} />;
 
 const kb = (b: number) => (b > 1048576 ? `${(b / 1048576).toFixed(2)} MB` : `${(b / 1024).toFixed(1)} KB`);
 const host = (u: string) => u.replace(/^https?:\/\//, '').split('/')[0];
@@ -504,8 +581,9 @@ export const PageSpeedTool: React.FC = () => {
   return (
     <div className="space-y-5">
       <UrlBar value={f.url} onChange={f.setUrl} onRun={f.run} busy={f.busy} label="Check Speed" />
-      {f.busy && <Spinner label="Timing the page download…" />}
-      {f.failed && <Fail />}
+      {f.busy && <Spinner label={`${f.stage || 'Timing the page download…'} (${f.elapsed}s)`} onCancel={f.cancel} />}
+      {f.failed === 'timeout' && <Fail msg={`No relay or text reader answered for ${host(f.url.trim()) || 'that page'} in ${Math.round(16000 / 1000)}s. The host is likely rate-limiting or blocking fetchers — try again in a moment, or time a lighter page.`} />}
+      {f.failed === 'blocked' && <Fail msg="Every relay and the text reader replied with nothing usable. The site may serve a challenge page to bots, or need JavaScript to render. Try another URL." />}
       {f.data && (() => {
         const d = f.data;
         const est3g = ((d.codeSize * 8) / 1_600_000 + 0.3).toFixed(1);

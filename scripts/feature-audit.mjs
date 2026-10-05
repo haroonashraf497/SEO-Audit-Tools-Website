@@ -926,6 +926,33 @@ check('all three responsive steps are in the built CSS',
   /--heading-h1:2\.625rem/.test(dist.replace(/\s+/g, '')) && /--heading-h1:2\.25rem/.test(dist.replace(/\s+/g, ''))
   && /--heading-h1:1\.875rem/.test(dist.replace(/\s+/g, '')) && /--heading-h2:1\.625rem/.test(dist.replace(/\s+/g, '')));
 
+console.log('\n=== ⚡ Live-page probes (src/tools/WebTools.tsx) ===');
+// The Page Speed Checker shared this hook with nine other URL tools, and two
+// defects lived here: the source badge returned itself (so any successful
+// fetch crashed the results panel), and both probes were awaited with
+// Promise.all (so a 1 s answer still waited on the 15 s text reader).
+const webTools = read('src/tools/WebTools.tsx');
+check('the source badge renders a live badge instead of recursing into itself',
+  /const Src: React\.FC<\{ d: LivePageData \}> = \(\{ d \}\) => d\.reader\s*\?\s*\(/.test(webTools)
+  && /\) : <Live ms=\{d\.fetchMs\} \/>;/.test(webTools)
+  && !/\)\s*:\s*<Src d=\{d\} \/>;/.test(webTools));
+check('probes resolve on the first usable answer, never on the slowest',
+  !/await Promise\.all\(\[/.test(webTools)
+  && /PROBE_BUDGET_MS = 16_000/.test(webTools)
+  && /RELAY_GRACE_MS = 2_500/.test(webTools)
+  && /if \(best\) finish\(\);/.test(webTools));
+check('a running probe shows its stage and can be stopped',
+  /const \[stage, setStage\] = useState\(''\);/.test(webTools)
+  && /onCancel=\{f\.cancel\}/.test(webTools)
+  && /runId\.current !== me/.test(webTools));
+check('a stalled probe reads as a timeout, a refusal as a block',
+  /outcome\.timedOut \? 'timeout' : 'blocked'/.test(webTools)
+  && /f\.failed === 'timeout'/.test(webTools) && /f\.failed === 'blocked'/.test(webTools));
+check('all ten URL tools keep using the one shared hook',
+  (webTools.match(/const f = useFetch\(\);/g) || []).length === 10
+  && (webTools.match(/<Src d=\{d\} \/>/g) || []).length >= 6,
+  `hooks ${(webTools.match(/const f = useFetch\(\);/g) || []).length}`);
+
 console.log('\n=== ✅ Preserved ===');
 check('no "Loading page" anywhere in src', !/Loading page/.test(read('src/App.tsx') + read('src/components/ErrorBoundary.tsx') + read('src/tools/Tools.tsx')));
 const codeOnly = src => src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
