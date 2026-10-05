@@ -1552,6 +1552,8 @@ export const AdminApp: React.FC = () => {
                 <span className="text-[11px] font-bold uppercase tracking-wide bg-indigo-50 border border-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full">CMS</span>
               </div>
               <p className="text-sm text-slate-500 truncate">{state.settings.name} · {state.settings.domain} · changes save automatically in this browser</p>
+              {/* Not a feature, a diagnostic: which build am I looking at? */}
+              <p className="text-[11px] font-mono text-slate-400" title="When this bundle was built, and from which commit">build {__BUILD_ID__}</p>
             </div>
             <div className="ml-auto flex flex-wrap gap-2">
               <a href="/" target="_blank" rel="noopener" className="px-3.5 py-2 rounded-lg text-sm font-semibold bg-slate-900 text-white hover:bg-slate-700 transition-colors">View live site ↗</a>

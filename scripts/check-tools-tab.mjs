@@ -122,6 +122,15 @@ for (const name of ['IP Tools', 'Keyword Tools', 'Calculator Tools']) {
   await wait(150);
 }
 
+console.log('\n[C] the admin header stamps the build');
+clickTab('Dashboard');
+await wait();
+const header = [...doc.querySelectorAll('header')].map(h => (h.textContent || '').replace(/\s+/g, ' ').trim()).join(' | ');
+ok('a "build <sha> · <UTC>" line is rendered in the header',
+  /build [0-9a-f]{7}\+? · \d{4}-\d{2}-\d{2} \d{2}:\d{2} UTC/.test(header), header.slice(0, 200));
+ok('the stamp names the Tools tab too, so any tab proves freshness',
+  /Content manager/.test(header), header.slice(0, 80));
+
 dom.window.close();
 console.log(`\n=====  ${pass} passed, ${fail} failed  =====`);
 process.exit(fail ? 1 : 0);

@@ -1,3 +1,4 @@
+import { execSync } from "child_process";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -21,6 +22,27 @@ const hostingFiles = (): Plugin => ({
   },
 });
 
+/**
+ * Build stamp, rendered in the admin header as "build <sha> · <UTC>". Its only
+ * job is to make a stale deployment obvious at a glance — the number of times
+ * this project has had "the change is missing" reported against a build that
+ * predated the change is why it exists. The sha is HEAD when the bundle is
+ * produced, suffixed with + if src/, public/ or this config had uncommitted
+ * changes; without git (a downloaded zip, say) the timestamp alone is used.
+ */
+const buildStamp = (() => {
+  const at = `${new Date().toISOString().slice(0, 16).replace("T", " ")} UTC`;
+  try {
+    const sha = execSync("git rev-parse --short HEAD", { cwd: __dirname }).toString().trim();
+    const dirty = execSync("git status --porcelain -- src public vite.config.ts", {
+      cwd: __dirname,
+    }).toString().trim().length > 0;
+    return `${sha}${dirty ? "+" : ""} · ${at}`;
+  } catch {
+    return at;
+  }
+})();
+
 export default defineConfig({
   plugins: [
     react(),
@@ -35,6 +57,9 @@ export default defineConfig({
     viteSingleFile({ useRecommendedBuildConfig: false, removeViteModuleLoader: true }),
     hostingFiles(),
   ],
+  define: {
+    __BUILD_ID__: JSON.stringify(buildStamp),
+  },
   server: {
     host: true,
     allowedHosts: [".e2b.app", ".arena.site"],
