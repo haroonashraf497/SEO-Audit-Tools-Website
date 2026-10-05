@@ -166,6 +166,44 @@ const Src: React.FC<{ d: LivePageData }> = ({ d }) => d.reader ? (
 const kb = (b: number) => (b > 1048576 ? `${(b / 1048576).toFixed(2)} MB` : `${(b / 1024).toFixed(1)} KB`);
 const host = (u: string) => u.replace(/^https?:\/\//, '').split('/')[0];
 
+/**
+ * Timing that needs no proxy at all.
+ *
+ * A `no-cors` request cannot read the response body — the browser hands back an
+ * opaque response — but it does not need CORS headers either, so it still
+ * answers the two questions that matter when every relay is blocked: does the
+ * document respond to this visitor at all, and how long does the round trip
+ * take? Two samples run together and the faster one counts, because the first
+ * usually eats DNS and TLS warm-up. A rejection is reported rather than hidden:
+ * an opaque fetch only fails on a real network problem, never on CORS.
+ */
+type BrowserTiming = { ms: number; reachable: true } | { ms: null; reachable: false };
+const browserTiming = async (target: string, capMs = 6000): Promise<BrowserTiming> => {
+  const now = () => (typeof performance !== 'undefined' && performance.now ? performance.now() : Date.now());
+  const sample = async (): Promise<number | null> => {
+    const t0 = now();
+    const ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null;
+    const kill = ctrl ? setTimeout(() => ctrl.abort(), capMs) : null;
+    try {
+      await fetch(target, { mode: 'no-cors', credentials: 'omit', cache: 'no-store', referrerPolicy: 'no-referrer', signal: ctrl?.signal });
+      return Math.max(1, Math.round(now() - t0));
+    } catch {
+      return null;
+    } finally {
+      if (kill) clearTimeout(kill);
+    }
+  };
+  // The race stops a hung socket stretching the wait past the cap; both samples
+  // are started before either is awaited, so they still run concurrently.
+  const capped = <T,>(q: Promise<T>) => Promise.race([q, new Promise<null>(r => setTimeout(() => r(null), capMs))]);
+  const first = capped(sample());
+  const second = capped(sample());
+  const a = await first;
+  const b = await second;
+  const got = [a, b].filter((n): n is number => typeof n === 'number');
+  return got.length ? { ms: Math.min(...got), reachable: true } : { ms: null, reachable: false };
+};
+
 // ---------- SEO score checks (shared with Website Checker) ----------
 // When the page only came back through the text reader (d.reader), markup that
 // the reader cannot see is reported as unknown (–) instead of a false fail.
@@ -578,12 +616,60 @@ export const MobileTestTool: React.FC = () => {
 // ---------- 8. Page Speed Checker ----------
 export const PageSpeedTool: React.FC = () => {
   const f = useFetch();
+  // Started at the same moment as the proxy probe, never after it, so when the
+  // relays fail there is already a real measurement of this visitor's own
+  // connection to show instead of an error box. `seq` discards answers from a
+  // run the user cancelled or replaced.
+  const [timing, setTiming] = useState<BrowserTiming | null>(null);
+  const [probing, setProbing] = useState(false);
+  const seq = useRef(0);
+  const run = () => {
+    const raw = f.url.trim();
+    const me = ++seq.current;
+    setTiming(null);
+    setProbing(!!raw);
+    if (raw) {
+      const direct = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`;
+      void browserTiming(direct).then(t => {
+        if (seq.current === me) { setTiming(t); setProbing(false); }
+      });
+    }
+    void f.run();
+  };
+  const stop = () => { seq.current += 1; setProbing(false); setTiming(null); f.cancel(); };
   return (
     <div className="space-y-5">
-      <UrlBar value={f.url} onChange={f.setUrl} onRun={f.run} busy={f.busy} label="Check Speed" />
-      {f.busy && <Spinner label={`${f.stage || 'Timing the page download…'} (${f.elapsed}s)`} onCancel={f.cancel} />}
-      {f.failed === 'timeout' && <Fail msg={`No relay or text reader answered for ${host(f.url.trim()) || 'that page'} in ${Math.round(16000 / 1000)}s. The host is likely rate-limiting or blocking fetchers — try again in a moment, or time a lighter page.`} />}
-      {f.failed === 'blocked' && <Fail msg="Every relay and the text reader replied with nothing usable. The site may serve a challenge page to bots, or need JavaScript to render. Try another URL." />}
+      <UrlBar value={f.url} onChange={f.setUrl} onRun={run} busy={f.busy} label="Check Speed" />
+      {f.busy && <Spinner label={`${f.stage || 'Timing the page download…'} (${f.elapsed}s)`} onCancel={stop} />}
+      {f.failed && (probing ? (
+        <Spinner label="Every relay refused the page — measuring it from your browser instead…" />
+      ) : timing?.reachable ? (
+        (() => {
+          const ms = timing.ms;
+          const g = ms < 600 ? 'A' : ms < 1200 ? 'B' : ms < 2500 ? 'C' : 'D';
+          return (
+            <>
+              <div className="grid md:grid-cols-[200px_1fr] gap-5">
+                <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm text-center">
+                  <p className="text-xs text-slate-500 uppercase font-semibold">Speed grade</p>
+                  <p className={`text-7xl font-extrabold ${g === 'A' ? 'text-emerald-500' : g === 'B' ? 'text-lime-500' : g === 'C' ? 'text-amber-500' : 'text-red-500'}`}>{g}</p>
+                  <p className="text-sm text-slate-600">{ms} ms round trip</p>
+                </div>
+                <div className="grid grid-cols-2 gap-3 content-start">
+                  <Stat label="Your browser → server" value={`${ms} ms`} tone={ms < 800 ? 'good' : ms < 2000 ? 'warn' : 'bad'} />
+                  <Stat label="Page source" value="unreachable" tone="bad" />
+                </div>
+              </div>
+              <Card title="Measured without a proxy">
+                <p className="text-sm text-slate-700">{host(f.url.trim())} answered a direct request from your browser in {ms} ms, so the host is up and responding. Every public relay the tool uses to read HTML refused that page, which is why the markup-level figures (HTML size, script and stylesheet counts) are missing from this run.</p>
+                <p className="text-xs text-slate-400 mt-3">This grade is timed on your own connection, so it includes your network rather than a data centre's, and it covers the request for the document only. Relays fail often enough to be worth retrying — try again in a moment, or from another network.</p>
+              </Card>
+            </>
+          );
+        })()
+      ) : (
+        <Fail msg={`Neither the relays nor your own browser could reach ${host(f.url.trim()) || 'that page'}${f.failed === 'timeout' ? ` within ${Math.round(16000 / 1000)}s` : ''}. The host is probably down, blocking fetchers, or behind a challenge page — try again shortly, or check a lighter URL.`} />
+      ))}
       {f.data && (() => {
         const d = f.data;
         const est3g = ((d.codeSize * 8) / 1_600_000 + 0.3).toFixed(1);
@@ -611,11 +697,12 @@ export const PageSpeedTool: React.FC = () => {
                 <Stat label="Stylesheets" value={d.stylesheets} tone={d.stylesheets > 6 ? 'warn' : 'good'} />
                 <Stat label="Images" value={d.imageCount} /><Stat label="Iframes" value={d.iframes} tone={d.iframes > 2 ? 'warn' : 'good'} />
                 <Stat label="Est. HTML on 3G" value={`${est3g}s`} /><Stat label="Est. HTML on 4G" value={`${est4g}s`} />
+                {timing?.reachable && <Stat label="Your browser (direct)" value={`${timing.ms} ms`} tone={timing.ms < 800 ? 'good' : 'warn'} />}
               </div>
             </div>
             <Card title={`Recommendations (${recs.length})`} right={<Src d={d} />}>
               {recs.length ? <ul className="space-y-2 text-sm text-slate-700">{recs.map(r => <li key={r} className="flex gap-2"><span className="text-indigo-500">▸</span>{r}</li>)}</ul> : <p className="text-sm text-emerald-600 font-semibold">No obvious front-end bottlenecks detected in the HTML.</p>}
-              <p className="text-xs text-slate-400 mt-4">Timing measures the HTML document only (via proxy). For full Core Web Vitals (LCP/INP/CLS) use field data from PageSpeed Insights; read our <a href="/blog/pagespeed-lab-vs-field-data" className="underline">lab vs field guide</a>.</p>
+              <p className="text-xs text-slate-400 mt-4">Timing measures the HTML document only (via proxy); “Your browser (direct)”, when shown, is a plain no-cors request from this tab. For full Core Web Vitals (LCP/INP/CLS) use field data from PageSpeed Insights; read our <a href="/blog/pagespeed-lab-vs-field-data" className="underline">lab vs field guide</a>.</p>
             </Card>
           </>
         );
