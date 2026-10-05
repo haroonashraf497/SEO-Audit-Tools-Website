@@ -2,6 +2,10 @@
  *
  *   node scripts/check-speed-tool.mjs [path/to/index.html]
  *
+ * Pass the exact file you are about to upload (dist/index.html by default, and
+ * public_html/index.html is what gets deployed) and the header line prints its
+ * sha256 prefix, so there is no arguing about which build was tested.
+ *
  * jsdom boots the built single-file app at /website-page-speed-checker and every
  * fetch is faked with a fixed delay: direct request -> CORS rejection, the
  * allorigins relay -> HTML after 260 ms, the markdown text reader -> 4000 ms,
@@ -12,7 +16,8 @@
  *
  * Needs jsdom, which is not a dependency of the site: npm i --no-save jsdom
  */
-import { readFileSync } from 'node:fs';
+import { readFileSync, statSync } from 'node:fs';
+import { createHash } from 'node:crypto';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -53,7 +58,9 @@ const STUB = `(() => {
 })();`;
 
 const raw = readFileSync(target, 'utf8');
-console.log(`checking ${target} (${raw.length} bytes)`);
+const bytes = statSync(target).size;
+const sha = createHash('sha256').update(raw, 'utf8').digest('hex').slice(0, 12);
+console.log(`checking ${target} (${bytes} bytes, sha256 ${sha})`);
 const mod = raw.match(/<script type="module" crossorigin>([\s\S]*?)<\/script>/);
 if (!mod) { console.log('FAIL  no inlined module script — is this the single-file build?'); process.exit(1); }
 let html = raw.replace(mod[0], '');
