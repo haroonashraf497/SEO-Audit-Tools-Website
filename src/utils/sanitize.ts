@@ -225,3 +225,24 @@ export const sanitizeRichHtml = (html: string): string => {
 
 /** True when a string looks like authored HTML rather than legacy plain text. */
 export const looksLikeHtml = (value: string): boolean => /<[a-z][^>]*>/i.test(value || '');
+
+/**
+ * True when a rich-text document actually shows something to a visitor.
+ *
+ * A contenteditable surface is rarely `""` once it has been touched and then
+ * cleared: the browser leaves `<p><br></p>`, `<div>&nbsp;</div>` or a stray
+ * `<br>` behind. `sanitizeRichHtml` passes that empty shell through untouched,
+ * so a plain truthiness test on the stored HTML renders an empty card. This
+ * strips tags and whitespace and only reports content when words remain — or
+ * when a self-contained embed (image, video, table, rule, …) is present.
+ */
+export const hasVisibleRichContent = (html?: string): boolean => {
+  if (!html) return false;
+  const words = html
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/&nbsp;|&#160;|&#xa0;/gi, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  if (words) return true;
+  return /<(img|iframe|video|audio|canvas|svg|table|hr)\b/i.test(html);
+};

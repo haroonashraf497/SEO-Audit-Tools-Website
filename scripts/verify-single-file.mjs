@@ -39,6 +39,7 @@ const check = (name, ok, detail = '') => {
 
 const rawHtml = readFileSync(distFile, 'utf8');
 
+
 const boot = async (preloadJs = '', route = '/') => {
   const module = rawHtml.match(/<script type="module" crossorigin>([\s\S]*?)<\/script>/);
   if (!module) throw new Error('inline module script not found in dist/index.html');
@@ -993,48 +994,211 @@ for (const [slug, name, count] of [['core-web-vitals', 'Core Web Vitals', 3], ['
     && [...section.querySelectorAll('button')].filter(b => b.textContent.trim() === 'Delete').length === 11
     && (section.textContent || '').includes('Built-in'));
 
-  const nameInput = section.querySelector('input[aria-label="Category Name"]');
-  const slugInput = section.querySelector('input[aria-label="Category Slug"]');
-  const descInput = section.querySelector('textarea[aria-label="Category Description"]');
-  setValue(nameInput, 'Local SEO Tools');
+  // There is no add-category form: this pane manages the categories the site
+  // ships with, each one in place. Editing is the supported path.
+  check('the pane offers no add-category form',
+    !section.querySelector('input[aria-label="Category Name"]')
+    && !section.querySelector('textarea[aria-label="Category Description"]')
+    && ![...section.querySelectorAll('button')].some(b => /Add category/.test(b.textContent || '')));
+  click([...section.querySelectorAll('button')].filter(b => b.textContent.trim() === 'Edit')[0]);
   await wait();
-  check('the slug auto-generates from the name and stays editable',
-    slugInput.value === 'local-seo-tools' && !slugInput.readOnly && !slugInput.disabled, slugInput.value);
-  setValue(descInput, 'Rank in the map pack with local keyword, citation and review checks.');
+  const editPanel = section.querySelector('div.bg-slate-50.border-b');
+  check('every category still edits its name, slug, description and below-tools content',
+    !!editPanel
+    && ['input[aria-label="Edit category name"]', 'input[aria-label="Edit category slug"]', 'textarea[aria-label="Edit content above tools"]']
+      .every(sel => !!editPanel.querySelector(sel))
+    && (editPanel.textContent || '').includes('Content Below Tools — Before Footer')
+    && (editPanel.textContent || '').includes('Content Above Tools — appears after the heading, before the tools grid')
+    && !!editPanel.querySelector('[contenteditable="true"]')
+    && !![...editPanel.querySelectorAll('button')].find(b => b.textContent.trim() === 'Save Changes'));
+  // ---- SEO & Meta Information on a category row ----
+  const seoBox = [...editPanel.querySelectorAll('section')].find(el => /SEO & Meta Information/.test(el.textContent || ''));
+  // Opens one row and returns ITS edit panel — the panel is the row's next
+  // sibling, so a row left open earlier (whose button may still read
+  // "Saved ✓") cannot be mistaken for it.
+  const panelOf = async name => {
+    const label = [...section.querySelectorAll('p.font-semibold')].find(pp => (pp.textContent || '').trim() === name);
+    const rowEl = label.closest('div.flex.flex-col');
+    click([...rowEl.querySelectorAll('button')].find(b => b.textContent.trim() === 'Edit'));
+    await wait();
+    const panel = rowEl.nextElementSibling;
+    if (!panel || !/bg-slate-50/.test(panel.className || '')) throw new Error(`no edit panel opened for ${name}`);
+    return panel;
+  };
+  const savePanel = async panel => {
+    click([...panel.querySelectorAll('button')].find(b => /^(Save Changes|Saved ✓)$/.test(b.textContent.trim())));
+    await wait();
+  };
+  check('the edit row carries the SEO & Meta block with all four controls',
+    !!seoBox
+    && /Google preview/.test(seoBox.textContent || '')
+    && !!seoBox.querySelector('textarea')
+    && [...seoBox.querySelectorAll('input')].length === 3
+    // no-index is a checkbox here (the category pages ask for one)
+    && !!seoBox.querySelector('input[type="checkbox"]')
+    && !/Make no-index/.test(seoBox.textContent || '')
+    && /Noindex — exclude from search/.test(seoBox.textContent || '')
+    && /Indexable/.test(seoBox.textContent || '')
+    && seoBox.querySelector('input[type="checkbox"]').checked === false,
+    seoBox ? [...seoBox.querySelectorAll('input')].map(i => i.type).join(',') : 'no seo section');
+  check('the SEO fields show the automatic copy as their starting value',
+    !!seoBox && seoBox.querySelector('input').value === 'Text Analysis Tools — 11 Free Online Tools | SEO Audit Tools'
+    && seoBox.querySelector('textarea').value.includes('11 free text analysis tools'),
+    seoBox ? seoBox.querySelector('input').value : '');
+  setValue(seoBox.querySelector('input'), 'Text & Grammar Tools — 11 Free Checks | SEO Audit Tools');
+  setValue(seoBox.querySelector('textarea'), 'Proofread, rewrite and count words in the browser: plagiarism, grammar, density and reading time, free and without a sign-up.');
+  click([...editPanel.querySelectorAll('button')].find(b => b.textContent.trim() === 'Save Changes'));
   await wait();
-  click([...section.querySelectorAll('button')].find(b => /Add category/.test(b.textContent)));
+  let st = JSON.parse(dom.window.localStorage.getItem('seoaudittool:cms:v1') || '{}');
+  check('saving the SEO fields stores them against the category',
+    st.seo?.['cat:text']?.title === 'Text & Grammar Tools — 11 Free Checks | SEO Audit Tools'
+    && (st.seo?.['cat:text']?.description || '').startsWith('Proofread, rewrite and count words')
+    && !st.seo?.['cat:text']?.slug && st.seo?.['cat:text']?.noindex === false,
+    JSON.stringify(st.seo?.['cat:text']));
+  check('the category name, slug and description were saved alongside it',
+    (st.toolCategories.find(c => c.key === 'text') || {}).name === 'Text Analysis Tools',
+    JSON.stringify(st.toolCategories.find(c => c.key === 'text')?.name));
+
+  // A value still equal to the automatic copy is not stored, so the live tool
+  // count in it keeps tracking the published tools.
+  const kwPanel = await panelOf('Keyword Tools');
+  const kwSeo = kwPanel.querySelector('section');
+  setValue(kwSeo.querySelector('input'), 'Keyword Tools — 8 Free Online Tools | SEO Audit Tools');
+  await savePanel(kwPanel);
+  st = JSON.parse(dom.window.localStorage.getItem('seoaudittool:cms:v1') || '{}');
+  check('leaving the automatic copy untouched stores no override', !st.seo?.['cat:keyword'], JSON.stringify(st.seo?.['cat:keyword']));
+
+  // Canonical override + no-index on a category that no later check reads.
+  const blPanel = await panelOf('Backlink Tools');
+  const blSeo = blPanel.querySelector('section');
+  setValue([...blSeo.querySelectorAll('input')][1], '/free-seo-tools');
+  const blCheck = blSeo.querySelector('input[type="checkbox"]');
+  click(blCheck);
   await wait();
-  check('adding a category saves it and shows "Saved ✓"',
-    /Saved ✓/.test(section.textContent || '')
-    && [...section.querySelectorAll('p.font-semibold')].some(p => p.textContent.trim() === 'Local SEO Tools'));
-  const stored = JSON.parse(dom.window.localStorage.getItem('seoaudittool:cms:v1') || '{}');
-  const added = (stored.toolCategories || []).find(c => c.slug === 'local-seo-tools');
-  check('the new category (name, slug, description) is persisted in the CMS store',
-    !!added && added.name === 'Local SEO Tools' && added.description.startsWith('Rank in the map pack'), JSON.stringify(added));
+  check('ticking the noindex checkbox flips it and the status pill',
+    blSeo.querySelector('input[type="checkbox"]').checked === true
+    && /No-indexed/.test(blSeo.textContent || ''),
+    `${blSeo.querySelector('input[type="checkbox"]')?.checked} | ${(blSeo.textContent || '').match(/Indexable|No-indexed/)?.[0]}`);
+  await savePanel(blPanel);
+  st = JSON.parse(dom.window.localStorage.getItem('seoaudittool:cms:v1') || '{}');
+  check('canonical override and no-index persist',
+    st.seo?.['cat:backlink']?.slug === '/free-seo-tools' && st.seo?.['cat:backlink']?.noindex === true
+    && /No-index/.test(blSeo.textContent || ''),
+    JSON.stringify(st.seo?.['cat:backlink']));
+
+  const base = JSON.parse(dom.window.localStorage.getItem('seoaudittool:cms:v1') || '{}');
+  dom.window.close();
+
+  // The stored overrides must reach the page head.
+  const headSeed = `localStorage.setItem('seoaudittool:cms:v1', ${JSON.stringify(JSON.stringify(base))});`;
+  const { dom: headDom } = await boot(headSeed, '/text-analysis-tools');
+  const headDoc = headDom.window.document;
+  check('the category tab title and meta description use the saved SEO values',
+    headDoc.title === 'Text & Grammar Tools — 11 Free Checks | SEO Audit Tools'
+    && (headDoc.querySelector('meta[name="description"]')?.getAttribute('content') || '').startsWith('Proofread, rewrite and count words')
+    && (headDoc.querySelector('meta[property="og:title"]')?.getAttribute('content') || '') === 'Text & Grammar Tools — 11 Free Checks | SEO Audit Tools',
+    `${headDoc.title} | ${headDoc.querySelector('meta[name="description"]')?.getAttribute('content')}`);
+  headDom.window.close();
+  const { dom: noIdxDom } = await boot(headSeed, '/backlink-tools');
+  check('a canonical override and no-index apply to the category page',
+    (noIdxDom.window.document.querySelector('link[rel="canonical"]')?.getAttribute('href') || '') === 'https://seoaudittools.pk/free-seo-tools'
+    && noIdxDom.window.document.querySelector('meta[name="robots"]')?.getAttribute('content') === 'noindex, nofollow',
+    `${noIdxDom.window.document.querySelector('link[rel="canonical"]')?.getAttribute('href')} | ${noIdxDom.window.document.querySelector('meta[name="robots"]')?.getAttribute('content')}`);
+  noIdxDom.window.close();
+  const { dom: plainDom } = await boot(headSeed, '/keyword-tools');
+  check('an untouched category keeps the generated title with its live count',
+    plainDom.window.document.title === 'Keyword Tools — 8 Free Online Tools | SEO Audit Tools',
+    plainDom.window.document.title);
+  plainDom.window.close();
+
+  // The shared editor must be untouched everywhere else: same button, no checkbox.
+  const { dom: otherDom } = await boot(`localStorage.setItem('ekstruh:admin-session:v1', ${JSON.stringify(session)});`, '/admin');
+  const otherDoc = otherDom.window.document;
+  const click2other = el => el && el.dispatchEvent(new otherDom.window.MouseEvent('click', { bubbles: true, cancelable: true }));
+  const openSeoBox = async (tab, firstEdit) => {
+    click2other([...otherDoc.querySelectorAll('button')].filter(b => b.textContent.trim() === tab).pop());
+    await wait();
+    click2other([...otherDoc.querySelectorAll('button')].filter(b => b.textContent.trim() === 'Edit')[firstEdit]);
+    await wait();
+    const host = otherDoc.getElementById('main-content') || otherDoc;
+    return [...host.querySelectorAll('section')].filter(el => /SEO & Meta Information/.test(el.textContent || '')).pop();
+  };
+  await wait(500);
+  const pageSeo = await openSeoBox('Pages', 0);
+  check('the Pages panel still renders the original Make no-index button',
+    !!pageSeo && [...pageSeo.querySelectorAll('button')].some(b => /Make no-index|No-index enabled/.test(b.textContent || ''))
+    && !pageSeo.querySelector('input[type="checkbox"]'),
+    pageSeo ? 'no button/has checkbox' : 'no seo box on the page editor');
+  otherDom.window.close();
+  // The shared editor keeps BOTH branches in the bundle: the button stays the
+  // default for every other panel, and only the category row opts into the
+  // checkbox. Asserting on the built file avoids racing a tab render here.
+  check('the Make no-index button branch still ships for the other panels',
+    /Make no-index/.test(rawHtml) && /No-index enabled/.test(rawHtml)
+    && /Noindex — exclude from search/.test(rawHtml)
+    // exactly one panel opts into the checkbox variant
+    && (rawHtml.match(/noindexControl:"checkbox"/g) || []).length === 1,
+    `${(rawHtml.match(/noindexControl:"checkbox"/g) || []).length} opt-ins in the bundle`);
+
+  // A category a previous build saved in the admin (the store still carries
+  // them): seeded into localStorage, which is exactly what one looks like.
+  const added = { id: 'audit-local', key: 'custom-local-seo', name: 'Local SEO Tools', slug: 'local-seo-tools', description: 'Rank in the map pack with local keyword, citation and review checks.', content: '', builtin: false };
+  const seeded = { ...base, toolCategories: [...(base.toolCategories || []), added] };
+  const seedJs = `localStorage.setItem('seoaudittool:cms:v1', ${JSON.stringify(JSON.stringify(seeded))});`
+    + `localStorage.setItem('ekstruh:admin-session:v1', ${JSON.stringify(session)});`;
+  const { dom: domC } = await boot(seedJs, '/admin');
+  const docC = domC.window.document;
+  const clickC = el => el && el.dispatchEvent(new domC.window.MouseEvent('click', { bubbles: true, cancelable: true }));
+  const setSelectC = (el, value) => {
+    Object.getOwnPropertyDescriptor(domC.window.HTMLSelectElement.prototype, 'value').set.call(el, value);
+    el.dispatchEvent(new domC.window.Event('change', { bubbles: true }));
+  };
+  const adminButtonC = label => [...docC.querySelectorAll('button')].filter(b => b.textContent.trim() === label).pop();
+  await wait();
+  clickC(adminButtonC('Tool Categories'));
+  await wait();
+  const catSection = docC.querySelector('section[aria-label="Tool Categories"]');
+  const catRows = [...(catSection?.querySelectorAll('p.font-semibold') || [])].map(p => p.textContent.trim());
+  check('a category saved in the CMS is still listed and manageable',
+    catRows.length === 12 && catRows.includes('Local SEO Tools'), catRows.join(', '));
 
   // The tool editor's Category dropdown is the managed list.
-  click(adminButton('Tools'));
+  clickC(adminButtonC('Tools'));
   await wait();
-  const filterSelect = doc.querySelector('select[aria-label="Filter by category"]');
+  const filterSelect = docC.querySelector('select[aria-label="Filter by category"]');
   check('the tools list filter offers every managed category',
     !!filterSelect && [...filterSelect.options].map(o => o.textContent).join(', ') === 'All categories, Text Analysis Tools, Keyword Tools, Backlink Tools, Website Management Tools, Website Checker Tools, Domain Tools, IP Tools, PDF Tools, Image Tools, Calculator Tools, Unit Converter Tools, Local SEO Tools',
     filterSelect ? [...filterSelect.options].map(o => o.textContent).join(', ') : 'no select');
-  click([...doc.querySelectorAll('button')].filter(b => b.textContent.trim() === 'Edit')[0]);
+  // The category copy editors must live only in Admin → Tool Categories → Edit.
+  // The Tools tab used to render a second RichTextEditor for the category picked
+  // in this very filter, so filter by a real category and prove nothing appears.
+  const toolsMain = docC.getElementById('main-content') || docC.querySelector('main');
+  const toolsPaneText = () => (toolsMain.textContent || '').replace(/\s+/g, ' ');
+  setSelectC(filterSelect, 'ip');
   await wait();
-  const catSelect = doc.querySelector('select[aria-label="Category"]');
+  check('filtering the Tools tab by a category shows no category content editor',
+    /IP Tools/.test(toolsPaneText())
+    && !/Category page content|Pick a category in the filter above|Content Below Tools|Content Above Tools|SEO & Meta Information/.test(toolsPaneText())
+    && !toolsMain.querySelector('[aria-label$="category page content"]')
+    && !toolsMain.querySelector('textarea[aria-label="Edit content above tools"]'),
+    toolsPaneText().slice(0, 160));
+  setSelectC(filterSelect, 'all');
+  await wait();
+  clickC([...docC.querySelectorAll('button')].filter(b => b.textContent.trim() === 'Edit')[0]);
+  await wait();
+  const catSelect = docC.querySelector('select[aria-label="Category"]');
   const options = catSelect ? [...catSelect.options].map(o => o.textContent) : [];
   check("the tool editor's Category dropdown uses the managed list",
     options.length === 12 && options.includes('IP Tools') && options.includes('Local SEO Tools'), options.join(' | '));
-  setSelect(catSelect, added.key);
+  setSelectC(catSelect, added.key);
   await wait();
-  click([...doc.querySelectorAll('button')].find(b => b.textContent.trim() === 'Save tool'));
+  clickC([...docC.querySelectorAll('button')].find(b => b.textContent.trim() === 'Save tool'));
   await wait();
-  const stored2 = JSON.parse(dom.window.localStorage.getItem('seoaudittool:cms:v1') || '{}');
+  const stored2 = JSON.parse(domC.window.localStorage.getItem('seoaudittool:cms:v1') || '{}');
   const moved = (stored2.tools || []).find(t => t.category === added.key);
   check('assigning a tool to a new category saves it', !!moved, JSON.stringify(moved && moved.name));
-  dom.window.close();
+  domC.window.close();
 
-  // The new category is live everywhere the site lists categories.
   const preload = `localStorage.setItem('seoaudittool:cms:v1', ${JSON.stringify(JSON.stringify(stored2))});`;
   const { dom: menuDom } = await boot(preload, '/');
   const menuLinks = [...menuDom.window.document.querySelectorAll('#tool-categories-menu a')]
@@ -1082,7 +1246,7 @@ for (const [slug, name, count] of [['core-web-vitals', 'Core Web Vitals', 3], ['
   click2([...section.querySelectorAll('button')].filter(b => b.textContent.trim() === 'Edit')[0]);
   await wait();
   set2(doc2.querySelector('input[aria-label="Edit category name"]'), 'Text Checking Tools');
-  set2(doc2.querySelector('textarea[aria-label="Edit category description"]'), 'Proofread every page: plagiarism, grammar, rewriting and word counts.');
+  set2(doc2.querySelector('textarea[aria-label="Edit content above tools"]'), 'Proofread every page: plagiarism, grammar, rewriting and word counts.');
   await wait();
   click2([...section.querySelectorAll('button')].find(b => /Save Changes/.test(b.textContent)));
   await wait();

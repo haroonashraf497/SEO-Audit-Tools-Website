@@ -566,12 +566,63 @@ check('a tool row shows the managed category name',
 check('the Tool Categories tab sits next to Tools and renders its own pane',
   /\['tools', 'Tools'\], \['toolcats', 'Tool Categories'\]/.test(adminSrc)
   && /\{tab === 'toolcats' && <ToolCategoriesPane \/>\}/.test(adminSrc));
-check('the pane has a name, a slug and a description field plus an add button',
+// Scoped to the pane itself: the Blog Categories pane still has an
+// "Add category" button, and both panes reuse the same field labels.
+const seoSrc = read('src/utils/seo.ts');
+const toolCatsBody = (() => {
+  const at = adminSrc.indexOf('const ToolCategoriesPane');
+  const next = adminSrc.slice(at + 1).search(/\nconst [A-Z]/);
+  return next < 0 ? adminSrc.slice(at) : adminSrc.slice(at, at + 1 + next);
+})();
+check('the pane edits each category in place and offers no add-category form',
   /const ToolCategoriesPane: React\.FC = \(\) => \{/.test(adminSrc)
-  && /aria-label="Category Name"/.test(adminSrc)
-  && /aria-label="Category Slug"/.test(adminSrc)
-  && /aria-label="Category Description"/.test(adminSrc)
-  && /<SaveButton label="Add category" onSave=\{create\} \/>/.test(adminSrc));
+  && /aria-label="Edit category name"/.test(toolCatsBody)
+  && /aria-label="Edit category slug"/.test(toolCatsBody)
+  && /label="Content Above Tools — appears after the heading, before the tools grid"/.test(toolCatsBody)
+  && /aria-label="Edit content above tools"/.test(toolCatsBody)
+  && /label="Content Below Tools — Before Footer"/.test(toolCatsBody)
+  && !/label="Category Description"/.test(toolCatsBody)
+  && !/label="Add category"/.test(toolCatsBody)
+  && !/aria-label="Category Name"/.test(toolCatsBody)
+  && !/addToolCategory\(/.test(toolCatsBody));
+check('the category editor carries the full SEO block in the right order',
+  toolCatsBody.indexOf('label="Category Name"') < toolCatsBody.indexOf('label="Category Slug"')
+  && toolCatsBody.indexOf('label="Category Slug"') < toolCatsBody.indexOf('label="Content Above Tools')
+  && toolCatsBody.indexOf('label="Content Above Tools') < toolCatsBody.indexOf('label="Content Below Tools')
+  && toolCatsBody.indexOf('label="Content Below Tools') < toolCatsBody.indexOf('<SeoMetaEditor')
+  && toolCatsBody.indexOf('<SeoMetaEditor') < toolCatsBody.indexOf('label="Save Changes"')
+  && /<SeoMetaEditor[\s\S]{0,320}noindexControl="checkbox"/.test(toolCatsBody)
+  && /placeholder="Add detailed content, FAQs, and information here — appears after all tools and above the footer\.\.\."/.test(toolCatsBody)
+  && /fallbackTitle=\{auto\.title\}/.test(toolCatsBody)
+  && /fallbackDescription=\{auto\.description\}/.test(toolCatsBody));
+// The category copy editors live in the category row and nowhere else: the
+// Tools tab used to render a second RichTextEditor writing the same
+// CmsToolCategory.content field, which is what the "wrong place" report was
+// about. One draftKey, one call site, nothing category-content related in Tools.
+const toolsPaneBody = (() => {
+  const at = adminSrc.indexOf('const ToolsPane: React.FC');
+  const next = adminSrc.slice(at + 1).search(/\nconst [A-Z]/);
+  return next < 0 ? adminSrc.slice(at) : adminSrc.slice(at, at + 1 + next);
+})();
+check('the Tools pane has no category content editor of its own',
+  toolsPaneBody.length > 400
+  && !/toolcat-content|activeCat|Category page content|Edit content above tools/.test(toolsPaneBody)
+  && /const \{ state, setToolStatus, deleteTool \} = useCms\(\);/.test(toolsPaneBody)
+  && (adminSrc.match(/draftId\('toolcat-content'/g) || []).length === 1
+  && /draftId\('toolcat-content', cat\.key\)/.test(toolCatsBody)
+  && /saveToolCategory\(cat\.key, \{ content: html \}\)/.test(toolCatsBody));
+check('category meta saves to the shared seo map and blank values stay automatic',
+  /const key = `cat:\$\{cat\.key\}`;/.test(toolCatsBody)
+  && /if \(!entry\.title && !entry\.description && !entry\.slug && !entry\.noindex\) clearSeo\(key\);/.test(toolCatsBody)
+  && /else setSeo\(key, entry\);/.test(toolCatsBody)
+  && /const auto = categorySeoFallbacks\(state, \{ \.\.\.cat, name: draft\.name \|\| cat\.name \}/.test(toolCatsBody));
+check('the category page head honours the override and falls back to the generated copy',
+  /export const categorySeoFallbacks = \(cms: CmsState, cat: CmsToolCategory, brand: string\)/.test(seoSrc)
+  && /const seo = cms\.seo\[`cat:\$\{cat\.key\}`\];/.test(seoSrc)
+  && /title: \(seo\?\.title \|\| ''\)\.trim\(\) \|\| fallbacks\.title/.test(seoSrc)
+  && /const description = \(seo\?\.description \|\| ''\)\.trim\(\) \|\| fallbacks\.description;/.test(seoSrc)
+  && /noindex: seo\?\.noindex,/.test(seoSrc)
+  && /canonicalOverride: \(seo\?\.slug \|\| ''\)\.trim\(\) \|\| undefined,/.test(seoSrc));
 check('every category row shows its name, its URL, its tool count and its own Edit/Delete',
   /<section aria-label="Tool Categories"/.test(adminSrc)
   && /\{paths\.primary\}\{paths\.alias \? ` · \$\{paths\.alias\}` : ''\}/.test(adminSrc)

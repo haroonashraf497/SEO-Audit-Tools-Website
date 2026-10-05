@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useCms, injectHeadCode, renderCopyright, blogCategorySlug, toolCategorySlug, toolCategoriesOf, toolCategoryName, defaultCompetitor, UNCATEGORIZED, type CmsCompetitor, type CmsBlogCategory, type CmsPage, type CmsPost, type CmsTool, type CmsToolCategory, type FooterColumn, type FooterLink, type SeoEntry, type SidebarLinkSource, type SidebarWidget, type SidebarWidgetType, type Status } from './store';
 import { ToolIcon } from '../tools/data';
 import { RichTextEditor } from './RichTextEditor';
+import { categorySeoFallbacks } from '../utils/seo';
 import { clearDraft, draftId, formatDraftTime, listDrafts, clearAllDrafts } from './drafts';
 import { navigate } from '../router';
 import { estimateLocalStorageBytes, formatBytes, BROWSER_QUOTA_BYTES, optimizeImageFile, validateUpload } from './media';
@@ -39,7 +40,15 @@ const Field: React.FC<{ label: string; hint?: string; children: React.ReactNode 
     : <div className="block">{caption}<div className="block mt-1">{children}</div></div>;
 };
 const inputCls = 'w-full px-3 py-2.5 rounded-lg border border-slate-300 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 bg-white';
-const SeoMetaEditor: React.FC<{ value: SeoEntry; onChange: (entry: SeoEntry) => void; fallbackTitle: string; fallbackDescription: string; routeHint: string }> = ({ value, onChange, fallbackTitle, fallbackDescription, routeHint }) => {
+/**
+ * The shared meta editor every managed page uses (tools, posts, pages, the
+ * competitor page and the tool categories).
+ *
+ * `noindexControl` is opt-in and defaults to 'button', which is what all the
+ * existing panels render — the category pages ask for a checkbox, so only they
+ * pass it and nothing else changes shape.
+ */
+const SeoMetaEditor: React.FC<{ value: SeoEntry; onChange: (entry: SeoEntry) => void; fallbackTitle: string; fallbackDescription: string; routeHint: string; noindexControl?: 'button' | 'checkbox' }> = ({ value, onChange, fallbackTitle, fallbackDescription, routeHint, noindexControl = 'button' }) => {
   const entry = { title: value.title || fallbackTitle, description: value.description || fallbackDescription, slug: value.slug || '', noindex: value.noindex || false };
   const titleTone = entry.title.length >= 50 && entry.title.length <= 60 ? 'text-emerald-600' : entry.title.length ? 'text-amber-600' : 'text-red-600';
   const descriptionTone = entry.description.length >= 120 && entry.description.length <= 160 ? 'text-emerald-600' : entry.description.length ? 'text-amber-600' : 'text-red-600';
@@ -56,7 +65,14 @@ const SeoMetaEditor: React.FC<{ value: SeoEntry; onChange: (entry: SeoEntry) => 
         </div>
         <div className="grid md:grid-cols-[minmax(0,1fr)_auto] gap-4 items-end">
           <Field label="Canonical URL override" hint={`Default: ${routeHint}`}><input className={inputCls} value={entry.slug} onChange={e => onChange({ ...entry, slug: e.target.value })} placeholder="Leave blank to use the page URL" /></Field>
-          <button type="button" onClick={() => onChange({ ...entry, noindex: !entry.noindex })} className={`h-[42px] px-4 rounded-lg border text-sm font-semibold transition-colors ${entry.noindex ? 'bg-amber-50 text-amber-800 border-amber-200 hover:bg-amber-100' : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'}`}>{entry.noindex ? 'No-index enabled' : 'Make no-index'}</button>
+          {noindexControl === 'checkbox' ? (
+            <label className={`flex w-fit h-[42px] items-center gap-2.5 px-4 rounded-lg border text-sm font-semibold transition-colors cursor-pointer ${entry.noindex ? 'bg-amber-50 text-amber-800 border-amber-200 hover:bg-amber-100' : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'}`}>
+              <input type="checkbox" className="w-4 h-4 accent-purple-600" checked={entry.noindex} onChange={e => onChange({ ...entry, noindex: e.target.checked })} />
+              Noindex — exclude from search
+            </label>
+          ) : (
+            <button type="button" onClick={() => onChange({ ...entry, noindex: !entry.noindex })} className={`h-[42px] px-4 rounded-lg border text-sm font-semibold transition-colors ${entry.noindex ? 'bg-amber-50 text-amber-800 border-amber-200 hover:bg-amber-100' : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'}`}>{entry.noindex ? 'No-index enabled' : 'Make no-index'}</button>
+          )}
         </div>
         <div className="rounded-lg bg-slate-50 border border-slate-100 p-3">
           <div className="flex items-center justify-between gap-3"><p className="text-[11px] font-bold uppercase tracking-wide text-slate-400">Google preview</p><div className="flex gap-3 text-[11px] font-bold"><span className={titleTone}>{entry.title.length} title</span><span className={descriptionTone}>{entry.description.length} description</span></div></div>
@@ -324,13 +340,12 @@ const ToolEditor: React.FC<{ tool: CmsTool; onClose: () => void }> = ({ tool, on
 };
 
 const ToolsPane: React.FC = () => {
-  const { state, setToolStatus, deleteTool, saveToolCategory } = useCms();
+  const { state, setToolStatus, deleteTool } = useCms();
   const [q, setQ] = useState('');
   const [cat, setCat] = useState('all');
   const [edit, setEdit] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const filtered = useMemo(() => state.tools.filter(t => (cat === 'all' || t.category === cat) && (t.name.toLowerCase().includes(q.toLowerCase()) || t.slug.includes(q.toLowerCase()))), [state.tools, q, cat]);
-  const activeCat = state.toolCategories.find(c => c.key === cat);
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-center gap-3">
@@ -369,31 +384,6 @@ const ToolsPane: React.FC = () => {
         ))}
         {filtered.length === 0 && <p className="p-6 text-sm text-slate-500">No tools match.</p>}
       </div>
-      {activeCat ? (
-        <div className="bg-white rounded-2xl border border-slate-200 p-5 space-y-3">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <p className="font-bold text-slate-900">Category page content — {activeCat.name}</p>
-            <span className="text-xs text-slate-400">Saved automatically in this browser</span>
-          </div>
-          <p className="text-sm text-slate-600">
-            Written here, shown to visitors directly <b>below the tool cards</b> on the public{' '}
-            <span className="font-mono text-xs text-indigo-600">{activeCat.builtin ? `/${activeCat.slug}` : `/tools/category/${activeCat.slug}`}</span>{' '}
-            page. Headings, lists, links, colours and images are supported; leave empty to show nothing.
-          </p>
-          <RichTextEditor
-            value={activeCat.content || ''}
-            onChange={html => saveToolCategory(activeCat.key, { content: html })}
-            minHeight={240}
-            placeholder={`Write the ${activeCat.name} category page content…`}
-            draftKey={draftId('toolcat-content', activeCat.key)}
-            ariaLabel={`${activeCat.name} category page content`}
-          />
-        </div>
-      ) : (
-        <div className="bg-slate-50 rounded-2xl border border-slate-200 p-5 text-sm text-slate-600">
-          Pick a category in the filter above to write the content that appears below the tool grid on that category’s public page.
-        </div>
-      )}
       <p className="text-xs text-slate-400">Built-in tools have live engines; hiding one removes it from the directory, sidebar and homepage instantly.</p>
     </div>
   );
@@ -437,32 +427,52 @@ const categoryPaths = (cat: CmsToolCategory): { primary: string; alias: string }
  * dropdown in the tool editor lists exactly these categories, and the public
  * pages (mega menu, home cards, /free-seo-tools and the category pages) all
  * read from the same list, so an edit appears immediately.
+ *
+ * Each category is edited in place from its own row — there is deliberately no
+ * "add a category" form here. `addToolCategory` stays in the CMS store so a
+ * browser that already saved an extra category keeps loading it; it remains
+ * fully editable in the list below.
  */
 const ToolCategoriesPane: React.FC = () => {
-  const { state, addToolCategory, saveToolCategory, removeToolCategory } = useCms();
-  const [name, setName] = useState('');
-  const [slug, setSlug] = useState('');
-  const [description, setDescription] = useState('');
-  const [slugTouched, setSlugTouched] = useState(false);
+  const { state, saveToolCategory, removeToolCategory, setSeo, clearSeo } = useCms();
   const [editing, setEditing] = useState<string | null>(null);
-  const [draft, setDraft] = useState({ name: '', slug: '', description: '' });
+  const [draft, setDraft] = useState<{ name: string; slug: string; description: string; seo: SeoEntry }>({ name: '', slug: '', description: '', seo: { title: '', description: '' } });
+  /** Per-category autosave pulses for the "Content Below Tools" editor. */
+  const [contentTicks, setContentTicks] = useState<Record<string, number>>({});
+  const markContentSaved = (key: string) =>
+    setContentTicks(t => ({ ...t, [key]: (t[key] || 0) + 1 }));
 
   const toolCount = (key: string) => state.tools.filter(t => t.category === key).length;
-  const autoSlug = toolCategorySlug(name);
-  const effectiveSlug = slugTouched ? slug : autoSlug;
 
-  const create = () => {
-    const clean = name.trim();
-    if (!clean) return;
-    const key = addToolCategory({ name: clean, slug: effectiveSlug || autoSlug, description: description.trim() });
-    if (slugTouched && slug.trim()) saveToolCategory(key, { slug: slug.trim() });
-    setName('');
-    setSlug('');
-    setDescription('');
-    setSlugTouched(false);
+  const startEdit = (cat: CmsToolCategory) => {
+    setEditing(cat.key);
+    setDraft({
+      name: cat.name,
+      slug: cat.slug,
+      description: cat.description,
+      seo: state.seo[`cat:${cat.key}`] || { title: '', description: '' },
+    });
   };
 
-  const startEdit = (cat: CmsToolCategory) => { setEditing(cat.key); setDraft({ name: cat.name, slug: cat.slug, description: cat.description }); };
+  /**
+   * Persist the row: the category fields through saveToolCategory, the meta
+   * overrides through the shared per-page seo map. A title/description that
+   * still equals the automatically generated copy is stored as blank rather
+   * than as an override, so the live tool count in it keeps updating.
+   */
+  const saveCategoryRow = (cat: CmsToolCategory, auto: { title: string; description: string }) => {
+    saveToolCategory(cat.key, { name: draft.name, slug: draft.slug || toolCategorySlug(draft.name), description: draft.description });
+    const trim = (v?: string) => (v || '').trim();
+    const entry: SeoEntry = {
+      title: trim(draft.seo.title) && trim(draft.seo.title) !== trim(auto.title) ? trim(draft.seo.title) : '',
+      description: trim(draft.seo.description) && trim(draft.seo.description) !== trim(auto.description) ? trim(draft.seo.description) : '',
+      slug: trim(draft.seo.slug),
+      noindex: !!draft.seo.noindex,
+    };
+    const key = `cat:${cat.key}`;
+    if (!entry.title && !entry.description && !entry.slug && !entry.noindex) clearSeo(key);
+    else setSeo(key, entry);
+  };
 
   /** Where the tools of a deleted category move: the nearest one left. */
   const removalTarget = (key: string): string => {
@@ -482,28 +492,18 @@ const ToolCategoriesPane: React.FC = () => {
       <section aria-label="Tool Categories" className="bg-white rounded-2xl border border-slate-200 p-5 space-y-4">
         <div className="flex flex-wrap items-center gap-3">
           <h2 className="font-bold text-slate-900">Tool Categories</h2>
-          <span className="text-xs text-slate-500">Add, edit or delete a category — its name, slug and description drive every page that lists it.</span>
+          <span className="text-xs text-slate-500">Edit or delete a category — its name, slug and description drive every page that lists it.</span>
         </div>
-
-        <div className="grid lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-3">
-          <Field label="Category Name"><input className={inputCls} value={name} onChange={e => setName(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); create(); } }} placeholder="Local SEO Tools" aria-label="Category Name" /></Field>
-          <Field label="Category Slug" hint={name.trim() ? `/tools/category/${effectiveSlug}` : 'Auto-generates from the name — edit it to change the URL.'}>
-            <input className={inputCls} value={effectiveSlug} onChange={e => { setSlugTouched(true); setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '-')); }} placeholder="local-seo-tools" aria-label="Category Slug" />
-          </Field>
-        </div>
-        <Field label="Category Description" hint={`${description.trim().length} characters — shown under the heading on /free-seo-tools and on the category page, and used as its meta description.`}>
-          <textarea rows={3} className={inputCls} value={description} onChange={e => setDescription(e.target.value)} placeholder="What this group of tools helps visitors do…" aria-label="Category Description" />
-        </Field>
-        <div className="flex flex-wrap items-center gap-3">
-          <SaveButton label="Add category" onSave={create} />
-          <span className="text-xs text-slate-400">Built-in categories keep their original page (e.g. /ip-tools) and also answer on /tools/category/&lt;slug&gt;.</span>
-        </div>
+        <p className="text-xs text-slate-400">Built-in categories keep their original page (e.g. /ip-tools) and also answer on /tools/category/&lt;slug&gt;.</p>
 
       <div className="rounded-xl border border-slate-200 overflow-hidden">
         {state.toolCategories.length === 0 && <p className="px-4 py-4 text-sm text-slate-500">No categories yet — add the first one above.</p>}
         {state.toolCategories.map(cat => {
           const paths = categoryPaths(cat);
           const count = toolCount(cat.key);
+          // Named after the draft so renaming a category does not freeze the
+          // automatic title (it embeds the live tool count) at the old name.
+          const auto = categorySeoFallbacks(state, { ...cat, name: draft.name || cat.name }, state.settings.name || 'SEO Audit Tools');
           return (
             <React.Fragment key={cat.id}>
               <Row actions={
@@ -536,12 +536,49 @@ const ToolCategoriesPane: React.FC = () => {
                       <input className={inputCls} value={draft.slug} onChange={e => setDraft({ ...draft, slug: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '-') })} aria-label="Edit category slug" />
                     </Field>
                   </div>
-                  <Field label="Category Description" hint={`${draft.description.trim().length} characters`}>
-                    <textarea rows={3} className={inputCls} value={draft.description} onChange={e => setDraft({ ...draft, description: e.target.value })} aria-label="Edit category description" />
+                  <Field label="Content Above Tools — appears after the heading, before the tools grid" hint={`${draft.description.trim().length} characters · the paragraph shown under the heading on this category's page and on /free-seo-tools. It is the default meta description for categories you add here; the eleven built-ins keep their own generated one until you set one below.`}>
+                    <textarea rows={3} className={inputCls} value={draft.description} onChange={e => setDraft({ ...draft, description: e.target.value })} aria-label="Edit content above tools" />
                   </Field>
+                  {/* Content Below Tools — written here, shown on the public category
+                      page after the last tool card and before the footer. It saves on
+                      every change (no button), unlike the fields around it, which go
+                      through "Save Changes". This panel is the only place that
+                      writes CmsToolCategory.content — the Tools tab deliberately
+                      has no copy of it. */}
+                  <Field
+                    label="Content Below Tools — Before Footer"
+                    hint={`Shown on ${paths.primary}${paths.alias ? ` and ${paths.alias}` : ''} after the ${count} tool${count === 1 ? '' : 's'}. Headings, paragraphs, lists, links, bold, italic and images are supported — leave it empty and the section is hidden on the page.`}
+                  >
+                    <RichTextEditor
+                      value={cat.content || ''}
+                      onChange={html => { saveToolCategory(cat.key, { content: html }); markContentSaved(cat.key); }}
+                      minHeight={240}
+                      placeholder="Add detailed content, FAQs, and information here — appears after all tools and above the footer..."
+                      draftKey={draftId('toolcat-content', cat.key)}
+                      ariaLabel={`${cat.name} content below tools`}
+                    />
+                    <div className="mt-1.5 flex flex-wrap items-center gap-2">
+                      <AutosaveBadge tick={contentTicks[cat.key] || 0} />
+                      <span className="text-xs text-slate-400">Nothing to press — this box saves as you type; the other fields need “Save Changes”.</span>
+                    </div>
+                  </Field>
+                  {/* SEO & Meta Information — the same shared editor the tools,
+                      posts, pages and the competitor page use: title, meta
+                      description, canonical override, no-index toggle and a live
+                      Google preview. Saved into the per-page seo map as
+                      `cat:<key>`, which src/utils/seo.ts applies to the category
+                      page on every navigation. */}
+                  <SeoMetaEditor
+                    value={draft.seo}
+                    onChange={next => setDraft({ ...draft, seo: next })}
+                    fallbackTitle={auto.title}
+                    fallbackDescription={auto.description}
+                    routeHint={paths.primary}
+                    noindexControl="checkbox"
+                  />
                   <div className="flex flex-wrap items-center gap-2">
                     {/* The row stays open so the "Saved ✓" confirmation is visible. */}
-                    <SaveButton label="Save Changes" onSave={() => saveToolCategory(cat.key, { name: draft.name, slug: draft.slug || toolCategorySlug(draft.name), description: draft.description })} />
+                    <SaveButton label="Save Changes" onSave={() => saveCategoryRow(cat, auto)} />
                     <Btn tone="ghost" onClick={() => setEditing(null)}>Close</Btn>
                     <span className="text-xs text-slate-400">Tools keep pointing at this category when its name changes.</span>
                   </div>
@@ -991,6 +1028,26 @@ const SaveButton: React.FC<{ onSave: () => void; label?: string; className?: str
       <span role="status" aria-live="polite">{saved ? 'Saved ✓' : label}</span>
     </button>
   );
+};
+
+/**
+ * Status line for an editor that writes straight to the CMS on every change
+ * (no button to press). `tick` is bumped by the editor on each save, so the
+ * line reads "Saved ✓" for 2.5 seconds after a keystroke and falls back to
+ * the quiet "Saves automatically" note the rest of the time — the same
+ * confirmation wording as SaveButton.
+ */
+const AutosaveBadge: React.FC<{ tick: number }> = ({ tick }) => {
+  const [saved, setSaved] = useState(false);
+  useEffect(() => {
+    if (!tick) return;
+    setSaved(true);
+    const id = window.setTimeout(() => setSaved(false), 2500);
+    return () => window.clearTimeout(id);
+  }, [tick]);
+  return saved
+    ? <span role="status" aria-live="polite" className="text-xs font-bold text-emerald-600">Saved ✓</span>
+    : <span className="text-xs text-slate-400">Saves automatically</span>;
 };
 
 /** Shared row editor for the header nav and the footer menu: label, URL,
