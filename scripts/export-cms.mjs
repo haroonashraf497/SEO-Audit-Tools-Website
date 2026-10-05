@@ -26,7 +26,7 @@
  *   3. boot a third time with the finished file preloaded and load `/about`,
  *      proving the JSON we just wrote really imports and renders.
  */
-import { readFileSync, writeFileSync } from 'node:fs';
+import { copyFileSync, existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
@@ -99,9 +99,25 @@ const resolved = await boot(`localStorage.setItem(${JSON.stringify(KEY)}, ${JSON
     return state;
   });
 
+/**
+ * The store hands every seeded row a `uid()` — `Math.random().toString(36)` —
+ * so a snapshot written twice from the same build differs in 47 ids and shows
+ * up as a 90-line diff. Replace them with the row's position, which is fixed by
+ * the defaults, so regenerating this file is a no-op unless content changed.
+ * Nothing parses an id: they are React keys.
+ */
+const stabiliseIds = (node, at) => {
+  if (Array.isArray(node)) return node.forEach((value, i) => stabiliseIds(value, `${at}[${i}]`));
+  if (node && typeof node === 'object') {
+    if (typeof node.id === 'string' && /^[a-z0-9]{7}$/.test(node.id)) node.id = at;
+    for (const key of Object.keys(node)) if (key !== 'id') stabiliseIds(node[key], at ? `${at}.${key}` : key);
+  }
+  return node;
+};
+
 // Mirror exportJson() in src/cms/Admin.tsx: page bodies ship as `content`, the
 // legacy `blocks` array is dropped.
-const snapshot = { ...resolved, pages: (resolved.pages || []).map(({ blocks: _blocks, ...rest }) => rest) };
+const snapshot = stabiliseIds({ ...resolved, pages: (resolved.pages || []).map(({ blocks: _blocks, ...rest }) => rest) }, '');
 
 const blank = snapshot.pages.filter(p => !(p.content || '').trim()).map(p => p.slug);
 if (blank.length) throw new Error(`refusing to write blank page bodies: ${blank.join(', ')}`);
@@ -125,6 +141,15 @@ const roundTrip = await boot(`localStorage.setItem(${JSON.stringify(KEY)}, ${JSO
     throw new Error(`the written file does not import cleanly — errors: ${errors.join(' | ') || 'none'}; `
       + `/about body (${body.length} chars): ${body.replace(/\s+/g, ' ').slice(0, 300)}`);
   }
+}
+
+// `public/` only reaches `dist/` at build time, so if dist/ already exists put
+// the fresh snapshot in it too — otherwise `npm run build && npm run cms:export
+// && npm run pack` would pack a deploy missing this file.
+const distCopy = path.join(distFile, '..', 'cms-content.json');
+if (existsSync(path.dirname(distCopy))) {
+  copyFileSync(outFile, distCopy);
+  console.log('  copied into dist/ (already built)');
 }
 
 const kb = (readFileSync(outFile).length / 1024).toFixed(1);

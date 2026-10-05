@@ -137,6 +137,10 @@ the built document with an empty `localStorage`, then boots it again with that s
 third time from the finished file to prove it imports and renders `/about`. A snapshot taken before
 that second pass would carry six pages with an empty `content` and import as blank pages.
 
+The 47 generated row ids are rewritten to their position in the state (`blogCategories[0]`, `nav[2]`,
+…) — the store hands each one a `Math.random()` id, which would otherwise make every regeneration a
+90-line diff of nothing but ids. Regenerating from an unchanged build is byte-identical.
+
 ## Header verification & ads
 
 **Admin → Settings → Header Verification & Ads** takes raw HTML — Google Search Console or Bing

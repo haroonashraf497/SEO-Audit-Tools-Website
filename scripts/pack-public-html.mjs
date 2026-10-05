@@ -28,6 +28,20 @@ if (!existsSync(path.join(dist, 'index.html'))) {
   process.exit(1);
 }
 
+/* ---- 0. refuse to pack a dist/ that is missing something from public/ ---- */
+
+const publicDir = path.join(root, 'public');
+const missingFromDist = readdirSync(publicDir, { withFileTypes: true })
+  .filter(e => e.isFile())
+  .map(e => e.name)
+  .filter(name => !existsSync(path.join(dist, name)));
+if (missingFromDist.length) {
+  console.error(`dist/ is missing ${missingFromDist.map(n => `public/${n}`).join(', ')}`);
+  console.error('these are copied in at build time — run `npm run build` (or `npm run cms:export`, which');
+  console.error('also refreshes dist/) before packing, or the deploy will be incomplete.');
+  process.exit(1);
+}
+
 /* ---- 1. public_html/ becomes an exact copy of dist/ ---- */
 
 /** Every file under `dir`, relative and slash-separated, including dotfiles. */
