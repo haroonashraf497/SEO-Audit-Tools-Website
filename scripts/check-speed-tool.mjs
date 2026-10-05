@@ -6,21 +6,25 @@
  * public_html/index.html is what gets deployed) and the header line prints its
  * sha256 prefix, so there is no arguing about which build was tested.
  *
- * Two scenarios are run against the same bundle, because the tool has two ways
+ * Three scenarios run against the same bundle, because the tool has three ways
  * to answer and each one used to break on its own:
  *
- *   RELAYS OK       direct request -> CORS rejection, the allorigins relay ->
- *                   HTML after 260 ms, the markdown reader -> 4000 ms, every
- *                   other relay -> 9000 ms of nothing. The tool must answer as
- *                   soon as the relay lands (~0.3 s) instead of waiting for the
- *                   slowest probe, and it must render: the badge used to return
- *                   <Src/> from inside <Src/>, which killed the results panel on
- *                   every successful fetch.
+ *   RELAYS OK     direct request -> CORS rejection, the allorigins relay ->
+ *                 HTML after 260 ms, the markdown reader -> 4000 ms, every other
+ *                 relay -> 9 s of nothing. The tool must answer as soon as the
+ *                 relay lands (~0.3 s) instead of waiting for the slowest probe,
+ *                 and it must render: the badge used to return <Src/> from
+ *                 inside <Src/>, which killed the results panel on every
+ *                 successful fetch.
  *
- *   RELAYS BLOCKED  every proxy and the reader refuse the page, while a plain
- *                   no-cors request from the visitor's browser succeeds at 380
- *                   ms. A site that blocks fetchers is still a site you can
- *                   time, so this must produce a grade, not an error.
+ *   RELAYS HANG   nothing refuses, everything goes quiet. The visitor's own
+ *                 no-cors request still succeeds in 380 ms, so after 8 s of
+ *                 relay silence the tool must show that measurement instead of
+ *                 spinning until its 16 s budget, and it must keep a Stop.
+ *
+ *   RELAYS REFUSE every proxy and the reader error out at 900 ms. A site that
+ *                 blocks fetchers is still a site you can time, so this must
+ *                 produce a grade, not an error.
  *
  * Needs jsdom, which is not a dependency of the site: npm i --no-save jsdom
  */
@@ -50,8 +54,18 @@ const READER_MD = 'Title: Test page about page speed\nURL Source: https://exampl
  * `</script>` inside a string also closes the injected element, hence esc().
  */
 const esc = v => JSON.stringify(v).replace(/<\//g, '<\\/');
-const stubFor = blocked => `(() => {
-  const delay = (ms, make) => new Promise((res, rej) => setTimeout(() => (make ? res(make()) : rej(new TypeError('Failed to fetch'))), ms));
+const BODY = {
+  ok: `if (url.indexOf('https://example.com/') === 0) return Promise.reject(new TypeError('CORS blocked'));
+    if (url.indexOf('r.jina.ai') > -1) return t(4000, () => ({ ok: true, text: () => Promise.resolve(MD) }));
+    if (url.indexOf('allorigins') > -1) return t(260, () => ({ ok: true, text: () => Promise.resolve(HTML) }));
+    return t(9000, () => ({ ok: false, text: () => Promise.resolve('') }));`,
+  hang: `if (url.indexOf('https://example.com/') === 0) return Promise.reject(new TypeError('CORS blocked'));
+    return NEVER;`,
+  refuse: `return t(900, null);`,
+};
+const stubFor = scenario => `(() => {
+  const t = (ms, make) => new Promise((res, rej) => setTimeout(() => (make ? res(make()) : rej(new TypeError('Failed to fetch'))), ms));
+  const NEVER = new Promise(() => {});
   const HTML = ${esc(PAGE_HTML)};
   const MD = ${esc(READER_MD)};
   const OPAQUE = () => ({ ok: false, status: 0, type: 'opaque', text: () => Promise.resolve(''), json: () => Promise.reject(new TypeError('opaque')) });
@@ -60,14 +74,10 @@ const stubFor = blocked => `(() => {
     const url = String(u);
     const mode = (init && init.mode) || 'cors';
     window.__fetches.push(mode + ' ' + url);
-    // The visitor's own browser can always *reach* the document; it just cannot
-    // read an opaque response. That is what the no-proxy fallback measures.
-    if (mode === 'no-cors') return delay(380, OPAQUE);
-    if (${blocked}) return delay(900, null);
-    if (url.indexOf('https://example.com/') === 0) return Promise.reject(new TypeError('CORS blocked'));
-    if (url.indexOf('r.jina.ai') > -1) return delay(4000, () => ({ ok: true, text: () => Promise.resolve(MD) }));
-    if (url.indexOf('allorigins') > -1) return delay(260, () => ({ ok: true, text: () => Promise.resolve(HTML) }));
-    return delay(9000, () => ({ ok: false, text: () => Promise.resolve('') }));
+    // A visitor's own browser can always *reach* the document; it just cannot
+    // read an opaque response. That is what the proxy-free fallback measures.
+    if (mode === 'no-cors') return t(380, OPAQUE);
+    ${BODY[scenario]}
   };
 })();`;
 
@@ -82,11 +92,11 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
 let pass = 0, fail = 0;
 const ok = (n, c, e = '') => { c ? (pass++, console.log(`  PASS  ${n}`)) : (fail++, console.log(`  FAIL  ${n}${e ? ` — ${String(e).slice(0, 200)}` : ''}`)); };
 
-/** Boots the app at the speed-checker route, runs one check, returns what showed. */
-async function runCheck(blocked) {
+/** Boots the app at the speed-checker route, runs one check, reports what showed. */
+async function runCheck(scenario, ceilingMs = 12000) {
   let html = raw.replace(mod[0], '');
   const head = html.indexOf('<head>') + 6;
-  html = html.slice(0, head) + `<script>${stubFor(blocked)}</script>` + html.slice(head);
+  html = html.slice(0, head) + `<script>${stubFor(scenario)}</script>` + html.slice(head);
   const bodyEnd = html.lastIndexOf('</body>');
   html = html.slice(0, bodyEnd) + `<script>${mod[1]}</script>` + html.slice(bodyEnd);
 
@@ -98,61 +108,80 @@ async function runCheck(blocked) {
   await wait(1600);                                    // the app hydrates, then mounts the tool
 
   const main = dom.window.document.getElementById('main-content') || dom.window.document.querySelector('main');
+  const mounted = /Website Page Speed Checker/i.test(main.textContent || '');
   const input = [...main.querySelectorAll('input')][0];
   const button = [...main.querySelectorAll('button')].find(b => /Check Speed/.test(b.textContent || ''));
   if (!input || !button) {
     dom.window.close();
-    return { text: '', ms: -1, errors, fetches: [], mounted: false };
+    return { mounted: false, text: '', ms: -1, busyText: '', stopAt: null, stopAfter: null, errors, fetches: [], controls: 0 };
   }
   const setValue = Object.getOwnPropertyDescriptor(dom.window.HTMLInputElement.prototype, 'value').set;
   setValue.call(input, 'https://example.com/');
   input.dispatchEvent(new dom.window.Event('input', { bubbles: true }));
   await wait(100);
+  const read = () => (main.textContent || '').replace(/\s+/g, ' ');
+  const has = re => [...main.querySelectorAll('button')].some(b => re.test(b.textContent || ''));
   const t0 = Date.now();
   button.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true, cancelable: true }));
-  let text = '';
-  while (Date.now() - t0 < 12000) {
+  await wait(100);
+  const busyText = read();                             // spinner state, before any answer
+  const stopAt = has(/Stop/);
+  let text = busyText, ms = -1;
+  while (Date.now() - t0 < ceilingMs) {
     await wait(100);
-    text = (main.textContent || '').replace(/\s+/g, ' ');
-    if (/Speed grade|could not be reached|Neither the relays/.test(text)) break;
+    text = read();
+    if (/Speed grade|Neither the relays/.test(text)) { ms = Date.now() - t0; break; }
   }
-  const ms = Date.now() - t0;
-  // The direct figure lands a beat after the relay one on purpose (it is a
-  // second, independent probe), so give it room before asserting on it.
-  await wait(700);
-  text = (main.textContent || '').replace(/\s+/g, ' ');
+  if (ms < 0) ms = Date.now() - t0;
+  const stopAfter = has(/Stop/);
+  const controls = main.querySelectorAll('button').length;
+  await wait(700);                                     // let the second probe settle
+  const settledText = read();
   const fetches = JSON.parse(dom.window.eval('JSON.stringify(window.__fetches)') || '[]');
   dom.window.close();
-  return { text, ms, errors, fetches, mounted: /Website Page Speed Checker/i.test(text) || true };
+  return { mounted, text: settledText, earlyText: text, ms, busyText, stopAt, stopAfter, errors, fetches, controls };
 }
 
-// ---------- scenario 1: a relay delivers the HTML, and must not be waited out --
+// ---------- RELAYS OK: the first usable answer wins, and it renders ----------
 {
-  const { text, ms, errors, fetches, mounted } = await runCheck(false);
-  ok('the speed checker page mounted and the Check Speed control is present', mounted && /Check Speed|Speed grade/.test(text));
-  ok(`results rendered in ${ms} ms — the relay answered at 260 ms and the reader at 4000 ms, so this must be well under 1000`, ms > 0 && ms < 1500);
+  const r = await runCheck('ok');
+  ok('the speed checker page mounted and the Check Speed control is present', r.mounted && r.controls > 0);
+  ok(`results rendered in ${r.ms} ms — the relay answered at 260 ms and the reader at 4000 ms, so this must be well under 1000`, r.ms > 0 && r.ms < 1500);
+  ok('while it waits it says what it is doing and can be stopped', /Contacting the page|\(\d s\)|\(\ds\)/.test(r.busyText) && r.stopAt === true, r.busyText.slice(0, 200));
+  const win = (() => { const i = r.text.indexOf('Est. HTML on 4G'); return i < 0 ? r.text.slice(0, 220) : r.text.slice(i, i + 260); })();
   ok('the grade, latency, size and 3G figures are all computed from the fetched HTML',
-    /Speed grade ?[A-D]/.test(text) && /Server response \(HTML\) ?\d+ ms/.test(text)
-    && /HTML size ?[\d.]+ KB/.test(text) && /Est\. HTML on 3G ?[\d.]+s/.test(text), text.slice(0, 220));
-  ok('recommendations are listed', /Recommendations \([1-9]\d*\)/.test(text));
-  ok('the source badge renders the live pill instead of recursing', /Live page data · ?\d+ ms/.test(text));
-  const win = (() => { const i = text.indexOf('Est. HTML on 4G'); return i < 0 ? text.slice(0, 220) : text.slice(i, i + 260); })();
-  ok('the proxy-free browser timing is shown next to the relay figure', /Your browser \(direct\) ?\d+ ms/.test(text), win);
-  ok('the page is still intact after the results (no render error)', errors.length === 0, errors[0]);
-  ok(`the relays and the reader were probed together (${fetches.length} requests)`,
-    fetches.some(u => u.includes('allorigins')) && fetches.some(u => u.includes('r.jina.ai')));
+    /Speed grade ?[A-D]/.test(r.text) && /Server response \(HTML\) ?\d+ ms/.test(r.text)
+    && /HTML size ?[\d.]+ KB/.test(r.text) && /Est\. HTML on 3G ?[\d.]+s/.test(r.text), r.text.slice(0, 220));
+  ok('recommendations are listed', /Recommendations \([1-9]\d*\)/.test(r.text));
+  ok('the source badge renders the live pill instead of recursing', /Live page data · ?\d+ ms/.test(r.text));
+  ok('the proxy-free browser timing is shown next to the relay figure', /Your browser \(direct\) ?\d+ ms/.test(r.text), win);
+  ok('the page is still intact after the results (no render error)', r.errors.length === 0, r.errors[0]);
+  ok(`the relays and the reader were probed together (${r.fetches.length} requests)`,
+    r.fetches.some(u => u.includes('allorigins')) && r.fetches.some(u => u.includes('r.jina.ai')));
 }
 
-// ---------- scenario 2: every relay refuses the page, the site itself answers --
+// ---------- RELAYS HANG: show the measured number, keep the controls, no error ----------
 {
-  const { text, ms, errors } = await runCheck(true);
-  ok(`every relay refusing the page still produces a result in ${ms} ms, not an error`, ms > 0 && ms < 4000 && /Speed grade ?[A-D]/.test(text), text.slice(0, 220));
-  const trip = Number((text.match(/(\d+) ms round trip/) || [])[1] || -1);
-  ok(`the grade is the visitor's own round trip (${trip} ms, timed, not the ${'6000'} ms cap)`,
-    trip > 250 && trip < 1200 && new RegExp(`Your browser → server ?${trip} ms`).test(text), text.slice(0, 300));
-  ok('it says which part is missing instead of inventing it', /Page source ?unreachable/.test(text) && !/Server response \(HTML\)/.test(text));
-  ok('no failure box is shown when the page did answer', !/could not be fetched|No relay or text reader|Neither the relays|replied with nothing usable/.test(text), text.slice(0, 220));
-  ok('the relay-only run leaves the page intact', errors.length === 0, errors[0]);
+  const r = await runCheck('hang', 11000);
+  ok(`relay silence is cut short at ${r.ms} ms with a result instead of the 16 s budget`, r.ms > 0 && r.ms < 10500 && /Speed grade ?[A-D]/.test(r.earlyText), r.earlyText.slice(0, 220));
+  ok('the grade is the visitor’s own round trip, timed not capped', /\d+ ms round trip/.test(r.earlyText) && /Your browser → server ?\d+ ms/.test(r.earlyText), r.earlyText.slice(0, 300));
+  ok('it says the relays are still being tried', /relays are still being tried/i.test(r.earlyText) && /Still listening for the relays… \(\d+s\)/.test(r.earlyText), r.earlyText.slice(0, 300));
+  ok('Stop stays available while the relays are still running', r.stopAfter === true);
+  ok('a hung relay field never turns into a failure box', !/Neither the relays|could not be fetched|No relay or text reader/.test(r.text), r.text.slice(0, 200));
+  ok('the browser probe ran alongside the relays, not after them', r.fetches.some(u => u.startsWith('no-cors ')) && r.fetches.some(u => u.includes('r.jina.ai')) && r.fetches.some(u => u.includes('allorigins')));
+}
+
+// ---------- RELAYS REFUSE: grade anyway, and name what is missing ----------
+{
+  const r = await runCheck('refuse', 9000);
+  ok(`every relay refusing the page still produces a result in ${r.ms} ms, not an error`, r.ms > 0 && r.ms < 4000 && /Speed grade ?[A-D]/.test(r.text), r.text.slice(0, 220));
+  const trip = Number((r.text.match(/(\d+) ms round trip/) || [])[1] || -1);
+  ok(`the grade is the visitor's own round trip (${trip} ms, timed, not capped)`,
+    trip > 250 && trip < 1200 && new RegExp(`Your browser → server ?${trip} ms`).test(r.text), r.text.slice(0, 300));
+  ok('it says which part is missing instead of inventing it', /Page source ?unreachable/.test(r.text) && !/Server response \(HTML\)/.test(r.text));
+  ok('no failure box is shown when the page did answer', !/could not be fetched|No relay or text reader|Neither the relays|replied with nothing usable/.test(r.text), r.text.slice(0, 220));
+  ok('the hung-relay note is gone once the relays have actually refused', !/relays are still being tried/i.test(r.text));
+  ok('the refused-relay run leaves the page intact', r.errors.length === 0, r.errors[0]);
 }
 
 console.log(`\n=====  ${pass} passed, ${fail} failed  =====`);

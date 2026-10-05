@@ -952,12 +952,17 @@ check('a stalled probe reads as a timeout, a refusal as a block',
   /outcome\.timedOut \? 'timeout' : 'blocked'/.test(webTools)
   // One branch now serves both: the blocked path may still be answered by the
   // proxy-free measurement before it falls back to the failure note.
-  && /\{f\.failed && \(/.test(webTools) && /f\.failed === 'timeout'/.test(webTools));
+  && /const showDirect = typeof directMs === 'number'/.test(webTools) && /f\.failed === 'timeout'/.test(webTools));
 check("a proxy-blocked page is still timed from the visitor's own browser",
   /mode: 'no-cors'/.test(webTools)
   && /const browserTiming = async/.test(webTools)
   && /void browserTiming\(direct\)/.test(webTools)
-  && /void f\.run\(\);/.test(webTools));
+  && /void f\.run\(\);/.test(webTools)
+  // ...and a host that hangs every relay must not hold the spinner for the whole
+  // budget: the direct figure is shown early, then replaced if a relay answers.
+  && /const early = typeof directMs === 'number' && f\.busy && f\.elapsed >= DIRECT_FIRST_AFTER_S;/.test(webTools)
+  && /const settled = !f\.busy && !f\.data && !f\.failed;/.test(webTools)
+  && /\{f\.busy && !early && <Spinner/.test(webTools));
 check('all ten URL tools keep using the one shared hook',
   (webTools.match(/const f = useFetch\(\);/g) || []).length === 10
   && (webTools.match(/<Src d=\{d\} \/>/g) || []).length >= 6,

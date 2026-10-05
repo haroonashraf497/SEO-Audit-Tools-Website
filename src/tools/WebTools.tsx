@@ -613,6 +613,41 @@ export const MobileTestTool: React.FC = () => {
   );
 };
 
+/**
+ * The result a visitor gets when every relay refused the page but their own
+ * browser reached it. Deliberately narrow: one number we actually measured, the
+ * figures we could not get named as missing, and no invented markup analysis.
+ */
+const BrowserTimingCard: React.FC<{ ms: number; hostName: string; note?: string }> = ({ ms, hostName, note }) => {
+  const g = ms < 600 ? 'A' : ms < 1200 ? 'B' : ms < 2500 ? 'C' : 'D';
+  return (
+    <>
+      <div className="grid md:grid-cols-[200px_1fr] gap-5">
+        <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm text-center">
+          <p className="text-xs text-slate-500 uppercase font-semibold">Speed grade</p>
+          <p className={`text-7xl font-extrabold ${g === 'A' ? 'text-emerald-500' : g === 'B' ? 'text-lime-500' : g === 'C' ? 'text-amber-500' : 'text-red-500'}`}>{g}</p>
+          <p className="text-sm text-slate-600">{ms} ms round trip</p>
+        </div>
+        <div className="grid grid-cols-2 gap-3 content-start">
+          <Stat label="Your browser → server" value={`${ms} ms`} tone={ms < 800 ? 'good' : ms < 2000 ? 'warn' : 'bad'} />
+          <Stat label="Page source" value="unreachable" tone="bad" />
+        </div>
+      </div>
+      <Card title="Measured without a proxy">
+        <p className="text-sm text-slate-700">{hostName} answered a direct request from your browser in {ms} ms, so the host is up and responding. Every public relay the tool uses to read HTML refused that page, which is why the markup-level figures (HTML size, script and stylesheet counts) are missing from this run.</p>
+        {note && <p className="text-sm text-indigo-600 mt-3">{note}</p>}
+        <p className="text-xs text-slate-400 mt-3">This grade is timed on your own connection, so it includes your network rather than a data centre's, and it covers the request for the document only. Relays fail often enough to be worth retrying — try again in a moment, or from another network.</p>
+      </Card>
+    </>
+  );
+};
+
+/** How long to keep waiting on the relays once the page has already answered a
+ *  direct request. Past this point the visitor sees what we know rather than a
+ *  spinner: the direct figure is real, and a relay that lands later still takes
+ *  over the panel. */
+const DIRECT_FIRST_AFTER_S = 8;
+
 // ---------- 8. Page Speed Checker ----------
 export const PageSpeedTool: React.FC = () => {
   const f = useFetch();
@@ -636,40 +671,39 @@ export const PageSpeedTool: React.FC = () => {
     }
     void f.run();
   };
-  const stop = () => { seq.current += 1; setProbing(false); setTiming(null); f.cancel(); };
+  const stop = () => { seq.current += 1; setProbing(false); f.cancel(); };
+  const directMs = timing?.reachable ? timing.ms : null;
+  // A host that hangs every relay (rather than refusing it) used to hold the
+  // spinner for the full 16 s budget and then report an error, even though the
+  // browser had the answer in a few hundred ms. After DIRECT_FIRST_AFTER_S
+  // seconds of relay silence the visitor is shown what was actually measured;
+  // if a relay answers later, its richer result simply replaces this one.
+  // `settled` keeps that result on screen after Stop instead of emptying the
+  // panel, because "stop waiting" is not "throw the number away".
+  const early = typeof directMs === 'number' && f.busy && f.elapsed >= DIRECT_FIRST_AFTER_S;
+  const settled = !f.busy && !f.data && !f.failed;
+  const showDirect = typeof directMs === 'number' && !f.data && (f.failed !== null || early || settled);
   return (
     <div className="space-y-5">
       <UrlBar value={f.url} onChange={f.setUrl} onRun={run} busy={f.busy} label="Check Speed" />
-      {f.busy && <Spinner label={`${f.stage || 'Timing the page download…'} (${f.elapsed}s)`} onCancel={stop} />}
-      {f.failed && (probing ? (
-        <Spinner label="Every relay refused the page — measuring it from your browser instead…" />
-      ) : timing?.reachable ? (
-        (() => {
-          const ms = timing.ms;
-          const g = ms < 600 ? 'A' : ms < 1200 ? 'B' : ms < 2500 ? 'C' : 'D';
-          return (
-            <>
-              <div className="grid md:grid-cols-[200px_1fr] gap-5">
-                <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm text-center">
-                  <p className="text-xs text-slate-500 uppercase font-semibold">Speed grade</p>
-                  <p className={`text-7xl font-extrabold ${g === 'A' ? 'text-emerald-500' : g === 'B' ? 'text-lime-500' : g === 'C' ? 'text-amber-500' : 'text-red-500'}`}>{g}</p>
-                  <p className="text-sm text-slate-600">{ms} ms round trip</p>
-                </div>
-                <div className="grid grid-cols-2 gap-3 content-start">
-                  <Stat label="Your browser → server" value={`${ms} ms`} tone={ms < 800 ? 'good' : ms < 2000 ? 'warn' : 'bad'} />
-                  <Stat label="Page source" value="unreachable" tone="bad" />
-                </div>
-              </div>
-              <Card title="Measured without a proxy">
-                <p className="text-sm text-slate-700">{host(f.url.trim())} answered a direct request from your browser in {ms} ms, so the host is up and responding. Every public relay the tool uses to read HTML refused that page, which is why the markup-level figures (HTML size, script and stylesheet counts) are missing from this run.</p>
-                <p className="text-xs text-slate-400 mt-3">This grade is timed on your own connection, so it includes your network rather than a data centre's, and it covers the request for the document only. Relays fail often enough to be worth retrying — try again in a moment, or from another network.</p>
-              </Card>
-            </>
-          );
-        })()
-      ) : (
+      {f.busy && !early && <Spinner label={`${f.stage || 'Timing the page download…'} (${f.elapsed}s)`} onCancel={stop} />}
+      {f.failed !== null && probing && <Spinner label="Every relay refused the page — measuring it from your browser instead…" />}
+      {showDirect && typeof directMs === 'number' && (
+        <BrowserTimingCard
+          ms={directMs}
+          hostName={host(f.url.trim())}
+          note={early ? 'The relays are still being tried; the HTML-level figures appear the moment one of them answers, without needing a new search.' : undefined}
+        />
+      )}
+      {!showDirect && f.failed !== null && !probing && (
         <Fail msg={`Neither the relays nor your own browser could reach ${host(f.url.trim()) || 'that page'}${f.failed === 'timeout' ? ` within ${Math.round(16000 / 1000)}s` : ''}. The host is probably down, blocking fetchers, or behind a challenge page — try again shortly, or check a lighter URL.`} />
-      ))}
+      )}
+      {early && (
+        <div className="flex items-center justify-between gap-3 bg-white border border-slate-200 rounded-xl px-4 py-3 text-[13px] text-slate-500">
+          <span className="inline-flex items-center gap-2"><span className="w-3.5 h-3.5 rounded-full border-2 border-slate-200 border-t-indigo-500 animate-spin" /> Still listening for the relays… ({f.elapsed}s)</span>
+          <button type="button" onClick={stop} className="font-bold text-slate-600 hover:text-slate-900">Stop</button>
+        </div>
+      )}
       {f.data && (() => {
         const d = f.data;
         const est3g = ((d.codeSize * 8) / 1_600_000 + 0.3).toFixed(1);
