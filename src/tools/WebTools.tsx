@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { PrimaryBtn } from './engines';
 import { Seeded } from './simulator';
 import { fetchPageData, type LivePageData } from '../utils/pageFetch';
+import { buildReport, reportToMarkdown, type PageSpeedReport, type State } from '../utils/pageSpeedReport';
 import { jinaFallback } from './KeywordTools';
 
 // ---------- Shared UI ----------
@@ -648,6 +649,102 @@ const BrowserTimingCard: React.FC<{ ms: number; hostName: string; note?: string 
  *  over the panel. */
 const DIRECT_FIRST_AFTER_S = 8;
 
+const toneOf = (st: State) => (st === 'good' ? 'text-emerald-600' : st === 'warn' ? 'text-amber-600' : st === 'bad' ? 'text-red-600' : 'text-slate-400');
+
+/** The summary is meant to be pasted somewhere, so it is real markdown and the
+ *  button says which path it took. `execCommand` is the fallback for browsers
+ *  that only expose the async API on secure origins. */
+const CopyBtn: React.FC<{ text: string }> = ({ text }) => {
+  const [state, setState] = useState<'idle' | 'done' | 'na'>('idle');
+  const flash = (next: 'done' | 'na') => { setState(next); if (next === 'done') setTimeout(() => setState('idle'), 2200); };
+  const go = async () => {
+    try {
+      if (navigator.clipboard?.writeText) { await navigator.clipboard.writeText(text); flash('done'); return; }
+      const ta = document.createElement('textarea');
+      ta.value = text; ta.setAttribute('readonly', 'true'); ta.style.position = 'fixed'; ta.style.opacity = '0';
+      document.body.appendChild(ta); ta.select();
+      const done = typeof document.execCommand === 'function' && document.execCommand('copy');
+      document.body.removeChild(ta);
+      flash(done ? 'done' : 'na');
+    } catch { flash('na'); }
+  };
+  return (
+    <button type="button" onClick={go} className="text-[12px] font-bold text-indigo-600 hover:text-indigo-800">
+      {state === 'done' ? 'Copied ✓' : state === 'na' ? 'Select the text to copy' : 'Copy summary'}
+    </button>
+  );
+};
+
+const ScoreTable: React.FC<{ r: PageSpeedReport }> = ({ r }) => (
+  <div className="overflow-x-auto -mx-1">
+    <table className="w-full text-[13px] min-w-[520px]">
+      <thead><tr className="text-left text-[11px] uppercase tracking-wide text-slate-400">
+        <th className="py-2 pr-3 font-semibold">Factor</th><th className="py-2 pr-3 font-semibold">Measured</th>
+        <th className="py-2 pr-3 font-semibold">Target</th><th className="py-2 font-semibold text-right">Points</th>
+      </tr></thead>
+      <tbody className="divide-y divide-slate-100">
+        {r.factors.map(x => (
+          <tr key={x.key}>
+            <td className="py-2 pr-3 font-semibold text-slate-700 whitespace-nowrap">
+              <span className={`inline-block w-1.5 h-1.5 rounded-full mr-2 ${x.state === 'good' ? 'bg-emerald-500' : x.state === 'warn' ? 'bg-amber-500' : x.state === 'bad' ? 'bg-red-500' : 'bg-slate-300'}`} />{x.label}
+            </td>
+            <td className="py-2 pr-3 text-slate-600">{x.value}</td>
+            <td className="py-2 pr-3 text-slate-400">{x.target}</td>
+            <td className={`py-2 text-right font-bold whitespace-nowrap ${toneOf(x.state)}`}>{x.weight ? `${x.earned}/${x.weight}` : 'n/a'}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  </div>
+);
+
+const HostTable: React.FC<{ r: PageSpeedReport }> = ({ r }) => (
+  <div className="overflow-x-auto -mx-1">
+    <table className="w-full text-[13px] min-w-[520px]">
+      <thead><tr className="text-left text-[11px] uppercase tracking-wide text-slate-400">
+        <th className="py-2 pr-3 font-semibold">Origin</th><th className="py-2 pr-3 font-semibold text-right">Requests</th>
+        <th className="py-2 pr-3 font-semibold">Types</th><th className="py-2 font-semibold">What it is</th>
+      </tr></thead>
+      <tbody className="divide-y divide-slate-100">
+        {r.hosts.slice(0, 8).map(h => (
+          <tr key={h.host}>
+            <td className="py-2 pr-3 font-mono text-[12px] text-slate-700 break-all">{h.host}</td>
+            <td className="py-2 pr-3 text-right font-bold text-slate-700">{h.requests}</td>
+            <td className="py-2 pr-3 text-slate-500">{h.kinds}</td>
+            <td className="py-2">{h.thirdParty ? <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 text-[11px] font-semibold">{h.role}</span> : <span className="text-[11px] font-semibold text-indigo-600">this site</span>}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+    {r.hosts.length > 8 && <p className="text-[11px] text-slate-400 mt-2">+ {r.hosts.length - 8} more origins not listed</p>}
+  </div>
+);
+
+const LoadBars: React.FC<{ r: PageSpeedReport }> = ({ r }) => {
+  const total = Math.max(1, r.timeline.reduce((a, t) => a + t.ms, 0));
+  return (
+    <div className="space-y-3">
+      <div className="flex h-3 w-full overflow-hidden rounded-full bg-slate-100">
+        {r.timeline.map(t => t.ms > 0 && (
+          <div key={t.label} style={{ width: `${Math.max(1.5, (t.ms / total) * 100)}%` }} className={t.modelled ? 'bg-slate-300' : 'bg-indigo-500'} title={`${t.label}: ${t.ms} ms`} />
+        ))}
+      </div>
+      <ul className="space-y-2">
+        {r.timeline.map(t => (
+          <li key={t.label} className="flex items-start gap-3 text-[13px]">
+            <span className={`mt-1 w-2 h-2 rounded-full flex-shrink-0 ${t.modelled ? 'bg-slate-300' : 'bg-indigo-500'}`} />
+            <div className="min-w-0">
+              <p className="font-semibold text-slate-700">{t.label} <span className={toneOf(t.ms < 600 ? 'good' : t.ms < 1500 ? 'warn' : 'bad')}>{t.ms.toLocaleString()} ms</span> <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">{t.modelled ? 'modelled' : 'measured'}</span></p>
+              <p className="text-[11px] text-slate-400">{t.note}</p>
+            </div>
+          </li>
+        ))}
+      </ul>
+      <p className="text-[11px] text-slate-400">Modelled bars are a bandwidth and parse-cost estimate from this document, not a rendered page timing: 4G for the download, ~120 ms per blocking request, ~45 ms per external script. Measured means we actually watched it happen.</p>
+    </div>
+  );
+};
+
 // ---------- 8. Page Speed Checker ----------
 export const PageSpeedTool: React.FC = () => {
   const f = useFetch();
@@ -706,37 +803,81 @@ export const PageSpeedTool: React.FC = () => {
       )}
       {f.data && (() => {
         const d = f.data;
+        const r = buildReport(d, typeof directMs === 'number' ? directMs : null);
         const est3g = ((d.codeSize * 8) / 1_600_000 + 0.3).toFixed(1);
         const est4g = ((d.codeSize * 8) / 9_000_000 + 0.1).toFixed(2);
-        const grade = d.reader ? '' : d.fetchMs < 600 ? 'A' : d.fetchMs < 1200 ? 'B' : d.fetchMs < 2500 ? 'C' : 'D';
-        const recs = [
-          d.externalScripts > 10 && `Reduce the ${d.externalScripts} external scripts; defer non-critical JavaScript.`,
-          d.stylesheets > 4 && `Combine or inline critical CSS (${d.stylesheets} stylesheets).`,
-          d.codeSize > 150000 && `HTML is ${kb(d.codeSize)}; remove inline SVG/data URIs and unused markup.`,
-          d.imagesWithoutDimensions > 0 && `Add width/height to ${d.imagesWithoutDimensions} images to prevent layout shift (CLS).`,
-          !d.reader && !/srcset=/i.test(d.html) && 'Serve responsive images with srcset and modern formats (WebP/AVIF).',
-          d.iframes > 2 && `${d.iframes} iframes detected; lazy-load embeds.`,
-          !d.reader && d.textRatio < 10 && `Code-to-text ratio is ${d.textRatio}%; trim template bloat.`,
-          !d.reader && !/loading="lazy"/i.test(d.html) && 'Use loading="lazy" on below-the-fold images.',
-          !d.reader && !/rel="preconnect"|rel="preload"/i.test(d.html) && 'Add preconnect/preload hints for critical third-party origins and fonts.',
-        ].filter(Boolean) as string[];
         return (
           <>
-            <div className="grid md:grid-cols-[200px_1fr] gap-5">
-              <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm text-center"><p className="text-xs text-slate-500 uppercase font-semibold">Speed grade</p>{d.reader ? (<><p className="text-5xl font-extrabold text-slate-400">—</p><p className="text-sm text-slate-600">timing needs raw HTML; page came via reader</p></>) : (<><p className={`text-7xl font-extrabold ${grade === 'A' ? 'text-emerald-500' : grade === 'B' ? 'text-lime-500' : grade === 'C' ? 'text-amber-500' : 'text-red-500'}`}>{grade}</p><p className="text-sm text-slate-600">{d.fetchMs} ms to fetch HTML</p></>)}</div>
+            <div className="grid md:grid-cols-[220px_1fr] gap-5">
+              <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm flex flex-col items-center gap-3">
+                <Ring value={r.score} label="Score" />
+                <p className={`text-sm font-extrabold ${toneOf(r.score >= 75 ? 'good' : r.score >= 60 ? 'warn' : 'bad')}`}>Grade {r.grade}</p>
+                <p className="text-[11px] text-slate-400 text-center -mt-1">{r.coverage.points} of {r.coverage.of} points measurable from this source</p>
+                <Src d={d} />
+              </div>
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 content-start">
                 <Stat label="Server response (HTML)" value={`${d.fetchMs} ms`} tone={d.fetchMs < 800 ? 'good' : d.fetchMs < 2000 ? 'warn' : 'bad'} />
+                <Stat label="Your browser (direct)" value={typeof directMs === 'number' ? `${directMs} ms` : 'not reached'} tone={typeof directMs === 'number' ? (directMs < 800 ? 'good' : 'warn') : 'neutral'} />
                 <Stat label="HTML size" value={kb(d.codeSize)} tone={d.codeSize < 100000 ? 'good' : 'warn'} />
+                <Stat label="Render-blocking" value={r.factors.find(x => x.key === 'blocking')?.value ?? '—'} tone={Number(r.factors.find(x => x.key === 'blocking')?.value) > 0 ? 'bad' : 'good'} />
                 <Stat label="Scripts (ext / total)" value={`${d.externalScripts} / ${d.scripts}`} tone={d.externalScripts > 15 ? 'bad' : d.externalScripts > 8 ? 'warn' : 'good'} />
                 <Stat label="Stylesheets" value={d.stylesheets} tone={d.stylesheets > 6 ? 'warn' : 'good'} />
-                <Stat label="Images" value={d.imageCount} /><Stat label="Iframes" value={d.iframes} tone={d.iframes > 2 ? 'warn' : 'good'} />
-                <Stat label="Est. HTML on 3G" value={`${est3g}s`} /><Stat label="Est. HTML on 4G" value={`${est4g}s`} />
-                {timing?.reachable && <Stat label="Your browser (direct)" value={`${timing.ms} ms`} tone={timing.ms < 800 ? 'good' : 'warn'} />}
+                <Stat label="Images" value={d.imageCount} tone={d.imagesWithoutDimensions ? 'warn' : 'good'} />
+                <Stat label="Iframes" value={d.iframes} tone={d.iframes > 2 ? 'warn' : 'good'} />
+                <Stat label="Est. HTML on 3G" value={`${est3g}s`} />
+                <Stat label="Est. HTML on 4G" value={`${est4g}s`} />
+                <Stat label="Text on the page" value={`${d.wordCount.toLocaleString()} words`} />
+                <Stat label="Links" value={`${d.internalLinks + d.externalLinks}`} />
               </div>
             </div>
-            <Card title={`Recommendations (${recs.length})`} right={<Src d={d} />}>
-              {recs.length ? <ul className="space-y-2 text-sm text-slate-700">{recs.map(r => <li key={r} className="flex gap-2"><span className="text-indigo-500">▸</span>{r}</li>)}</ul> : <p className="text-sm text-emerald-600 font-semibold">No obvious front-end bottlenecks detected in the HTML.</p>}
-              <p className="text-xs text-slate-400 mt-4">Timing measures the HTML document only (via proxy); “Your browser (direct)”, when shown, is a plain no-cors request from this tab. For full Core Web Vitals (LCP/INP/CLS) use field data from PageSpeed Insights; read our <a href="/blog/pagespeed-lab-vs-field-data" className="underline">lab vs field guide</a>.</p>
+
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+              {r.counts.map(c => <Stat key={c.label} label={c.label} value={c.value} tone={c.state === 'good' ? 'good' : c.state === 'warn' ? 'warn' : c.state === 'bad' ? 'bad' : 'neutral'} />)}
+            </div>
+
+            <Card title="Score breakdown" right={<CopyBtn text={reportToMarkdown(r, host(f.url.trim()) || f.url.trim(), typeof directMs === 'number' ? `${directMs} ms measured from your browser` : `${d.fetchMs} ms via relay`)} />}>
+              <ScoreTable r={r} />
+              {r.coverage.points < r.coverage.of && <p className="text-[11px] text-slate-400 mt-3">Some factors could not be judged from a text-reader copy of the page, so they are excluded from the score rather than counted against it.</p>}
+            </Card>
+
+            <Card title={`Priority fixes (${r.fixes.length})`}>
+              {r.fixes.length ? <ul className="space-y-2 text-sm text-slate-700">{r.fixes.map(x => <li key={x} className="flex gap-2"><span className="text-indigo-500">▸</span><span className="min-w-0">{x}</span></li>)}</ul> : <p className="text-sm text-emerald-600 font-semibold">Nothing in the document looks like a front-end bottleneck.</p>}
+            </Card>
+
+            <div className="grid lg:grid-cols-2 gap-5">
+              <Card title={`What the page asks for (${r.assets.length} shown)`}>
+                <HostTable r={r} />
+              </Card>
+              <Card title="Modelled load sequence">
+                <LoadBars r={r} />
+              </Card>
+            </div>
+
+            <Card title="Requests in order">
+              <ul className="divide-y divide-slate-100">
+                {r.assets.slice(0, 14).map((a, i) => (
+                  <li key={`${a.kind}-${a.src}-${i}`} className="py-2 flex items-center gap-2 text-[13px] min-w-0">
+                    <span className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 text-[11px] font-bold uppercase tracking-wide flex-shrink-0">{a.kind}</span>
+                    {a.blocking && <span className="px-2 py-0.5 rounded-md bg-red-50 text-red-600 text-[11px] font-bold flex-shrink-0">blocking</span>}
+                    {a.thirdParty && <span className="px-2 py-0.5 rounded-md bg-amber-50 text-amber-700 text-[11px] font-bold flex-shrink-0">3rd party</span>}
+                    <span className="font-mono text-[12px] text-slate-500 truncate" title={a.src}>{a.src}</span>
+                  </li>
+                ))}
+                {r.assets.length > 14 && <li className="py-2 text-[11px] text-slate-400">+ {r.assets.length - 14} more in the first 40 scanned</li>}
+                {!r.assets.length && <li className="py-2 text-[13px] text-slate-500">No sub-resource tags were visible — the page came through the text reader, which returns text rather than markup.</li>}
+              </ul>
+            </Card>
+
+            <Card title="Page facts">
+              <dl className="grid sm:grid-cols-2 gap-x-6 gap-y-3">
+                {r.facts.map(x => (
+                  <div key={x.label} className="min-w-0">
+                    <dt className="text-[11px] uppercase tracking-wide text-slate-400 font-semibold">{x.label}</dt>
+                    <dd className="text-[13px] text-slate-700 break-words">{x.value}</dd>
+                  </div>
+                ))}
+              </dl>
+              <p className="text-xs text-slate-400 mt-4">Timing measures the HTML document only (via proxy); “Your browser (direct)”, when shown, is a plain no-cors request from this tab. Sub-resource bytes, compression headers and a rendered screenshot need a real browser on a server — for field Core Web Vitals (LCP/INP/CLS) use PageSpeed Insights data; see our <a href="/blog/pagespeed-lab-vs-field-data" className="underline">lab vs field guide</a>.</p>
             </Card>
           </>
         );

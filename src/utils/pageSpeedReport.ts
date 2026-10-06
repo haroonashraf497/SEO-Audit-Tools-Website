@@ -51,7 +51,7 @@ const ROLES: [RegExp, string][] = [
   [/stripe|paypal|braintree|checkout\.com/i, 'Payments'],
 ];
 const roleFor = (host: string) => (ROLES.find(([re]) => re.test(host)) || [null, 'Other third party'])[1] as string;
-const hostOf = (u: string) => { try { return new URL(u, 'http://x').host; } catch { return u.split('/')[0] || ''; } };
+const hostOf = (u: string, base?: string) => { try { return new URL(u, base).host; } catch { return (u.split('/')[0] || '').replace(/^https?:/, ''); } };
 const clamp = (n: number, lo = 0, hi = 1) => Math.max(lo, Math.min(hi, n));
 const band = (ms: number, good: number, warn: number, worst: number) =>
   ms <= good ? 1 : ms <= warn ? 1 - 0.6 * clamp((ms - good) / (warn - good)) : 1 - 0.6 * 1 - 0.4 * clamp((ms - warn) / (worst - warn));
@@ -63,13 +63,13 @@ const stateOf = (ratio: number): State => (ratio >= 0.99 ? 'good' : ratio >= 0.6
  * resources the page asks for, whether they block rendering, and how deep the
  * markup goes.
  */
-function inspect(html: string, origin: string) {
+function inspect(html: string, origin: string, baseUrl: string) {
   const doc = new DOMParser().parseFromString(html, 'text/html');
   const assets: AssetRow[] = [];
   const push = (kind: string, el: Element, blocking: boolean, attrs: string) => {
     const src = el.getAttribute('src') || el.getAttribute('href') || '';
     if (!src || /^(data|blob|javascript):/i.test(src)) return;
-    const host = hostOf(src);
+    const host = hostOf(src, baseUrl);
     assets.push({ kind, host: host || origin, src: attrs ? `${src.slice(0, 78)} · ${attrs}` : src.slice(0, 78), blocking, thirdParty: !!host && host !== origin });
   };
   doc.querySelectorAll('script[src]').forEach(el => {
@@ -107,8 +107,12 @@ function inspect(html: string, origin: string) {
 
 export function buildReport(d: LivePageData, directMs: number | null = null): PageSpeedReport {
   const markup = !d.reader;                       // the text reader cannot see markup
-  const origin = hostOf(d.finalUrl || '');
-  const view = markup ? inspect(d.html, origin) : null;
+  // Relative `src`/`href` values resolve against the document, not against a
+  // placeholder: doing it wrong made every same-origin script look like a
+  // third-party origin in the table below.
+  const pageUrl = d.finalUrl || 'http://page.local/';
+  const origin = hostOf(pageUrl, pageUrl);
+  const view = markup ? inspect(d.html, origin, pageUrl) : null;
 
   // The score: six things a host can actually change, weighted by how much they
   // usually move a real PageSpeed run.

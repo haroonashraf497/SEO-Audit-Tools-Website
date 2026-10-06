@@ -70,6 +70,10 @@ const stubFor = scenario => `(() => {
   const MD = ${esc(READER_MD)};
   const OPAQUE = () => ({ ok: false, status: 0, type: 'opaque', text: () => Promise.resolve(''), json: () => Promise.reject(new TypeError('opaque')) });
   window.__fetches = [];
+  window.__copied = null;
+  try {
+    Object.defineProperty(window.navigator, 'clipboard', { configurable: true, value: { writeText: t => { window.__copied = t; return Promise.resolve(); } } });
+  } catch (e) {}
   window.fetch = function (u, init) {
     const url = String(u);
     const mode = (init && init.mode) || 'cors';
@@ -93,7 +97,7 @@ let pass = 0, fail = 0;
 const ok = (n, c, e = '') => { c ? (pass++, console.log(`  PASS  ${n}`)) : (fail++, console.log(`  FAIL  ${n}${e ? ` — ${String(e).slice(0, 200)}` : ''}`)); };
 
 /** Boots the app at the speed-checker route, runs one check, reports what showed. */
-async function runCheck(scenario, ceilingMs = 12000) {
+async function runCheck(scenario, ceilingMs = 12000, opts = {}) {
   let html = raw.replace(mod[0], '');
   const head = html.indexOf('<head>') + 6;
   html = html.slice(0, head) + `<script>${stubFor(scenario)}</script>` + html.slice(head);
@@ -113,7 +117,7 @@ async function runCheck(scenario, ceilingMs = 12000) {
   const button = [...main.querySelectorAll('button')].find(b => /Check Speed/.test(b.textContent || ''));
   if (!input || !button) {
     dom.window.close();
-    return { mounted: false, text: '', ms: -1, busyText: '', stopAt: null, stopAfter: null, errors, fetches: [], controls: 0 };
+    return { mounted: false, text: '', ms: -1, busyText: '', stopAt: null, stopAfter: null, errors, fetches: [], controls: 0, copied: null, copyLabel: '' };
   }
   const setValue = Object.getOwnPropertyDescriptor(dom.window.HTMLInputElement.prototype, 'value').set;
   setValue.call(input, 'https://example.com/');
@@ -130,7 +134,7 @@ async function runCheck(scenario, ceilingMs = 12000) {
   while (Date.now() - t0 < ceilingMs) {
     await wait(100);
     text = read();
-    if (/Speed grade|Neither the relays/.test(text)) { ms = Date.now() - t0; break; }
+    if (/Speed grade|Grade [A-E]|Neither the relays/.test(text)) { ms = Date.now() - t0; break; }
   }
   if (ms < 0) ms = Date.now() - t0;
   const stopAfter = has(/Stop/);
@@ -138,21 +142,55 @@ async function runCheck(scenario, ceilingMs = 12000) {
   await wait(700);                                     // let the second probe settle
   const settledText = read();
   const fetches = JSON.parse(dom.window.eval('JSON.stringify(window.__fetches)') || '[]');
+  let copied = null, copyLabel = '';
+  if (opts.copy) {
+    const cb = [...main.querySelectorAll('button')].find(b => /Copy summary|Copied/.test(b.textContent || ''));
+    if (cb) {
+      cb.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true, cancelable: true }));
+      await wait(400);
+      copyLabel = (cb.textContent || '').trim();
+      copied = dom.window.eval('window.__copied || null');
+    }
+  }
   dom.window.close();
-  return { mounted, text: settledText, earlyText: text, ms, busyText, stopAt, stopAfter, errors, fetches, controls };
+  return { mounted, text: settledText, earlyText: text, ms, busyText, stopAt, stopAfter, errors, fetches, controls, copied, copyLabel };
 }
 
 // ---------- RELAYS OK: the first usable answer wins, and it renders ----------
 {
-  const r = await runCheck('ok');
+  const r = await runCheck('ok', 12000, { copy: true });
   ok('the speed checker page mounted and the Check Speed control is present', r.mounted && r.controls > 0);
   ok(`results rendered in ${r.ms} ms — the relay answered at 260 ms and the reader at 4000 ms, so this must be well under 1000`, r.ms > 0 && r.ms < 1500);
   ok('while it waits it says what it is doing and can be stopped', /Contacting the page|\(\d s\)|\(\ds\)/.test(r.busyText) && r.stopAt === true, r.busyText.slice(0, 200));
   const win = (() => { const i = r.text.indexOf('Est. HTML on 4G'); return i < 0 ? r.text.slice(0, 220) : r.text.slice(i, i + 260); })();
-  ok('the grade, latency, size and 3G figures are all computed from the fetched HTML',
-    /Speed grade ?[A-D]/.test(r.text) && /Server response \(HTML\) ?\d+ ms/.test(r.text)
-    && /HTML size ?[\d.]+ KB/.test(r.text) && /Est\. HTML on 3G ?[\d.]+s/.test(r.text), r.text.slice(0, 220));
-  ok('recommendations are listed', /Recommendations \([1-9]\d*\)/.test(r.text));
+  ok('the score card, latency, size and 3G figures are all computed from the fetched HTML',
+    /Grade [A-E]/.test(r.text) && /100 of 100 points measurable/.test(r.text) && /Server response \(HTML\) ?\d+ ms/.test(r.text)
+    && /HTML size ?[\d.]+ KB/.test(r.text) && /Est\. HTML on 3G ?[\d.]+s/.test(r.text), r.text.slice(0, 260));
+  ok('every factor is itemised with what was measured, the target and the points',
+    /Score breakdown/.test(r.text) && /Server response ?\d+ ms ?under 300 ms ?\d+\/\d+/.test(r.text)
+    && /Render-blocking requests/.test(r.text) && /Third-party origins/.test(r.text), r.text.slice(0, 400));
+  ok('the report says how much of the model the data source could actually judge',
+    /100 of 100 points measurable from this source/.test(r.text), (r.text.match(/\d+ of \d+ points measurable[^·]{0,40}/) || [''])[0]);
+  ok('the page weight, blocking and DOM figures are broken out as tiles',
+    /Scripts \(ext \/ total\) ?\d+ \/ \d+/.test(r.text) && /Render-blocking ?\d+/.test(r.text)
+    && /Stylesheets ?\d+/.test(r.text) && /Inline CSS ?[\d.]+ KB/.test(r.text), r.text.slice(0, 400));
+  ok('every origin the page pulls from is listed with a role',
+    /What the page asks for \(\d+ shown\)/.test(r.text) && /Requests ?Types ?What it is/.test(r.text)
+    && /this site/.test(r.text), (r.text.match(/What the page asks for[^]{0,120}/) || [''])[0]);
+  ok('each request is listed in order with its blocking and third-party flags',
+    /Requests in order/.test(r.text) && /script/.test(r.text) && /blocking/.test(r.text)
+    && /stylesheet/.test(r.text), (r.text.match(/Requests in order[^]{0,160}/) || [''])[0]);
+  ok('the load sequence separates what was measured from what was modelled',
+    /Modelled load sequence/.test(r.text) && /Waiting for the server [\d,]+ ms measured/.test(r.text)
+    && /HTML download [\d,]+ ms modelled/.test(r.text), (r.text.match(/Modelled load sequence[^]{0,200}/) || [''])[0]);
+  ok('page facts answer the questions a report should carry',
+    /Page facts/.test(r.text) && /Words \/ headings ?[\d,]+ · \d+ H1/.test(r.text)
+    && /Structured data ?(JSON-LD found|none found) ?/.test(r.text) && /Charset \/ lang/.test(r.text), (r.text.match(/Page facts[^]{0,220}/) || [''])[0]);
+  ok('the fixes are ranked by how many points each one is worth',
+    /Priority fixes \(\d+\)/.test(r.text) && /target [^—]+ — /.test(r.text), (r.text.match(/Priority fixes \(\d+\)[^]{0,200}/) || [''])[0]);
+  ok('the summary copies out as markdown for a ticket or an email',
+    r.copyLabel === 'Copied ✓' && /# Page speed report/.test(r.copied || '') && /\| Score breakdown|\| Factor \| Measured/.test(r.copied || '')
+    && /Priority fixes/.test(r.copied || ''), `${r.copyLabel} | ${String(r.copied).slice(0, 120)}`);
   ok('the source badge renders the live pill instead of recursing', /Live page data · ?\d+ ms/.test(r.text));
   ok('the proxy-free browser timing is shown next to the relay figure', /Your browser \(direct\) ?\d+ ms/.test(r.text), win);
   ok('the page is still intact after the results (no render error)', r.errors.length === 0, r.errors[0]);

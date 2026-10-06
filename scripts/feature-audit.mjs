@@ -968,6 +968,23 @@ check('all ten URL tools keep using the one shared hook',
   && (webTools.match(/<Src d=\{d\} \/>/g) || []).length >= 6,
   `hooks ${(webTools.match(/const f = useFetch\(\);/g) || []).length}`);
 
+// The Page Speed Checker's report layer: a scored model, an inventory, and an
+// export — the "show more info" work must not quietly shrink back to one number.
+const report = read('src/utils/pageSpeedReport.ts');
+check('the speed tool builds a scored report from the one fetched document',
+  /export function buildReport/.test(report) && /Render-blocking requests/.test(report) && /export function reportToMarkdown/.test(report));
+check('an unmeasurable factor is excluded from the score, not passed or failed',
+  /state: 'unknown'/.test(report) && /weight: 0, earned: 0/.test(report));
+check('relative assets are resolved against the document, not counted as third parties',
+  /const host = hostOf\(src, baseUrl\)/.test(report) && /const pageUrl = d\.finalUrl/.test(report));
+check('the speed panel renders score, breakdown, hosts, timeline, requests and facts',
+  /Score breakdown/.test(webTools) && /Priority fixes/.test(webTools) && /What the page asks for/.test(webTools)
+  && /Modelled load sequence/.test(webTools) && /Requests in order/.test(webTools) && /Page facts/.test(webTools));
+check('the summary copies out as markdown with a fallback path',
+  /navigator\.clipboard\?\.writeText/.test(webTools) && /document\.execCommand/.test(webTools));
+check('the shipped bundle carries the new report panels',
+  /Score breakdown/.test(dist) && /Modelled load sequence/.test(dist) && /Page facts/.test(dist));
+
 console.log('\n=== ✅ Preserved ===');
 check('no "Loading page" anywhere in src', !/Loading page/.test(read('src/App.tsx') + read('src/components/ErrorBoundary.tsx') + read('src/tools/Tools.tsx')));
 const codeOnly = src => src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
