@@ -459,7 +459,7 @@ check('the store models blog categories and their clean URLs',
   && /export const blogCategorySlug = \(name: string\): string =>/.test(store)
   && /export const UNCATEGORIZED = 'Uncategorized';/.test(store));
 check('the five built-in article categories are seeded and migrated',
-  /export const defaultBlogCategories: CmsBlogCategory\[\] = \[[\s\S]{0,400}'Core Web Vitals'[\s\S]{0,200}'PageSpeed'[\s\S]{0,200}'WordPress SEO'[\s\S]{0,200}'Google & Indexing'[\s\S]{0,200}'Website SEO Audit'/.test(store)
+  /export const defaultBlogCategories: CmsBlogCategory\[\] = \[[\s\S]{0,400}'Core Web Vitals'[\s\S]{0,200}'PageSpeed'[\s\S]{0,200}'WordPress SEO'[\s\S]{0,200}'Google & Indexing'[\s\S]{0,200}'Website Health'/.test(store)
   && /const migrateBlogCategories = \(saved\?: CmsBlogCategory\[\]\): CmsBlogCategory\[\] => \{/.test(store)
   && /blogCategories: migrateBlogCategories\(parsed\.blogCategories\),/.test(store)
   && /blogCategories: migrateBlogCategories\(parsed\.blogCategories\), toolCategories: migrateToolCategories\(parsed\.toolCategories\), competitor: migrateCompetitor\(parsed\.competitor\), seo: migrateSeo/.test(store));
@@ -468,6 +468,11 @@ check('adding, renaming, hiding and removing categories all persist',
   && /saveBlogCategory: \(slug, patch\) => setState\(s => \{/.test(store)
   && /setBlogCategoryVisible: \(slug, visible\) =>/.test(store)
   && /removeBlogCategory: \(slug\) => setState\(s => \{/.test(store));
+check('a category renamed by a newer build is upgraded in a saved browser',
+  /const RENAMED_BLOG_CATEGORIES: \{ fromName: string; fromSlug: string; toName: string; toSlug: string \}\[\] = \[/.test(store)
+  && /const migratePostCategories = \(posts: CmsPost\[\]\): CmsPost\[\] =>/.test(store)
+  && (store.match(/posts: migratePostCategories\(parsed\.posts \|\| defaultState\.posts\)/g) || []).length === 2
+  && /const rename = RENAMED_BLOG_CATEGORIES\.find\(r => r\.fromSlug === c\.slug \|\| r\.fromName === c\.name\.trim\(\)\);/.test(store));
 check('removing a category keeps its posts as Uncategorized',
   /blogCategories: s\.blogCategories\.filter\(c => c\.slug !== slug\),\s*posts: s\.posts\.map\(p => \(p\.category === current\.name \? \{ \.\.\.p, category: UNCATEGORIZED \} : p\)\)/.test(store));
 check('renaming a category relabels its posts',
@@ -482,7 +487,7 @@ check('the section has a name field, an auto slug and a save button',
   && /const autoSlug = blogCategorySlug\(name\);/.test(adminSrc)
   && /<SaveButton label="Add category" onSave=\{create\} \/>/.test(adminSrc));
 check('every category row shows name, slug, post count and its actions',
-  /\/blog\/category\/\{cat\.slug\}<\//.test(adminSrc)
+  /\{blogCategoryHref\(cat\.slug\)\}/.test(adminSrc)
   && /postCount\(cat\)\} post/.test(adminSrc)
   && /setBlogCategoryVisible\(cat\.slug, !cat\.visible\)/.test(adminSrc)
   && /\(editing === cat\.id \? setEditing\(null\) : startEdit\(cat\)\)/.test(adminSrc)
@@ -509,7 +514,7 @@ check('the category pages, their clean URLs and the admin manager are unchanged'
   /export const BlogCategoryPage: React\.FC<\{ slug: string \}> = \(\{ slug \}\) => \{/.test(blogSrc)
   && /postsInBlogCategory\(state, category\.name\)/.test(blogSrc)
   && /<BlogCategoriesSection \/>/.test(adminSrc)
-  && /\/blog\/category\/\{cat\.slug\}</.test(adminSrc));
+  && /\{blogCategoryHref\(cat\.slug\)\}/.test(adminSrc));
 check('the blog filter tabs come from the CMS categories',
   /const cats = useMemo\(\(\) => visibleBlogCategories\(state\), \[state\]\);/.test(blogSrc)
   && /const tabs = useMemo\(\(\) => \['All', \.\.\.cats\.map\(c => c\.name\)\], \[cats\]\);/.test(blogSrc)
@@ -519,18 +524,27 @@ check('a category page lists that category only, with its own heading',
   && /postsInBlogCategory\(state, category\.name\)/.test(blogSrc)
   && /<h1 className="font-bold text-slate-900 leading-tight mb-4">\{category\.name\} articles<\/h1>/.test(blogSrc));
 check('the router resolves /blog/category/<slug> before the article route',
-  /if \(seg\.startsWith\('blog\/category\/'\)\) return `blogcat\/\$\{seg\.slice\('blog\/category\/'\.length\)\}`;\s*if \(seg\.startsWith\('blog\/'\)\) return `blog\/\$\{seg\.slice\(5\)\}`;/.test(read('src/router.ts')));
+  /if \(seg\.startsWith\('blog\/category\/'\)\) return `blogcat\/\$\{seg\.slice\('blog\/category\/'\.length\)\}`;[\s\S]{0,300}if \(seg\.startsWith\('blog\/'\)\) return `blog\/\$\{seg\.slice\(5\)\}`;/.test(read('src/router.ts')));
+check('a blog category can be published on a top-level URL',
+  /export const TOP_LEVEL_BLOG_CATEGORY_SLUGS = \['website-health'\];/.test(read('src/router.ts'))
+  && /if \(TOP_LEVEL_BLOG_CATEGORY_SLUGS\.includes\(seg\)\) return `blogcat\/\$\{seg\}`;/.test(read('src/router.ts'))
+  && /export const blogCategoryHref = \(slug: string\): string =>\s*TOP_LEVEL_BLOG_CATEGORY_SLUGS\.includes\(slug\) \? `\/\$\{slug\}` : `\/blog\/category\/\$\{slug\}`;/.test(read('src/router.ts')));
 check('the app renders the category page and its breadcrumb',
   /route\.startsWith\('blogcat\/'\) && <BlogCategoryPage slug=\{route\.slice\('blogcat\/'\.length\)\} \/>/.test(app)
   && /if \(route\.startsWith\('blogcat\/'\)\) \{/.test(app));
 check('SEO gives every category a canonical URL, ItemList and breadcrumb',
   /if \(route\.startsWith\('blogcat\/'\)\) \{/.test(read('src/utils/seo.ts'))
-  && /const path = `\/blog\/category\/\$\{slug\}`;/.test(read('src/utils/seo.ts'))
+  && /const path = blogCategoryHref\(slug\);/.test(read('src/utils/seo.ts'))
   && /title: `\$\{category\.name\} — SEO Guides & Fixes \| \$\{brand\}`,/.test(read('src/utils/seo.ts'))
   && /hasPart: \(cms\.blogCategories \|\| \[\]\)\.filter\(c => c\.visible\)\.map\(c => \(/.test(read('src/utils/seo.ts')));
 check('the sitemap lists the built-in category pages',
   ['core-web-vitals', 'pagespeed', 'wordpress-seo', 'google-indexing'].every(slug =>
-    sitemap.includes(`<loc>https://seoaudittools.pk/blog/category/${slug}</loc>`)));
+    sitemap.includes(`<loc>https://seoaudittools.pk/blog/category/${slug}</loc>`))
+  && sitemap.includes('<loc>https://seoaudittools.pk/website-health</loc>'));
+check('.htaccess 301s every old Website Health URL onto /website-health',
+  htaccess.includes('RewriteRule ^website-seo-audit/?$ /website-health [R=301,L]')
+  && htaccess.includes('RewriteRule ^blog/category/website-seo-audit/?$ /website-health [R=301,L]')
+  && htaccess.includes('RewriteRule ^blog/category/website-health/?$ /website-health [R=301,L]'));
 
 /* ---- Tool Categories: the categories managed in Admin → Tool Categories ---- */
 check('the tool category model carries a key, a name, a slug and a description',
@@ -752,7 +766,7 @@ check('the read time sits in front of the byline after a divider',
   && /w-px h-9 bg-slate-200/.test(blogPage));
 check('the category pill closes the same row and links to its category page',
   /<div className="ml-auto">/.test(blogPage)
-  && /const categoryHref = articleCategory \? `\/blog\/category\/\$\{articleCategory\.slug\}` : null;/.test(blogPage)
+  && /const categoryHref = articleCategory \? blogCategoryHref\(articleCategory\.slug\) : null;/.test(blogPage)
   && /const articleCategory = \(state\.blogCategories \|\| \[\]\)\.find\(c => c\.visible && c\.name === article\.category\);/.test(blogPage)
   && /<a href=\{categoryHref\} className=\{`inline-block px-2\.5 py-1 rounded-full text-xs font-semibold border \$\{categoryBadge\(article\.category\)\}`\}>/.test(blogPage));
 check('the 154 tools and the rest of the blog page are untouched',

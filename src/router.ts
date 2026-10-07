@@ -5,7 +5,8 @@
      /ip-tools (a category page), /tools/category/<slug> (any category,
      including the ones added in Admin → Tool Categories),
      /plagiarism-checker (a tool page at the top level), /blog, /blog/slug,
-     /blog/category/<slug>, /about, /admin …
+     /blog/category/<slug>, /website-health (a blog category published on a
+     top-level URL), /about, /admin …
    • Internal <a> clicks are intercepted → history.pushState,
      so navigation stays instant (no full reload).
    • Back/forward (popstate) re-renders the matching view.
@@ -108,6 +109,17 @@ export const canonicalCategoryQuery = (pathname: string, search: string): string
 export const categoryKeyOfRoute = (route: string): ToolCategory | null =>
   categoryFromKey(route.slice('cat/'.length));
 
+/**
+ * Blog categories published on a top-level URL instead of the default
+ * /blog/category/<slug>. The Website Health category answers on
+ * /website-health; every other category keeps /blog/category/<slug>.
+ */
+export const TOP_LEVEL_BLOG_CATEGORY_SLUGS = ['website-health'];
+
+/** Public URL of a blog category — top-level for the slugs listed above. */
+export const blogCategoryHref = (slug: string): string =>
+  TOP_LEVEL_BLOG_CATEGORY_SLUGS.includes(slug) ? `/${slug}` : `/blog/category/${slug}`;
+
 export type RouteListener = (route: string) => void;
 
 /** How the current route was reached. Drives scroll behaviour: a click starts
@@ -190,6 +202,8 @@ export const getRoute = (): string => {
   if (seg === 'blog') return 'blog';
   // /blog/category/<slug> — a real page listing one category's posts
   if (seg.startsWith('blog/category/')) return `blogcat/${seg.slice('blog/category/'.length)}`;
+  // A blog category published on its own top-level URL (/website-health).
+  if (TOP_LEVEL_BLOG_CATEGORY_SLUGS.includes(seg)) return `blogcat/${seg}`;
   if (seg.startsWith('blog/')) return `blog/${seg.slice(5)}`;
   if (seg === 'admin') return 'admin';
   if (seg === 'admin-login') return 'admin-login';

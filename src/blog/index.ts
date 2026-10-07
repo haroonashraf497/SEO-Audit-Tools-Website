@@ -18,4 +18,4 @@ export const allArticles: BlogArticle[] = [
 export const getArticle = (slug: string): BlogArticle | undefined =>
   allArticles.find(a => a.slug === slug);
 
-export const categories = ['All', 'Core Web Vitals', 'PageSpeed', 'WordPress SEO', 'Google & Indexing', 'Website SEO Audit'] as const;
+export const categories = ['All', 'Core Web Vitals', 'PageSpeed', 'WordPress SEO', 'Google & Indexing', 'Website Health'] as const;

@@ -408,12 +408,12 @@ for (const [old, expected] of [['/free-seo-tools?cat=ip', '/ip-tools'], ['/free-
     && errors.length === 0,
     (doc.querySelector('main')?.textContent || '').includes('Blog Categories') ? 'section still present' : 'removed');
   check('the blog index still filters by category, and every tab shows its article count',
-    tabs.map(t => t.replace(/\s+\d+$/, '')).join(', ') === 'All, Core Web Vitals, PageSpeed, WordPress SEO, Google & Indexing, Website SEO Audit'
-    && tabs.join(', ') === 'All 13, Core Web Vitals 3, PageSpeed 3, WordPress SEO 3, Google & Indexing 3, Website SEO Audit 1',
+    tabs.map(t => t.replace(/\s+\d+$/, '')).join(', ') === 'All, Core Web Vitals, PageSpeed, WordPress SEO, Google & Indexing, Website Health'
+    && tabs.join(', ') === 'All 13, Core Web Vitals 3, PageSpeed 3, WordPress SEO 3, Google & Indexing 3, Website Health 1',
     tabs.join(', '));
   dom.window.close();
 }
-for (const [slug, name, count] of [['core-web-vitals', 'Core Web Vitals', 3], ['pagespeed', 'PageSpeed', 3], ['wordpress-seo', 'WordPress SEO', 3], ['google-indexing', 'Google & Indexing', 3], ['website-seo-audit', 'Website SEO Audit', 1]]) {
+for (const [slug, name, count] of [['core-web-vitals', 'Core Web Vitals', 3], ['pagespeed', 'PageSpeed', 3], ['wordpress-seo', 'WordPress SEO', 3], ['google-indexing', 'Google & Indexing', 3]]) {
   const { dom, errors } = await boot('', `/blog/category/${slug}`);
   const doc = dom.window.document;
   const cards = [...doc.querySelectorAll('main article')];
@@ -423,6 +423,31 @@ for (const [slug, name, count] of [['core-web-vitals', 'Core Web Vitals', 3], ['
     && cards.length === count
     && (doc.querySelector('link[rel=canonical]')?.getAttribute('href') || '').endsWith(`/blog/category/${slug}`),
     `h1=${(doc.querySelector('main h1')?.textContent || '').trim()} cards=${cards.length} canonical=${doc.querySelector('link[rel=canonical]')?.getAttribute('href')}`);
+  dom.window.close();
+}
+/* The Website Health category is published on its own top-level URL, which is
+   also its canonical; the /blog/category/<slug> spelling still renders it. */
+for (const route of ['/website-health', '/blog/category/website-health']) {
+  const { dom, errors } = await boot('', route);
+  const doc = dom.window.document;
+  const cards = [...doc.querySelectorAll('main article')];
+  check(`${route} lists the Website Health article and keeps /website-health canonical`,
+    errors.length === 0
+    && (doc.querySelector('main h1')?.textContent || '').trim() === 'Website Health articles'
+    && cards.length === 1
+    && (doc.querySelector('link[rel=canonical]')?.getAttribute('href') || '').endsWith('/website-health')
+    && /Website Health/.test(doc.querySelector('main')?.textContent || ''),
+    `h1=${(doc.querySelector('main h1')?.textContent || '').trim()} cards=${cards.length} canonical=${doc.querySelector('link[rel=canonical]')?.getAttribute('href')}`);
+  dom.window.close();
+}
+{
+  const { dom, errors } = await boot('', '/blog/website-seo-audit-guide');
+  const doc = dom.window.document;
+  const pill = [...doc.querySelectorAll('main article header a')].find(a => (a.textContent || '').trim() === 'Website Health');
+  check('the article byline pill links to the top-level category URL',
+    errors.length === 0
+    && !!pill && pill.getAttribute('href') === '/website-health',
+    pill ? pill.getAttribute('href') : 'no Website Health pill');
   dom.window.close();
 }
 {
@@ -448,7 +473,7 @@ for (const [slug, name, count] of [['core-web-vitals', 'Core Web Vitals', 3], ['
   const readIdx = kids.findIndex(k => /7 min read/.test(k.textContent));
   const last = kids[kids.length - 1];
   check('the article header starts with its title — no badge or date row above it',
-    !!h1 && header.firstElementChild === h1 && !/^(Core Web Vitals|PageSpeed|WordPress SEO|Google & Indexing|Website SEO Audit)$/.test((header.firstElementChild?.textContent || '').trim()),
+    !!h1 && header.firstElementChild === h1 && !/^(Core Web Vitals|PageSpeed|WordPress SEO|Google & Indexing|Website Health)$/.test((header.firstElementChild?.textContent || '').trim()),
     `first=${header?.firstElementChild?.tagName} h1=${(h1?.textContent || '').slice(0, 40)}`);
   check('the byline names the SAT Team with the article date underneath',
     (name?.textContent || '').trim() === 'SAT Team' && !!time
@@ -520,7 +545,7 @@ for (const [slug, name, count] of [['core-web-vitals', 'Core Web Vitals', 3], ['
 {
   const routes = ['/', '/plagiarism-checker', '/merge-pdf', '/compress-pdf', '/free-seo-tools', '/ip-tools',
     '/website-management-tools', '/blog', '/blog/google-not-indexing-pages', '/blog/category/google-indexing',
-    '/blog/website-seo-audit-guide', '/blog/category/website-seo-audit',
+    '/blog/website-seo-audit-guide', '/website-health',
     '/competitor-analysis', '/about', '/privacy-policy', '/terms-of-service', '/contact', '/faq', '/nope-404'];
   const bad = { h1: [], first: [], skip: [], dup: [] };
   for (const route of routes) {
@@ -825,7 +850,7 @@ for (const [slug, name, count] of [['core-web-vitals', 'Core Web Vitals', 3], ['
   const section = doc.querySelector('section[aria-label="Blog Categories"]');
   const rows = () => [...(section?.querySelectorAll('p.font-semibold') || [])].map(p => p.textContent.trim());
   check('the Blog Categories section is next to the post list and lists the five categories',
-    !!section && rows().join(', ') === 'Core Web Vitals, PageSpeed, WordPress SEO, Google & Indexing, Website SEO Audit'
+    !!section && rows().join(', ') === 'Core Web Vitals, PageSpeed, WordPress SEO, Google & Indexing, Website Health'
     && (section.textContent || '').includes('5 categories'),
     rows().join(', '));
   check('each row carries the slug, the post count and its actions',
@@ -847,7 +872,7 @@ for (const [slug, name, count] of [['core-web-vitals', 'Core Web Vitals', 3], ['
   await wait();
   check('adding a category saves it and shows "Saved ✓"',
     addButton.textContent.includes('Saved ✓')
-    && rows().join(', ') === 'Core Web Vitals, PageSpeed, WordPress SEO, Google & Indexing, Website SEO Audit, SEO Tips',
+    && rows().join(', ') === 'Core Web Vitals, PageSpeed, WordPress SEO, Google & Indexing, Website Health, SEO Tips',
     `${addButton.textContent} | ${rows().join(', ')}`);
   const stored = JSON.parse(dom.window.localStorage.getItem('seoaudittool:cms:v1') || '{}');
   check('the new category is persisted in the CMS store',
@@ -934,6 +959,30 @@ for (const [slug, name, count] of [['core-web-vitals', 'Core Web Vitals', 3], ['
   check('a hidden category page is not available',
     /Category not found/.test(hidden.dom.window.document.querySelector('main h1')?.textContent || ''));
   hidden.dom.window.close();
+}
+{
+  // A browser that saved its CMS before the Website Health rename is upgraded
+  // in place: the category, its slug and its posts all move across, so the
+  // category still loads on its new top-level URL.
+  const state = {
+    version: 13,
+    blogCategories: [
+      { id: 'b1', name: 'Core Web Vitals', slug: 'core-web-vitals', visible: true },
+      { id: 'b5', name: 'Website SEO Audit', slug: 'website-seo-audit', visible: true },
+    ],
+    posts: [{ slug: 'website-seo-audit-guide', title: 'Website SEO Audit: How to Find What Is Really Holding a Site Back', metaTitle: 'Website SEO Audit: A Practical Website SEO Audit Guide | SEO Audit Pro', metaDescription: '', excerpt: 'x', content: '<p>x</p>', category: 'Website SEO Audit', date: '2026-10-07', readTime: '9 min read', author: 'SAT Team', keywords: [], status: 'live', builtin: true }],
+    pages: [], tools: [], seo: {}, footerColumns: [], nav: [], sections: {}, sidebar: {},
+  };
+  const preload = `localStorage.setItem('seoaudittool:cms:v1', ${JSON.stringify(JSON.stringify(state))});`;
+  const { dom, errors } = await boot(preload, '/website-health');
+  const doc = dom.window.document;
+  check('a browser saved before the rename still loads the category on its new URL',
+    errors.length === 0
+    && (doc.querySelector('main h1')?.textContent || '').trim() === 'Website Health articles'
+    && [...doc.querySelectorAll('main article')].length === 1
+    && (doc.querySelector('link[rel=canonical]')?.getAttribute('href') || '').endsWith('/website-health'),
+    `h1=${(doc.querySelector('main h1')?.textContent || '').trim()} cards=${doc.querySelectorAll('main article').length} errors=${errors.join(' | ')}`);
+  dom.window.close();
 }
 
 /* 3e. Tool Categories: the categories managed in Admin → Tool Categories drive

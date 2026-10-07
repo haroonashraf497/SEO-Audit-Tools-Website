@@ -234,7 +234,10 @@ above the post list, next to *+ Write post*):
 
 On the public site, every category answers on its own clean URL: `/blog/category/<slug>` — e.g.
 https://seoaudittools.pk/blog/category/core-web-vitals. Those pages have their own H1, intro,
-canonical tag, `CollectionPage` + `ItemList` + `BreadcrumbList` JSON-LD and article list. The blog
+canonical tag, `CollectionPage` + `ItemList` + `BreadcrumbList` JSON-LD and article list. The
+**Website Health** category is published on its own top-level URL,
+https://seoaudittools.pk/website-health, which is also its canonical — the old
+`/blog/category/website-seo-audit` spelling 301s across to it (see `public/.htaccess`). The blog
 index itself no longer shows the Blog Categories card section — its filter tabs are driven by the
 same category list and each shows the live number of articles behind it (*All 13*,
 *Core Web Vitals 3*, …), each article's byline links to its category page, and the sitemap lists the

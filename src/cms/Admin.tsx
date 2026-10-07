@@ -3,7 +3,7 @@ import { useCms, injectHeadCode, renderCopyright, blogCategorySlug, toolCategory
 import { ToolIcon } from '../tools/data';
 import { RichTextEditor } from './RichTextEditor';
 import { clearDraft, draftId, formatDraftTime, listDrafts, clearAllDrafts } from './drafts';
-import { navigate } from '../router';
+import { navigate, blogCategoryHref } from '../router';
 import { estimateLocalStorageBytes, formatBytes, BROWSER_QUOTA_BYTES, optimizeImageFile, validateUpload } from './media';
 
 /* ---------------- shared bits ---------------- */
@@ -760,7 +760,7 @@ const BlogCategoriesSection: React.FC = () => {
             }>
               <div>
                 <p className="font-semibold text-slate-800">{cat.name}</p>
-                <p className="text-xs text-slate-500 font-mono">/blog/category/{cat.slug}</p>
+                <p className="text-xs text-slate-500 font-mono">{blogCategoryHref(cat.slug)}</p>
               </div>
               <span className="text-xs text-slate-500"><strong className="text-slate-700">{postCount(cat)}</strong> post{postCount(cat) === 1 ? '' : 's'}</span>
             </Row>

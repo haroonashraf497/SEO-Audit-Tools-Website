@@ -1,6 +1,6 @@
 import { useEffect, type FC } from 'react';
 import { resolveToolCategory, toolCategoryHref, toolCategorySummary, useCms, type CmsState, type CmsToolCategory } from '../cms/store';
-import { TOOLS_PATH, routeSlugForStored, storedSlugForRoute } from '../router';
+import { TOOLS_PATH, routeSlugForStored, storedSlugForRoute, blogCategoryHref } from '../router';
 
 /**
  * SEO entry for a tool category page. The name, URL and description all come
@@ -303,7 +303,7 @@ export const resolvePageSeo = (route: string, cms: CmsState): PageSeo => {
         hasPart: (cms.blogCategories || []).filter(c => c.visible).map(c => ({
           '@type': 'CollectionPage',
           name: c.name,
-          url: `${origin}/blog/category/${c.slug}`,
+          url: `${origin}${blogCategoryHref(c.slug)}`,
         })),
       },
     };
@@ -313,7 +313,8 @@ export const resolvePageSeo = (route: string, cms: CmsState): PageSeo => {
     const slug = route.slice('blogcat/'.length);
     const category = (cms.blogCategories || []).find(c => c.slug === slug);
     const posts = category ? cms.posts.filter(p => p.status === 'live' && p.category === category.name) : [];
-    const path = `/blog/category/${slug}`;
+    // A category published on a top-level URL keeps that as its canonical path.
+    const path = blogCategoryHref(slug);
     if (!category || !category.visible) {
       return {
         title: `Category not found | ${brand}`,

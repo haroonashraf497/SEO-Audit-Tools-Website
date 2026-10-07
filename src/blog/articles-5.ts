@@ -4,10 +4,10 @@ export const articlesWebsiteSeoAudit: BlogArticle[] = [
   {
     slug: 'website-seo-audit-guide',
     title: 'Website SEO Audit: How to Find What Is Really Holding a Site Back',
-    metaTitle: 'Website SEO Audit: A Practical Guide for Site Owners | SEO Audit Pro',
+    metaTitle: 'Website Health: A Practical Website SEO Audit Guide | SEO Audit Pro',
     metaDescription: 'A website SEO audit turns guesswork into a prioritised fix list. Here is how to run one properly, what the numbers mean, and which findings to fix first.',
     keywords: ['website seo audit', 'seo analysis', 'website analysis', 'search engine optimization analysis', 'free seo analysis', 'website analysis tool', 'free website ranking analysis', 'seo audit pakistan'],
-    category: 'Website SEO Audit',
+    category: 'Website Health',
     date: '2026-10-07',
     readTime: '9 min read',
     author: 'SAT Team',

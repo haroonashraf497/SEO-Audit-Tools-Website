@@ -3,7 +3,7 @@ import { type BlogArticle } from './index';
 import { Sidebar } from '../tools/Sidebar';
 import { useCms, livePosts, postsInBlogCategory, visibleBlogCategories } from '../cms/store';
 import { sanitizeRichHtml } from '../utils/sanitize';
-import { rewriteLegacyLinks } from '../router';
+import { rewriteLegacyLinks, blogCategoryHref } from '../router';
 
 // ---------- Tiny markdown renderer (headings, bold, lists, paragraphs) ----------
 const renderInline = (text: string): React.ReactNode[] => {
@@ -82,6 +82,7 @@ const categoryColor: Record<string, string> = {
   'PageSpeed': 'bg-violet-50 text-violet-700 border-violet-100',
   'WordPress SEO': 'bg-slate-100 text-slate-700 border-slate-200',
   'Google & Indexing': 'bg-blue-50 text-blue-700 border-blue-100',
+  'Website Health': 'bg-emerald-50 text-emerald-700 border-emerald-100',
 };
 
 /** Extra badge colours, so categories added in the CMS still get a colour. */
@@ -218,7 +219,7 @@ export const BlogList: React.FC = () => {
   );
 };
 
-// ---------- Blog category page (/blog/category/<slug>) ----------
+// ---------- Blog category page (/blog/category/<slug> or /website-health) ----------
 export const BlogCategoryPage: React.FC<{ slug: string }> = ({ slug }) => {
   const { state } = useCms();
   const category = useMemo(() => (state.blogCategories || []).find(c => c.slug === slug) || null, [state.blogCategories, slug]);
@@ -289,9 +290,10 @@ export const BlogArticlePage: React.FC<{ slug: string }> = ({ slug }) => {
 
   const related = (livePosts(state) as unknown as BlogArticle[]).filter(a => a.category === article.category && a.slug !== article.slug).slice(0, 2);
   // The category pill links to that category's own page when it exists — the
-  // slug comes from the CMS list, so a customised slug is respected.
+  // slug comes from the CMS list, so a customised slug is respected, and a
+  // category published on a top-level URL (/website-health) links there.
   const articleCategory = (state.blogCategories || []).find(c => c.visible && c.name === article.category);
-  const categoryHref = articleCategory ? `/blog/category/${articleCategory.slug}` : null;
+  const categoryHref = articleCategory ? blogCategoryHref(articleCategory.slug) : null;
 
   return (
     <div className="pt-10 pb-20 px-4 min-h-screen">
