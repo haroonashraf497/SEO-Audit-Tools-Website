@@ -441,7 +441,7 @@ for (const route of ['/website-health', '/blog/category/website-health']) {
   dom.window.close();
 }
 {
-  const { dom, errors } = await boot('', '/blog/website-seo-audit-guide');
+  const { dom, errors } = await boot('', '/blog/website-health-guide');
   const doc = dom.window.document;
   const pill = [...doc.querySelectorAll('main article header a')].find(a => (a.textContent || '').trim() === 'Website Health');
   check('the article byline pill links to the top-level category URL',
@@ -545,7 +545,7 @@ for (const route of ['/website-health', '/blog/category/website-health']) {
 {
   const routes = ['/', '/plagiarism-checker', '/merge-pdf', '/compress-pdf', '/free-seo-tools', '/ip-tools',
     '/website-management-tools', '/blog', '/blog/google-not-indexing-pages', '/blog/category/google-indexing',
-    '/blog/website-seo-audit-guide', '/website-health',
+    '/blog/website-health-guide', '/website-health',
     '/competitor-analysis', '/about', '/privacy-policy', '/terms-of-service', '/contact', '/faq', '/nope-404'];
   const bad = { h1: [], first: [], skip: [], dup: [] };
   for (const route of routes) {
@@ -961,28 +961,18 @@ for (const route of ['/website-health', '/blog/category/website-health']) {
   hidden.dom.window.close();
 }
 {
-  // A browser that saved its CMS before the Website Health rename is upgraded
-  // in place: the category, its slug and its posts all move across, so the
-  // category still loads on its new top-level URL.
-  const state = {
-    version: 13,
-    blogCategories: [
-      { id: 'b1', name: 'Core Web Vitals', slug: 'core-web-vitals', visible: true },
-      { id: 'b5', name: 'Website SEO Audit', slug: 'website-seo-audit', visible: true },
-    ],
-    posts: [{ slug: 'website-seo-audit-guide', title: 'Website SEO Audit: How to Find What Is Really Holding a Site Back', metaTitle: 'Website SEO Audit: A Practical Website SEO Audit Guide | SEO Audit Pro', metaDescription: '', excerpt: 'x', content: '<p>x</p>', category: 'Website SEO Audit', date: '2026-10-07', readTime: '9 min read', author: 'SAT Team', keywords: [], status: 'live', builtin: true }],
-    pages: [], tools: [], seo: {}, footerColumns: [], nav: [], sections: {}, sidebar: {},
-  };
-  const preload = `localStorage.setItem('seoaudittool:cms:v1', ${JSON.stringify(JSON.stringify(state))});`;
-  const { dom, errors } = await boot(preload, '/website-health');
-  const doc = dom.window.document;
-  check('a browser saved before the rename still loads the category on its new URL',
-    errors.length === 0
-    && (doc.querySelector('main h1')?.textContent || '').trim() === 'Website Health articles'
-    && [...doc.querySelectorAll('main article')].length === 1
-    && (doc.querySelector('link[rel=canonical]')?.getAttribute('href') || '').endsWith('/website-health'),
-    `h1=${(doc.querySelector('main h1')?.textContent || '').trim()} cards=${doc.querySelectorAll('main article').length} errors=${errors.join(' | ')}`);
-  dom.window.close();
+  // The old category slug is gone for good: no redirect, no page — both the
+  // top-level and the /blog/category spelling fall through to not-found.
+  for (const route of ['/website-seo-audit', '/blog/category/website-seo-audit']) {
+    const { dom } = await boot('', route);
+    const doc = dom.window.document;
+    const h1 = (doc.querySelector('main h1')?.textContent || '').trim();
+    const robots = doc.querySelector('meta[name=robots]')?.getAttribute('content') || '';
+    check(`${route} no longer exists — not found, never redirected`,
+      /not found/i.test(h1) && /noindex/.test(robots) && !/Website Health/.test(h1),
+      `h1=${h1} robots=${robots}`);
+    dom.window.close();
+  }
 }
 
 /* 3e. Tool Categories: the categories managed in Admin → Tool Categories drive

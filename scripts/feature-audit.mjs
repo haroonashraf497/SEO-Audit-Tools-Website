@@ -468,11 +468,6 @@ check('adding, renaming, hiding and removing categories all persist',
   && /saveBlogCategory: \(slug, patch\) => setState\(s => \{/.test(store)
   && /setBlogCategoryVisible: \(slug, visible\) =>/.test(store)
   && /removeBlogCategory: \(slug\) => setState\(s => \{/.test(store));
-check('a category renamed by a newer build is upgraded in a saved browser',
-  /const RENAMED_BLOG_CATEGORIES: \{ fromName: string; fromSlug: string; toName: string; toSlug: string \}\[\] = \[/.test(store)
-  && /const migratePostCategories = \(posts: CmsPost\[\]\): CmsPost\[\] =>/.test(store)
-  && (store.match(/posts: migratePostCategories\(parsed\.posts \|\| defaultState\.posts\)/g) || []).length === 2
-  && /const rename = RENAMED_BLOG_CATEGORIES\.find\(r => r\.fromSlug === c\.slug \|\| r\.fromName === c\.name\.trim\(\)\);/.test(store));
 check('removing a category keeps its posts as Uncategorized',
   /blogCategories: s\.blogCategories\.filter\(c => c\.slug !== slug\),\s*posts: s\.posts\.map\(p => \(p\.category === current\.name \? \{ \.\.\.p, category: UNCATEGORIZED \} : p\)\)/.test(store));
 check('renaming a category relabels its posts',
@@ -541,10 +536,8 @@ check('the sitemap lists the built-in category pages',
   ['core-web-vitals', 'pagespeed', 'wordpress-seo', 'google-indexing'].every(slug =>
     sitemap.includes(`<loc>https://seoaudittools.pk/blog/category/${slug}</loc>`))
   && sitemap.includes('<loc>https://seoaudittools.pk/website-health</loc>'));
-check('.htaccess 301s every old Website Health URL onto /website-health',
-  htaccess.includes('RewriteRule ^website-seo-audit/?$ /website-health [R=301,L]')
-  && htaccess.includes('RewriteRule ^blog/category/website-seo-audit/?$ /website-health [R=301,L]')
-  && htaccess.includes('RewriteRule ^blog/category/website-health/?$ /website-health [R=301,L]'));
+check('.htaccess carries no Website Health redirect — the old URL simply does not exist',
+  !htaccess.includes('website-seo-audit') && !/website-health \[R=301/.test(htaccess));
 
 /* ---- Tool Categories: the categories managed in Admin → Tool Categories ---- */
 check('the tool category model carries a key, a name, a slug and a description',

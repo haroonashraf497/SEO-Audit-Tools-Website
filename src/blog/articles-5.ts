@@ -2,7 +2,7 @@ import type { BlogArticle } from './types';
 
 export const articlesWebsiteSeoAudit: BlogArticle[] = [
   {
-    slug: 'website-seo-audit-guide',
+    slug: 'website-health-guide',
     title: 'Website SEO Audit: How to Find What Is Really Holding a Site Back',
     metaTitle: 'Website Health: A Practical Website SEO Audit Guide | SEO Audit Pro',
     metaDescription: 'A website SEO audit turns guesswork into a prioritised fix list. Here is how to run one properly, what the numbers mean, and which findings to fix first.',

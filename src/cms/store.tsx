@@ -273,42 +273,21 @@ export const defaultBlogCategories: CmsBlogCategory[] = [
 ];
 
 /**
- * A blog category renamed by a newer build. A browser that saved its CMS
- * before the rename is upgraded in place — same category id, new name and
- * slug — so the old URL keeps working through its redirect and no post is
- * orphaned into Uncategorized.
- */
-const RENAMED_BLOG_CATEGORIES: { fromName: string; fromSlug: string; toName: string; toSlug: string }[] = [
-  { fromName: 'Website SEO Audit', fromSlug: 'website-seo-audit', toName: 'Website Health', toSlug: 'website-health' },
-];
-
-/**
  * Keep the admin's categories across reloads. A browser that has never saved
  * any gets the five built-in ones; a saved list is cleaned up (missing id,
  * slug or a visible flag) rather than replaced, so an edit is never lost.
- * Categories renamed by a newer build are upgraded to their new name/slug.
  */
 const migrateBlogCategories = (saved?: CmsBlogCategory[]): CmsBlogCategory[] => {
   if (!Array.isArray(saved) || saved.length === 0) return defaultBlogCategories;
   return saved
     .filter(c => c && typeof c.name === 'string' && c.name.trim())
-    .map(c => {
-      const rename = RENAMED_BLOG_CATEGORIES.find(r => r.fromSlug === c.slug || r.fromName === c.name.trim());
-      return {
-        id: c.id || uid(),
-        name: (rename ? rename.toName : c.name).trim(),
-        slug: (rename ? rename.toSlug : (c.slug || blogCategorySlug(c.name))).toLowerCase().replace(/[^a-z0-9-]/g, '-').replace(/^-+|-+$/g, '') || blogCategorySlug(c.name),
-        visible: c.visible !== false,
-      };
-    });
+    .map(c => ({
+      id: c.id || uid(),
+      name: c.name.trim(),
+      slug: (c.slug || blogCategorySlug(c.name)).toLowerCase().replace(/[^a-z0-9-]/g, '-').replace(/^-+|-+$/g, '') || blogCategorySlug(c.name),
+      visible: c.visible !== false,
+    }));
 };
-
-/** Rename a category on posts saved before the rename, so they stay filed. */
-const migratePostCategories = (posts: CmsPost[]): CmsPost[] =>
-  posts.map(p => {
-    const rename = RENAMED_BLOG_CATEGORIES.find(r => r.fromName === p.category);
-    return rename ? { ...p, category: rename.toName } : p;
-  });
 
 /** Categories shown on the public site, in admin order. */
 export const visibleBlogCategories = (state: CmsState): CmsBlogCategory[] =>
@@ -1206,7 +1185,6 @@ const load = (): CmsState => {
       settings,
       nav: migrateNav(parsed.nav),
       footerColumns: migrateFooterColumns(parsed.footerColumns, settings),
-      posts: migratePostCategories(parsed.posts || defaultState.posts),
       blogCategories: migrateBlogCategories(parsed.blogCategories),
       toolCategories: migrateToolCategories(parsed.toolCategories),
       competitor: migrateCompetitor(parsed.competitor),
@@ -1408,7 +1386,7 @@ export const CmsProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     reset: () => setState({ ...defaultState }),
     exportJson: () => JSON.stringify({ ...state, pages: state.pages.map(pg => { const { blocks: _blocks, ...rest } = pg; return rest; }) }, null, 2),
-    importJson: (json) => { try { const parsed = JSON.parse(json) as CmsState; if (!parsed.tools || !parsed.posts) return false; const legacyItems = parsed.sidebar?.customItems || []; const widgets = parsed.sidebar?.widgets || (legacyItems.length ? [{ id: uid(), title: 'Featured links', type: 'links' as SidebarWidgetType, visible: true, source: 'manual' as SidebarLinkSource, links: legacyItems }] : []); const parsedVersion = typeof parsed.version === 'number' ? parsed.version : 1; setState({ ...defaultState, ...parsed, version: Math.max(defaultState.version, parsedVersion), pages: (parsedVersion < defaultState.version ? migratePages(parsed.pages || []) : (parsed.pages || defaultState.pages)).map(withPageContent), settings: migrateSettings(parsed.settings, parsedVersion), nav: migrateNav(parsed.nav), footerColumns: migrateFooterColumns(parsed.footerColumns, migrateSettings(parsed.settings, parsedVersion)), posts: migratePostCategories(parsed.posts || defaultState.posts), blogCategories: migrateBlogCategories(parsed.blogCategories), toolCategories: migrateToolCategories(parsed.toolCategories), competitor: migrateCompetitor(parsed.competitor), seo: migrateSeo(parsed.seo, parsedVersion), sidebar: { ...defaultState.sidebar, ...parsed.sidebar, widgets } }); return true; } catch { return false; } },
+    importJson: (json) => { try { const parsed = JSON.parse(json) as CmsState; if (!parsed.tools || !parsed.posts) return false; const legacyItems = parsed.sidebar?.customItems || []; const widgets = parsed.sidebar?.widgets || (legacyItems.length ? [{ id: uid(), title: 'Featured links', type: 'links' as SidebarWidgetType, visible: true, source: 'manual' as SidebarLinkSource, links: legacyItems }] : []); const parsedVersion = typeof parsed.version === 'number' ? parsed.version : 1; setState({ ...defaultState, ...parsed, version: Math.max(defaultState.version, parsedVersion), pages: (parsedVersion < defaultState.version ? migratePages(parsed.pages || []) : (parsed.pages || defaultState.pages)).map(withPageContent), settings: migrateSettings(parsed.settings, parsedVersion), nav: migrateNav(parsed.nav), footerColumns: migrateFooterColumns(parsed.footerColumns, migrateSettings(parsed.settings, parsedVersion)), blogCategories: migrateBlogCategories(parsed.blogCategories), toolCategories: migrateToolCategories(parsed.toolCategories), competitor: migrateCompetitor(parsed.competitor), seo: migrateSeo(parsed.seo, parsedVersion), sidebar: { ...defaultState.sidebar, ...parsed.sidebar, widgets } }); return true; } catch { return false; } },
 
     storageWarning,
     loggedIn,
