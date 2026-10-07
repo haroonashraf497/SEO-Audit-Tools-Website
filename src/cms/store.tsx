@@ -263,12 +263,13 @@ export const blogCategorySlug = (name: string): string =>
 /** Categories a post can end up in when its own category is removed. */
 export const UNCATEGORIZED = 'Uncategorized';
 
-/** The four categories the built-in articles already use. */
+/** The five categories the built-in articles already use. */
 export const defaultBlogCategories: CmsBlogCategory[] = [
   { id: uid(), name: 'Core Web Vitals', slug: 'core-web-vitals', visible: true },
   { id: uid(), name: 'PageSpeed', slug: 'pagespeed', visible: true },
   { id: uid(), name: 'WordPress SEO', slug: 'wordpress-seo', visible: true },
   { id: uid(), name: 'Google & Indexing', slug: 'google-indexing', visible: true },
+  { id: uid(), name: 'Website SEO Audit', slug: 'website-seo-audit', visible: true },
 ];
 
 /**

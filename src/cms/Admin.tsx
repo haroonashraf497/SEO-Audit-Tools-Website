@@ -372,7 +372,7 @@ const ToolsPane: React.FC = () => {
       {activeCat ? (
         <div className="bg-white rounded-2xl border border-slate-200 p-5 space-y-3">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <p className="font-bold text-slate-900">Category page content — {activeCat.name}</p>
+            <p className="font-bold text-slate-900">Category page copy — {activeCat.name}</p>
             <span className="text-xs text-slate-400">Saved automatically in this browser</span>
           </div>
           <p className="text-sm text-slate-600">
@@ -384,9 +384,9 @@ const ToolsPane: React.FC = () => {
             value={activeCat.content || ''}
             onChange={html => saveToolCategory(activeCat.key, { content: html })}
             minHeight={240}
-            placeholder={`Write the ${activeCat.name} category page content…`}
+            placeholder={`Write the ${activeCat.name} category page copy…`}
             draftKey={draftId('toolcat-content', activeCat.key)}
-            ariaLabel={`${activeCat.name} category page content`}
+            ariaLabel={`${activeCat.name} category page copy`}
           />
         </div>
       ) : (

@@ -408,12 +408,12 @@ for (const [old, expected] of [['/free-seo-tools?cat=ip', '/ip-tools'], ['/free-
     && errors.length === 0,
     (doc.querySelector('main')?.textContent || '').includes('Blog Categories') ? 'section still present' : 'removed');
   check('the blog index still filters by category, and every tab shows its article count',
-    tabs.map(t => t.replace(/\s+\d+$/, '')).join(', ') === 'All, Core Web Vitals, PageSpeed, WordPress SEO, Google & Indexing'
-    && tabs.join(', ') === 'All 12, Core Web Vitals 3, PageSpeed 3, WordPress SEO 3, Google & Indexing 3',
+    tabs.map(t => t.replace(/\s+\d+$/, '')).join(', ') === 'All, Core Web Vitals, PageSpeed, WordPress SEO, Google & Indexing, Website SEO Audit'
+    && tabs.join(', ') === 'All 13, Core Web Vitals 3, PageSpeed 3, WordPress SEO 3, Google & Indexing 3, Website SEO Audit 1',
     tabs.join(', '));
   dom.window.close();
 }
-for (const [slug, name, count] of [['core-web-vitals', 'Core Web Vitals', 3], ['pagespeed', 'PageSpeed', 3], ['wordpress-seo', 'WordPress SEO', 3], ['google-indexing', 'Google & Indexing', 3]]) {
+for (const [slug, name, count] of [['core-web-vitals', 'Core Web Vitals', 3], ['pagespeed', 'PageSpeed', 3], ['wordpress-seo', 'WordPress SEO', 3], ['google-indexing', 'Google & Indexing', 3], ['website-seo-audit', 'Website SEO Audit', 1]]) {
   const { dom, errors } = await boot('', `/blog/category/${slug}`);
   const doc = dom.window.document;
   const cards = [...doc.querySelectorAll('main article')];
@@ -448,7 +448,7 @@ for (const [slug, name, count] of [['core-web-vitals', 'Core Web Vitals', 3], ['
   const readIdx = kids.findIndex(k => /7 min read/.test(k.textContent));
   const last = kids[kids.length - 1];
   check('the article header starts with its title — no badge or date row above it',
-    !!h1 && header.firstElementChild === h1 && !/^(Core Web Vitals|PageSpeed|WordPress SEO|Google & Indexing)$/.test((header.firstElementChild?.textContent || '').trim()),
+    !!h1 && header.firstElementChild === h1 && !/^(Core Web Vitals|PageSpeed|WordPress SEO|Google & Indexing|Website SEO Audit)$/.test((header.firstElementChild?.textContent || '').trim()),
     `first=${header?.firstElementChild?.tagName} h1=${(h1?.textContent || '').slice(0, 40)}`);
   check('the byline names the SAT Team with the article date underneath',
     (name?.textContent || '').trim() === 'SAT Team' && !!time
@@ -520,6 +520,7 @@ for (const [slug, name, count] of [['core-web-vitals', 'Core Web Vitals', 3], ['
 {
   const routes = ['/', '/plagiarism-checker', '/merge-pdf', '/compress-pdf', '/free-seo-tools', '/ip-tools',
     '/website-management-tools', '/blog', '/blog/google-not-indexing-pages', '/blog/category/google-indexing',
+    '/blog/website-seo-audit-guide', '/blog/category/website-seo-audit',
     '/competitor-analysis', '/about', '/privacy-policy', '/terms-of-service', '/contact', '/faq', '/nope-404'];
   const bad = { h1: [], first: [], skip: [], dup: [] };
   for (const route of routes) {
@@ -600,7 +601,7 @@ for (const [slug, name, count] of [['core-web-vitals', 'Core Web Vitals', 3], ['
   const blog = await boot('', '/blog');
   const cards = [...blog.dom.window.document.querySelectorAll('main article')];
   check('blog cards are h2 under the page h1, so the outline never jumps to h3',
-    cards.length === 12 && cards.every(card => !!card.querySelector('h2') && !card.querySelector('h3')),
+    cards.length === 13 && cards.every(card => !!card.querySelector('h2') && !card.querySelector('h3')),
     cards.map(card => card.querySelector('h2,h3')?.tagName || 'none').join(' '));
   blog.dom.window.close();
   const cat = await boot('', '/blog/category/google-indexing');
@@ -823,9 +824,9 @@ for (const [slug, name, count] of [['core-web-vitals', 'Core Web Vitals', 3], ['
 
   const section = doc.querySelector('section[aria-label="Blog Categories"]');
   const rows = () => [...(section?.querySelectorAll('p.font-semibold') || [])].map(p => p.textContent.trim());
-  check('the Blog Categories section is next to the post list and lists the four categories',
-    !!section && rows().join(', ') === 'Core Web Vitals, PageSpeed, WordPress SEO, Google & Indexing'
-    && (section.textContent || '').includes('4 categories'),
+  check('the Blog Categories section is next to the post list and lists the five categories',
+    !!section && rows().join(', ') === 'Core Web Vitals, PageSpeed, WordPress SEO, Google & Indexing, Website SEO Audit'
+    && (section.textContent || '').includes('5 categories'),
     rows().join(', '));
   check('each row carries the slug, the post count and its actions',
     !!(section.textContent || '').includes('/blog/category/core-web-vitals')
@@ -846,7 +847,7 @@ for (const [slug, name, count] of [['core-web-vitals', 'Core Web Vitals', 3], ['
   await wait();
   check('adding a category saves it and shows "Saved ✓"',
     addButton.textContent.includes('Saved ✓')
-    && rows().join(', ') === 'Core Web Vitals, PageSpeed, WordPress SEO, Google & Indexing, SEO Tips',
+    && rows().join(', ') === 'Core Web Vitals, PageSpeed, WordPress SEO, Google & Indexing, Website SEO Audit, SEO Tips',
     `${addButton.textContent} | ${rows().join(', ')}`);
   const stored = JSON.parse(dom.window.localStorage.getItem('seoaudittool:cms:v1') || '{}');
   check('the new category is persisted in the CMS store',

@@ -458,8 +458,8 @@ check('the store models blog categories and their clean URLs',
   && /blogCategories: defaultBlogCategories,/.test(store)
   && /export const blogCategorySlug = \(name: string\): string =>/.test(store)
   && /export const UNCATEGORIZED = 'Uncategorized';/.test(store));
-check('the four built-in article categories are seeded and migrated',
-  /export const defaultBlogCategories: CmsBlogCategory\[\] = \[[\s\S]{0,400}'Core Web Vitals'[\s\S]{0,200}'PageSpeed'[\s\S]{0,200}'WordPress SEO'[\s\S]{0,200}'Google & Indexing'/.test(store)
+check('the five built-in article categories are seeded and migrated',
+  /export const defaultBlogCategories: CmsBlogCategory\[\] = \[[\s\S]{0,400}'Core Web Vitals'[\s\S]{0,200}'PageSpeed'[\s\S]{0,200}'WordPress SEO'[\s\S]{0,200}'Google & Indexing'[\s\S]{0,200}'Website SEO Audit'/.test(store)
   && /const migrateBlogCategories = \(saved\?: CmsBlogCategory\[\]\): CmsBlogCategory\[\] => \{/.test(store)
   && /blogCategories: migrateBlogCategories\(parsed\.blogCategories\),/.test(store)
   && /blogCategories: migrateBlogCategories\(parsed\.blogCategories\), toolCategories: migrateToolCategories\(parsed\.toolCategories\), competitor: migrateCompetitor\(parsed\.competitor\), seo: migrateSeo/.test(store));
@@ -729,7 +729,7 @@ check('the comparison tool itself (engines, scoring, results view) is untouched'
 
 console.log('\n=== 📝 Home page tool rows + the article byline ===');
 const blogPage = read('src/blog/Blog.tsx');
-const articleSource = ['src/blog/articles-1.ts', 'src/blog/articles-2.ts', 'src/blog/articles-3.ts', 'src/blog/articles-4.ts']
+const articleSource = ['src/blog/articles-1.ts', 'src/blog/articles-2.ts', 'src/blog/articles-3.ts', 'src/blog/articles-4.ts', 'src/blog/articles-5.ts']
   .map(read).join('\n');
 check('the home page tool rows and the category rows keep one spacing rhythm',
   /<div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4 items-stretch">/.test(app)
@@ -738,7 +738,7 @@ check('the home page tool rows and the category rows keep one spacing rhythm',
 check('the categories grid still starts straight after the tools grid',
   /<\/div>\s*\n\s*<div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 items-stretch">/.test(app));
 check('every built-in article is bylined SAT Team',
-  (articleSource.match(/author: 'SAT Team',/g) || []).length === 12
+  (articleSource.match(/author: 'SAT Team',/g) || []).length === 13
   && !/SEO Audit Pro Team/.test(articleSource));
 check('a post created in the CMS defaults to the same byline',
   /author: p\.author \|\| 'SAT Team',/.test(store));

@@ -236,9 +236,9 @@ On the public site, every category answers on its own clean URL: `/blog/category
 https://seoaudittools.pk/blog/category/core-web-vitals. Those pages have their own H1, intro,
 canonical tag, `CollectionPage` + `ItemList` + `BreadcrumbList` JSON-LD and article list. The blog
 index itself no longer shows the Blog Categories card section — its filter tabs are driven by the
-same category list and each shows the live number of articles behind it (*All 12*,
+same category list and each shows the live number of articles behind it (*All 13*,
 *Core Web Vitals 3*, …), each article's byline links to its category page, and the sitemap lists the
-four built-in category URLs.
+five built-in category URLs.
 
 ### Article byline
 

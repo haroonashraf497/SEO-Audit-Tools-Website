@@ -4,7 +4,7 @@ export interface BlogArticle {
   metaTitle: string;
   metaDescription: string;
   keywords: string[];
-  category: 'Core Web Vitals' | 'PageSpeed' | 'WordPress SEO' | 'Google & Indexing';
+  category: 'Core Web Vitals' | 'PageSpeed' | 'WordPress SEO' | 'Google & Indexing' | 'Website SEO Audit';
   date: string;
   readTime: string;
   author: string;
