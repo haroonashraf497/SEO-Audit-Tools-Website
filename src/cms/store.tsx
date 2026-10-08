@@ -53,6 +53,8 @@ export interface CmsBlogCategory {
   id: string;
   name: string;
   slug: string;
+  /** Intro text shown under the heading on the category's public page. */
+  description?: string;
   visible: boolean;
 }
 
@@ -265,11 +267,11 @@ export const UNCATEGORIZED = 'Uncategorized';
 
 /** The five categories the built-in articles already use. */
 export const defaultBlogCategories: CmsBlogCategory[] = [
-  { id: uid(), name: 'Core Web Vitals', slug: 'core-web-vitals', visible: true },
-  { id: uid(), name: 'PageSpeed', slug: 'pagespeed', visible: true },
-  { id: uid(), name: 'WordPress SEO', slug: 'wordpress-seo', visible: true },
-  { id: uid(), name: 'Google & Indexing', slug: 'google-indexing', visible: true },
-  { id: uid(), name: 'Website Health', slug: 'website-health', visible: true },
+  { id: uid(), name: 'Core Web Vitals', slug: 'core-web-vitals', description: 'Fixes for the three Core Web Vitals — INP, LCP and CLS — measured on real pages, with the browser tools and the code changes that move each one.', visible: true },
+  { id: uid(), name: 'PageSpeed', slug: 'pagespeed', description: 'Practical PageSpeed work: what each opportunity actually costs, which fixes survive a real hosting setup, and how to read a waterfall without guessing.', visible: true },
+  { id: uid(), name: 'WordPress SEO', slug: 'wordpress-seo', description: 'WordPress SEO without the plugin sprawl — caching, image handling, theme weight, redirects and the on-page basics that decide whether your pages rank.', visible: true },
+  { id: uid(), name: 'Google & Indexing', slug: 'google-indexing', description: 'Getting pages found and kept: Search Console coverage, canonical mistakes, robots and sitemap issues, and what to do when Google drops a URL.', visible: true },
+  { id: uid(), name: 'Website Health', slug: 'website-health', description: 'A full website health check, end to end: what to audit, in what order, and how to turn the findings into a fix list you can actually work through.', visible: true },
 ];
 
 /**
@@ -285,6 +287,7 @@ const migrateBlogCategories = (saved?: CmsBlogCategory[]): CmsBlogCategory[] => 
       id: c.id || uid(),
       name: c.name.trim(),
       slug: (c.slug || blogCategorySlug(c.name)).toLowerCase().replace(/[^a-z0-9-]/g, '-').replace(/^-+|-+$/g, '') || blogCategorySlug(c.name),
+      description: c.description || '',
       visible: c.visible !== false,
     }));
 };

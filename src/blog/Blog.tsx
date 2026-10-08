@@ -252,7 +252,8 @@ export const BlogCategoryPage: React.FC<{ slug: string }> = ({ slug }) => {
             <span className={`inline-block px-2.5 py-1 rounded-full text-xs font-semibold border mb-4 ${categoryBadge(category.name)}`}>{category.name}</span>
             <h1 className="font-bold text-slate-900 leading-tight mb-4">{category.name} articles</h1>
             <p className="text-lg text-slate-600 leading-relaxed">
-              {posts.length} practical guide{posts.length === 1 ? '' : 's'} filed under {category.name} — written for website owners who want fixes, not theory.
+              {(category.description || '').trim()
+                || `${posts.length} practical guide${posts.length === 1 ? '' : 's'} filed under ${category.name} — written for website owners who want fixes, not theory.`}
             </p>
           </header>
           {posts.length === 0 ? (

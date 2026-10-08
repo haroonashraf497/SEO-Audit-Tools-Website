@@ -1165,24 +1165,41 @@ for (const route of ['/website-health', '/blog/category/website-health']) {
   };
   await wait(500);
   const pageSeo = await openSeoBox('Pages', 0);
-  check('the Pages panel renders the noindex checkbox with the requested wording',
-    !!pageSeo && !!pageSeo.querySelector('input[type="checkbox"]')
-    && pageSeo.querySelector('input[type="checkbox"]').checked === false
-    && /Search engine title/.test(pageSeo.textContent || '')
-    && /Do not allow search engines to index this page \(noindex\)/.test(pageSeo.textContent || '')
+  check('the Pages panel renders the SEO section with the tool editor controls',
+    !!pageSeo
+    && /SEO title/.test(pageSeo.textContent || '')
+    && /target 50.60/.test(pageSeo.textContent || '')
+    && /Meta description/.test(pageSeo.textContent || '')
+    && /target 150.160/.test(pageSeo.textContent || '')
+    && /Canonical URL override/.test(pageSeo.textContent || '')
+    && pageSeo.querySelectorAll('input')[1]?.placeholder === 'Leave blank to use the page URL'
+    && !pageSeo.querySelector('input[type="checkbox"]')
+    && /Make no-index/.test(pageSeo.textContent || '')
+    && /Indexable/.test(pageSeo.textContent || '')
+    && /Google preview/.test(pageSeo.textContent || '')
     && /Saved automatically/.test(pageSeo.textContent || ''),
-    pageSeo ? 'no checkbox or label' : 'no seo box on the page editor');
+    pageSeo ? [...pageSeo.querySelectorAll('input')].map(i => `${i.type}:${i.placeholder}`).join(' | ') : 'no seo box on the page editor');
+  // The same grouped layout the tool editor uses: titled sections in order,
+  // with SEO & Meta Information last.
+  const pageRoot = pageSeo && pageSeo.closest('.bg-slate-50');
+  const pageText = pageRoot ? pageRoot.textContent || '' : '';
+  check('the page editor groups its fields into the tool editor sections',
+    !!pageRoot
+    && /Page Details/.test(pageText) && /Page state/.test(pageText)
+    && /Content/.test(pageText) && /Featured Image/.test(pageText)
+    && pageText.indexOf('Page Details') < pageText.indexOf('Page state')
+    && pageText.indexOf('Page state') < pageText.indexOf('Content')
+    && pageText.indexOf('Content') < pageText.indexOf('Featured Image')
+    && pageText.indexOf('Featured Image') < pageText.indexOf('SEO & Meta Information'),
+    pageText.slice(0, 160));
   otherDom.window.close();
-  // The shared editor keeps BOTH branches in the bundle: the button stays the
-  // default for every other panel, and only the category row opts into the
-  // checkbox. Asserting on the built file avoids racing a tab render here.
+  // The shared editor keeps BOTH branches in the bundle: the button is the
+  // default everywhere, and only the tool category rows opt into the checkbox.
+  // Asserting on the built file avoids racing a tab render here.
   check('the Make no-index button branch still ships for the other panels',
     /Make no-index/.test(rawHtml) && /No-index enabled/.test(rawHtml)
     && /Noindex — exclude from search/.test(rawHtml)
-    // every panel that asks for the checkbox variant: tool categories, blog
-    // posts (create + edit), pages (create + edit) and blog categories
-    // (create + edit).
-    && (rawHtml.match(/noindexControl:"checkbox"/g) || []).length === 7,
+    && (rawHtml.match(/noindexControl:"checkbox"/g) || []).length === 1,
     `${(rawHtml.match(/noindexControl:"checkbox"/g) || []).length} opt-ins in the bundle`);
   // ---- PART 4: the SEO section on the create views and on blog categories ----
   const { dom: crtDom } = await boot(`localStorage.setItem('ekstruh:admin-session:v1', ${JSON.stringify(session)});`, '/admin');
@@ -1197,41 +1214,118 @@ for (const route of ['/website-health', '/blog/category/website-health']) {
   crtClick(crtBtn('+ Create page'));
   await wait();
   const pageCreateSeo = crtSeoBox();
-  check('creating a page shows the SEO & Meta section with all four controls',
+  check('creating a page shows the SEO & Meta section with the tool editor controls',
     !!pageCreateSeo
-    && /Search engine title/.test(crtText(pageCreateSeo))
+    && /SEO title/.test(crtText(pageCreateSeo))
     && /Meta description/.test(crtText(pageCreateSeo))
-    && /Canonical URL/.test(crtText(pageCreateSeo))
-    && /Do not allow search engines to index this page \(noindex\)/.test(crtText(pageCreateSeo))
-    && !!pageCreateSeo.querySelector('input[type="checkbox"]')
-    && pageCreateSeo.querySelector('input[type="checkbox"]').checked === false,
+    && /Canonical URL override/.test(crtText(pageCreateSeo))
+    && pageCreateSeo.querySelectorAll('input')[1]?.placeholder === 'Leave blank to use the page URL'
+    && !pageCreateSeo.querySelector('input[type="checkbox"]')
+    && /Make no-index/.test(crtText(pageCreateSeo))
+    && /Indexable/.test(crtText(pageCreateSeo)),
     pageCreateSeo ? 'section present' : 'no section in the page create form');
+  const pageCreateRoot = pageCreateSeo && pageCreateSeo.closest('.space-y-4');
+  const pageCreateText = pageCreateRoot ? pageCreateRoot.textContent || '' : '';
+  check('the new page form groups its fields into the tool editor sections',
+    !!pageCreateRoot
+    && /Page Details/.test(pageCreateText) && /Page state/.test(pageCreateText)
+    && /Content/.test(pageCreateText) && /Featured Image/.test(pageCreateText)
+    && pageCreateText.indexOf('Page Details') < pageCreateText.indexOf('Content')
+    && pageCreateText.indexOf('Content') < pageCreateText.indexOf('Featured Image')
+    && pageCreateText.indexOf('Featured Image') < pageCreateText.indexOf('SEO & Meta Information'),
+    pageCreateText.slice(0, 160));
   crtClick(crtBtn('Blog posts'));
   await wait();
   const catCreateSeo = crtSeoBox();
   check('the blog category create form carries the SEO section',
-    !!catCreateSeo && /Search engine title/.test(crtText(catCreateSeo))
-    && /Do not allow search engines to index this page \(noindex\)/.test(crtText(catCreateSeo)),
+    !!catCreateSeo && /SEO title/.test(crtText(catCreateSeo))
+    && /Make no-index/.test(crtText(catCreateSeo))
+    && !catCreateSeo.querySelector('input[type="checkbox"]'),
     catCreateSeo ? 'section present' : 'no section in the category create form');
+  const catCreateRoot = catCreateSeo && catCreateSeo.closest('.space-y-4');
+  const catCreateText = catCreateRoot ? catCreateRoot.textContent || '' : '';
+  check('the category create form groups name, slug and intro under a heading',
+    !!catCreateRoot
+    && /Category Details/.test(catCreateText)
+    && catCreateRoot.querySelector('input[aria-label="Category Name"]') !== null
+    && catCreateRoot.querySelector('input[aria-label="Category Slug"]') !== null
+    && catCreateRoot.querySelector('textarea[aria-label="Category description"]') !== null
+    && /Name/.test(catCreateText) && /URL slug/.test(catCreateText) && /Description/.test(catCreateText)
+    && catCreateText.indexOf('Category Details') < catCreateText.indexOf('SEO & Meta Information'),
+    catCreateText.slice(0, 160));
   crtClick(crtBtn('+ Write post'));
   await wait();
   const postCreateSeo = crtSeoBox();
   check('creating a blog post shows the same SEO & Meta section',
-    !!postCreateSeo && /Search engine title/.test(crtText(postCreateSeo))
-    && /Do not allow search engines to index this page \(noindex\)/.test(crtText(postCreateSeo))
-    && !!postCreateSeo.querySelector('input[type="checkbox"]'),
+    !!postCreateSeo && /SEO title/.test(crtText(postCreateSeo))
+    && /Make no-index/.test(crtText(postCreateSeo))
+    && !postCreateSeo.querySelector('input[type="checkbox"]'),
     postCreateSeo ? 'section present' : 'no section in the post create form');
+  const postCreateRoot = postCreateSeo && postCreateSeo.closest('.space-y-4');
+  const postCreateText = postCreateRoot ? postCreateRoot.textContent || '' : '';
+  check('the new post form groups title, slug, author and date under a heading',
+    !!postCreateRoot
+    && /Post Details/.test(postCreateText)
+    && /Author/.test(postCreateText) && /Publish date/.test(postCreateText) && /Read time/.test(postCreateText)
+    && /Content/.test(postCreateText) && /Category/.test(postCreateText) && /Featured Image/.test(postCreateText)
+    && postCreateText.indexOf('Post Details') < postCreateText.indexOf('Content')
+    && postCreateText.indexOf('Content') < postCreateText.indexOf('Featured Image')
+    && postCreateText.indexOf('Featured Image') < postCreateText.indexOf('Category')
+    && postCreateText.indexOf('Category') < postCreateText.indexOf('SEO & Meta Information'),
+    postCreateText.slice(0, 200));
   crtClick(crtBtn('Cancel'));
   await wait();
-  crtClick(crtBtn('Edit'));
+  // The FIRST Edit button on the Blog posts tab belongs to the first Blog
+  // Categories row, which sits above the post list — .pop() would open a post
+  // editor instead and quietly satisfy the wording checks below.
+  crtClick([...crtDoc.querySelectorAll('button')].filter(b => b.textContent.trim() === 'Edit')[0]);
   await wait();
   const catEditSeo = crtSeoBox();
   check('editing a blog category shows the SEO section and its autosave badge',
     !!catEditSeo && /Saved automatically/.test(crtText(catEditSeo))
-    && /Search engine title/.test(crtText(catEditSeo))
-    && !!catEditSeo.querySelector('input[type="checkbox"]'),
+    && /SEO title/.test(crtText(catEditSeo))
+    && /Make no-index/.test(crtText(catEditSeo))
+    && !catEditSeo.querySelector('input[type="checkbox"]'),
     catEditSeo ? 'section present' : 'no section in the category editor');
+  const catEditRoot = catEditSeo && catEditSeo.closest('.space-y-4');
+  check('the category editor carries the intro field inside its details section',
+    !!catEditRoot
+    && /Category Details/.test(catEditRoot.textContent || '')
+    && catEditRoot.querySelector('textarea[aria-label="Edit category description"]') !== null
+    && catEditRoot.querySelector('input[aria-label="Edit category name"]') !== null,
+    catEditRoot ? 'intro field present' : 'no category editor open');
   crtDom.window.close();
+
+  // ---- the category intro text is stored and reaches the public page ----
+  const { dom: introDom } = await boot(`localStorage.setItem('ekstruh:admin-session:v1', ${JSON.stringify(session)});`, '/admin');
+  const introDoc = introDom.window.document;
+  const introClick = el => el && el.dispatchEvent(new introDom.window.MouseEvent('click', { bubbles: true, cancelable: true }));
+  const introSet = (el, value) => {
+    const proto = el.tagName === 'TEXTAREA' ? introDom.window.HTMLTextAreaElement.prototype : introDom.window.HTMLInputElement.prototype;
+    Object.getOwnPropertyDescriptor(proto, 'value').set.call(el, value);
+    el.dispatchEvent(new introDom.window.Event('input', { bubbles: true }));
+  };
+  await wait();
+  introClick([...introDoc.querySelectorAll('button')].filter(b => b.textContent.trim() === 'Blog posts').pop());
+  await wait();
+  introSet(introDoc.querySelector('input[aria-label="Category Name"]'), 'Technical SEO');
+  introSet(introDoc.querySelector('textarea[aria-label="Category description"]'), 'Technical SEO intros: crawling, rendering, indexing and the server-side mistakes that quietly cost rankings.');
+  introClick([...introDoc.querySelectorAll('button')].filter(b => b.textContent.trim() === 'Add category').pop());
+  await wait();
+  const introSt = JSON.parse(introDom.window.localStorage.getItem('seoaudittool:cms:v1') || '{}');
+  const newCat = (introSt.blogCategories || []).find(c => c.name === 'Technical SEO');
+  check('a new blog category stores its intro text and clean slug',
+    !!newCat && newCat.slug === 'technical-seo'
+    && newCat.description === 'Technical SEO intros: crawling, rendering, indexing and the server-side mistakes that quietly cost rankings.',
+    JSON.stringify(newCat));
+  introDom.window.close();
+  const { dom: introPageDom } = await boot(`localStorage.setItem('seoaudittool:cms:v1', ${JSON.stringify(JSON.stringify(introSt))});`, '/blog/category/technical-seo');
+  const introBody = introPageDom.window.document.body.textContent || '';
+  check('the category intro renders on the public category page',
+    /Technical SEO intros: crawling, rendering, indexing/.test(introBody)
+    && !/practical guides? filed under Technical SEO/.test(introBody),
+    introBody.slice(0, 160));
+  introPageDom.window.close();
 
   // A saved blog-category entry must reach the public page head.
   const catSeoSeed = { ...base, seo: { ...(base.seo || {}), 'blogcat:core-web-vitals': { title: 'Core Web Vitals: Fix INP, LCP and CLS', description: 'Practical fixes for the Core Web Vitals problems website owners actually hit.', slug: '', noindex: true } } };

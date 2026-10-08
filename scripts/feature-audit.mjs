@@ -453,13 +453,13 @@ console.log('\n=== 🏷️ Blog categories ===');
 const blogSrc = read('src/blog/Blog.tsx');
 const adminSrc = read('src/cms/Admin.tsx');
 check('the store models blog categories and their clean URLs',
-  /export interface CmsBlogCategory \{[\s\S]{0,200}name: string;[\s\S]{0,80}slug: string;[\s\S]{0,80}visible: boolean;/.test(store)
+  /export interface CmsBlogCategory \{[\s\S]{0,200}name: string;[\s\S]{0,80}slug: string;[\s\S]{0,160}(description\?: string;)?[\s\S]{0,80}visible: boolean;/.test(store)
   && /blogCategories: CmsBlogCategory\[\];/.test(store)
   && /blogCategories: defaultBlogCategories,/.test(store)
   && /export const blogCategorySlug = \(name: string\): string =>/.test(store)
   && /export const UNCATEGORIZED = 'Uncategorized';/.test(store));
 check('the five built-in article categories are seeded and migrated',
-  /export const defaultBlogCategories: CmsBlogCategory\[\] = \[[\s\S]{0,400}'Core Web Vitals'[\s\S]{0,200}'PageSpeed'[\s\S]{0,200}'WordPress SEO'[\s\S]{0,200}'Google & Indexing'[\s\S]{0,200}'Website Health'/.test(store)
+  /export const defaultBlogCategories: CmsBlogCategory\[\] = \[[\s\S]{0,400}'Core Web Vitals'[\s\S]{0,400}'PageSpeed'[\s\S]{0,400}'WordPress SEO'[\s\S]{0,400}'Google & Indexing'[\s\S]{0,400}'Website Health'/.test(store)
   && /const migrateBlogCategories = \(saved\?: CmsBlogCategory\[\]\): CmsBlogCategory\[\] => \{/.test(store)
   && /blogCategories: migrateBlogCategories\(parsed\.blogCategories\),/.test(store)
   && /blogCategories: migrateBlogCategories\(parsed\.blogCategories\), toolCategories: migrateToolCategories\(parsed\.toolCategories\), competitor: migrateCompetitor\(parsed\.competitor\), seo: migrateSeo/.test(store));
@@ -476,9 +476,10 @@ check('the admin Blog posts tab carries the new Blog Categories section',
   /const BlogCategoriesSection: React\.FC = \(\) => \{/.test(adminSrc)
   && /<section aria-label="Blog Categories"/.test(adminSrc)
   && /<BlogCategoriesSection \/>\s*\{creating && <NewPostForm/.test(adminSrc));
-check('the section has a name field, an auto slug and a save button',
-  /<Field label="Category Name">/.test(adminSrc)
-  && /<Field label="Category Slug" hint=\{effectiveSlug \? `\/blog\/category\/\$\{effectiveSlug\}`/.test(adminSrc)
+check('the section has a name field, an auto slug, an intro and a save button',
+  /<Field label="Name">/.test(adminSrc)
+  && /<Field label="URL slug" hint=\{effectiveSlug \? `\/blog\/category\/\$\{effectiveSlug\}`/.test(adminSrc)
+  && /<Field label="Description"/.test(adminSrc)
   && /const autoSlug = blogCategorySlug\(name\);/.test(adminSrc)
   && /<SaveButton label="Add category" onSave=\{create\} \/>/.test(adminSrc));
 check('every category row shows name, slug, post count and its actions',
@@ -658,22 +659,43 @@ check('Pages, Blog Posts and Blog Categories all carry the SEO & Meta section',
   seoSurfaces.every(([, body]) => /<SeoMetaEditor/.test(body))
   && (adminSrc.match(/<SeoMetaEditor/g) || []).length >= 7,
   `${(adminSrc.match(/<SeoMetaEditor/g) || []).length} sections in the admin`);
-check('the section asks for the four controls with the specified wording',
-  seoSurfaces.every(([, body]) => /titleLabel="Search engine title"/.test(body)
-    && /titlePlaceholder="Leave blank to use the (post|page|category) name"/.test(body)
-    && /noindexControl="checkbox"/.test(body)
-    && /noindexLabel="Do not allow search engines to index this page \(noindex\)"/.test(body)),
-  seoSurfaces.filter(([, body]) => !/titleLabel="Search engine title"/.test(body)).map(([n]) => n).join(', ') || 'all five');
+check('the section asks for the four controls with the tool editor wording',
+  // No surface passes its own wording any more: every panel uses the shared
+  // defaults, so pages, posts and blog categories read exactly like tools.
+  seoSurfaces.every(([, body]) => /<SeoMetaEditor/.test(body)
+    && !/titleLabel=/.test(body)
+    && !/titlePlaceholder=/.test(body)
+    && !/noindexLabel=/.test(body)
+    && !/noindexHint=/.test(body)
+    && !/noindexControl=/.test(body))
+  && /label="SEO title"/.test(adminSrc)
+  && /hint=\{`\$\{entry\.title\.length\} characters . target 50.60`\}/.test(adminSrc)
+  && /label="Meta description"/.test(adminSrc)
+  && /hint=\{`\$\{entry\.description\.length\} characters . target 150.160`\}/.test(adminSrc)
+  && /label="Canonical URL override"/.test(adminSrc)
+  && /hint=\{`Default: \$\{routeHint\}`\}/.test(adminSrc)
+  && /placeholder="Leave blank to use the page URL"/.test(adminSrc)
+  && /Make no-index/.test(adminSrc) && /No-index enabled/.test(adminSrc)
+  && /\{entry\.noindex \? 'No-indexed' : 'Indexable'\}/.test(adminSrc)
+  && /Google preview/.test(adminSrc)
+  // Only the tool category rows opt into the checkbox variant now.
+  && (adminSrc.match(/noindexControl="checkbox"/g) || []).length === 1
+  && /noindexControl="checkbox"/.test(toolCatsBody),
+  seoSurfaces.filter(([, body]) => /titleLabel=|titlePlaceholder=|noindexLabel=|noindexControl=/.test(body)).map(([n]) => n).join(', ') || 'all five use the shared defaults');
 check('the shared section carries the requested heading, description and field text',
   /<h4 className="font-bold text-slate-900">SEO &amp; Meta Information<\/h4>/.test(adminSrc)
   && /Search title, description, canonical URL and indexing controls for this page\./.test(adminSrc)
-  && /placeholder="Brief summary shown in search results \(150.160 characters recommended\)"/.test(adminSrc)
-  && /placeholder="Auto-generated if left blank . override only if this page lives at a different address"/.test(adminSrc)
-  && /hint=\{`\$\{entry\.description\.length\}\/160 characters`\}/.test(adminSrc)
-  && /label="Canonical URL"/.test(adminSrc));
-check('the noindex checkbox explains the robots tag and the sitemap',
-  seoSurfaces.every(([, body]) => /noindexHint=\{.*Adds <meta name="robots" content="noindex"> to the page head/.test(body)
-    && /also remove its URL from sitemap\.xml before upload/.test(body)));
+  && /label="SEO title"/.test(adminSrc)
+  && /label="Meta description"/.test(adminSrc)
+  && /label="Canonical URL override"/.test(adminSrc)
+  && /placeholder="Leave blank to use the page URL"/.test(adminSrc)
+  && /<p className="text-lg leading-tight text-\[#1a0dab\] mt-0\.5">\{entry\.title\.slice\(0, 60\) \|\| 'Your SEO title'\}<\/p>/.test(adminSrc)
+  && /<p className="text-sm leading-snug text-slate-600 mt-1">\{entry\.description\.slice\(0, 160\) \|\| 'Your meta description appears here\.'\}<\/p>/.test(adminSrc));
+check('the noindex control is the tool editor toggle, badge and all',
+  /<button type="button" onClick=\{\(\) => onChange\(\{ \.\.\.entry, noindex: !entry\.noindex \}\)\}/.test(adminSrc)
+  && /\{entry\.noindex \? 'No-index enabled' : 'Make no-index'\}/.test(adminSrc)
+  && /\{entry\.noindex \? 'No-indexed' : 'Indexable'\}/.test(adminSrc)
+  && /Noindex . exclude from search/.test(adminSrc));
 check('the SEO fields autosave to the seo map as you type (edit views)',
   /persistSeo\(setSeo, clearSeo, `post:\$\{post\.slug\}`, entry, auto\)/.test(postEditorBody)
   && /persistSeo\(setSeo, clearSeo, `page:\$\{page\.slug\}`, entry, auto\)/.test(pageEditorBody)
@@ -694,8 +716,68 @@ check('the blog category seo key follows the slug and is cleared with the catego
   /if \(nextSlug !== cat\.slug\) clearSeo\(`blogcat:\$\{cat\.slug\}`\);/.test(blogCatsBody)
   && /removeBlogCategory\(cat\.slug\); clearSeo\(`blogcat:\$\{cat\.slug\}`\);/.test(blogCatsBody));
 check('posts and pages keep their legacy meta fields in step with the section',
-  /addPost\(\{ \.\.\.f, slug, metaTitle: seo\.title \|\| auto\.title, metaDescription: seo\.description \}\)/.test(newPostBody)
+  /addPost\(\{ \.\.\.f, slug, author: f\.author \|\| undefined, date: f\.date \|\| undefined, readTime: f\.readTime \|\| undefined, metaTitle: seo\.title \|\| auto\.title, metaDescription: seo\.description \}\)/.test(newPostBody)
   && /addPage\(\{ \.\.\.f, slug, metaTitle: seo\.title \|\| auto\.title, metaDescription: seo\.description \}\)/.test(newPageBody));
+/* ------- the admin editors are grouped like the tool editor ------- */
+// One shared card for every group of fields, the tool editor's own grammar:
+// white surface, slate header bar, heading plus one-line description, and the
+// SEO & Meta Information section always last, just above the save buttons.
+check('a shared SectionCard renders every group in the tool editor card style',
+  /const SectionCard: React\.FC<\{ title: string; description\?: string; children: React\.ReactNode \}>/.test(adminSrc)
+  && /<section className="bg-white rounded-xl border border-slate-200 overflow-hidden">/.test(adminSrc)
+  && /<div className="px-4 py-3 bg-slate-50 border-b border-slate-200">/.test(adminSrc)
+  && /<h4 className="font-bold text-slate-900">\{title\}<\/h4>/.test(adminSrc)
+  && /<div className="p-4 space-y-4">\{children\}<\/div>/.test(adminSrc));
+const groupedSurfaces = [
+  ['pages (edit)', pageEditorBody, ['Page Details', 'Content']],
+  ['pages (create)', newPageBody, ['Page Details', 'Content']],
+  ['blog posts (edit)', postEditorBody, ['Post Details', 'Content', 'Category']],
+  ['blog posts (create)', newPostBody, ['Post Details', 'Content', 'Category']],
+  ['blog categories (create + edit)', blogCatsBody, ['Category Details']],
+];
+check('Pages, Blog Posts and Blog Categories group their fields under titled sections',
+  groupedSurfaces.every(([, body, titles]) => titles.every(t => body.includes(`<SectionCard title="${t}"`)))
+  && (adminSrc.match(/<SectionCard/g) || []).length >= 12,
+  `${(adminSrc.match(/<SectionCard/g) || []).length} grouped sections in the admin`);
+check('every editor keeps the SEO & Meta section last, before the save buttons',
+  groupedSurfaces.every(([, body]) => {
+    const seo = body.lastIndexOf('<SeoMetaEditor');
+    const save = Math.max(body.lastIndexOf('onClick={() => {'), body.lastIndexOf('onSave={create}'), body.lastIndexOf('onSave={() => saveEdit(cat)}'));
+    return seo > 0 && save > seo;
+  }),
+  groupedSurfaces.filter(([, body]) => {
+    const seo = body.lastIndexOf('<SeoMetaEditor');
+    const save = Math.max(body.lastIndexOf('onClick={() => {'), body.lastIndexOf('onSave={create}'), body.lastIndexOf('onSave={() => saveEdit(cat)}'));
+    return !(seo > 0 && save > seo);
+  }).map(([n]) => n).join(', ') || 'all five');
+check('the page editors expose the name, the slug and the page state',
+  pageEditorBody.includes('<Field label="Page title">') && pageEditorBody.includes('<Field label="URL slug"') && pageEditorBody.includes('<Field label="Page state"')
+  && newPageBody.includes('<Field label="Title">') && newPageBody.includes('<Field label="Slug"') && newPageBody.includes('<Field label="Page state"'));
+check('both post editors carry the author and the publish date fields',
+  postEditorBody.includes('<Field label="Author"') && postEditorBody.includes('<Field label="Publish date"')
+  && newPostBody.includes('<Field label="Author"') && newPostBody.includes('<Field label="Publish date"')
+  && /author: f\.author \|\| undefined, date: f\.date \|\| undefined/.test(newPostBody));
+check('the blog category editors carry the description (category intro) field',
+  blogCatsBody.includes('<Field label="Description"')
+  && /value=\{intro\}/.test(blogCatsBody)
+  && /value=\{draft\.description\}/.test(blogCatsBody)
+  && /aria-label="Category description"/.test(blogCatsBody)
+  && /aria-label="Edit category description"/.test(blogCatsBody)
+  && /saveBlogCategory\(cat\.slug, \{ name: draft\.name, slug: nextSlug, description: draft\.description \}\)/.test(blogCatsBody));
+check('a new category stores its intro text alongside its slug',
+  /if \(intro\.trim\(\)\) patch\.description = intro\.trim\(\);/.test(blogCatsBody)
+  && /if \(Object\.keys\(patch\)\.length\) saveBlogCategory\(created, patch\);/.test(blogCatsBody));
+check('the blog category intro reaches the public category page',
+  /description\?: string;/.test(store)
+  && /description: c\.description \|\| '',/.test(store)
+  && /\{\(category\.description \|\| ''\)\.trim\(\)/.test(blogSrc)
+  && /practical guide\$\{posts\.length === 1 \? '' : 's'\} filed under/.test(blogSrc));
+check('the five built-in categories ship their intro text',
+  /name: 'Core Web Vitals', slug: 'core-web-vitals', description: 'Fixes for the three Core Web Vitals/.test(store)
+  && /name: 'PageSpeed', slug: 'pagespeed', description: 'Practical PageSpeed work/.test(store)
+  && /name: 'WordPress SEO', slug: 'wordpress-seo', description: 'WordPress SEO without the plugin sprawl/.test(store)
+  && /name: 'Google & Indexing', slug: 'google-indexing', description: 'Getting pages found and kept/.test(store)
+  && /name: 'Website Health', slug: 'website-health', description: 'A full website health check, end to end/.test(store));
 check('the category page head honours the override and falls back to the generated copy',
   /export const categorySeoFallbacks = \(cms: CmsState, cat: CmsToolCategory, brand: string\)/.test(seoSrc)
   && /const seo = cms\.seo\[`cat:\$\{cat\.key\}`\];/.test(seoSrc)
