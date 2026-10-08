@@ -1217,6 +1217,16 @@ check('single file: no external chunk reference', !/<script[^>]*src="\/assets\//
 check('no assets/ directory in dist', !existsSync('dist/assets'));
 check('design/CSS present (tailwind inline)', /\.content-shell/.test(dist) && /--tw-/.test(dist));
 
+const uploadBundleFiles = ['.htaccess', '404.html', 'cms-content.json', 'favicon.svg', 'index.html', 'og.jpg', 'robots.txt', 'sitemap.xml'];
+check('dist contains all eight deployment files ready for upload',
+  uploadBundleFiles.every(file => existsSync(`dist/${file}`)),
+  uploadBundleFiles.filter(file => !existsSync(`dist/${file}`)).join(', '));
+const cmsExporter = read('scripts/export-cms-content.mjs');
+check('the CMS content export is written to both dist and public_html',
+  cmsExporter.includes("const publicDir = new URL('../public_html/'")
+  && cmsExporter.includes("const distDir = new URL('../dist/'")
+  && cmsExporter.includes("writeFile(new URL('cms-content.json', publicDir), exportFile)")
+  && cmsExporter.includes("writeFile(new URL('cms-content.json', distDir), exportFile)"));
 const failed = results.filter(r => !r.ok);
 console.log(`\n${results.length - failed.length}/${results.length} feature checks passed`);
 process.exit(failed.length ? 1 : 0);

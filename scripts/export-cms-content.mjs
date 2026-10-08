@@ -44,13 +44,19 @@ try {
     null,
     2,
   );
-  const dir = new URL('../public_html/', import.meta.url);
-  await mkdir(dir, { recursive: true });
-  await writeFile(new URL('cms-content.json', dir), `${payload}\n`);
+  const publicDir = new URL('../public_html/', import.meta.url);
+  const distDir = new URL('../dist/', import.meta.url);
+  await Promise.all([mkdir(publicDir, { recursive: true }), mkdir(distDir, { recursive: true })]);
+  const exportFile = `${payload}\n`;
+  // Keep both the hosting folder and the Vite build folder upload-complete.
+  await Promise.all([
+    writeFile(new URL('cms-content.json', publicDir), exportFile),
+    writeFile(new URL('cms-content.json', distDir), exportFile),
+  ]);
   const tools = defaultState.tools.length;
   const posts = defaultState.posts.length;
   const pages = defaultState.pages.length;
-  console.log(`export-cms-content: public_html/cms-content.json written (${tools} tools, ${posts} posts, ${pages} pages)`);
+  console.log(`export-cms-content: dist/ and public_html/cms-content.json written (${tools} tools, ${posts} posts, ${pages} pages)`);
 } finally {
   await server.close();
 }
