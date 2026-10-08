@@ -2,39 +2,44 @@
   "version": 13,
   "blogCategories": [
     {
-      "id": "ks51h3s",
+      "id": "o76b6dk",
       "name": "Core Web Vitals",
       "slug": "core-web-vitals",
+      "description": "Fixes for the three Core Web Vitals — INP, LCP and CLS — measured on real pages, with the browser tools and the code changes that move each one.",
       "visible": true
     },
     {
-      "id": "f1yeikq",
+      "id": "6jt8m5e",
       "name": "PageSpeed",
       "slug": "pagespeed",
+      "description": "Practical PageSpeed work: what each opportunity actually costs, which fixes survive a real hosting setup, and how to read a waterfall without guessing.",
       "visible": true
     },
     {
-      "id": "wrw3p0z",
+      "id": "kr9gib1",
       "name": "WordPress SEO",
       "slug": "wordpress-seo",
+      "description": "WordPress SEO without the plugin sprawl — caching, image handling, theme weight, redirects and the on-page basics that decide whether your pages rank.",
       "visible": true
     },
     {
-      "id": "ie0cog6",
+      "id": "9byc2m4",
       "name": "Google & Indexing",
       "slug": "google-indexing",
+      "description": "Getting pages found and kept: Search Console coverage, canonical mistakes, robots and sitemap issues, and what to do when Google drops a URL.",
       "visible": true
     },
     {
-      "id": "htvhv2s",
+      "id": "x76fvib",
       "name": "Website Health",
       "slug": "website-health",
+      "description": "A full website health check, end to end: what to audit, in what order, and how to turn the findings into a fix list you can actually work through.",
       "visible": true
     }
   ],
   "toolCategories": [
     {
-      "id": "6veq063",
+      "id": "7cq9a6h",
       "key": "text",
       "name": "Text Analysis Tools",
       "slug": "text-analysis-tools",
@@ -42,7 +47,7 @@
       "builtin": true
     },
     {
-      "id": "n8249w0",
+      "id": "a441cvr",
       "key": "keyword",
       "name": "Keyword Tools",
       "slug": "keyword-tools",
@@ -50,7 +55,7 @@
       "builtin": true
     },
     {
-      "id": "02m5qn1",
+      "id": "dlxp62j",
       "key": "backlink",
       "name": "Backlink Tools",
       "slug": "backlink-tools",
@@ -58,7 +63,7 @@
       "builtin": true
     },
     {
-      "id": "e9qaonv",
+      "id": "kxoc7kl",
       "key": "management",
       "name": "Website Management Tools",
       "slug": "website-management-tools",
@@ -66,7 +71,7 @@
       "builtin": true
     },
     {
-      "id": "pf9vn9a",
+      "id": "bgullqp",
       "key": "checker",
       "name": "Website Checker Tools",
       "slug": "website-checker-tools",
@@ -74,7 +79,7 @@
       "builtin": true
     },
     {
-      "id": "9yhq4x9",
+      "id": "2e41fsd",
       "key": "domain",
       "name": "Domain Tools",
       "slug": "domain-tools",
@@ -82,7 +87,7 @@
       "builtin": true
     },
     {
-      "id": "hg7wzx7",
+      "id": "qayje6k",
       "key": "ip",
       "name": "IP Tools",
       "slug": "ip-tools",
@@ -90,7 +95,7 @@
       "builtin": true
     },
     {
-      "id": "tqejtmb",
+      "id": "0gkjcqj",
       "key": "pdf",
       "name": "PDF Tools",
       "slug": "pdf-tools",
@@ -98,7 +103,7 @@
       "builtin": true
     },
     {
-      "id": "gb8wyvp",
+      "id": "m18aikx",
       "key": "image",
       "name": "Image Tools",
       "slug": "image-tools",
@@ -106,7 +111,7 @@
       "builtin": true
     },
     {
-      "id": "qeu3hh2",
+      "id": "9cdeuwl",
       "key": "calculator",
       "name": "Calculator Tools",
       "slug": "calculator-tools",
@@ -114,7 +119,7 @@
       "builtin": true
     },
     {
-      "id": "4mv6w8b",
+      "id": "kfes16a",
       "key": "converter",
       "name": "Unit Converter Tools",
       "slug": "unit-converter-tools",
@@ -2019,7 +2024,7 @@
   ],
   "pages": [
     {
-      "id": "2u22g7r",
+      "id": "6858nq5",
       "slug": "about",
       "title": "About SEO Audit Tools",
       "status": "live",
@@ -2027,7 +2032,7 @@
       "metaDescription": "About SEO Audit Tools: a free platform for website SEO audits, competitor analysis and instant PDF reports — built for website owners in Pakistan and worldwide."
     },
     {
-      "id": "pr763tj",
+      "id": "75o4yhq",
       "slug": "privacy-policy",
       "title": "Privacy Policy",
       "status": "live",
@@ -2035,7 +2040,7 @@
       "metaDescription": "Privacy Policy for SEO Audit Tools (seoaudittools.pk): the data we collect, our lawful bases under the UK GDPR and Data Protection Act 2018, Google AdSense and affiliate cookies, and your legal rights."
     },
     {
-      "id": "rsz0ee4",
+      "id": "nvkjo2f",
       "slug": "contact",
       "title": "Contact",
       "status": "live",
@@ -2043,7 +2048,7 @@
       "metaDescription": "Get in touch with the SEO Audit Tools team: support, bug reports, data protection queries, partnerships and feedback. We usually reply within one business day."
     },
     {
-      "id": "pr6bbl5",
+      "id": "43t26t9",
       "slug": "faq",
       "title": "FAQ",
       "status": "live",
@@ -2051,7 +2056,7 @@
       "metaDescription": "Answers to common questions about SEO Audit Tools: free tools, browser-side processing, where domain data comes from, cookies and who runs the site."
     },
     {
-      "id": "z06peof",
+      "id": "hwd9hmq",
       "slug": "cookie-policy",
       "title": "Cookie Policy",
       "status": "live",
@@ -2059,7 +2064,7 @@
       "metaDescription": "Cookie Policy for SEO Audit Tools (seoaudittools.pk): the cookies we use, including Google Analytics, Google AdSense and affiliate tracking cookies, how to manage your consent, and your rights under the UK GDPR and PECR."
     },
     {
-      "id": "ezdbfyn",
+      "id": "m2zc93f",
       "slug": "terms-of-service",
       "title": "Terms & Conditions",
       "status": "live",
@@ -2128,31 +2133,31 @@
     "footerMenuTitle": "Quick links",
     "footerLinks": [
       {
-        "id": "yvlbn53",
+        "id": "csf3z35",
         "label": "Free SEO Audit",
         "href": "/",
         "visible": true
       },
       {
-        "id": "auou1ao",
+        "id": "twqj03d",
         "label": "Free SEO Tools",
         "href": "/free-seo-tools",
         "visible": true
       },
       {
-        "id": "uvsetj6",
+        "id": "0dc9lzc",
         "label": "Blog",
         "href": "/blog",
         "visible": true
       },
       {
-        "id": "o21erfs",
+        "id": "b047c0v",
         "label": "About",
         "href": "/about",
         "visible": true
       },
       {
-        "id": "m8rl37m",
+        "id": "0af3w46",
         "label": "Contact",
         "href": "/contact",
         "visible": true
@@ -2168,28 +2173,28 @@
   },
   "nav": [
     {
-      "id": "xxue5om",
+      "id": "5007en6",
       "label": "Home",
       "href": "/",
       "visible": true,
       "kind": "link"
     },
     {
-      "id": "l4phxyw",
+      "id": "uhi8g8r",
       "label": "Free SEO Tools",
       "href": "/free-seo-tools",
       "visible": true,
       "kind": "link"
     },
     {
-      "id": "3hozmp7",
+      "id": "1tmnxc9",
       "label": "Tool Categories",
       "href": "",
       "visible": true,
       "kind": "tool-categories"
     },
     {
-      "id": "ap6s6xv",
+      "id": "4kr9mdu",
       "label": "Competitor Analysis",
       "href": "/competitor-analysis",
       "visible": true,
@@ -2198,35 +2203,35 @@
   ],
   "footerColumns": [
     {
-      "id": "cajdmp0",
+      "id": "tr5mqne",
       "title": "Quick links",
       "links": [
         {
-          "id": "lmvgos4",
+          "id": "pt6de9b",
           "label": "Free SEO Audit",
           "href": "/",
           "visible": true
         },
         {
-          "id": "ko2fao8",
+          "id": "o6rfrv9",
           "label": "Free SEO Tools",
           "href": "/free-seo-tools",
           "visible": true
         },
         {
-          "id": "e60me6j",
+          "id": "mj2mwyf",
           "label": "Blog",
           "href": "/blog",
           "visible": true
         },
         {
-          "id": "75h5bb0",
+          "id": "wqrrf70",
           "label": "About",
           "href": "/about",
           "visible": true
         },
         {
-          "id": "x40lyaq",
+          "id": "z14ukps",
           "label": "Contact",
           "href": "/contact",
           "visible": true
@@ -2234,23 +2239,23 @@
       ]
     },
     {
-      "id": "4ixxder",
+      "id": "n2ngbub",
       "title": "SEO Tools",
       "links": [
         {
-          "id": "ue9gxi2",
+          "id": "8vroai2",
           "label": "Free SEO Audit",
           "href": "/",
           "visible": true
         },
         {
-          "id": "xvgo4pg",
+          "id": "brzuiup",
           "label": "Free SEO Tools",
           "href": "/free-seo-tools",
           "visible": true
         },
         {
-          "id": "g3pr21p",
+          "id": "o6f0vai",
           "label": "Competitor Analysis",
           "href": "/competitor-analysis",
           "visible": true
@@ -2258,23 +2263,23 @@
       ]
     },
     {
-      "id": "3clslxn",
+      "id": "wdui6c0",
       "title": "Resources",
       "links": [
         {
-          "id": "p1rvx1l",
+          "id": "supv83c",
           "label": "Blog",
           "href": "/blog",
           "visible": true
         },
         {
-          "id": "1v01o3r",
+          "id": "xp1c31q",
           "label": "FAQ",
           "href": "/faq",
           "visible": true
         },
         {
-          "id": "bl7mfor",
+          "id": "syxyhg7",
           "label": "Who It's For",
           "href": "/#audiences",
           "visible": true
@@ -2282,17 +2287,17 @@
       ]
     },
     {
-      "id": "wx87tn6",
+      "id": "c879y67",
       "title": "Company",
       "links": [
         {
-          "id": "nhyne3y",
+          "id": "owarz8t",
           "label": "About",
           "href": "/about",
           "visible": true
         },
         {
-          "id": "x14e3ri",
+          "id": "iqh0z1l",
           "label": "Contact",
           "href": "/contact",
           "visible": true
