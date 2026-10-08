@@ -26,6 +26,46 @@ export const categorySeoFallbacks = (cms: CmsState, cat: CmsToolCategory, brand:
   };
 };
 
+/**
+ * Brand suffix appended to a generated search title when the admin leaves the
+ * "Search engine title" field blank (Admin → Pages / Blog posts / Blog
+ * categories → SEO & Meta Information). Shared so the admin's preview, its
+ * "store only real overrides" rule and the rendered <title> can never drift
+ * apart.
+ */
+export const TITLE_BRAND_SUFFIX = 'SEO Audit Tools Pakistan';
+
+/**
+ * Generated title/description for a blog post with no SEO override. The post's
+ * own metaTitle/metaDescription still win when set, so older content keeps the
+ * exact title it shipped with; only a post with neither falls back to the
+ * branded form.
+ */
+export const postSeoFallbacks = (post: { title: string; metaTitle?: string; excerpt: string; metaDescription?: string }) => ({
+  title: (post.metaTitle || '').trim() || `${post.title} | ${TITLE_BRAND_SUFFIX}`,
+  description: (post.metaDescription || '').trim() || post.excerpt || '',
+});
+
+/** Generated title/description for a CMS page with no SEO override. */
+export const pageSeoFallbacks = (page: { title: string; metaTitle?: string; metaDescription?: string }) => ({
+  title: (page.metaTitle || '').trim() || `${page.title} | ${TITLE_BRAND_SUFFIX}`,
+  description: (page.metaDescription || '').trim() || '',
+});
+
+/**
+ * Generated title/description for a blog category page (Admin → Blog posts →
+ * Blog Categories → SEO & Meta Information). The description embeds the live
+ * post count, so — exactly like categorySeoFallbacks — the admin drops a saved
+ * entry that still equals these strings instead of freezing today's count.
+ */
+export const blogCategorySeoFallbacks = (cms: CmsState, category: { name: string }) => {
+  const posts = cms.posts.filter(p => p.status === 'live' && p.category === category.name);
+  return {
+    title: `${category.name} | ${TITLE_BRAND_SUFFIX}`,
+    description: `${posts.length} free, practical ${category.name} guides from ${cms.settings.name || 'SEO Audit Tools'}: fixes for the SEO problems website owners actually hit.`,
+  };
+};
+
 const toolCategorySeo = (cms: CmsState, cat: CmsToolCategory, ctx: { origin: string; brand: string; og: string }): PageSeo => {
   const { origin, brand, og } = ctx;
   const list = cms.tools.filter(t => t.status === 'live' && t.category === cat.key);
@@ -349,11 +389,18 @@ export const resolvePageSeo = (route: string, cms: CmsState): PageSeo => {
       };
     }
     const description = `${posts.length} free, practical ${category.name} guides from ${brand}: fixes for the SEO problems website owners actually hit.`;
+    // Admin → Blog posts → Blog Categories → SEO & Meta Information. A saved
+    // entry wins; anything left blank falls back to the generated copy above,
+    // and a value still equal to it is never stored (see blogCategorySeoFallbacks).
+    const catSeo = cms.seo[`blogcat:${category.slug}`];
+    const catFallbacks = blogCategorySeoFallbacks(cms, category);
     return {
-      title: `${category.name} — SEO Guides & Fixes | ${brand}`,
-      description,
+      title: (catSeo?.title || '').trim() || catFallbacks.title,
+      description: (catSeo?.description || '').trim() || description,
       path,
       origin,
+      noindex: catSeo?.noindex,
+      canonicalOverride: (catSeo?.slug || '').trim() || undefined,
       image: og,
       jsonLd: {
         '@context': 'https://schema.org',
@@ -402,8 +449,9 @@ export const resolvePageSeo = (route: string, cms: CmsState): PageSeo => {
       };
     }
     const seo = cms.seo[`post:${post.slug}`];
-    const title = seo?.title || post.metaTitle || post.title;
-    const description = seo?.description || post.metaDescription || post.excerpt;
+    const fallbacks = postSeoFallbacks(post);
+    const title = (seo?.title || '').trim() || fallbacks.title;
+    const description = (seo?.description || '').trim() || fallbacks.description;
     return {
       title,
       description,
@@ -464,8 +512,9 @@ export const resolvePageSeo = (route: string, cms: CmsState): PageSeo => {
       };
     }
     const seo = cms.seo[`page:${page.slug}`];
-    const title = seo?.title || page.metaTitle || page.title;
-    const description = seo?.description || page.metaDescription;
+    const fallbacks = pageSeoFallbacks(page);
+    const title = (seo?.title || '').trim() || fallbacks.title;
+    const description = (seo?.description || '').trim() || fallbacks.description;
     return {
       title,
       description,

@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useCms, injectHeadCode, renderCopyright, blogCategorySlug, toolCategorySlug, toolCategoriesOf, toolCategoryName, defaultCompetitor, UNCATEGORIZED, type CmsCompetitor, type CmsBlogCategory, type CmsPage, type CmsPost, type CmsTool, type CmsToolCategory, type FooterColumn, type FooterLink, type SeoEntry, type SidebarLinkSource, type SidebarWidget, type SidebarWidgetType, type Status } from './store';
 import { ToolIcon } from '../tools/data';
 import { RichTextEditor } from './RichTextEditor';
-import { categorySeoFallbacks } from '../utils/seo';
+import { categorySeoFallbacks, postSeoFallbacks, pageSeoFallbacks, blogCategorySeoFallbacks } from '../utils/seo';
 import { clearDraft, draftId, formatDraftTime, listDrafts, clearAllDrafts } from './drafts';
 import { navigate, blogCategoryHref } from '../router';
 import { estimateLocalStorageBytes, formatBytes, BROWSER_QUOTA_BYTES, optimizeImageFile, validateUpload } from './media';
@@ -48,7 +48,7 @@ const inputCls = 'w-full px-3 py-2.5 rounded-lg border border-slate-300 text-sm 
  * existing panels render — the category pages ask for a checkbox, so only they
  * pass it and nothing else changes shape.
  */
-const SeoMetaEditor: React.FC<{ value: SeoEntry; onChange: (entry: SeoEntry) => void; fallbackTitle: string; fallbackDescription: string; routeHint: string; noindexControl?: 'button' | 'checkbox' }> = ({ value, onChange, fallbackTitle, fallbackDescription, routeHint, noindexControl = 'button' }) => {
+const SeoMetaEditor: React.FC<{ value: SeoEntry; onChange: (entry: SeoEntry) => void; fallbackTitle: string; fallbackDescription: string; routeHint: string; noindexControl?: 'button' | 'checkbox'; titleLabel?: string; titlePlaceholder?: string; noindexLabel?: string; noindexHint?: string; autosaveTick?: number }> = ({ value, onChange, fallbackTitle, fallbackDescription, routeHint, noindexControl = 'button', titleLabel = 'SEO title', titlePlaceholder, noindexLabel = 'Noindex — exclude from search', noindexHint, autosaveTick }) => {
   const entry = { title: value.title || fallbackTitle, description: value.description || fallbackDescription, slug: value.slug || '', noindex: value.noindex || false };
   const titleTone = entry.title.length >= 50 && entry.title.length <= 60 ? 'text-emerald-600' : entry.title.length ? 'text-amber-600' : 'text-red-600';
   const descriptionTone = entry.description.length >= 120 && entry.description.length <= 160 ? 'text-emerald-600' : entry.description.length ? 'text-amber-600' : 'text-red-600';
@@ -56,20 +56,26 @@ const SeoMetaEditor: React.FC<{ value: SeoEntry; onChange: (entry: SeoEntry) => 
     <section className="bg-white rounded-xl border border-slate-200 overflow-hidden">
       <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 bg-slate-50 border-b border-slate-200">
         <div><h4 className="font-bold text-slate-900">SEO &amp; Meta Information</h4><p className="text-xs text-slate-500">Search title, description, canonical URL and indexing controls for this page.</p></div>
-        <span className={`text-xs font-bold px-2.5 py-1 rounded-full border ${entry.noindex ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200'}`}>{entry.noindex ? 'No-indexed' : 'Indexable'}</span>
+        <div className="flex items-center gap-3">
+          {autosaveTick !== undefined && <AutosaveBadge tick={autosaveTick} />}
+          <span className={`text-xs font-bold px-2.5 py-1 rounded-full border ${entry.noindex ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200'}`}>{entry.noindex ? 'No-indexed' : 'Indexable'}</span>
+        </div>
       </div>
       <div className="p-4 space-y-4">
         <div className="grid md:grid-cols-2 gap-4">
-          <Field label="SEO title" hint={`${entry.title.length} characters · target 50–60`}><input className={inputCls} value={entry.title} onChange={e => onChange({ ...entry, title: e.target.value })} /></Field>
-          <Field label="Meta description" hint={`${entry.description.length} characters · target 120–160`}><textarea rows={2} className={inputCls} value={entry.description} onChange={e => onChange({ ...entry, description: e.target.value })} /></Field>
+          <Field label={titleLabel} hint={`${entry.title.length} characters · target 50–60`}><input className={inputCls} value={entry.title} onChange={e => onChange({ ...entry, title: e.target.value })} placeholder={titlePlaceholder} /></Field>
+          <Field label="Meta description" hint={`${entry.description.length}/160 characters`}><textarea rows={2} className={inputCls} value={entry.description} onChange={e => onChange({ ...entry, description: e.target.value })} placeholder="Brief summary shown in search results (150–160 characters recommended)" /></Field>
         </div>
         <div className="grid md:grid-cols-[minmax(0,1fr)_auto] gap-4 items-end">
-          <Field label="Canonical URL override" hint={`Default: ${routeHint}`}><input className={inputCls} value={entry.slug} onChange={e => onChange({ ...entry, slug: e.target.value })} placeholder="Leave blank to use the page URL" /></Field>
+          <Field label="Canonical URL" hint={`Auto-generated if left blank: https://seoaudittools.pk${routeHint}`}><input className={inputCls} value={entry.slug} onChange={e => onChange({ ...entry, slug: e.target.value })} placeholder="Auto-generated if left blank — override only if this page lives at a different address" /></Field>
           {noindexControl === 'checkbox' ? (
-            <label className={`flex w-fit h-[42px] items-center gap-2.5 px-4 rounded-lg border text-sm font-semibold transition-colors cursor-pointer ${entry.noindex ? 'bg-amber-50 text-amber-800 border-amber-200 hover:bg-amber-100' : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'}`}>
-              <input type="checkbox" className="w-4 h-4 accent-purple-600" checked={entry.noindex} onChange={e => onChange({ ...entry, noindex: e.target.checked })} />
-              Noindex — exclude from search
-            </label>
+            <div className="space-y-1.5">
+              <label className={`flex w-fit h-[42px] items-center gap-2.5 px-4 rounded-lg border text-sm font-semibold transition-colors cursor-pointer ${entry.noindex ? 'bg-amber-50 text-amber-800 border-amber-200 hover:bg-amber-100' : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'}`}>
+                <input type="checkbox" className="w-4 h-4 accent-purple-600" checked={entry.noindex} onChange={e => onChange({ ...entry, noindex: e.target.checked })} />
+                {noindexLabel}
+              </label>
+              {noindexHint && <p className="text-xs text-slate-400">{noindexHint}</p>}
+            </div>
           ) : (
             <button type="button" onClick={() => onChange({ ...entry, noindex: !entry.noindex })} className={`h-[42px] px-4 rounded-lg border text-sm font-semibold transition-colors ${entry.noindex ? 'bg-amber-50 text-amber-800 border-amber-200 hover:bg-amber-100' : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'}`}>{entry.noindex ? 'No-index enabled' : 'Make no-index'}</button>
           )}
@@ -84,6 +90,31 @@ const SeoMetaEditor: React.FC<{ value: SeoEntry; onChange: (entry: SeoEntry) => 
     </section>
   );
 };
+/**
+ * Turn an SEO draft into what the store keeps. A title or description still
+ * equal to the automatically generated copy is stored as blank, so the live
+ * counts baked into that copy keep updating — the same rule the tool
+ * categories use. Returns null when nothing is left, so the caller clears the
+ * entry rather than keeping an empty one.
+ */
+const seoEntryToStore = (entry: SeoEntry, auto: { title: string; description: string }): SeoEntry | null => {
+  const trim = (v?: string) => (v || '').trim();
+  const stored: SeoEntry = {
+    title: trim(entry.title) && trim(entry.title) !== trim(auto.title) ? trim(entry.title) : '',
+    description: trim(entry.description) && trim(entry.description) !== trim(auto.description) ? trim(entry.description) : '',
+    slug: trim(entry.slug),
+    noindex: !!entry.noindex,
+  };
+  return stored.title || stored.description || stored.slug || stored.noindex ? stored : null;
+};
+
+/** Persist one SEO entry (or clear it) — used by every autosaving SEO section. */
+const persistSeo = (setSeo: (key: string, entry: SeoEntry) => void, clearSeo: (key: string) => void, key: string, entry: SeoEntry, auto: { title: string; description: string }) => {
+  const stored = seoEntryToStore(entry, auto);
+  if (stored) setSeo(key, stored);
+  else clearSeo(key);
+};
+
 const FeaturedImageEditor: React.FC<{ image?: string; alt?: string; onChange: (patch: { featuredImage?: string; featuredImageAlt?: string }) => void }> = ({ image = '', alt = '', onChange }) => (
   <section className="bg-white rounded-xl border border-slate-200 overflow-hidden">
     <div className="px-4 py-3 bg-slate-50 border-b border-slate-200">
@@ -711,7 +742,11 @@ const CompetitorPane: React.FC = () => {
 const PostEditor: React.FC<{ post: CmsPost; onClose: () => void }> = ({ post, onClose }) => {
   const { state, savePost, setSeo, clearSeo } = useCms();
   const [f, setF] = useState(post);
-  const [seo, setSeoDraft] = useState<SeoEntry>(state.seo[`post:${post.slug}`] || { title: post.metaTitle || post.title, description: post.metaDescription || post.excerpt });
+  const [seo, setSeoDraft] = useState<SeoEntry>(state.seo[`post:${post.slug}`] || { title: '', description: '' });
+  const [seoTick, setSeoTick] = useState(0);
+  // Generated copy for the draft, so the preview and the "store only real
+  // overrides" rule always match what the article page renders.
+  const auto = postSeoFallbacks(f);
   return (
     <div className="bg-slate-50 rounded-2xl border border-slate-200 p-5 space-y-4">
       <div className="grid md:grid-cols-2 gap-4">
@@ -729,8 +764,8 @@ const PostEditor: React.FC<{ post: CmsPost; onClose: () => void }> = ({ post, on
       <Field label="Keywords (comma separated)" hint="Plain text — one comma-separated list."><input className={inputCls} value={f.keywords.join(', ')} onChange={e => setF({ ...f, keywords: e.target.value.split(',').map(s => s.trim()).filter(Boolean) })} /></Field>
       <Field label="Body" hint="Visual editor — headings, lists, links, images, colour and alignment. Switch to the Code tab for raw HTML."><RichTextEditor value={f.content} onChange={html => setF({ ...f, content: html })} minHeight={320} placeholder="Write your blog post…" draftKey={draftId('blog', post.slug)} ariaLabel="Blog post body" /></Field>
       <FeaturedImageEditor image={f.featuredImage} alt={f.featuredImageAlt} onChange={patch => setF({ ...f, ...patch })} />
-      <SeoMetaEditor value={seo} onChange={setSeoDraft} fallbackTitle={f.metaTitle || f.title} fallbackDescription={f.metaDescription || f.excerpt} routeHint={`/blog/${f.slug || post.slug}`} />
-      <div className="flex flex-wrap items-center gap-2"><Btn onClick={() => { savePost(post.slug, f); if (f.slug !== post.slug) { clearSeo(`post:${post.slug}`); clearDraft(draftId('blog', post.slug)); } setSeo(`post:${f.slug || post.slug}`, seo); clearDraft(draftId('blog', post.slug)); onClose(); }}>Save post</Btn><Btn tone="ghost" onClick={onClose}>Cancel</Btn><span className="text-xs text-slate-400">Drafts save in this browser while you type.</span></div>
+      <SeoMetaEditor value={seo} autosaveTick={seoTick} onChange={entry => { setSeoDraft(entry); setSeoTick(t => t + 1); persistSeo(setSeo, clearSeo, `post:${post.slug}`, entry, auto); }} fallbackTitle={auto.title} fallbackDescription={auto.description} routeHint={`/blog/${f.slug || post.slug}`} noindexControl="checkbox" titleLabel="Search engine title" titlePlaceholder="Leave blank to use the post name" noindexLabel="Do not allow search engines to index this page (noindex)" noindexHint={'Adds <meta name="robots" content="noindex"> to the page head — also remove its URL from sitemap.xml before upload.'} />
+      <div className="flex flex-wrap items-center gap-2"><Btn onClick={() => { savePost(post.slug, f); if (f.slug !== post.slug) { clearSeo(`post:${post.slug}`); clearDraft(draftId('blog', post.slug)); } persistSeo(setSeo, clearSeo, `post:${f.slug || post.slug}`, seo, auto); clearDraft(draftId('blog', post.slug)); onClose(); }}>Save post</Btn><Btn tone="ghost" onClick={onClose}>Cancel</Btn><span className="text-xs text-slate-400">Drafts save in this browser while you type.</span></div>
     </div>
   );
 };
@@ -744,28 +779,53 @@ const PostEditor: React.FC<{ post: CmsPost; onClose: () => void }> = ({ post, on
  * keeps its posts and moves them to "Uncategorized".
  */
 const BlogCategoriesSection: React.FC = () => {
-  const { state, addBlogCategory, saveBlogCategory, setBlogCategoryVisible, removeBlogCategory } = useCms();
+  const { state, addBlogCategory, saveBlogCategory, setBlogCategoryVisible, removeBlogCategory, setSeo, clearSeo } = useCms();
   const [name, setName] = useState('');
   const [slug, setSlug] = useState('');
   const [slugTouched, setSlugTouched] = useState(false);
   const [editing, setEditing] = useState<string | null>(null);
   const [draft, setDraft] = useState({ name: '', slug: '' });
+  // SEO & Meta drafts: `createSeo` belongs to the new-category form above,
+  // `editSeo` to the row currently open. Both persist straight into the
+  // per-page seo map under `blogcat:<slug>`, which src/utils/seo.ts reads for
+  // the public /blog/category/<slug> (or top-level) page.
+  const [createSeo, setCreateSeo] = useState<SeoEntry>({ title: '', description: '' });
+  const [editSeo, setEditSeo] = useState<SeoEntry>({ title: '', description: '' });
+  const [editTick, setEditTick] = useState(0);
 
   const postCount = (cat: CmsBlogCategory) => state.posts.filter(p => p.category === cat.name).length;
   const autoSlug = blogCategorySlug(name);
   const effectiveSlug = slugTouched ? slug : autoSlug;
+  // The copy a new category gets when its SEO fields are left blank.
+  const createAuto = blogCategorySeoFallbacks(state, { name: name.trim() || 'New category' });
 
   const create = () => {
     const clean = name.trim();
     if (!clean) return;
     const created = addBlogCategory(clean);
     if (slugTouched && slug.trim()) saveBlogCategory(created, { name: clean, slug: slug.trim() });
+    persistSeo(setSeo, clearSeo, `blogcat:${created}`, createSeo, blogCategorySeoFallbacks(state, { name: clean }));
+    setCreateSeo({ title: '', description: '' });
     setName('');
     setSlug('');
     setSlugTouched(false);
   };
 
-  const startEdit = (cat: CmsBlogCategory) => { setEditing(cat.id); setDraft({ name: cat.name, slug: cat.slug }); };
+  const startEdit = (cat: CmsBlogCategory) => {
+    setEditing(cat.id);
+    setDraft({ name: cat.name, slug: cat.slug });
+    setEditSeo(state.seo[`blogcat:${cat.slug}`] || { title: '', description: '' });
+  };
+
+  /** Persist the row: name/slug through saveBlogCategory, the meta overrides
+   *  through the seo map. The seo key follows the slug when it changes. */
+  const saveEdit = (cat: CmsBlogCategory) => {
+    const nextSlug = draft.slug || blogCategorySlug(draft.name);
+    saveBlogCategory(cat.slug, { name: draft.name, slug: nextSlug });
+    if (nextSlug !== cat.slug) clearSeo(`blogcat:${cat.slug}`);
+    persistSeo(setSeo, clearSeo, `blogcat:${nextSlug}`, editSeo, blogCategorySeoFallbacks(state, { name: draft.name || cat.name }));
+    setEditing(null);
+  };
 
   return (
     <section aria-label="Blog Categories" className="bg-white rounded-2xl border border-slate-200 p-5 space-y-4">
@@ -783,6 +843,8 @@ const BlogCategoriesSection: React.FC = () => {
         <SaveButton label="Add category" onSave={create} />
       </div>
 
+      <SeoMetaEditor value={createSeo} onChange={setCreateSeo} fallbackTitle={createAuto.title} fallbackDescription={createAuto.description} routeHint={blogCategoryHref(effectiveSlug || 'new-category')} noindexControl="checkbox" titleLabel="Search engine title" titlePlaceholder="Leave blank to use the category name" noindexLabel="Do not allow search engines to index this page (noindex)" noindexHint={'Adds <meta name="robots" content="noindex"> to the page head — also remove its URL from sitemap.xml before upload.'} />
+
       <div className="rounded-xl border border-slate-200 overflow-hidden">
         {state.blogCategories.length === 0 && <p className="px-4 py-4 text-sm text-slate-500">No categories yet — add the first one above.</p>}
         {state.blogCategories.map(cat => (
@@ -792,7 +854,7 @@ const BlogCategoriesSection: React.FC = () => {
                 <span className={`text-xs font-semibold px-2.5 py-1 rounded-full border ${cat.visible ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 'bg-slate-100 text-slate-500 border-slate-200'}`}>{cat.visible ? 'Visible' : 'Hidden'}</span>
                 <Btn tone={cat.visible ? 'ghost' : 'ok'} onClick={() => setBlogCategoryVisible(cat.slug, !cat.visible)}>{cat.visible ? 'Hide' : 'Show'}</Btn>
                 <Btn tone="ghost" onClick={() => (editing === cat.id ? setEditing(null) : startEdit(cat))}>{editing === cat.id ? 'Close' : 'Edit'}</Btn>
-                <Btn tone="ghost" onClick={() => { if (window.confirm(`Remove the category “${cat.name}”? ${postCount(cat)} post(s) will move to ${UNCATEGORIZED}.`)) { removeBlogCategory(cat.slug); if (editing === cat.id) setEditing(null); } }}>Remove</Btn>
+                <Btn tone="ghost" onClick={() => { if (window.confirm(`Remove the category “${cat.name}”? ${postCount(cat)} post(s) will move to ${UNCATEGORIZED}.`)) { removeBlogCategory(cat.slug); clearSeo(`blogcat:${cat.slug}`); if (editing === cat.id) setEditing(null); } }}>Remove</Btn>
               </>
             }>
               <div>
@@ -809,8 +871,9 @@ const BlogCategoriesSection: React.FC = () => {
                     <input className={inputCls} value={draft.slug} onChange={e => setDraft({ ...draft, slug: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '-') })} aria-label="Edit category slug" />
                   </Field>
                 </div>
+                <SeoMetaEditor value={editSeo} autosaveTick={editTick} onChange={entry => { setEditSeo(entry); setEditTick(t => t + 1); persistSeo(setSeo, clearSeo, `blogcat:${cat.slug}`, entry, blogCategorySeoFallbacks(state, { name: draft.name || cat.name })); }} fallbackTitle={blogCategorySeoFallbacks(state, { name: draft.name || cat.name }).title} fallbackDescription={blogCategorySeoFallbacks(state, { name: draft.name || cat.name }).description} routeHint={blogCategoryHref(cat.slug)} noindexControl="checkbox" titleLabel="Search engine title" titlePlaceholder="Leave blank to use the category name" noindexLabel="Do not allow search engines to index this page (noindex)" noindexHint={'Adds <meta name="robots" content="noindex"> to the page head — also remove its URL from sitemap.xml before upload.'} />
                 <div className="flex flex-wrap items-center gap-2">
-                  <SaveButton label="Save Changes" onSave={() => { saveBlogCategory(cat.slug, { name: draft.name, slug: draft.slug || blogCategorySlug(draft.name) }); setEditing(null); }} />
+                  <SaveButton label="Save Changes" onSave={() => saveEdit(cat)} />
                   <Btn tone="ghost" onClick={() => setEditing(null)}>Cancel</Btn>
                   <span className="text-xs text-slate-400">Renaming keeps the posts in this category.</span>
                 </div>
@@ -855,9 +918,12 @@ const BlogPane: React.FC = () => {
 };
 
 const NewPostForm: React.FC<{ onDone: () => void }> = ({ onDone }) => {
-  const { addPost } = useCms();
+  const { addPost, setSeo, clearSeo } = useCms();
   const [f, setF] = useState({ title: '', slug: '', excerpt: '', content: '', category: 'Google & Indexing', metaTitle: '', metaDescription: '', status: 'draft' as Status, featuredImage: '', featuredImageAlt: '' });
+  const [seo, setSeoDraft] = useState<SeoEntry>({ title: '', description: '' });
   const slug = f.slug || f.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+  // The copy this post gets when the fields below are left blank.
+  const auto = postSeoFallbacks({ title: f.title, excerpt: f.excerpt });
   return (
     <div className="bg-slate-50 rounded-2xl border border-slate-200 p-5 space-y-4">
       <p className="font-bold text-slate-900">New blog post</p>
@@ -869,14 +935,11 @@ const NewPostForm: React.FC<{ onDone: () => void }> = ({ onDone }) => {
         <AssignCategory value={f.category} onChange={name => setF({ ...f, category: name })} />
       </div>
       <Field label="Excerpt" hint="Plain text — shown on blog cards."><textarea rows={2} className={inputCls} value={f.excerpt} onChange={e => setF({ ...f, excerpt: e.target.value })} /></Field>
-      <div className="grid md:grid-cols-2 gap-4">
-        <Field label="SEO title" hint="Plain text — 50–60 characters."><input className={inputCls} value={f.metaTitle} onChange={e => setF({ ...f, metaTitle: e.target.value })} placeholder={f.title} /></Field>
-        <Field label="Meta description" hint="Plain text — 120–160 characters."><textarea rows={2} className={inputCls} value={f.metaDescription} onChange={e => setF({ ...f, metaDescription: e.target.value })} /></Field>
-      </div>
       <Field label="Body" hint="Visual editor — headings, lists, links, images, colour and alignment. Your typing is auto-saved as a browser draft."><RichTextEditor value={f.content} onChange={html => setF({ ...f, content: html })} minHeight={280} placeholder="Write your blog post…" draftKey={draftId('blog', 'new-post')} ariaLabel="New blog post body" /></Field>
       <FeaturedImageEditor image={f.featuredImage} alt={f.featuredImageAlt} onChange={patch => setF({ ...f, ...patch })} />
+      <SeoMetaEditor value={seo} onChange={setSeoDraft} fallbackTitle={auto.title} fallbackDescription={auto.description} routeHint={`/blog/${slug}`} noindexControl="checkbox" titleLabel="Search engine title" titlePlaceholder="Leave blank to use the post name" noindexLabel="Do not allow search engines to index this page (noindex)" noindexHint={'Adds <meta name="robots" content="noindex"> to the page head — also remove its URL from sitemap.xml before upload.'} />
       <Field label="State"><select className={inputCls} value={f.status} onChange={e => setF({ ...f, status: e.target.value as Status })}><option value="draft">Draft</option><option value="live">Published</option><option value="hidden">Hidden</option></select></Field>
-      <div className="flex flex-wrap items-center gap-2"><Btn onClick={() => { addPost({ ...f, slug, metaTitle: f.metaTitle || f.title }); clearDraft(draftId('blog', 'new-post')); onDone(); }}>Create post</Btn><Btn tone="ghost" onClick={onDone}>Cancel</Btn><span className="text-xs text-slate-400">Unsaved work is kept as a browser draft.</span></div>
+      <div className="flex flex-wrap items-center gap-2"><Btn onClick={() => { addPost({ ...f, slug, metaTitle: seo.title || auto.title, metaDescription: seo.description }); persistSeo(setSeo, clearSeo, `post:${slug}`, seo, auto); clearDraft(draftId('blog', 'new-post')); onDone(); }}>Create post</Btn><Btn tone="ghost" onClick={onDone}>Cancel</Btn><span className="text-xs text-slate-400">Unsaved work is kept as a browser draft.</span></div>
     </div>
   );
 };
@@ -884,7 +947,11 @@ const NewPostForm: React.FC<{ onDone: () => void }> = ({ onDone }) => {
 const PageEditor: React.FC<{ page: CmsPage; onClose: () => void }> = ({ page, onClose }) => {
   const { state, savePage, setSeo, clearSeo } = useCms();
   const [f, setF] = useState(page);
-  const [seo, setSeoDraft] = useState<SeoEntry>(state.seo[`page:${page.slug}`] || { title: page.metaTitle || page.title, description: page.metaDescription });
+  const [seo, setSeoDraft] = useState<SeoEntry>(state.seo[`page:${page.slug}`] || { title: '', description: '' });
+  const [seoTick, setSeoTick] = useState(0);
+  // Generated copy for the draft, so the preview and the "store only real
+  // overrides" rule always match what the page renders.
+  const auto = pageSeoFallbacks(f);
   return (
     <div className="bg-slate-50 rounded-2xl border border-slate-200 p-5 space-y-4">
       <div className="grid md:grid-cols-2 gap-4">
@@ -896,8 +963,8 @@ const PageEditor: React.FC<{ page: CmsPage; onClose: () => void }> = ({ page, on
         <RichTextEditor value={f.content || ''} onChange={html => setF({ ...f, content: html })} minHeight={360} placeholder="Write this page…" draftKey={draftId('page', page.id)} ariaLabel="Page content" />
       </Field>
       <FeaturedImageEditor image={f.featuredImage} alt={f.featuredImageAlt} onChange={patch => setF({ ...f, ...patch })} />
-      <SeoMetaEditor value={seo} onChange={setSeoDraft} fallbackTitle={f.metaTitle || f.title} fallbackDescription={f.metaDescription} routeHint={`/${f.slug || page.slug}`} />
-      <div className="flex flex-wrap items-center gap-2"><Btn onClick={() => { savePage(page.id, f); if (f.slug !== page.slug) clearSeo(`page:${page.slug}`); setSeo(`page:${f.slug || page.slug}`, seo); clearDraft(draftId('page', page.id)); onClose(); }}>Save page</Btn><Btn tone="ghost" onClick={onClose}>Cancel</Btn><span className="text-xs text-slate-400">Text drafts autosave in this browser.</span></div>
+      <SeoMetaEditor value={seo} autosaveTick={seoTick} onChange={entry => { setSeoDraft(entry); setSeoTick(t => t + 1); persistSeo(setSeo, clearSeo, `page:${page.slug}`, entry, auto); }} fallbackTitle={auto.title} fallbackDescription={auto.description} routeHint={`/${f.slug || page.slug}`} noindexControl="checkbox" titleLabel="Search engine title" titlePlaceholder="Leave blank to use the page name" noindexLabel="Do not allow search engines to index this page (noindex)" noindexHint={'Adds <meta name="robots" content="noindex"> to the page head — also remove its URL from sitemap.xml before upload.'} />
+      <div className="flex flex-wrap items-center gap-2"><Btn onClick={() => { savePage(page.id, f); if (f.slug !== page.slug) clearSeo(`page:${page.slug}`); persistSeo(setSeo, clearSeo, `page:${f.slug || page.slug}`, seo, auto); clearDraft(draftId('page', page.id)); onClose(); }}>Save page</Btn><Btn tone="ghost" onClick={onClose}>Cancel</Btn><span className="text-xs text-slate-400">Text drafts autosave in this browser.</span></div>
     </div>
   );
 };
@@ -945,22 +1012,22 @@ const PagesPane: React.FC = () => {
 };
 
 const NewPageForm: React.FC<{ onDone: () => void }> = ({ onDone }) => {
-  const { addPage } = useCms();
+  const { addPage, setSeo, clearSeo } = useCms();
   const [f, setF] = useState({ title: '', slug: '', metaTitle: '', metaDescription: '', content: '', status: 'draft' as Status, featuredImage: '', featuredImageAlt: '' });
+  const [seo, setSeoDraft] = useState<SeoEntry>({ title: '', description: '' });
   const slug = f.slug || f.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+  // The copy this page gets when the fields below are left blank.
+  const auto = pageSeoFallbacks({ title: f.title });
   return (
     <div className="space-y-4">
       <div className="grid md:grid-cols-2 gap-4">
         <Field label="Title"><input className={inputCls} value={f.title} onChange={e => setF({ ...f, title: e.target.value })} /></Field>
         <Field label="Slug" hint={slug ? `/${slug}` : ''}><input className={inputCls} value={f.slug} onChange={e => setF({ ...f, slug: e.target.value })} placeholder={slug} /></Field>
       </div>
-      <div className="grid md:grid-cols-2 gap-4">
-        <Field label="SEO title" hint="Plain text — 50–60 characters."><input className={inputCls} value={f.metaTitle} onChange={e => setF({ ...f, metaTitle: e.target.value })} placeholder={f.title} /></Field>
-        <Field label="Meta description"><textarea rows={2} className={inputCls} value={f.metaDescription} onChange={e => setF({ ...f, metaDescription: e.target.value })} /></Field>
-      </div>
       <Field label="Page content" hint="Visual editor — headings, paragraphs, lists, links, images and more. Your typing is auto-saved as a browser draft."><RichTextEditor value={f.content} onChange={html => setF({ ...f, content: html })} minHeight={240} placeholder="Write this page…" draftKey={draftId('page', 'new-page')} ariaLabel="New page content" /></Field>
       <FeaturedImageEditor image={f.featuredImage} alt={f.featuredImageAlt} onChange={patch => setF({ ...f, ...patch })} />
-      <div className="flex gap-2"><Btn onClick={() => { addPage({ ...f, slug, metaTitle: f.metaTitle || f.title }); clearDraft(draftId('page', 'new-page')); onDone(); }}>Create page</Btn><Btn tone="ghost" onClick={onDone}>Cancel</Btn><span className="text-xs text-slate-400">Unsaved work is kept as a browser draft.</span></div>
+      <SeoMetaEditor value={seo} onChange={setSeoDraft} fallbackTitle={auto.title} fallbackDescription={auto.description} routeHint={`/${slug}`} noindexControl="checkbox" titleLabel="Search engine title" titlePlaceholder="Leave blank to use the page name" noindexLabel="Do not allow search engines to index this page (noindex)" noindexHint={'Adds <meta name="robots" content="noindex"> to the page head — also remove its URL from sitemap.xml before upload.'} />
+      <div className="flex gap-2"><Btn onClick={() => { addPage({ ...f, slug, metaTitle: seo.title || auto.title, metaDescription: seo.description }); persistSeo(setSeo, clearSeo, `page:${slug}`, seo, auto); clearDraft(draftId('page', 'new-page')); onDone(); }}>Create page</Btn><Btn tone="ghost" onClick={onDone}>Cancel</Btn><span className="text-xs text-slate-400">Unsaved work is kept as a browser draft.</span></div>
     </div>
   );
 };
@@ -1047,7 +1114,7 @@ const AutosaveBadge: React.FC<{ tick: number }> = ({ tick }) => {
   }, [tick]);
   return saved
     ? <span role="status" aria-live="polite" className="text-xs font-bold text-emerald-600">Saved ✓</span>
-    : <span className="text-xs text-slate-400">Saves automatically</span>;
+    : <span className="text-xs text-slate-400">Saved automatically</span>;
 };
 
 /** Shared row editor for the header nav and the footer menu: label, URL,

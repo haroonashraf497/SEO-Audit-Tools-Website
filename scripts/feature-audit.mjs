@@ -530,8 +530,19 @@ check('the app renders the category page and its breadcrumb',
 check('SEO gives every category a canonical URL, ItemList and breadcrumb',
   /if \(route\.startsWith\('blogcat\/'\)\) \{/.test(read('src/utils/seo.ts'))
   && /const path = blogCategoryHref\(slug\);/.test(read('src/utils/seo.ts'))
-  && /title: `\$\{category\.name\} — SEO Guides & Fixes \| \$\{brand\}`,/.test(read('src/utils/seo.ts'))
+  && /title: \(catSeo\?\.title \|\| ''\)\.trim\(\) \|\| catFallbacks\.title,/.test(read('src/utils/seo.ts'))
   && /hasPart: \(cms\.blogCategories \|\| \[\]\)\.filter\(c => c\.visible\)\.map\(c => \(/.test(read('src/utils/seo.ts')));
+check('a blog category reads its saved SEO entry (title, description, canonical, noindex)',
+  /const catSeo = cms\.seo\[`blogcat:\$\{category\.slug\}`\];/.test(read('src/utils/seo.ts'))
+  && /noindex: catSeo\?\.noindex,/.test(read('src/utils/seo.ts'))
+  && /canonicalOverride: \(catSeo\?\.slug \|\| ''\)\.trim\(\) \|\| undefined,/.test(read('src/utils/seo.ts'))
+  && /export const blogCategorySeoFallbacks = \(cms: CmsState, category: \{ name: string \}\)/.test(read('src/utils/seo.ts'))
+  && /title: `\$\{category\.name\} \| \$\{TITLE_BRAND_SUFFIX\}`,/.test(read('src/utils/seo.ts')));
+check('posts and pages fall back to the branded search title',
+  /const title = \(seo\?\.title \|\| ''\)\.trim\(\) \|\| fallbacks\.title;/.test(read('src/utils/seo.ts'))
+  && /export const postSeoFallbacks = \(post: \{ title: string; metaTitle\?: string; excerpt: string; metaDescription\?: string \}\)/.test(read('src/utils/seo.ts'))
+  && /export const pageSeoFallbacks = \(page: \{ title: string; metaTitle\?: string; metaDescription\?: string \}\)/.test(read('src/utils/seo.ts'))
+  && /export const TITLE_BRAND_SUFFIX = 'SEO Audit Tools Pakistan';/.test(read('src/utils/seo.ts')));
 check('the sitemap lists the built-in category pages',
   ['core-web-vitals', 'pagespeed', 'wordpress-seo', 'google-indexing'].every(slug =>
     sitemap.includes(`<loc>https://seoaudittools.pk/blog/category/${slug}</loc>`))
@@ -623,6 +634,68 @@ check('category meta saves to the shared seo map and blank values stay automatic
   && /if \(!entry\.title && !entry\.description && !entry\.slug && !entry\.noindex\) clearSeo\(key\);/.test(toolCatsBody)
   && /else setSeo\(key, entry\);/.test(toolCatsBody)
   && /const auto = categorySeoFallbacks\(state, \{ \.\.\.cat, name: draft\.name \|\| cat\.name \}/.test(toolCatsBody));
+/* ------- SEO & Meta Information on Pages, Blog Posts and Blog Categories ------- */
+// Every one of the three surfaces — create and edit — renders the same shared
+// section, so a page, a post and a category are managed identically.
+const bodyOf = name => {
+  const at = adminSrc.indexOf(`const ${name}`);
+  const next = adminSrc.slice(at + 1).search(/\nconst [A-Z]/);
+  return next < 0 ? adminSrc.slice(at) : adminSrc.slice(at, at + 1 + next);
+};
+const blogCatsBody = bodyOf('BlogCategoriesSection');
+const postEditorBody = bodyOf('PostEditor');
+const pageEditorBody = bodyOf('PageEditor');
+const newPostBody = bodyOf('NewPostForm');
+const newPageBody = bodyOf('NewPageForm');
+const seoSurfaces = [
+  ['blog categories (create + edit)', blogCatsBody],
+  ['blog posts (edit)', postEditorBody],
+  ['pages (edit)', pageEditorBody],
+  ['blog posts (create)', newPostBody],
+  ['pages (create)', newPageBody],
+];
+check('Pages, Blog Posts and Blog Categories all carry the SEO & Meta section',
+  seoSurfaces.every(([, body]) => /<SeoMetaEditor/.test(body))
+  && (adminSrc.match(/<SeoMetaEditor/g) || []).length >= 7,
+  `${(adminSrc.match(/<SeoMetaEditor/g) || []).length} sections in the admin`);
+check('the section asks for the four controls with the specified wording',
+  seoSurfaces.every(([, body]) => /titleLabel="Search engine title"/.test(body)
+    && /titlePlaceholder="Leave blank to use the (post|page|category) name"/.test(body)
+    && /noindexControl="checkbox"/.test(body)
+    && /noindexLabel="Do not allow search engines to index this page \(noindex\)"/.test(body)),
+  seoSurfaces.filter(([, body]) => !/titleLabel="Search engine title"/.test(body)).map(([n]) => n).join(', ') || 'all five');
+check('the shared section carries the requested heading, description and field text',
+  /<h4 className="font-bold text-slate-900">SEO &amp; Meta Information<\/h4>/.test(adminSrc)
+  && /Search title, description, canonical URL and indexing controls for this page\./.test(adminSrc)
+  && /placeholder="Brief summary shown in search results \(150.160 characters recommended\)"/.test(adminSrc)
+  && /placeholder="Auto-generated if left blank . override only if this page lives at a different address"/.test(adminSrc)
+  && /hint=\{`\$\{entry\.description\.length\}\/160 characters`\}/.test(adminSrc)
+  && /label="Canonical URL"/.test(adminSrc));
+check('the noindex checkbox explains the robots tag and the sitemap',
+  seoSurfaces.every(([, body]) => /noindexHint=\{.*Adds <meta name="robots" content="noindex"> to the page head/.test(body)
+    && /also remove its URL from sitemap\.xml before upload/.test(body)));
+check('the SEO fields autosave to the seo map as you type (edit views)',
+  /persistSeo\(setSeo, clearSeo, `post:\$\{post\.slug\}`, entry, auto\)/.test(postEditorBody)
+  && /persistSeo\(setSeo, clearSeo, `page:\$\{page\.slug\}`, entry, auto\)/.test(pageEditorBody)
+  && /persistSeo\(setSeo, clearSeo, `blogcat:\$\{cat\.slug\}`, entry, blogCategorySeoFallbacks\(state, \{ name: draft\.name \|\| cat\.name \}\)\)/.test(blogCatsBody)
+  && /autosaveTick=\{seoTick\}/.test(postEditorBody) && /autosaveTick=\{seoTick\}/.test(pageEditorBody) && /autosaveTick=\{editTick\}/.test(blogCatsBody));
+check('the create views store the section with the new item',
+  /persistSeo\(setSeo, clearSeo, `post:\$\{slug\}`, seo, auto\)/.test(newPostBody)
+  && /persistSeo\(setSeo, clearSeo, `page:\$\{slug\}`, seo, auto\)/.test(newPageBody)
+  && /persistSeo\(setSeo, clearSeo, `blogcat:\$\{created\}`, createSeo, blogCategorySeoFallbacks\(state, \{ name: clean \}\)\)/.test(blogCatsBody));
+check('a saved value equal to the automatic copy is dropped, not frozen',
+  /const seoEntryToStore = \(entry: SeoEntry, auto: \{ title: string; description: string \}\): SeoEntry \| null => \{/.test(adminSrc)
+  && /title: trim\(entry\.title\) && trim\(entry\.title\) !== trim\(auto\.title\) \? trim\(entry\.title\) : '',/.test(adminSrc)
+  && /const persistSeo = \(setSeo: \(key: string, entry: SeoEntry\) => void, clearSeo: \(key: string\) => void, key: string, entry: SeoEntry, auto: \{ title: string; description: string \}\) => \{/.test(adminSrc));
+check('the post and page create forms no longer duplicate the legacy title/description inputs',
+  !/label="SEO title"/.test(newPostBody) && !/label="Meta description"/.test(newPostBody)
+  && !/label="SEO title"/.test(newPageBody) && !/label="Meta description"/.test(newPageBody));
+check('the blog category seo key follows the slug and is cleared with the category',
+  /if \(nextSlug !== cat\.slug\) clearSeo\(`blogcat:\$\{cat\.slug\}`\);/.test(blogCatsBody)
+  && /removeBlogCategory\(cat\.slug\); clearSeo\(`blogcat:\$\{cat\.slug\}`\);/.test(blogCatsBody));
+check('posts and pages keep their legacy meta fields in step with the section',
+  /addPost\(\{ \.\.\.f, slug, metaTitle: seo\.title \|\| auto\.title, metaDescription: seo\.description \}\)/.test(newPostBody)
+  && /addPage\(\{ \.\.\.f, slug, metaTitle: seo\.title \|\| auto\.title, metaDescription: seo\.description \}\)/.test(newPageBody));
 check('the category page head honours the override and falls back to the generated copy',
   /export const categorySeoFallbacks = \(cms: CmsState, cat: CmsToolCategory, brand: string\)/.test(seoSrc)
   && /const seo = cms\.seo\[`cat:\$\{cat\.key\}`\];/.test(seoSrc)

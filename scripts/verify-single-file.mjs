@@ -1165,10 +1165,13 @@ for (const route of ['/website-health', '/blog/category/website-health']) {
   };
   await wait(500);
   const pageSeo = await openSeoBox('Pages', 0);
-  check('the Pages panel still renders the original Make no-index button',
-    !!pageSeo && [...pageSeo.querySelectorAll('button')].some(b => /Make no-index|No-index enabled/.test(b.textContent || ''))
-    && !pageSeo.querySelector('input[type="checkbox"]'),
-    pageSeo ? 'no button/has checkbox' : 'no seo box on the page editor');
+  check('the Pages panel renders the noindex checkbox with the requested wording',
+    !!pageSeo && !!pageSeo.querySelector('input[type="checkbox"]')
+    && pageSeo.querySelector('input[type="checkbox"]').checked === false
+    && /Search engine title/.test(pageSeo.textContent || '')
+    && /Do not allow search engines to index this page \(noindex\)/.test(pageSeo.textContent || '')
+    && /Saved automatically/.test(pageSeo.textContent || ''),
+    pageSeo ? 'no checkbox or label' : 'no seo box on the page editor');
   otherDom.window.close();
   // The shared editor keeps BOTH branches in the bundle: the button stays the
   // default for every other panel, and only the category row opts into the
@@ -1176,9 +1179,98 @@ for (const route of ['/website-health', '/blog/category/website-health']) {
   check('the Make no-index button branch still ships for the other panels',
     /Make no-index/.test(rawHtml) && /No-index enabled/.test(rawHtml)
     && /Noindex — exclude from search/.test(rawHtml)
-    // exactly one panel opts into the checkbox variant
-    && (rawHtml.match(/noindexControl:"checkbox"/g) || []).length === 1,
+    // every panel that asks for the checkbox variant: tool categories, blog
+    // posts (create + edit), pages (create + edit) and blog categories
+    // (create + edit).
+    && (rawHtml.match(/noindexControl:"checkbox"/g) || []).length === 7,
     `${(rawHtml.match(/noindexControl:"checkbox"/g) || []).length} opt-ins in the bundle`);
+  // ---- PART 4: the SEO section on the create views and on blog categories ----
+  const { dom: crtDom } = await boot(`localStorage.setItem('ekstruh:admin-session:v1', ${JSON.stringify(session)});`, '/admin');
+  const crtDoc = crtDom.window.document;
+  const crtClick = el => el && el.dispatchEvent(new crtDom.window.MouseEvent('click', { bubbles: true, cancelable: true }));
+  const crtBtn = label => [...crtDoc.querySelectorAll('button')].filter(b => b.textContent.trim() === label).pop();
+  const crtSeoBox = () => [...(crtDoc.getElementById('main-content') || crtDoc).querySelectorAll('section')].filter(el => /SEO & Meta Information/.test(el.textContent || '')).pop();
+  const crtText = box => (box ? box.textContent || '' : '');
+  await wait();
+  crtClick(crtBtn('Pages'));
+  await wait();
+  crtClick(crtBtn('+ Create page'));
+  await wait();
+  const pageCreateSeo = crtSeoBox();
+  check('creating a page shows the SEO & Meta section with all four controls',
+    !!pageCreateSeo
+    && /Search engine title/.test(crtText(pageCreateSeo))
+    && /Meta description/.test(crtText(pageCreateSeo))
+    && /Canonical URL/.test(crtText(pageCreateSeo))
+    && /Do not allow search engines to index this page \(noindex\)/.test(crtText(pageCreateSeo))
+    && !!pageCreateSeo.querySelector('input[type="checkbox"]')
+    && pageCreateSeo.querySelector('input[type="checkbox"]').checked === false,
+    pageCreateSeo ? 'section present' : 'no section in the page create form');
+  crtClick(crtBtn('Blog posts'));
+  await wait();
+  const catCreateSeo = crtSeoBox();
+  check('the blog category create form carries the SEO section',
+    !!catCreateSeo && /Search engine title/.test(crtText(catCreateSeo))
+    && /Do not allow search engines to index this page \(noindex\)/.test(crtText(catCreateSeo)),
+    catCreateSeo ? 'section present' : 'no section in the category create form');
+  crtClick(crtBtn('+ Write post'));
+  await wait();
+  const postCreateSeo = crtSeoBox();
+  check('creating a blog post shows the same SEO & Meta section',
+    !!postCreateSeo && /Search engine title/.test(crtText(postCreateSeo))
+    && /Do not allow search engines to index this page \(noindex\)/.test(crtText(postCreateSeo))
+    && !!postCreateSeo.querySelector('input[type="checkbox"]'),
+    postCreateSeo ? 'section present' : 'no section in the post create form');
+  crtClick(crtBtn('Cancel'));
+  await wait();
+  crtClick(crtBtn('Edit'));
+  await wait();
+  const catEditSeo = crtSeoBox();
+  check('editing a blog category shows the SEO section and its autosave badge',
+    !!catEditSeo && /Saved automatically/.test(crtText(catEditSeo))
+    && /Search engine title/.test(crtText(catEditSeo))
+    && !!catEditSeo.querySelector('input[type="checkbox"]'),
+    catEditSeo ? 'section present' : 'no section in the category editor');
+  crtDom.window.close();
+
+  // A saved blog-category entry must reach the public page head.
+  const catSeoSeed = { ...base, seo: { ...(base.seo || {}), 'blogcat:core-web-vitals': { title: 'Core Web Vitals: Fix INP, LCP and CLS', description: 'Practical fixes for the Core Web Vitals problems website owners actually hit.', slug: '', noindex: true } } };
+  const { dom: bcDom } = await boot(`localStorage.setItem('seoaudittool:cms:v1', ${JSON.stringify(JSON.stringify(catSeoSeed))});`, '/blog/category/core-web-vitals');
+  check('a saved blog-category SEO entry reaches the page head',
+    bcDom.window.document.title === 'Core Web Vitals: Fix INP, LCP and CLS'
+    && (bcDom.window.document.querySelector('meta[name="description"]')?.getAttribute('content') || '') === 'Practical fixes for the Core Web Vitals problems website owners actually hit.'
+    && bcDom.window.document.querySelector('meta[name="robots"]')?.getAttribute('content') === 'noindex, nofollow',
+    `${bcDom.window.document.title} | ${bcDom.window.document.querySelector('meta[name="robots"]')?.getAttribute('content')}`);
+  bcDom.window.close();
+
+  // ---- an SEO edit survives a hard refresh ----
+  const firstPage = (base.pages || [])[0];
+  const { dom: survDom } = await boot(`localStorage.setItem('ekstruh:admin-session:v1', ${JSON.stringify(session)});`, '/admin');
+  const survDoc = survDom.window.document;
+  const survClick = el => el && el.dispatchEvent(new survDom.window.MouseEvent('click', { bubbles: true, cancelable: true }));
+  const survBtn = label => [...survDoc.querySelectorAll('button')].filter(b => b.textContent.trim() === label).pop();
+  await wait();
+  survClick(survBtn('Pages'));
+  await wait();
+  survClick([...survDoc.querySelectorAll('button')].filter(b => b.textContent.trim() === 'Edit')[0]);
+  await wait();
+  const survBox = [...(survDoc.getElementById('main-content') || survDoc).querySelectorAll('section')].filter(el => /SEO & Meta Information/.test(el.textContent || '')).pop();
+  const survInput = survBox && survBox.querySelector('input');
+  if (survInput) {
+    Object.getOwnPropertyDescriptor(survDom.window.HTMLInputElement.prototype, 'value').set.call(survInput, 'Audited Page Title | SEO Audit Tools Pakistan');
+    survInput.dispatchEvent(new survDom.window.Event('input', { bubbles: true }));
+  }
+  await wait();
+  const storedAfter = JSON.parse(survDom.window.localStorage.getItem('seoaudittool:cms:v1') || '{}');
+  survDom.window.close();
+  const liveState = { ...storedAfter, pages: (storedAfter.pages || []).map(p => (p.slug === firstPage.slug ? { ...p, status: 'live' } : p)) };
+  const { dom: afterDom } = await boot(`localStorage.setItem('seoaudittool:cms:v1', ${JSON.stringify(JSON.stringify(liveState))});`, `/${firstPage.slug}`);
+  check('an SEO edit survives a hard refresh (stored, then re-rendered)',
+    (storedAfter.seo && storedAfter.seo[`page:${firstPage.slug}`] ? storedAfter.seo[`page:${firstPage.slug}`].title : '') === 'Audited Page Title | SEO Audit Tools Pakistan'
+    && afterDom.window.document.title === 'Audited Page Title | SEO Audit Tools Pakistan',
+    `${storedAfter.seo && storedAfter.seo[`page:${firstPage.slug}`] ? storedAfter.seo[`page:${firstPage.slug}`].title : ''} | ${afterDom.window.document.title}`);
+  afterDom.window.close();
+
 
   // A category a previous build saved in the admin (the store still carries
   // them): seeded into localStorage, which is exactly what one looks like.
