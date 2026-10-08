@@ -857,14 +857,16 @@ const BlogCategoriesSection: React.FC = () => {
       </div>
 
       <div className="bg-slate-50 rounded-2xl border border-slate-200 p-5 space-y-4">
-        <SectionCard title="Category Details" description="The name, the clean URL and the intro text shown at the top of the category page.">
+        <SectionCard title="Category Details" description="The name and the clean URL this category is published on.">
           <div className="grid md:grid-cols-2 gap-4">
             <Field label="Name"><input className={inputCls} value={name} onChange={e => setName(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); create(); } }} placeholder="SEO Tips" aria-label="Category Name" /></Field>
             <Field label="URL slug" hint={effectiveSlug ? `/blog/category/${effectiveSlug}` : 'Auto-generates from the name — edit if you want a different URL.'}>
               <input className={inputCls} value={effectiveSlug} onChange={e => { setSlugTouched(true); setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '-')); }} placeholder="seo-tips" aria-label="Category Slug" />
             </Field>
           </div>
-          <Field label="Description" hint="Category intro text — shown as the paragraph under the heading on the public category page. Leave blank for the automatic summary."><textarea rows={2} className={inputCls} value={intro} onChange={e => setIntro(e.target.value)} placeholder="A one or two sentence intro for this category" aria-label="Category description" /></Field>
+        </SectionCard>
+        <SectionCard title="Description" description="Category intro text — the paragraph shown under the heading on the public category page.">
+          <Field label="Description" hint="Leave blank for the automatic summary."><textarea rows={2} className={inputCls} value={intro} onChange={e => setIntro(e.target.value)} placeholder="A one or two sentence intro for this category" aria-label="Category description" /></Field>
         </SectionCard>
         <SeoMetaEditor value={createSeo} onChange={setCreateSeo} fallbackTitle={createAuto.title} fallbackDescription={createAuto.description} routeHint={blogCategoryHref(effectiveSlug || 'new-category')} />
         <div className="flex flex-wrap items-center gap-2"><SaveButton label="Add category" onSave={create} /></div>

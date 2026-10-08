@@ -733,7 +733,7 @@ const groupedSurfaces = [
   ['pages (create)', newPageBody, ['Page Details', 'Content']],
   ['blog posts (edit)', postEditorBody, ['Post Details', 'Content', 'Category']],
   ['blog posts (create)', newPostBody, ['Post Details', 'Content', 'Category']],
-  ['blog categories (create + edit)', blogCatsBody, ['Category Details']],
+  ['blog categories (create + edit)', blogCatsBody, ['Category Details', 'Description']],
 ];
 check('Pages, Blog Posts and Blog Categories group their fields under titled sections',
   groupedSurfaces.every(([, body, titles]) => titles.every(t => body.includes(`<SectionCard title="${t}"`)))
@@ -750,6 +750,18 @@ check('every editor keeps the SEO & Meta section last, before the save buttons',
     const save = Math.max(body.lastIndexOf('onClick={() => {'), body.lastIndexOf('onSave={create}'), body.lastIndexOf('onSave={() => saveEdit(cat)}'));
     return !(seo > 0 && save > seo);
   }).map(([n]) => n).join(', ') || 'all five');
+check('the three create forms lay their cards out in the specified order',
+  newPageBody.indexOf('<SectionCard title="Page Details"') < newPageBody.indexOf('<SectionCard title="Content"')
+  && newPageBody.indexOf('<SectionCard title="Content"') < newPageBody.indexOf('<FeaturedImageEditor')
+  && newPageBody.indexOf('<FeaturedImageEditor') < newPageBody.indexOf('<SeoMetaEditor')
+  && newPostBody.indexOf('<SectionCard title="Post Details"') < newPostBody.indexOf('<SectionCard title="Content"')
+  && newPostBody.indexOf('<SectionCard title="Content"') < newPostBody.indexOf('<FeaturedImageEditor')
+  && newPostBody.indexOf('<FeaturedImageEditor') < newPostBody.indexOf('<SectionCard title="Category"')
+  && newPostBody.indexOf('<SectionCard title="Category"') < newPostBody.indexOf('<SeoMetaEditor')
+  // blog categories: Category Details -> Description -> SEO & Meta, create form first
+  && blogCatsBody.indexOf('<SectionCard title="Category Details"') < blogCatsBody.indexOf('<SectionCard title="Description"')
+  && blogCatsBody.indexOf('<SectionCard title="Description"') < blogCatsBody.indexOf('<SeoMetaEditor'),
+  'create-form card order');
 check('the page editors expose the name, the slug and the page state',
   pageEditorBody.includes('<Field label="Page title">') && pageEditorBody.includes('<Field label="URL slug"') && pageEditorBody.includes('<Field label="Page state"')
   && newPageBody.includes('<Field label="Title">') && newPageBody.includes('<Field label="Slug"') && newPageBody.includes('<Field label="Page state"'));

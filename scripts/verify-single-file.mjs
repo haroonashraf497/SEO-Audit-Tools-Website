@@ -1244,15 +1244,14 @@ for (const route of ['/website-health', '/blog/category/website-health']) {
     catCreateSeo ? 'section present' : 'no section in the category create form');
   const catCreateRoot = catCreateSeo && catCreateSeo.closest('.space-y-4');
   const catCreateText = catCreateRoot ? catCreateRoot.textContent || '' : '';
-  check('the category create form groups name, slug and intro under a heading',
+  check('the category create form splits details, intro and SEO into their own cards',
     !!catCreateRoot
-    && /Category Details/.test(catCreateText)
     && catCreateRoot.querySelector('input[aria-label="Category Name"]') !== null
     && catCreateRoot.querySelector('input[aria-label="Category Slug"]') !== null
     && catCreateRoot.querySelector('textarea[aria-label="Category description"]') !== null
-    && /Name/.test(catCreateText) && /URL slug/.test(catCreateText) && /Description/.test(catCreateText)
-    && catCreateText.indexOf('Category Details') < catCreateText.indexOf('SEO & Meta Information'),
-    catCreateText.slice(0, 160));
+    && catCreateText.indexOf('Category Details') < catCreateText.indexOf('Description')
+    && catCreateText.indexOf('Description') < catCreateText.indexOf('SEO & Meta Information'),
+    catCreateText.slice(0, 200));
   crtClick(crtBtn('+ Write post'));
   await wait();
   const postCreateSeo = crtSeoBox();
