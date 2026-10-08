@@ -1566,6 +1566,53 @@ for (const route of ['/website-health', '/blog/category/website-health']) {
     tabLabels.indexOf('Competitor Analysis') === tabLabels.indexOf('Tool Categories') + 1
     && tabLabels.join(',') === 'Dashboard,Pages,Blog posts,Tools,Tool Categories,Competitor Analysis,Sidebar,Sections & Nav,Settings',
     tabLabels.join(','));
+  /* ---- the admin shell: a full-width header over a fixed left sidebar ---- */
+  const sideNav = tabBar;
+  const sideAside = sideNav && sideNav.closest('aside');
+  const sideRow = sideAside && sideAside.parentElement;
+  const sideMain = sideAside && sideAside.nextElementSibling;
+  const sideHeader = sideRow && sideRow.previousElementSibling;
+  check('the nine areas are a vertical stack in a fixed-width left sidebar',
+    !!sideNav && sideNav.tagName === 'NAV'
+    && !!sideAside && /w-60/.test(sideAside.className) && /flex-shrink-0/.test(sideAside.className)
+    && /border-r/.test(sideAside.className)
+    && /sticky/.test(sideNav.className) && /space-y-1/.test(sideNav.className),
+    sideAside ? sideAside.className : 'no sidebar');
+  check('the sidebar sits beside a content area that fills the rest of the width',
+    !!sideRow && /flex/.test(sideRow.className)
+    && !!sideMain && /flex-1/.test(sideMain.className) && /min-w-0/.test(sideMain.className),
+    sideMain ? sideMain.className : 'no content area');
+  const headerText = sideHeader ? sideHeader.textContent || '' : '';
+  check('the header spans the full width with the title, stamp and both actions',
+    !!sideHeader && sideHeader.tagName === 'HEADER'
+    && /bg-white/.test(sideHeader.className) && /border-b/.test(sideHeader.className)
+    && /Content manager/.test(headerText)
+    && /build [0-9a-f]{7}\+? · \d{4}-\d{2}-\d{2} \d{2}:\d{2} UTC/.test(headerText)
+    && /View live site/.test(headerText) && /Log Out/.test(headerText),
+    headerText.slice(0, 120));
+  check('the current area is highlighted and the others offer a hover state',
+    [...sideNav.querySelectorAll('button')].some(b => /bg-indigo-600/.test(b.className))
+    && [...sideNav.querySelectorAll('button')].every(b => /hover:bg-slate-100/.test(b.className) || /bg-indigo-600/.test(b.className)),
+    'sidebar item styling');
+  const burger = doc.querySelector('button[aria-label="Open navigation menu"]');
+  check('the sidebar hides on mobile behind a hamburger button',
+    !!burger && /md:hidden/.test(burger.className)
+    && !!sideAside && /hidden md:block/.test(sideAside.className)
+    && doc.querySelectorAll('[role="dialog"]').length === 0,
+    burger ? burger.className : 'no hamburger');
+  click(burger);
+  await wait();
+  const drawer = doc.querySelector('[role="dialog"]');
+  const drawerLabels = [...(drawer?.querySelectorAll('nav button') || [])].map(b => b.textContent.trim());
+  check('the mobile drawer lists the same nine areas in the same order',
+    !!drawer && drawerLabels.join(',') === tabLabels.join(','),
+    drawerLabels.join(','));
+  click([...drawer.querySelectorAll('nav button')].find(b => b.textContent.trim() === 'Settings'));
+  await wait();
+  check('picking a drawer area closes it and loads that area',
+    doc.querySelectorAll('[role="dialog"]').length === 0
+    && /settings|storage/i.test((doc.getElementById('main-content') || doc).textContent || ''),
+    'drawer after pick');
   click([...doc.querySelectorAll('button')].filter(b => b.textContent.trim() === 'Competitor Analysis').pop());
   await wait();
   const section = doc.querySelector('section[aria-label="Competitor Analysis"]');

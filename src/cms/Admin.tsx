@@ -1649,56 +1649,96 @@ const TABS: [Tab, string][] = [['dashboard', 'Dashboard'], ['pages', 'Pages'], [
 export const AdminApp: React.FC = () => {
   const { loggedIn, logout, state, storageWarning } = useCms();
   const [tab, setTab] = useState<Tab>('dashboard');
+  const [navOpen, setNavOpen] = useState(false);
   if (!loggedIn) return null;
+  // One nav item renderer, used by the desktop sidebar and the mobile drawer so
+  // the two never drift apart in wording, order or styling.
+  const navItem = (t: Tab, label: string) => (
+    <button
+      key={t}
+      type="button"
+      onClick={() => { setTab(t); setNavOpen(false); }}
+      aria-current={tab === t ? 'page' : undefined}
+      className={`w-full text-left px-3 py-2.5 rounded-lg text-sm font-semibold transition-colors ${tab === t ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'}`}
+    >{label}</button>
+  );
+  const navItems = TABS.map(([t, l]) => navItem(t, l));
   return (
-    <div className="pt-8 pb-16 px-4">
-      <div className="max-w-7xl mx-auto">
-        <header className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden mb-6">
-          <div className="flex flex-wrap items-center gap-4 px-5 py-5 md:px-6">
-            <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 text-white flex items-center justify-center flex-shrink-0">
-              <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2" /><line x1="3" y1="9" x2="21" y2="9" /><line x1="9" y1="21" x2="9" y2="9" /></svg>
-            </div>
-            <div className="min-w-0">
-              <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-                <h1 className="text-xl md:text-2xl font-bold text-slate-900">Content manager</h1>
-                <span className="text-[11px] font-bold uppercase tracking-wide bg-indigo-50 border border-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full">CMS</span>
-              </div>
-              <p className="text-sm text-slate-500 truncate">{state.settings.name} · {state.settings.domain} · changes save automatically in this browser</p>
-              {/* Not a feature, a diagnostic: which build am I looking at? Guarded with
-                  typeof because vite's define only substitutes in a built bundle —
-                  reading the bare identifier in `npm run dev` would throw. */}
-              {typeof __BUILD_ID__ === 'string' && (
-                <p className="text-[11px] font-mono text-slate-400" title="When this bundle was built, and from which commit">build {__BUILD_ID__}</p>
-              )}
-            </div>
-            <div className="ml-auto flex flex-wrap gap-2">
-              <a href="/" target="_blank" rel="noopener" className="px-3.5 py-2 rounded-lg text-sm font-semibold bg-slate-900 text-white hover:bg-slate-700 transition-colors">View live site ↗</a>
-              <Btn tone="ghost" onClick={() => { logout(); navigate('/'); }}>Log Out</Btn>
-            </div>
+    <div className="pb-16">
+      {/* Header: full width, clean white, spans the whole admin area. */}
+      <header className="bg-white border-b border-slate-200 px-4 py-4 md:px-6">
+        <div className="flex flex-wrap items-center gap-4">
+          {/* Mobile only: opens the sidebar as a drawer. */}
+          <button type="button" aria-label="Open navigation menu" onClick={() => setNavOpen(true)} className="md:hidden w-10 h-10 flex-shrink-0 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-100 flex items-center justify-center transition-colors">
+            <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><line x1="3" y1="6" x2="21" y2="6" /><line x1="3" y1="12" x2="21" y2="12" /><line x1="3" y1="18" x2="21" y2="18" /></svg>
+          </button>
+          <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 text-white flex items-center justify-center flex-shrink-0">
+            <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2" /><line x1="3" y1="9" x2="21" y2="9" /><line x1="9" y1="21" x2="9" y2="9" /></svg>
           </div>
-          <nav aria-label="CMS areas" className="border-t border-slate-100 px-3 py-3 md:px-4 flex gap-1.5 overflow-x-auto">
-            {TABS.map(([t, l]) => (
-              <button key={t} onClick={() => setTab(t)} className={`whitespace-nowrap px-3.5 py-2 rounded-lg text-sm font-semibold transition-colors ${tab === t ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'}`}>{l}</button>
-            ))}
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+              <h1 className="text-xl md:text-2xl font-bold text-slate-900">Content manager</h1>
+              <span className="text-[11px] font-bold uppercase tracking-wide bg-indigo-50 border border-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full">CMS</span>
+            </div>
+            <p className="text-sm text-slate-500 truncate">{state.settings.name} · {state.settings.domain} · changes save automatically in this browser</p>
+            {/* Not a feature, a diagnostic: which build am I looking at? Guarded with
+                typeof because vite's define only substitutes in a built bundle —
+                reading the bare identifier in `npm run dev` would throw. */}
+            {typeof __BUILD_ID__ === 'string' && (
+              <p className="text-[11px] font-mono text-slate-400" title="When this bundle was built, and from which commit">build {__BUILD_ID__}</p>
+            )}
+          </div>
+          <div className="ml-auto flex flex-wrap gap-2">
+            <a href="/" target="_blank" rel="noopener" className="px-3.5 py-2 rounded-lg text-sm font-semibold bg-slate-900 text-white hover:bg-slate-700 transition-colors">View live site ↗</a>
+            <Btn tone="ghost" onClick={() => { logout(); navigate('/'); }}>Log Out</Btn>
+          </div>
+        </div>
+      </header>
+
+      {/* Body: fixed-width sidebar on the left, content filling the rest. */}
+      <div className="flex items-start">
+        <aside className="hidden md:block w-60 flex-shrink-0 border-r border-slate-200">
+          <nav aria-label="CMS areas" className="sticky top-20 max-h-[calc(100vh-7rem)] overflow-y-auto p-3 space-y-1">
+            {navItems}
           </nav>
-        </header>
-        {storageWarning && (
-          <div className="flex items-start gap-3 mb-5 px-4 py-3 rounded-xl border border-amber-200 bg-amber-50 text-sm text-amber-900" role="alert">
-            <span className="w-5 h-5 flex-shrink-0 text-amber-600"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 4 2.5 20h19z" /><line x1="12" y1="10" x2="12" y2="15" /></svg></span>
-            <span><strong className="font-bold">Not saved.</strong> {storageWarning}</span>
-            <button type="button" onClick={() => setTab('settings')} className="ml-auto whitespace-nowrap text-sm font-bold text-amber-800 hover:underline">Open storage settings →</button>
-          </div>
-        )}
-        {tab === 'dashboard' && <Dashboard go={setTab} />}
-        {tab === 'pages' && <PagesPane />}
-        {tab === 'blog' && <BlogPane />}
-        {tab === 'tools' && <ToolsPane />}
-        {tab === 'toolcats' && <ToolCategoriesPane />}
-        {tab === 'competitor' && <CompetitorPane />}
-        {tab === 'sidebar' && <SidebarPane />}
-        {tab === 'sections' && <SectionsPane />}
-        {tab === 'settings' && <SettingsPane />}
+        </aside>
+        <div className="flex-1 min-w-0 px-4 pt-6 md:px-6">
+          {storageWarning && (
+            <div className="flex items-start gap-3 mb-5 px-4 py-3 rounded-xl border border-amber-200 bg-amber-50 text-sm text-amber-900" role="alert">
+              <span className="w-5 h-5 flex-shrink-0 text-amber-600"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 4 2.5 20h19z" /><line x1="12" y1="10" x2="12" y2="15" /></svg></span>
+              <span><strong className="font-bold">Not saved.</strong> {storageWarning}</span>
+              <button type="button" onClick={() => setTab('settings')} className="ml-auto whitespace-nowrap text-sm font-bold text-amber-800 hover:underline">Open storage settings →</button>
+            </div>
+          )}
+          {tab === 'dashboard' && <Dashboard go={setTab} />}
+          {tab === 'pages' && <PagesPane />}
+          {tab === 'blog' && <BlogPane />}
+          {tab === 'tools' && <ToolsPane />}
+          {tab === 'toolcats' && <ToolCategoriesPane />}
+          {tab === 'competitor' && <CompetitorPane />}
+          {tab === 'sidebar' && <SidebarPane />}
+          {tab === 'sections' && <SectionsPane />}
+          {tab === 'settings' && <SettingsPane />}
+        </div>
       </div>
+
+      {/* Mobile drawer: the same nine items, opened from the header hamburger. */}
+      {navOpen && (
+        <div className="md:hidden fixed inset-0 z-50" role="dialog" aria-modal="true" aria-label="CMS navigation">
+          <button type="button" aria-label="Close navigation menu" className="absolute inset-0 bg-slate-900/40" onClick={() => setNavOpen(false)} />
+          <aside className="absolute left-0 top-0 h-full w-72 max-w-[85%] bg-white border-r border-slate-200 shadow-xl p-3 overflow-y-auto">
+            <div className="flex items-center justify-between px-2 py-2 mb-2">
+              <span className="font-bold text-slate-900">Content manager</span>
+              <button type="button" aria-label="Close navigation menu" onClick={() => setNavOpen(false)} className="w-9 h-9 rounded-lg text-slate-500 hover:bg-slate-100 flex items-center justify-center transition-colors">
+                <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
+              </button>
+            </div>
+            <nav aria-label="CMS areas (mobile)" className="space-y-1">
+              {navItems}
+            </nav>
+          </aside>
+        </div>
+      )}
     </div>
   );
 };

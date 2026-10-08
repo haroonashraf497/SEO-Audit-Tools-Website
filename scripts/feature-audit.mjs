@@ -1170,6 +1170,23 @@ check('main uses content-shell and scopes the admin dashboard out of the heading
   /<main id="main-content" tabIndex=\{-1\} className=\{`content-shell\$\{isAdminRoute \? ' admin-shell' : ''\}`\}>/.test(app)
   && /const isAdminRoute = route === 'admin' \|\| route === 'admin-login' \|\| route === 'admin-reset';/.test(app)
   && /<h3 className="heading-card text-\[18px\] font-bold capitalize tracking-\[0px\] text-slate-400 mb-4">\{col\.title\}<\/h3>/.test(app));
+check('the admin shell is a full-width header over a fixed left sidebar',
+  /const navItem = \(t: Tab, label: string\) =>/.test(admin)
+  && /const navItems = TABS\.map\(\(\[t, l\]\) => navItem\(t, l\)\);/.test(admin)
+  && /<header className="bg-white border-b border-slate-200 px-4 py-4 md:px-6">/.test(admin)
+  && /<aside className="hidden md:block w-60 flex-shrink-0 border-r border-slate-200">/.test(admin)
+  && /<nav aria-label="CMS areas" className="sticky top-20[^"]*space-y-1">/.test(admin)
+  && /<div className="flex-1 min-w-0 px-4 pt-6 md:px-6">/.test(admin)
+  // one renderer, two mounts: the desktop sidebar and the mobile drawer
+  && (admin.match(/\{navItems\}/g) || []).length === 2
+  && /aria-label="Open navigation menu"/.test(admin)
+  && /role="dialog" aria-modal="true" aria-label="CMS navigation"/.test(admin)
+  && /aria-label="CMS areas \(mobile\)"/.test(admin)
+  // the old horizontal tab strip is gone
+  && !/<nav aria-label="CMS areas" className="border-t border-slate-100/.test(admin));
+check('every admin area still renders behind the same tab switch',
+  ['Dashboard', 'PagesPane', 'BlogPane', 'ToolsPane', 'ToolCategoriesPane', 'CompetitorPane', 'SidebarPane', 'SectionsPane', 'SettingsPane']
+    .every(p => new RegExp(`\{tab === '[a-z]+' && <${p}`).test(admin)));
 check('154 built-in tools intact', (tools.match(/slug: '/g) || []).length === 154, String((tools.match(/slug: '/g) || []).length));
 check('admin login page + default creds intact', /AdminLoginPage/.test(app) && /passcode: 'admin123'/.test(store) && /export const AdminLoginPage/.test(read('src/cms/AdminLogin.tsx')));
 check('no EKSTRUH in src/public/index.html', !/EKSTRUH/.test(read('src/App.tsx') + store + admin + seo + read('index.html') + htaccess));
