@@ -684,7 +684,7 @@ check('the built-in copy seeds the managed page (title, labels, button, fallback
   /export const defaultCompetitor: CmsCompetitor = \{[\s\S]{0,200}heroSubtitle: 'Side-by-side SEO audit',[\s\S]{0,120}heroTitle: 'Website Competitor Analysis',/.test(store)
   && /yourLabel: 'Your website',[\s\S]{0,120}theirLabel: 'Competitor website',/.test(store)
   && /buttonText: 'Compare Both Websites',/.test(store)
-  && /fallbackNote: 'If a site blocks browser access/.test(store));
+  && /fallbackNote: 'Both audits use live HTML fetched in your browser\. If a site blocks access/.test(store));
 check('the seeded copy keeps the three sections, the five benefits and the seven questions',
   /aboutHeading: 'What is Website Competitor Analysis\?',/.test(store)
   && /howToHeading: 'How to read the comparison report',/.test(store)
