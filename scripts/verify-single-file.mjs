@@ -1583,13 +1583,30 @@ for (const route of ['/website-health', '/blog/category/website-health']) {
     && !!sideMain && /flex-1/.test(sideMain.className) && /min-w-0/.test(sideMain.className),
     sideMain ? sideMain.className : 'no content area');
   const headerText = sideHeader ? sideHeader.textContent || '' : '';
-  check('the header spans the full width with the title, stamp and both actions',
+  const headerActions = [...(sideHeader?.querySelectorAll('a, button') || [])].map(el => el.textContent.trim()).filter(Boolean);
+  check('the full-width header keeps the title, build stamp and only the Log Out action',
     !!sideHeader && sideHeader.tagName === 'HEADER'
     && /bg-white/.test(sideHeader.className) && /border-b/.test(sideHeader.className)
     && /Content manager/.test(headerText)
-    && /build [0-9a-f]{7}\+? · \d{4}-\d{2}-\d{2} \d{2}:\d{2} UTC/.test(headerText)
-    && /View live site/.test(headerText) && /Log Out/.test(headerText),
-    headerText.slice(0, 120));
+    && /build [0-9a-f]{7}/.test(headerText)
+    && headerActions.join(',') === 'Log Out'
+    && !/View live site/.test(headerText),
+    headerActions.join(',') || headerText.slice(0, 120));
+  const overviewCard = [...doc.querySelectorAll('section')].find(s => /CMS Overview/.test(s.textContent || ''));
+  const overviewActions = [...(overviewCard?.querySelectorAll('a, button') || [])].filter(el => ['View live site ↗', 'Manage visibility', 'Log Out'].includes(el.textContent.trim()));
+  const overviewActionLabels = overviewActions.map(el => el.textContent.trim());
+  const overviewActionRow = overviewActions[0]?.parentElement;
+  check('the CMS Overview card shows all three actions in the requested order on one row',
+    overviewActionLabels.join(',') === 'View live site ↗,Manage visibility,Log Out'
+    && !!overviewActionRow && /sm:flex-nowrap/.test(overviewActionRow.className) && /justify-end/.test(overviewActionRow.className),
+    overviewActionLabels.join(','));
+  check('the overview Log Out matches the white View live site button style',
+    !!overviewActions[0] && !!overviewActions[2]
+    && overviewActions[0].className === overviewActions[2].className
+    && /bg-white/.test(overviewActions[2].className)
+    && /text-slate-900/.test(overviewActions[2].className)
+    && /rounded-xl/.test(overviewActions[2].className),
+    overviewActions[2]?.className || 'missing Log Out action');
   check('the current area is highlighted and the others offer a hover state',
     [...sideNav.querySelectorAll('button')].some(b => /bg-indigo-600/.test(b.className))
     && [...sideNav.querySelectorAll('button')].every(b => /hover:bg-slate-100/.test(b.className) || /bg-indigo-600/.test(b.className)),
@@ -1662,6 +1679,17 @@ for (const route of ['/website-health', '/blog/category/website-health']) {
     && typeof copy.faqsContent === 'string' && copy.faqsContent.includes('<h3>What does the competitor analysis compare?</h3>')
     && copy.benefits === undefined && copy.faqs === undefined,
     `${(copy.benefitsContent || '').slice(0, 40)} | ${(copy.faqsContent || '').slice(0, 40)}`);
+  click([...sideNav.querySelectorAll('button')].find(b => b.textContent.trim() === 'Dashboard'));
+  await wait();
+  const logoutOverview = [...doc.querySelectorAll('section')].find(s => /CMS Overview/.test(s.textContent || ''));
+  const overviewLogoutButton = [...(logoutOverview?.querySelectorAll('button') || [])].find(b => b.textContent.trim() === 'Log Out');
+  if (overviewLogoutButton) click(overviewLogoutButton);
+  await wait();
+  check('clicking overview Log Out clears the admin session and returns home',
+    !!overviewLogoutButton
+    && !dom.window.localStorage.getItem('ekstruh:admin-session:v1')
+    && dom.window.location.pathname === '/',
+    `${dom.window.location.pathname} · ${dom.window.localStorage.getItem('ekstruh:admin-session:v1') ? 'session remains' : 'session cleared'}`);
   dom.window.close();
 
   // the live page reflects the saved copy, and the tool itself still works

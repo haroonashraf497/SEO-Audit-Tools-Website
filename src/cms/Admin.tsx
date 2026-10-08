@@ -175,7 +175,7 @@ const DashboardIcon: React.FC<{ type: 'tools' | 'blog' | 'pages' | 'seo' | 'visi
 };
 
 const Dashboard: React.FC<{ go: (t: Tab) => void }> = ({ go }) => {
-  const { state } = useCms();
+  const { state, logout } = useCms();
   const liveTools = state.tools.filter(t => t.status === 'live').length;
   const hiddenTools = state.tools.filter(t => t.status === 'hidden').length;
   const draftTools = state.tools.filter(t => t.status === 'draft').length;
@@ -220,9 +220,10 @@ const Dashboard: React.FC<{ go: (t: Tab) => void }> = ({ go }) => {
             <h2 className="text-2xl md:text-3xl font-bold tracking-tight">Good to see you. Your site is under control.</h2>
             <p className="text-sm md:text-base text-slate-300 max-w-2xl mt-2 leading-relaxed">Manage {state.settings.name}, publish content, tune SEO and control every public-facing section from this workspace.</p>
           </div>
-          <div className="flex flex-wrap gap-2">
-            <a href="/" target="_blank" rel="noopener" className="px-4 py-2.5 rounded-xl bg-white text-slate-900 text-sm font-bold hover:bg-slate-100 transition-colors">View live site ↗</a>
-            <button type="button" onClick={() => go('sections')} className="px-4 py-2.5 rounded-xl bg-white/10 border border-white/15 text-white text-sm font-bold hover:bg-white/15 transition-colors">Manage visibility</button>
+          <div className="flex flex-wrap sm:flex-nowrap items-center justify-end gap-2">
+            <a href="/" target="_blank" rel="noopener" className="px-4 py-2.5 rounded-xl bg-white text-slate-900 text-sm font-bold hover:bg-slate-100 transition-colors whitespace-nowrap">View live site ↗</a>
+            <button type="button" onClick={() => go('sections')} className="px-4 py-2.5 rounded-xl bg-white/10 border border-white/15 text-white text-sm font-bold hover:bg-white/15 transition-colors whitespace-nowrap">Manage visibility</button>
+            <button type="button" onClick={() => { logout(); navigate('/'); }} className="px-4 py-2.5 rounded-xl bg-white text-slate-900 text-sm font-bold hover:bg-slate-100 transition-colors whitespace-nowrap">Log Out</button>
           </div>
         </div>
         <div className="relative grid sm:grid-cols-3 gap-3 mt-7 pt-5 border-t border-white/10">
@@ -1689,7 +1690,6 @@ export const AdminApp: React.FC = () => {
             )}
           </div>
           <div className="ml-auto flex flex-wrap gap-2">
-            <a href="/" target="_blank" rel="noopener" className="px-3.5 py-2 rounded-lg text-sm font-semibold bg-slate-900 text-white hover:bg-slate-700 transition-colors">View live site ↗</a>
             <Btn tone="ghost" onClick={() => { logout(); navigate('/'); }}>Log Out</Btn>
           </div>
         </div>

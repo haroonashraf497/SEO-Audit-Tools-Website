@@ -1184,6 +1184,28 @@ check('the admin shell is a full-width header over a fixed left sidebar',
   && /aria-label="CMS areas \(mobile\)"/.test(admin)
   // the old horizontal tab strip is gone
   && !/<nav aria-label="CMS areas" className="border-t border-slate-100/.test(admin));
+const adminHeaderStart = admin.indexOf('<header className="bg-white border-b border-slate-200 px-4 py-4 md:px-6">');
+const adminHeaderEnd = admin.indexOf('</header>', adminHeaderStart);
+const adminHeaderSource = adminHeaderStart >= 0 && adminHeaderEnd >= 0 ? admin.slice(adminHeaderStart, adminHeaderEnd + '</header>'.length) : '';
+const dashboardStart = admin.indexOf('const Dashboard: React.FC');
+const dashboardEnd = admin.indexOf('/* ---------------- shell ---------------- */', dashboardStart);
+const dashboardSource = dashboardStart >= 0 && dashboardEnd >= 0 ? admin.slice(dashboardStart, dashboardEnd) : '';
+const overviewStart = dashboardSource.indexOf('<section className="relative overflow-hidden rounded-3xl bg-slate-950');
+const overviewEnd = dashboardSource.indexOf('</section>', overviewStart);
+const overviewSource = overviewStart >= 0 && overviewEnd >= 0 ? dashboardSource.slice(overviewStart, overviewEnd + '</section>'.length) : '';
+const overviewViewAt = overviewSource.indexOf('>View live site ↗</a>');
+const overviewManageAt = overviewSource.indexOf('>Manage visibility</button>');
+const overviewLogoutAt = overviewSource.indexOf('>Log Out</button>');
+check('the top header has no View live site button and keeps only Log Out',
+  !!adminHeaderSource && !adminHeaderSource.includes('View live site')
+  && adminHeaderSource.includes('<Btn tone="ghost"') && adminHeaderSource.includes('>Log Out</Btn>'));
+check('the CMS Overview action order is View live site, Manage visibility, Log Out',
+  overviewViewAt >= 0 && overviewViewAt < overviewManageAt && overviewManageAt < overviewLogoutAt
+  && overviewSource.includes('bg-white/10 border border-white/15 text-white'));
+const whiteOverviewButtonClass = 'px-4 py-2.5 rounded-xl bg-white text-slate-900 text-sm font-bold hover:bg-slate-100 transition-colors whitespace-nowrap';
+check('overview Log Out is styled like View live site and uses the original logout action',
+  (overviewSource.split(whiteOverviewButtonClass).length - 1) === 2
+  && dashboardSource.includes("onClick={() => { logout(); navigate('/'); }}"));
 check('every admin area still renders behind the same tab switch',
   ['Dashboard', 'PagesPane', 'BlogPane', 'ToolsPane', 'ToolCategoriesPane', 'CompetitorPane', 'SidebarPane', 'SectionsPane', 'SettingsPane']
     .every(p => new RegExp(`\{tab === '[a-z]+' && <${p}`).test(admin)));
