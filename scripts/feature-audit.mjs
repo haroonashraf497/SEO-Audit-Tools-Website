@@ -573,12 +573,63 @@ check('a tool row shows the managed category name',
 check('the Tool Categories tab sits next to Tools and renders its own pane',
   /\['tools', 'Tools'\], \['toolcats', 'Tool Categories'\]/.test(adminSrc)
   && /\{tab === 'toolcats' && <ToolCategoriesPane \/>\}/.test(adminSrc));
-check('the pane has a name, a slug and a description field plus an add button',
+// Scoped to the pane itself: the Blog Categories pane still has an
+// "Add category" button, and both panes reuse the same field labels.
+const seoSrc = read('src/utils/seo.ts');
+const toolCatsBody = (() => {
+  const at = adminSrc.indexOf('const ToolCategoriesPane');
+  const next = adminSrc.slice(at + 1).search(/\nconst [A-Z]/);
+  return next < 0 ? adminSrc.slice(at) : adminSrc.slice(at, at + 1 + next);
+})();
+check('the pane edits each category in place and offers no add-category form',
   /const ToolCategoriesPane: React\.FC = \(\) => \{/.test(adminSrc)
-  && /aria-label="Category Name"/.test(adminSrc)
-  && /aria-label="Category Slug"/.test(adminSrc)
-  && /aria-label="Category Description"/.test(adminSrc)
-  && /<SaveButton label="Add category" onSave=\{create\} \/>/.test(adminSrc));
+  && /aria-label="Edit category name"/.test(toolCatsBody)
+  && /aria-label="Edit category slug"/.test(toolCatsBody)
+  && /label="Content Above Tools — appears after the heading, before the tools grid"/.test(toolCatsBody)
+  && /aria-label="Edit content above tools"/.test(toolCatsBody)
+  && /label="Content Below Tools — Before Footer"/.test(toolCatsBody)
+  && !/label="Category Description"/.test(toolCatsBody)
+  && !/label="Add category"/.test(toolCatsBody)
+  && !/aria-label="Category Name"/.test(toolCatsBody)
+  && !/addToolCategory\(/.test(toolCatsBody));
+check('the category editor carries the full SEO block in the right order',
+  toolCatsBody.indexOf('label="Category Name"') < toolCatsBody.indexOf('label="Category Slug"')
+  && toolCatsBody.indexOf('label="Category Slug"') < toolCatsBody.indexOf('label="Content Above Tools')
+  && toolCatsBody.indexOf('label="Content Above Tools') < toolCatsBody.indexOf('label="Content Below Tools')
+  && toolCatsBody.indexOf('label="Content Below Tools') < toolCatsBody.indexOf('<SeoMetaEditor')
+  && toolCatsBody.indexOf('<SeoMetaEditor') < toolCatsBody.indexOf('label="Save Changes"')
+  && /<SeoMetaEditor[\s\S]{0,320}noindexControl="checkbox"/.test(toolCatsBody)
+  && /placeholder="Add detailed content, FAQs, and information here — appears after all tools and above the footer\.\.\."/.test(toolCatsBody)
+  && /fallbackTitle=\{auto\.title\}/.test(toolCatsBody)
+  && /fallbackDescription=\{auto\.description\}/.test(toolCatsBody));
+// The category copy editors live in the category row and nowhere else: the
+// Tools tab used to render a second RichTextEditor writing the same
+// CmsToolCategory.content field, which is what the "wrong place" report was
+// about. One draftKey, one call site, nothing category-content related in Tools.
+const toolsPaneBody = (() => {
+  const at = adminSrc.indexOf('const ToolsPane: React.FC');
+  const next = adminSrc.slice(at + 1).search(/\nconst [A-Z]/);
+  return next < 0 ? adminSrc.slice(at) : adminSrc.slice(at, at + 1 + next);
+})();
+check('the Tools pane has no category content editor of its own',
+  toolsPaneBody.length > 400
+  && !/toolcat-content|activeCat|Category page content|Edit content above tools/.test(toolsPaneBody)
+  && /const \{ state, setToolStatus, deleteTool \} = useCms\(\);/.test(toolsPaneBody)
+  && (adminSrc.match(/draftId\('toolcat-content'/g) || []).length === 1
+  && /draftId\('toolcat-content', cat\.key\)/.test(toolCatsBody)
+  && /saveToolCategory\(cat\.key, \{ content: html \}\)/.test(toolCatsBody));
+check('category meta saves to the shared seo map and blank values stay automatic',
+  /const key = `cat:\$\{cat\.key\}`;/.test(toolCatsBody)
+  && /if \(!entry\.title && !entry\.description && !entry\.slug && !entry\.noindex\) clearSeo\(key\);/.test(toolCatsBody)
+  && /else setSeo\(key, entry\);/.test(toolCatsBody)
+  && /const auto = categorySeoFallbacks\(state, \{ \.\.\.cat, name: draft\.name \|\| cat\.name \}/.test(toolCatsBody));
+check('the category page head honours the override and falls back to the generated copy',
+  /export const categorySeoFallbacks = \(cms: CmsState, cat: CmsToolCategory, brand: string\)/.test(seoSrc)
+  && /const seo = cms\.seo\[`cat:\$\{cat\.key\}`\];/.test(seoSrc)
+  && /title: \(seo\?\.title \|\| ''\)\.trim\(\) \|\| fallbacks\.title/.test(seoSrc)
+  && /const description = \(seo\?\.description \|\| ''\)\.trim\(\) \|\| fallbacks\.description;/.test(seoSrc)
+  && /noindex: seo\?\.noindex,/.test(seoSrc)
+  && /canonicalOverride: \(seo\?\.slug \|\| ''\)\.trim\(\) \|\| undefined,/.test(seoSrc));
 check('every category row shows its name, its URL, its tool count and its own Edit/Delete',
   /<section aria-label="Tool Categories"/.test(adminSrc)
   && /\{paths\.primary\}\{paths\.alias \? ` · \$\{paths\.alias\}` : ''\}/.test(adminSrc)
@@ -881,6 +932,65 @@ check('the built CSS ships the scale and letter-spacing: normal',
 check('all three responsive steps are in the built CSS',
   /--heading-h1:2\.625rem/.test(dist.replace(/\s+/g, '')) && /--heading-h1:2\.25rem/.test(dist.replace(/\s+/g, ''))
   && /--heading-h1:1\.875rem/.test(dist.replace(/\s+/g, '')) && /--heading-h2:1\.625rem/.test(dist.replace(/\s+/g, '')));
+
+console.log('\n=== ⚡ Live-page probes (src/tools/WebTools.tsx) ===');
+// The Page Speed Checker shared this hook with nine other URL tools, and two
+// defects lived here: the source badge returned itself (so any successful
+// fetch crashed the results panel), and both probes were awaited with
+// Promise.all (so a 1 s answer still waited on the 15 s text reader).
+const webTools = read('src/tools/WebTools.tsx');
+check('the source badge renders a live badge instead of recursing into itself',
+  /const Src: React\.FC<\{ d: LivePageData \}> = \(\{ d \}\) => d\.reader\s*\?\s*\(/.test(webTools)
+  && /\) : <Live ms=\{d\.fetchMs\} \/>;/.test(webTools)
+  && !/\)\s*:\s*<Src d=\{d\} \/>;/.test(webTools));
+check('probes resolve on the first usable answer, never on the slowest',
+  !/await Promise\.all\(\[/.test(webTools)
+  && /PROBE_BUDGET_MS = 16_000/.test(webTools)
+  && /RELAY_GRACE_MS = 2_500/.test(webTools)
+  && /if \(best\) finish\(\);/.test(webTools));
+check('a running probe shows its stage and can be stopped',
+  /const \[stage, setStage\] = useState\(''\);/.test(webTools)
+  // The speed tool's Stop clears its own direct probe as well, so it wraps the
+  // hook's cancel rather than passing it straight through.
+  && /onCancel=\{(?:f\.cancel|stop)\}/.test(webTools)
+  && /const stop = \(\) => \{[^}]*f\.cancel\(\);/.test(webTools)
+  && /runId\.current !== me/.test(webTools));
+check('a stalled probe reads as a timeout, a refusal as a block',
+  /outcome\.timedOut \? 'timeout' : 'blocked'/.test(webTools)
+  // One branch now serves both: the blocked path may still be answered by the
+  // proxy-free measurement before it falls back to the failure note.
+  && /const showDirect = typeof directMs === 'number'/.test(webTools) && /f\.failed === 'timeout'/.test(webTools));
+check("a proxy-blocked page is still timed from the visitor's own browser",
+  /mode: 'no-cors'/.test(webTools)
+  && /const browserTiming = async/.test(webTools)
+  && /void browserTiming\(direct\)/.test(webTools)
+  && /void f\.run\(\);/.test(webTools)
+  // ...and a host that hangs every relay must not hold the spinner for the whole
+  // budget: the direct figure is shown early, then replaced if a relay answers.
+  && /const early = typeof directMs === 'number' && f\.busy && f\.elapsed >= DIRECT_FIRST_AFTER_S;/.test(webTools)
+  && /const settled = !f\.busy && !f\.data && !f\.failed;/.test(webTools)
+  && /\{f\.busy && !early && <Spinner/.test(webTools));
+check('all ten URL tools keep using the one shared hook',
+  (webTools.match(/const f = useFetch\(\);/g) || []).length === 10
+  && (webTools.match(/<Src d=\{d\} \/>/g) || []).length >= 6,
+  `hooks ${(webTools.match(/const f = useFetch\(\);/g) || []).length}`);
+
+// The Page Speed Checker's report layer: a scored model, an inventory, and an
+// export — the "show more info" work must not quietly shrink back to one number.
+const report = read('src/utils/pageSpeedReport.ts');
+check('the speed tool builds a scored report from the one fetched document',
+  /export function buildReport/.test(report) && /Render-blocking requests/.test(report) && /export function reportToMarkdown/.test(report));
+check('an unmeasurable factor is excluded from the score, not passed or failed',
+  /state: 'unknown'/.test(report) && /weight: 0, earned: 0/.test(report));
+check('relative assets are resolved against the document, not counted as third parties',
+  /const host = hostOf\(src, baseUrl\)/.test(report) && /const pageUrl = d\.finalUrl/.test(report));
+check('the speed panel renders score, breakdown, hosts, timeline, requests and facts',
+  /Score breakdown/.test(webTools) && /Priority fixes/.test(webTools) && /What the page asks for/.test(webTools)
+  && /Modelled load sequence/.test(webTools) && /Requests in order/.test(webTools) && /Page facts/.test(webTools));
+check('the summary copies out as markdown with a fallback path',
+  /navigator\.clipboard\?\.writeText/.test(webTools) && /document\.execCommand/.test(webTools));
+check('the shipped bundle carries the new report panels',
+  /Score breakdown/.test(dist) && /Modelled load sequence/.test(dist) && /Page facts/.test(dist));
 
 console.log('\n=== ✅ Preserved ===');
 check('no "Loading page" anywhere in src', !/Loading page/.test(read('src/App.tsx') + read('src/components/ErrorBoundary.tsx') + read('src/tools/Tools.tsx')));

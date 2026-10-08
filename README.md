@@ -326,12 +326,23 @@ row instead of after a larger gap.
 The tool categories are a managed list: **Admin → Tool Categories**, the tab directly next to
 *Tools*.
 
-- **Category Name**, **Category Slug** (auto-generated from the name, editable) and
-  **Category Description** — the paragraph shown under the heading on `/free-seo-tools` and on
-  the category's own page (it is also the category meta description). **Add category** confirms
-  with *Saved ✓*.
+- Categories are edited in place, from each row — there is no add-category form, the pane manages
+  the categories the site ships with. **Edit** opens, in order:
+  - **Category Name** and **Category Slug** (the public URL);
+  - **Content Above Tools** — the paragraph shown under the heading on `/free-seo-tools` and on
+    the category's own page, before the tool grid;
+  - **Content Below Tools — Before Footer** — a rich-text document (headings, paragraphs, lists,
+    links, bold, italic, images; FAQs included) rendered after the last tool card and before the
+    footer. It saves as you type and shows *Saved ✓*; leave it empty and the section is hidden;
+  - **SEO & Meta Information** — the shared meta editor: **SEO title** (target 50–60 characters),
+    **meta description** (120–160), an optional **canonical URL override**, a **noindex**
+    checkbox and a live Google preview. Title, description, `og:`/`twitter:` tags, `robots` and the
+    canonical link all update when the category page loads.
+
+  Anything left equal to the automatically generated copy is not stored, so the tool count inside
+  the default title keeps tracking the published tools. *Save Changes* confirms with *Saved ✓*.
 - Every row shows the category name, its public URL, its live **tool count** and its own
-  **Edit** (name, slug, description) and **Delete**. Deleting a category never deletes tools:
+  **Edit** and **Delete**. Deleting a category never deletes tools:
   they move to the nearest remaining category so nothing disappears from the site.
 - The eleven built-in categories keep their original page — `/ip-tools`,
   `/website-checker-tools`, … — and are marked *Built-in*. Every category also answers on

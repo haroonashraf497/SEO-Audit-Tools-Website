@@ -4,7 +4,7 @@ import {
   type ToolDef, type ToolCategory,
 } from './data';
 import { resolveToolCategory, toolCategoriesOf, type CmsToolCategory, useCms } from '../cms/store';
-import { sanitizeRichHtml } from '../utils/sanitize';
+import { hasVisibleRichContent, sanitizeRichHtml } from '../utils/sanitize';
 import { TOOLS_PATH, navigate, subscribe, toolCategoryPath } from '../router';
 import { buildReport, type SimReport, type RowStatus } from './simulator';
 import { fetchPageData } from '../utils/pageFetch';
@@ -572,12 +572,15 @@ export const ToolsList: React.FC<{ category?: ToolCategory; categorySlug?: strin
             </section>
           );
         })}
-        {/* Admin-managed rich content for this category page — written in
-            Admin → Tools (editor under the tool list) and rendered here,
-            below the tool grid. Sanitised like every other CMS string. */}
-        {active?.content && (
-          <section className="mb-12 max-w-4xl mx-auto bg-white rounded-2xl border border-slate-200 p-6 sm:p-8 shadow-sm">
-            <div className="rich-text" dangerouslySetInnerHTML={{ __html: sanitizeRichHtml(active.content) }} />
+        {/* Admin-managed rich content for this category page — the "Content
+            Below Tools" editor in Admin → Tool Categories → Edit, which is its
+            only editor. Rendered after the last tool grid and before
+            the footer, on the page's own width, so it lines up with the cards
+            above it. Sanitised like every other CMS string; an empty box renders
+            nothing at all — no wrapper, no gap. */}
+        {hasVisibleRichContent(active?.content) && (
+          <section className="mb-12 w-full bg-white rounded-2xl border border-slate-200 p-6 sm:p-8 shadow-sm">
+            <div className="rich-text" dangerouslySetInnerHTML={{ __html: sanitizeRichHtml(active?.content || '') }} />
           </section>
         )}
         {filtered.length === 0 && categoryIsEmpty && !query.trim() && (

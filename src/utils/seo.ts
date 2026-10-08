@@ -8,17 +8,40 @@ import { TOOLS_PATH, routeSlugForStored, storedSlugForRoute, blogCategoryHref } 
  * its original top-level URL (/ip-tools) as the canonical one, and every
  * category also answers on /tools/category/<slug>.
  */
+/**
+ * The title and meta description a category page gets when the admin has not
+ * written its own (Admin → Tool Categories → Edit → SEO & Meta Information).
+ *
+ * Both embed the live tool count, so this is exported and reused by the admin:
+ * a saved entry that still equals these strings is dropped rather than stored,
+ * which keeps the count updating when tools are published or hidden.
+ */
+export const categorySeoFallbacks = (cms: CmsState, cat: CmsToolCategory, brand: string) => {
+  const list = cms.tools.filter(t => t.status === 'live' && t.category === cat.key);
+  const label = cat.name;
+  const description = `${toolCategorySummary(cms, cat.key)} ${list.length} free ${label.toLowerCase()}, no sign-up — most run instantly in your browser.`.replace(/\s+/g, ' ').trim();
+  return {
+    title: `${label} — ${list.length} Free Online Tools | ${brand}`,
+    description,
+  };
+};
+
 const toolCategorySeo = (cms: CmsState, cat: CmsToolCategory, ctx: { origin: string; brand: string; og: string }): PageSeo => {
   const { origin, brand, og } = ctx;
   const list = cms.tools.filter(t => t.status === 'live' && t.category === cat.key);
   const label = cat.name;
   const path = toolCategoryHref(cms, cat.key);
-  const description = `${toolCategorySummary(cms, cat.key)} ${list.length} free ${label.toLowerCase()}, no sign-up — most run instantly in your browser.`.replace(/\s+/g, ' ').trim();
+  // An admin override wins; anything left blank falls back to the generated copy.
+  const seo = cms.seo[`cat:${cat.key}`];
+  const fallbacks = categorySeoFallbacks(cms, cat, brand);
+  const description = (seo?.description || '').trim() || fallbacks.description;
   return {
-    title: `${label} — ${list.length} Free Online Tools | ${brand}`,
+    title: (seo?.title || '').trim() || fallbacks.title,
     description,
     path,
     origin,
+    noindex: seo?.noindex,
+    canonicalOverride: (seo?.slug || '').trim() || undefined,
     image: og,
     jsonLd: {
       '@context': 'https://schema.org',

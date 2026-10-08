@@ -1,7 +1,8 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { PrimaryBtn } from './engines';
 import { Seeded } from './simulator';
 import { fetchPageData, type LivePageData } from '../utils/pageFetch';
+import { buildReport, reportToMarkdown, type PageSpeedReport, type State } from '../utils/pageSpeedReport';
 import { jinaFallback } from './KeywordTools';
 
 // ---------- Shared UI ----------
@@ -13,9 +14,10 @@ export const UrlBar: React.FC<{ value: string; onChange: (v: string) => void; on
   </div>
 );
 
-export const Spinner: React.FC<{ label: string }> = ({ label }) => (
-  <div className="flex items-center gap-3 text-sm text-slate-600 py-8 justify-center">
+export const Spinner: React.FC<{ label: string; onCancel?: () => void }> = ({ label, onCancel }) => (
+  <div className="flex flex-wrap items-center gap-3 text-sm text-slate-600 py-8 justify-center">
     <span className="w-5 h-5 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />{label}
+    {onCancel && <button type="button" onClick={onCancel} className="text-xs font-semibold text-slate-500 underline hover:text-slate-800">Stop</button>}
   </div>
 );
 
@@ -55,28 +57,104 @@ const Fail: React.FC<{ msg?: string }> = ({ msg }) => (
   </div>
 );
 
+/**
+ * Absolute ceiling for a probe. Reaching it means every relay AND the text
+ * reader went unanswered, which is a genuine "this site blocks fetchers" case;
+ * the normal path never gets near it, because the first usable answer wins.
+ */
+const PROBE_BUDGET_MS = 16_000;
+/** When only the markdown reader has answered, give the raw-HTML relays this
+ *  much longer: markup checks (scripts, CSS, srcset, lazy-load) are only
+ *  honest on real HTML, and a half-second is usually all a relay needs. */
+const RELAY_GRACE_MS = 2_500;
+
+/**
+ * Shared "fetch a live page" hook for the URL tools.
+ *
+ * Both probes are launched together and the result is taken as soon as it
+ * exists. It used to be `Promise.all([relay, reader])`, so a tool that had the
+ * full HTML in hand at 1 s still sat there until the markdown reader finished —
+ * up to 15 s of spinner for a 1 s job. `Promise.all` also treated a slow reader
+ * as a hard dependency, which is why the Page Speed Checker looked frozen on
+ * "Timing the page download…" for sites that answer slowly.
+ */
 const useFetch = () => {
   const [url, setUrl] = useState('');
   const [busy, setBusy] = useState(false);
+  const [stage, setStage] = useState('');
+  const [elapsed, setElapsed] = useState(0);
   const [data, setData] = useState<LivePageData | null>(null);
-  const [failed, setFailed] = useState(false);
+  // null = nothing failed; 'timeout' and 'blocked' pick different copy, because
+  // "nobody answered" and "everybody answered with nothing usable" need the
+  // user to do different things.
+  const [failed, setFailed] = useState<null | 'blocked' | 'timeout'>(null);
+  const runId = useRef(0);
+  const ticker = useRef<ReturnType<typeof setInterval> | null>(null);
+  const clearTicker = () => { if (ticker.current) { clearInterval(ticker.current); ticker.current = null; } };
+  useEffect(() => clearTicker, []);
+
+  /** Discards an in-flight probe; late answers are matched to `runId` below. */
+  const cancel = () => { runId.current += 1; clearTicker(); setBusy(false); setStage(''); };
+
   const run = async () => {
     const u = url.trim();
     if (!u) return;
-    setBusy(true); setFailed(false); setData(null);
-    // Race the HTML relays against the CORS-open markdown reader IN PARALLEL and
-    // keep whichever succeeds (full HTML preferred). Slow or blocked relays no
-    // longer stall the tool, and sites that reject crawlers still get analysed.
+    const me = ++runId.current;
     const target = /^https?:\/\//i.test(u) ? u : `https://${u}`;
-    const [relay, reader] = await Promise.all([
-      fetchPageData(target).catch(() => null),
-      jinaFallback(target).catch(() => null),
-    ]);
-    const d = relay || reader;
-    if (!d) setFailed(true);
-    setData(d); setBusy(false);
+    clearTicker();
+    setBusy(true); setFailed(null); setData(null); setElapsed(0); setStage('Contacting the page…');
+    const t0 = Date.now();
+    ticker.current = setInterval(() => { if (runId.current === me) setElapsed(Math.round((Date.now() - t0) / 1000)); }, 200);
+
+    const outcome = await new Promise<{ data: LivePageData | null; timedOut: boolean }>(resolve => {
+      let settled = false, relayDone = false, readerDone = false;
+      let best: LivePageData | null = null;
+      let grace: ReturnType<typeof setTimeout> | null = null;
+      let budget: ReturnType<typeof setTimeout> | null = null;
+      const finish = (timedOut = false) => {
+        if (settled) return;
+        settled = true;
+        if (grace) clearTimeout(grace);
+        if (budget) clearTimeout(budget);
+        resolve({ data: best, timedOut });
+      };
+      fetchPageData(target)
+        .then(d => { if (d) best = d; })
+        .catch(() => undefined)
+        .finally(() => {
+          relayDone = true;
+          // Full HTML beats anything the reader can say about markup.
+          if (best) finish();
+          else if (readerDone) finish();
+        });
+      setStage('Fetching the HTML (relays and text reader)…');
+      jinaFallback(target)
+        .then(d => {
+          if (d && !best) {
+            best = d;
+            // Enough for a check to be honest, but not enough to ignore a relay
+            // that is about to deliver the real markup.
+            grace = setTimeout(() => finish(), RELAY_GRACE_MS);
+          }
+        })
+        .catch(() => undefined)
+        .finally(() => {
+          readerDone = true;
+          if (relayDone) finish();
+          else setStage('Relay is slow — analysing the text-reader copy…');
+        });
+      budget = setTimeout(() => finish(true), PROBE_BUDGET_MS);
+    });
+
+    clearTicker();
+    if (runId.current !== me) return;      // cancelled or superseded by a newer run
+    setData(outcome.data);
+    setFailed(outcome.data ? null : (outcome.timedOut ? 'timeout' : 'blocked'));
+    setStage('');
+    setBusy(false);
   };
-  return { url, setUrl, busy, data, failed, run };
+
+  return { url, setUrl, busy, data, failed, run, cancel, stage, elapsed };
 };
 
 /** Source badge: honest about whether raw HTML or the text reader was used. */
@@ -84,10 +162,48 @@ const Src: React.FC<{ d: LivePageData }> = ({ d }) => d.reader ? (
   <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold bg-amber-50 text-amber-700 border border-amber-100 rounded-full px-2.5 py-0.5">
     <span className="w-1.5 h-1.5 rounded-full bg-amber-500" /> Via text reader — markup checks limited
   </span>
-) : <Src d={d} />;
+) : <Live ms={d.fetchMs} />;
 
 const kb = (b: number) => (b > 1048576 ? `${(b / 1048576).toFixed(2)} MB` : `${(b / 1024).toFixed(1)} KB`);
 const host = (u: string) => u.replace(/^https?:\/\//, '').split('/')[0];
+
+/**
+ * Timing that needs no proxy at all.
+ *
+ * A `no-cors` request cannot read the response body — the browser hands back an
+ * opaque response — but it does not need CORS headers either, so it still
+ * answers the two questions that matter when every relay is blocked: does the
+ * document respond to this visitor at all, and how long does the round trip
+ * take? Two samples run together and the faster one counts, because the first
+ * usually eats DNS and TLS warm-up. A rejection is reported rather than hidden:
+ * an opaque fetch only fails on a real network problem, never on CORS.
+ */
+type BrowserTiming = { ms: number; reachable: true } | { ms: null; reachable: false };
+const browserTiming = async (target: string, capMs = 6000): Promise<BrowserTiming> => {
+  const now = () => (typeof performance !== 'undefined' && performance.now ? performance.now() : Date.now());
+  const sample = async (): Promise<number | null> => {
+    const t0 = now();
+    const ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null;
+    const kill = ctrl ? setTimeout(() => ctrl.abort(), capMs) : null;
+    try {
+      await fetch(target, { mode: 'no-cors', credentials: 'omit', cache: 'no-store', referrerPolicy: 'no-referrer', signal: ctrl?.signal });
+      return Math.max(1, Math.round(now() - t0));
+    } catch {
+      return null;
+    } finally {
+      if (kill) clearTimeout(kill);
+    }
+  };
+  // The race stops a hung socket stretching the wait past the cap; both samples
+  // are started before either is awaited, so they still run concurrently.
+  const capped = <T,>(q: Promise<T>) => Promise.race([q, new Promise<null>(r => setTimeout(() => r(null), capMs))]);
+  const first = capped(sample());
+  const second = capped(sample());
+  const a = await first;
+  const b = await second;
+  const got = [a, b].filter((n): n is number => typeof n === 'number');
+  return got.length ? { ms: Math.min(...got), reachable: true } : { ms: null, reachable: false };
+};
 
 // ---------- SEO score checks (shared with Website Checker) ----------
 // When the page only came back through the text reader (d.reader), markup that
@@ -498,46 +614,270 @@ export const MobileTestTool: React.FC = () => {
   );
 };
 
+/**
+ * The result a visitor gets when every relay refused the page but their own
+ * browser reached it. Deliberately narrow: one number we actually measured, the
+ * figures we could not get named as missing, and no invented markup analysis.
+ */
+const BrowserTimingCard: React.FC<{ ms: number; hostName: string; note?: string }> = ({ ms, hostName, note }) => {
+  const g = ms < 600 ? 'A' : ms < 1200 ? 'B' : ms < 2500 ? 'C' : 'D';
+  return (
+    <>
+      <div className="grid md:grid-cols-[200px_1fr] gap-5">
+        <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm text-center">
+          <p className="text-xs text-slate-500 uppercase font-semibold">Speed grade</p>
+          <p className={`text-7xl font-extrabold ${g === 'A' ? 'text-emerald-500' : g === 'B' ? 'text-lime-500' : g === 'C' ? 'text-amber-500' : 'text-red-500'}`}>{g}</p>
+          <p className="text-sm text-slate-600">{ms} ms round trip</p>
+        </div>
+        <div className="grid grid-cols-2 gap-3 content-start">
+          <Stat label="Your browser → server" value={`${ms} ms`} tone={ms < 800 ? 'good' : ms < 2000 ? 'warn' : 'bad'} />
+          <Stat label="Page source" value="unreachable" tone="bad" />
+        </div>
+      </div>
+      <Card title="Measured without a proxy">
+        <p className="text-sm text-slate-700">{hostName} answered a direct request from your browser in {ms} ms, so the host is up and responding. Every public relay the tool uses to read HTML refused that page, which is why the markup-level figures (HTML size, script and stylesheet counts) are missing from this run.</p>
+        {note && <p className="text-sm text-indigo-600 mt-3">{note}</p>}
+        <p className="text-xs text-slate-400 mt-3">This grade is timed on your own connection, so it includes your network rather than a data centre's, and it covers the request for the document only. Relays fail often enough to be worth retrying — try again in a moment, or from another network.</p>
+      </Card>
+    </>
+  );
+};
+
+/** How long to keep waiting on the relays once the page has already answered a
+ *  direct request. Past this point the visitor sees what we know rather than a
+ *  spinner: the direct figure is real, and a relay that lands later still takes
+ *  over the panel. */
+const DIRECT_FIRST_AFTER_S = 8;
+
+const toneOf = (st: State) => (st === 'good' ? 'text-emerald-600' : st === 'warn' ? 'text-amber-600' : st === 'bad' ? 'text-red-600' : 'text-slate-400');
+
+/** The summary is meant to be pasted somewhere, so it is real markdown and the
+ *  button says which path it took. `execCommand` is the fallback for browsers
+ *  that only expose the async API on secure origins. */
+const CopyBtn: React.FC<{ text: string }> = ({ text }) => {
+  const [state, setState] = useState<'idle' | 'done' | 'na'>('idle');
+  const flash = (next: 'done' | 'na') => { setState(next); if (next === 'done') setTimeout(() => setState('idle'), 2200); };
+  const go = async () => {
+    try {
+      if (navigator.clipboard?.writeText) { await navigator.clipboard.writeText(text); flash('done'); return; }
+      const ta = document.createElement('textarea');
+      ta.value = text; ta.setAttribute('readonly', 'true'); ta.style.position = 'fixed'; ta.style.opacity = '0';
+      document.body.appendChild(ta); ta.select();
+      const done = typeof document.execCommand === 'function' && document.execCommand('copy');
+      document.body.removeChild(ta);
+      flash(done ? 'done' : 'na');
+    } catch { flash('na'); }
+  };
+  return (
+    <button type="button" onClick={go} className="text-[12px] font-bold text-indigo-600 hover:text-indigo-800">
+      {state === 'done' ? 'Copied ✓' : state === 'na' ? 'Select the text to copy' : 'Copy summary'}
+    </button>
+  );
+};
+
+const ScoreTable: React.FC<{ r: PageSpeedReport }> = ({ r }) => (
+  <div className="overflow-x-auto -mx-1">
+    <table className="w-full text-[13px] min-w-[520px]">
+      <thead><tr className="text-left text-[11px] uppercase tracking-wide text-slate-400">
+        <th className="py-2 pr-3 font-semibold">Factor</th><th className="py-2 pr-3 font-semibold">Measured</th>
+        <th className="py-2 pr-3 font-semibold">Target</th><th className="py-2 font-semibold text-right">Points</th>
+      </tr></thead>
+      <tbody className="divide-y divide-slate-100">
+        {r.factors.map(x => (
+          <tr key={x.key}>
+            <td className="py-2 pr-3 font-semibold text-slate-700 whitespace-nowrap">
+              <span className={`inline-block w-1.5 h-1.5 rounded-full mr-2 ${x.state === 'good' ? 'bg-emerald-500' : x.state === 'warn' ? 'bg-amber-500' : x.state === 'bad' ? 'bg-red-500' : 'bg-slate-300'}`} />{x.label}
+            </td>
+            <td className="py-2 pr-3 text-slate-600">{x.value}</td>
+            <td className="py-2 pr-3 text-slate-400">{x.target}</td>
+            <td className={`py-2 text-right font-bold whitespace-nowrap ${toneOf(x.state)}`}>{x.weight ? `${x.earned}/${x.weight}` : 'n/a'}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  </div>
+);
+
+const HostTable: React.FC<{ r: PageSpeedReport }> = ({ r }) => (
+  <div className="overflow-x-auto -mx-1">
+    <table className="w-full text-[13px] min-w-[520px]">
+      <thead><tr className="text-left text-[11px] uppercase tracking-wide text-slate-400">
+        <th className="py-2 pr-3 font-semibold">Origin</th><th className="py-2 pr-3 font-semibold text-right">Requests</th>
+        <th className="py-2 pr-3 font-semibold">Types</th><th className="py-2 font-semibold">What it is</th>
+      </tr></thead>
+      <tbody className="divide-y divide-slate-100">
+        {r.hosts.slice(0, 8).map(h => (
+          <tr key={h.host}>
+            <td className="py-2 pr-3 font-mono text-[12px] text-slate-700 break-all">{h.host}</td>
+            <td className="py-2 pr-3 text-right font-bold text-slate-700">{h.requests}</td>
+            <td className="py-2 pr-3 text-slate-500">{h.kinds}</td>
+            <td className="py-2">{h.thirdParty ? <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 text-[11px] font-semibold">{h.role}</span> : <span className="text-[11px] font-semibold text-indigo-600">this site</span>}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+    {r.hosts.length > 8 && <p className="text-[11px] text-slate-400 mt-2">+ {r.hosts.length - 8} more origins not listed</p>}
+  </div>
+);
+
+const LoadBars: React.FC<{ r: PageSpeedReport }> = ({ r }) => {
+  const total = Math.max(1, r.timeline.reduce((a, t) => a + t.ms, 0));
+  return (
+    <div className="space-y-3">
+      <div className="flex h-3 w-full overflow-hidden rounded-full bg-slate-100">
+        {r.timeline.map(t => t.ms > 0 && (
+          <div key={t.label} style={{ width: `${Math.max(1.5, (t.ms / total) * 100)}%` }} className={t.modelled ? 'bg-slate-300' : 'bg-indigo-500'} title={`${t.label}: ${t.ms} ms`} />
+        ))}
+      </div>
+      <ul className="space-y-2">
+        {r.timeline.map(t => (
+          <li key={t.label} className="flex items-start gap-3 text-[13px]">
+            <span className={`mt-1 w-2 h-2 rounded-full flex-shrink-0 ${t.modelled ? 'bg-slate-300' : 'bg-indigo-500'}`} />
+            <div className="min-w-0">
+              <p className="font-semibold text-slate-700">{t.label} <span className={toneOf(t.ms < 600 ? 'good' : t.ms < 1500 ? 'warn' : 'bad')}>{t.ms.toLocaleString()} ms</span> <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">{t.modelled ? 'modelled' : 'measured'}</span></p>
+              <p className="text-[11px] text-slate-400">{t.note}</p>
+            </div>
+          </li>
+        ))}
+      </ul>
+      <p className="text-[11px] text-slate-400">Modelled bars are a bandwidth and parse-cost estimate from this document, not a rendered page timing: 4G for the download, ~120 ms per blocking request, ~45 ms per external script. Measured means we actually watched it happen.</p>
+    </div>
+  );
+};
+
 // ---------- 8. Page Speed Checker ----------
 export const PageSpeedTool: React.FC = () => {
   const f = useFetch();
+  // Started at the same moment as the proxy probe, never after it, so when the
+  // relays fail there is already a real measurement of this visitor's own
+  // connection to show instead of an error box. `seq` discards answers from a
+  // run the user cancelled or replaced.
+  const [timing, setTiming] = useState<BrowserTiming | null>(null);
+  const [probing, setProbing] = useState(false);
+  const seq = useRef(0);
+  const run = () => {
+    const raw = f.url.trim();
+    const me = ++seq.current;
+    setTiming(null);
+    setProbing(!!raw);
+    if (raw) {
+      const direct = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`;
+      void browserTiming(direct).then(t => {
+        if (seq.current === me) { setTiming(t); setProbing(false); }
+      });
+    }
+    void f.run();
+  };
+  const stop = () => { seq.current += 1; setProbing(false); f.cancel(); };
+  const directMs = timing?.reachable ? timing.ms : null;
+  // A host that hangs every relay (rather than refusing it) used to hold the
+  // spinner for the full 16 s budget and then report an error, even though the
+  // browser had the answer in a few hundred ms. After DIRECT_FIRST_AFTER_S
+  // seconds of relay silence the visitor is shown what was actually measured;
+  // if a relay answers later, its richer result simply replaces this one.
+  // `settled` keeps that result on screen after Stop instead of emptying the
+  // panel, because "stop waiting" is not "throw the number away".
+  const early = typeof directMs === 'number' && f.busy && f.elapsed >= DIRECT_FIRST_AFTER_S;
+  const settled = !f.busy && !f.data && !f.failed;
+  const showDirect = typeof directMs === 'number' && !f.data && (f.failed !== null || early || settled);
   return (
     <div className="space-y-5">
-      <UrlBar value={f.url} onChange={f.setUrl} onRun={f.run} busy={f.busy} label="Check Speed" />
-      {f.busy && <Spinner label="Timing the page download…" />}
-      {f.failed && <Fail />}
+      <UrlBar value={f.url} onChange={f.setUrl} onRun={run} busy={f.busy} label="Check Speed" />
+      {f.busy && !early && <Spinner label={`${f.stage || 'Timing the page download…'} (${f.elapsed}s)`} onCancel={stop} />}
+      {f.failed !== null && probing && <Spinner label="Every relay refused the page — measuring it from your browser instead…" />}
+      {showDirect && typeof directMs === 'number' && (
+        <BrowserTimingCard
+          ms={directMs}
+          hostName={host(f.url.trim())}
+          note={early ? 'The relays are still being tried; the HTML-level figures appear the moment one of them answers, without needing a new search.' : undefined}
+        />
+      )}
+      {!showDirect && f.failed !== null && !probing && (
+        <Fail msg={`Neither the relays nor your own browser could reach ${host(f.url.trim()) || 'that page'}${f.failed === 'timeout' ? ` within ${Math.round(16000 / 1000)}s` : ''}. The host is probably down, blocking fetchers, or behind a challenge page — try again shortly, or check a lighter URL.`} />
+      )}
+      {early && (
+        <div className="flex items-center justify-between gap-3 bg-white border border-slate-200 rounded-xl px-4 py-3 text-[13px] text-slate-500">
+          <span className="inline-flex items-center gap-2"><span className="w-3.5 h-3.5 rounded-full border-2 border-slate-200 border-t-indigo-500 animate-spin" /> Still listening for the relays… ({f.elapsed}s)</span>
+          <button type="button" onClick={stop} className="font-bold text-slate-600 hover:text-slate-900">Stop</button>
+        </div>
+      )}
       {f.data && (() => {
         const d = f.data;
+        const r = buildReport(d, typeof directMs === 'number' ? directMs : null);
         const est3g = ((d.codeSize * 8) / 1_600_000 + 0.3).toFixed(1);
         const est4g = ((d.codeSize * 8) / 9_000_000 + 0.1).toFixed(2);
-        const grade = d.reader ? '' : d.fetchMs < 600 ? 'A' : d.fetchMs < 1200 ? 'B' : d.fetchMs < 2500 ? 'C' : 'D';
-        const recs = [
-          d.externalScripts > 10 && `Reduce the ${d.externalScripts} external scripts; defer non-critical JavaScript.`,
-          d.stylesheets > 4 && `Combine or inline critical CSS (${d.stylesheets} stylesheets).`,
-          d.codeSize > 150000 && `HTML is ${kb(d.codeSize)}; remove inline SVG/data URIs and unused markup.`,
-          d.imagesWithoutDimensions > 0 && `Add width/height to ${d.imagesWithoutDimensions} images to prevent layout shift (CLS).`,
-          !d.reader && !/srcset=/i.test(d.html) && 'Serve responsive images with srcset and modern formats (WebP/AVIF).',
-          d.iframes > 2 && `${d.iframes} iframes detected; lazy-load embeds.`,
-          !d.reader && d.textRatio < 10 && `Code-to-text ratio is ${d.textRatio}%; trim template bloat.`,
-          !d.reader && !/loading="lazy"/i.test(d.html) && 'Use loading="lazy" on below-the-fold images.',
-          !d.reader && !/rel="preconnect"|rel="preload"/i.test(d.html) && 'Add preconnect/preload hints for critical third-party origins and fonts.',
-        ].filter(Boolean) as string[];
         return (
           <>
-            <div className="grid md:grid-cols-[200px_1fr] gap-5">
-              <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm text-center"><p className="text-xs text-slate-500 uppercase font-semibold">Speed grade</p>{d.reader ? (<><p className="text-5xl font-extrabold text-slate-400">—</p><p className="text-sm text-slate-600">timing needs raw HTML; page came via reader</p></>) : (<><p className={`text-7xl font-extrabold ${grade === 'A' ? 'text-emerald-500' : grade === 'B' ? 'text-lime-500' : grade === 'C' ? 'text-amber-500' : 'text-red-500'}`}>{grade}</p><p className="text-sm text-slate-600">{d.fetchMs} ms to fetch HTML</p></>)}</div>
+            <div className="grid md:grid-cols-[220px_1fr] gap-5">
+              <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm flex flex-col items-center gap-3">
+                <Ring value={r.score} label="Score" />
+                <p className={`text-sm font-extrabold ${toneOf(r.score >= 75 ? 'good' : r.score >= 60 ? 'warn' : 'bad')}`}>Grade {r.grade}</p>
+                <p className="text-[11px] text-slate-400 text-center -mt-1">{r.coverage.points} of {r.coverage.of} points measurable from this source</p>
+                <Src d={d} />
+              </div>
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 content-start">
                 <Stat label="Server response (HTML)" value={`${d.fetchMs} ms`} tone={d.fetchMs < 800 ? 'good' : d.fetchMs < 2000 ? 'warn' : 'bad'} />
+                <Stat label="Your browser (direct)" value={typeof directMs === 'number' ? `${directMs} ms` : 'not reached'} tone={typeof directMs === 'number' ? (directMs < 800 ? 'good' : 'warn') : 'neutral'} />
                 <Stat label="HTML size" value={kb(d.codeSize)} tone={d.codeSize < 100000 ? 'good' : 'warn'} />
+                <Stat label="Render-blocking" value={r.factors.find(x => x.key === 'blocking')?.value ?? '—'} tone={Number(r.factors.find(x => x.key === 'blocking')?.value) > 0 ? 'bad' : 'good'} />
                 <Stat label="Scripts (ext / total)" value={`${d.externalScripts} / ${d.scripts}`} tone={d.externalScripts > 15 ? 'bad' : d.externalScripts > 8 ? 'warn' : 'good'} />
                 <Stat label="Stylesheets" value={d.stylesheets} tone={d.stylesheets > 6 ? 'warn' : 'good'} />
-                <Stat label="Images" value={d.imageCount} /><Stat label="Iframes" value={d.iframes} tone={d.iframes > 2 ? 'warn' : 'good'} />
-                <Stat label="Est. HTML on 3G" value={`${est3g}s`} /><Stat label="Est. HTML on 4G" value={`${est4g}s`} />
+                <Stat label="Images" value={d.imageCount} tone={d.imagesWithoutDimensions ? 'warn' : 'good'} />
+                <Stat label="Iframes" value={d.iframes} tone={d.iframes > 2 ? 'warn' : 'good'} />
+                <Stat label="Est. HTML on 3G" value={`${est3g}s`} />
+                <Stat label="Est. HTML on 4G" value={`${est4g}s`} />
+                <Stat label="Text on the page" value={`${d.wordCount.toLocaleString()} words`} />
+                <Stat label="Links" value={`${d.internalLinks + d.externalLinks}`} />
               </div>
             </div>
-            <Card title={`Recommendations (${recs.length})`} right={<Src d={d} />}>
-              {recs.length ? <ul className="space-y-2 text-sm text-slate-700">{recs.map(r => <li key={r} className="flex gap-2"><span className="text-indigo-500">▸</span>{r}</li>)}</ul> : <p className="text-sm text-emerald-600 font-semibold">No obvious front-end bottlenecks detected in the HTML.</p>}
-              <p className="text-xs text-slate-400 mt-4">Timing measures the HTML document only (via proxy). For full Core Web Vitals (LCP/INP/CLS) use field data from PageSpeed Insights; read our <a href="/blog/pagespeed-lab-vs-field-data" className="underline">lab vs field guide</a>.</p>
+
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+              {r.counts.map(c => <Stat key={c.label} label={c.label} value={c.value} tone={c.state === 'good' ? 'good' : c.state === 'warn' ? 'warn' : c.state === 'bad' ? 'bad' : 'neutral'} />)}
+            </div>
+
+            <Card title="Score breakdown" right={<CopyBtn text={reportToMarkdown(r, host(f.url.trim()) || f.url.trim(), typeof directMs === 'number' ? `${directMs} ms measured from your browser` : `${d.fetchMs} ms via relay`)} />}>
+              <ScoreTable r={r} />
+              {r.coverage.points < r.coverage.of && <p className="text-[11px] text-slate-400 mt-3">Some factors could not be judged from a text-reader copy of the page, so they are excluded from the score rather than counted against it.</p>}
+            </Card>
+
+            <Card title={`Priority fixes (${r.fixes.length})`}>
+              {r.fixes.length ? <ul className="space-y-2 text-sm text-slate-700">{r.fixes.map(x => <li key={x} className="flex gap-2"><span className="text-indigo-500">▸</span><span className="min-w-0">{x}</span></li>)}</ul> : <p className="text-sm text-emerald-600 font-semibold">Nothing in the document looks like a front-end bottleneck.</p>}
+            </Card>
+
+            <div className="grid lg:grid-cols-2 gap-5">
+              <Card title={`What the page asks for (${r.assets.length} shown)`}>
+                <HostTable r={r} />
+              </Card>
+              <Card title="Modelled load sequence">
+                <LoadBars r={r} />
+              </Card>
+            </div>
+
+            <Card title="Requests in order">
+              <ul className="divide-y divide-slate-100">
+                {r.assets.slice(0, 14).map((a, i) => (
+                  <li key={`${a.kind}-${a.src}-${i}`} className="py-2 flex items-center gap-2 text-[13px] min-w-0">
+                    <span className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 text-[11px] font-bold uppercase tracking-wide flex-shrink-0">{a.kind}</span>
+                    {a.blocking && <span className="px-2 py-0.5 rounded-md bg-red-50 text-red-600 text-[11px] font-bold flex-shrink-0">blocking</span>}
+                    {a.thirdParty && <span className="px-2 py-0.5 rounded-md bg-amber-50 text-amber-700 text-[11px] font-bold flex-shrink-0">3rd party</span>}
+                    <span className="font-mono text-[12px] text-slate-500 truncate" title={a.src}>{a.src}</span>
+                  </li>
+                ))}
+                {r.assets.length > 14 && <li className="py-2 text-[11px] text-slate-400">+ {r.assets.length - 14} more in the first 40 scanned</li>}
+                {!r.assets.length && <li className="py-2 text-[13px] text-slate-500">No sub-resource tags were visible — the page came through the text reader, which returns text rather than markup.</li>}
+              </ul>
+            </Card>
+
+            <Card title="Page facts">
+              <dl className="grid sm:grid-cols-2 gap-x-6 gap-y-3">
+                {r.facts.map(x => (
+                  <div key={x.label} className="min-w-0">
+                    <dt className="text-[11px] uppercase tracking-wide text-slate-400 font-semibold">{x.label}</dt>
+                    <dd className="text-[13px] text-slate-700 break-words">{x.value}</dd>
+                  </div>
+                ))}
+              </dl>
+              <p className="text-xs text-slate-400 mt-4">Timing measures the HTML document only (via proxy); “Your browser (direct)”, when shown, is a plain no-cors request from this tab. Sub-resource bytes, compression headers and a rendered screenshot need a real browser on a server — for field Core Web Vitals (LCP/INP/CLS) use PageSpeed Insights data; see our <a href="/blog/pagespeed-lab-vs-field-data" className="underline">lab vs field guide</a>.</p>
             </Card>
           </>
         );
