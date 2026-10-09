@@ -6,6 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build && node scripts/prerender.mjs",
+    "cms:export": "node scripts/export-cms.mjs",
+    "pack": "node scripts/pack-public-html.mjs",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
     "test": "playwright test"

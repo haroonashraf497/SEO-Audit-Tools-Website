@@ -1,20 +1,32 @@
 /* ============================================================
    Clean-URL router (History API) — replaces the legacy #/ hash router.
 
-   • Routes come from location.pathname: /, /free-tools, /tool/slug,
-     /blog, /blog/slug, /about, /admin …
+   • Routes come from location.pathname: /, /free-seo-tools (the tools index),
+     /ip-tools (a category page), /tools/category/<slug> (any category,
+     including the ones added in Admin → Tool Categories),
+     /plagiarism-checker (a tool page at the top level), /blog, /blog/slug,
+     /blog/category/<slug>, /about, /admin …
    • Internal <a> clicks are intercepted → history.pushState,
      so navigation stays instant (no full reload).
    • Back/forward (popstate) re-renders the matching view.
    • In-page anchors (#features, #audiences) stay plain browser
      fragments — the native scroll behaviour is kept.
+   • Each navigation records how it happened (`lastNavigationKind`), which the
+     app uses to decide whether to reset the scroll position.
+   • Legal pages answer on the short canonical URL (/privacy, /cookies,
+     /terms). The CMS keeps its original slugs, so the long form is upgraded
+     on load and by .htaccess instead of 404-ing.
    • Legacy URLs are rewritten automatically on load:
        /#/p/about        → /about    (hash URLs never reach the
                                  server, so the app rewrites them
                                  client-side)
-       /#/tools?cat=x    → /free-tools?cat=x
-       /#/free-tools?cat=x → /free-tools?cat=x
-       /tools            → /free-tools
+       /#/tools?cat=x    → /x-tools        (the category page)
+       /#/tools          → /free-seo-tools (tools index)
+       /tools, /tool, /free-tools, /free-seo-tool → /free-seo-tools (index)
+       /free-seo-tools/<slug>            → /<slug>   (tool page, top level)
+       /tool/<slug>, /free-tools/<slug>, /free-seo-tool/<slug> → /<slug>
+       /free-seo-tools?cat=ip            → /ip-tools  (category page)
+       /privacy-policy   → /privacy  (.htaccess 301s it as well)
        /p/about          → /about    (.htaccess issues a 301 for
                                  this; this is the client fallback)
        /index.html       → /
@@ -22,7 +34,120 @@
      link stays SEO-safe even while it is being rewritten.
    ============================================================ */
 
+import { categoryFromSlug, categoryFromKey, categoryHref, categoryOrder, type ToolCategory } from './tools/data';
+
+/** Canonical URL of the tools index — the directory listing every tool.
+ *  Internal route id stays `free-tools`. */
+export const TOOLS_PATH = '/free-seo-tools';
+
+/** Every older spelling of the tools index, redirected to `TOOLS_PATH`. */
+export const LEGACY_TOOLS_PATHS = ['/tools', '/tool', '/free-tools', '/free-seo-tool'];
+
+/** Tool pages sit at the top level: /plagiarism-checker, /merge-pdf, …
+ *  `TOOL_PATH_BASE` is the prefix every tool URL is built from — empty, so
+ *  `toolPath(slug)` is `/<slug>`. */
+export const TOOL_PATH_BASE = '';
+
+/** Canonical path of a tool page ('' base → a bare top-level slug). */
+export const toolPath = (slug: string): string => `${TOOL_PATH_BASE}/${slug}`;
+
+/** Prefix of the pages managed in Admin → Tool Categories:
+ *  /tools/category/<slug>. The built-in categories keep their original
+ *  top-level URLs (/ip-tools, /website-checker-tools, …) as their canonical
+ *  page and answer here as well; categories added in the admin live here. */
+export const TOOL_CATEGORY_BASE = '/tools/category';
+
+/** Path of a tool category page, e.g. /tools/category/local-seo-tools. */
+export const toolCategoryPath = (slug: string): string => `${TOOL_CATEGORY_BASE}/${slug}`;
+
+/** Every older prefix a tool page may still arrive on — including the
+ *  /free-seo-tools/<slug> spelling that used to be canonical. */
+export const LEGACY_TOOL_PATHS = [TOOLS_PATH, '/free-seo-tool', '/free-tools', '/tool'];
+
+/** The category keys that can appear in a legacy ?cat= filter. */
+const isCategoryKey = (value: string): value is ToolCategory =>
+  (categoryOrder as string[]).includes(value);
+
+/** Upgrade a path to the current hierarchy:
+ *    /free-seo-tools/<slug>, /tool/<slug>, /free-tools/<slug>,
+ *    /free-seo-tool/<slug>              → /<slug>   (top-level tool page)
+ *    /tools, /tool, /free-tools, /free-seo-tool (no slug)
+ *                                       → /free-seo-tools (the index)
+ *  Paths that are already canonical — including the category pages
+ *  (/ip-tools, /website-checker-tools, …) — are returned untouched. */
+export const canonicalToolsPath = (pathname: string): string => {
+  if (pathname === TOOLS_PATH) return pathname;
+  // /tools/category/<slug> is a category page of its own — not a legacy
+  // /tools/<slug> tool URL, so it is never rewritten.
+  if (pathname === TOOL_CATEGORY_BASE || pathname.startsWith(`${TOOL_CATEGORY_BASE}/`)) return pathname;
+  for (const prefix of LEGACY_TOOL_PATHS) {
+    if (pathname.startsWith(`${prefix}/`)) return pathname.slice(prefix.length);
+  }
+  return LEGACY_TOOLS_PATHS.includes(pathname) ? TOOLS_PATH : pathname;
+};
+
+/**
+ * Move a legacy ?cat=<key> filter onto its category page, keeping any other
+ * query parameter (a search term, for example):
+ *    /free-seo-tools?cat=ip        → /ip-tools
+ *    /free-seo-tools?cat=checker&q=ssl → /website-checker-tools?q=ssl
+ * Returns null when the URL does not need upgrading.
+ */
+export const canonicalCategoryQuery = (pathname: string, search: string): string | null => {
+  const params = new URLSearchParams(search);
+  const raw = params.get('cat') || '';
+  const key = isCategoryKey(raw) ? raw : categoryFromSlug(raw);
+  if (!key) return null;
+  if (pathname !== TOOLS_PATH && !LEGACY_TOOLS_PATHS.includes(pathname)) return null;
+  params.delete('cat');
+  const qs = params.toString();
+  return `${categoryHref(key)}${qs ? `?${qs}` : ''}`;
+};
+
+/** Category key behind a `cat/<key>` route id (`cat/ip` → 'ip'). */
+export const categoryKeyOfRoute = (route: string): ToolCategory | null =>
+  categoryFromKey(route.slice('cat/'.length));
+
 export type RouteListener = (route: string) => void;
+
+/** How the current route was reached. Drives scroll behaviour: a click starts
+ *  at the top of the new page, while back/forward and the first paint keep the
+ *  position the browser restored. */
+export type NavigationKind = 'init' | 'push' | 'replace' | 'pop';
+
+let navigationKind: NavigationKind = 'init';
+
+/** The kind of the most recent navigation (see `NavigationKind`). */
+export const lastNavigationKind = (): NavigationKind => navigationKind;
+
+/** Legal pages are published at short URLs. The CMS keeps the original page
+ *  slugs, so `/privacy` renders the `privacy-policy` page — the address bar,
+ *  the canonical tag and every footer link use the short URL, and .htaccess
+ *  301s the long form for links that arrive from outside the app. */
+export const LEGAL_PAGE_ALIASES: Record<string, string> = {
+  privacy: 'privacy-policy',
+  cookies: 'cookie-policy',
+  terms: 'terms-of-service',
+};
+
+/** Long legal paths → their canonical short URL. */
+const LEGACY_LEGAL_PATHS: Record<string, string> = {
+  '/privacy-policy': '/privacy',
+  '/cookie-policy': '/cookies',
+  '/terms-of-service': '/terms',
+};
+
+/** CMS slug that stores the page behind a route slug (identity by default). */
+export const storedSlugForRoute = (routeSlug: string): string =>
+  LEGAL_PAGE_ALIASES[routeSlug] || routeSlug;
+
+/** Public URL slug for a stored CMS slug (identity by default). */
+export const routeSlugForStored = (storedSlug: string): string =>
+  Object.keys(LEGAL_PAGE_ALIASES).find(alias => LEGAL_PAGE_ALIASES[alias] === storedSlug) || storedSlug;
+
+/** Upgrade a legacy legal path to its canonical short URL. */
+export const canonicalLegalPath = (pathname: string): string =>
+  LEGACY_LEGAL_PATHS[pathname] || pathname;
 
 const listeners = new Set<RouteListener>();
 
@@ -42,19 +167,35 @@ export const cleanPath = (pathname: string): string => {
   return p || '/';
 };
 
-/** Derive the app route from the current clean URL. */
+/**
+ * Derive the app route from the current clean URL. The path is canonicalised
+ * first, so a legacy tool URL (/free-seo-tools/x, /tool/x, …) already resolves
+ * to its top-level route even on the very first paint.
+ *
+ *   /free-seo-tools      → free-tools   (index)
+ *   /ip-tools            → cat/ip       (category page)
+ *   /plagiarism-checker  → p/plagiarism-checker
+ *                          (a root slug — CMS page or tool, resolved by the app)
+ */
 export const getRoute = (): string => {
-  const seg = currentPath().slice(1);
+  const seg = canonicalToolsPath(currentPath()).slice(1);
   if (seg === '') return 'home';
-  if (seg === 'free-tools' || seg === 'tools' || seg === 'tool') return 'free-tools';
-  if (seg.startsWith('tool/')) return `tool/${seg.slice(5)}`;
+  if (seg === TOOLS_PATH.slice(1) || LEGACY_TOOLS_PATHS.some(p => p.slice(1) === seg)) return 'free-tools';
+  if (seg.startsWith('tool/')) return `p/${seg.slice('tool/'.length)}`;
+  // /tools/category/<slug> — the category pages managed in the admin
+  const categoryPrefix = `${TOOL_CATEGORY_BASE.slice(1)}/`;
+  if (seg.startsWith(categoryPrefix)) return `toolcat/${seg.slice(categoryPrefix.length)}`;
+  const category = categoryFromSlug(seg);
+  if (category) return `cat/${category}`;
   if (seg === 'blog') return 'blog';
+  // /blog/category/<slug> — a real page listing one category's posts
+  if (seg.startsWith('blog/category/')) return `blogcat/${seg.slice('blog/category/'.length)}`;
   if (seg.startsWith('blog/')) return `blog/${seg.slice(5)}`;
   if (seg === 'admin') return 'admin';
   if (seg === 'admin-login') return 'admin-login';
   if (seg === 'admin-reset') return 'admin-reset';
   if (seg === 'competitor-analysis') return 'competitor-analysis';
-  // Legacy /p/slug (301 in .htaccess) and the new single-segment pages
+  // Legacy /p/slug (301 in .htaccess), CMS pages and the top-level tool pages
   if (seg.startsWith('p/')) return `p/${seg.slice(2)}`;
   if (!seg.includes('/')) return `p/${seg}`;
   return 'notfound';
@@ -62,8 +203,9 @@ export const getRoute = (): string => {
 
 /**
  * Convert any stored href (new clean path or legacy hash link) into a
- * clean same-origin URL. Returns null when the browser should handle
- * the link natively (external URLs, mailto:, bare in-page #anchors).
+ * clean same-origin URL, upgrading legacy legal paths to their canonical
+ * short form. Returns null when the browser should handle the link natively
+ * (external URLs, mailto:, bare in-page #anchors).
  */
 export const cleanHref = (href: string): string | null => {
   const h = (href ?? '').trim();
@@ -76,7 +218,7 @@ export const cleanHref = (href: string): string | null => {
     return null;
   }
   if (u.origin !== window.location.origin || !/^https?:$/.test(u.protocol)) return null;
-  return cleanPath(u.pathname) + u.search + u.hash;
+  return canonicalLegalPath(cleanPath(u.pathname)) + u.search + u.hash;
 };
 
 /** Rewrite legacy hash links inside stored HTML to clean URLs
@@ -114,14 +256,19 @@ export const navigate = (to: string, opts: { replace?: boolean } = {}): void => 
   if (url === null) return;
   if (opts.replace) window.history.replaceState(null, '', url);
   else window.history.pushState(null, '', url);
+  navigationKind = opts.replace ? 'replace' : 'push';
   emit();
 };
 
 /**
  * One-shot legacy-URL normalisation, run before the first render:
  *  - /#/p/about (old hash link)  → /about
- *  - /#/tools?cat=keyword        → /free-tools?cat=keyword
- *  - /tools                      → /free-tools
+ *  - /#/tools?cat=keyword        → /keyword-tools   (category page)
+ *  - /free-seo-tools?cat=ip      → /ip-tools
+ *  - /free-seo-tools?cat=x&q=ssl → /x-tools?q=ssl
+ *  - /tools, /tool, /free-tools, /free-seo-tool → /free-seo-tools (index)
+ *  - /free-seo-tools/<slug>, /tool/<slug>, /free-tools/<slug>,
+ *    /free-seo-tool/<slug>       → /<slug>   (top-level tool page)
  *  - /p/about (old clean link)   → /about
  *  - /index.html                 → /
  */
@@ -132,12 +279,20 @@ export const normalizeLegacyUrl = (): void => {
   if (hash.startsWith('#/')) {
     const legacy = new URL(hash.slice(1), window.location.origin);
     let p = cleanPath(legacy.pathname);
-    if (p === '/tools' || p === '/tool') p = '/free-tools';
-    window.history.replaceState(null, '', p + (legacy.search || search) + legacy.hash);
+    p = canonicalToolsPath(p);
+    const q = legacy.search || search;
+    const category = canonicalCategoryQuery(p, q);
+    window.history.replaceState(null, '', (category ? category : canonicalLegalPath(p) + q) + legacy.hash);
     return;
   }
   let next = cleanPath(pathname);
-  if (next === '/tools' || next === '/tool') next = '/free-tools';
+  next = canonicalToolsPath(next);
+  next = canonicalLegalPath(next);
+  const category = canonicalCategoryQuery(next, search);
+  if (category) {
+    if (category + hash !== pathname + search + hash) window.history.replaceState(null, '', category + hash);
+    return;
+  }
   next = next + search + hash;
   if (next !== pathname + search + hash) window.history.replaceState(null, '', next);
 };
@@ -148,7 +303,12 @@ let started = false;
 export const startRouter = (): void => {
   if (started) return;
   started = true;
-  window.addEventListener('popstate', emit);
+  window.addEventListener('popstate', () => {
+    // Back/forward: the browser restores the scroll position, so the app must
+    // not force the top.
+    navigationKind = 'pop';
+    emit();
+  });
   document.addEventListener(
     'click',
     (e: MouseEvent) => {

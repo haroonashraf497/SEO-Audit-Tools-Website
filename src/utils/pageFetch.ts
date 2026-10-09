@@ -4,6 +4,8 @@
 
 export interface LivePageData {
   ok: true;
+  /** true when the data came from the markdown text reader instead of raw HTML. */
+  reader?: boolean;
   finalUrl: string;
   title: string;
   description: string;
@@ -79,16 +81,16 @@ async function fetchHtml(targetUrl: string): Promise<string | null> {
     if (!looksLikeHtml(t)) throw new Error('not html');
     return t;
   };
-  // Race the first two relays (first successful HTML wins)
-  const raced = await new Promise<string | null>(resolve => {
-    let pending = 2;
-    PROXIES.slice(0, 2).forEach(p => attempt(p, 9000).then(t => resolve(t)).catch(() => { if (--pending === 0) resolve(null); }));
+  // Race every relay at once — the first successful HTML wins. A dead relay
+  // now costs nothing (it loses the race) instead of stacking its timeout in
+  // front of the live ones, so worst-case latency is one cap, not the sum.
+  return await new Promise<string | null>(resolve => {
+    let pending = PROXIES.length; let settled = false;
+    const cap = setTimeout(() => { if (!settled) { settled = true; resolve(null); } }, 9500);
+    PROXIES.forEach(wrap => attempt(wrap, 9000)
+      .then(t => { if (t && !settled) { settled = true; clearTimeout(cap); resolve(t); } })
+      .catch(() => { pending -= 1; if (pending <= 0 && !settled) { settled = true; clearTimeout(cap); resolve(null); } }));
   });
-  if (raced) return raced;
-  for (const wrap of PROXIES.slice(2)) {
-    try { return await attempt(wrap, 8000); } catch { /* next */ }
-  }
-  return null;
 }
 
 const metaContent = (doc: Document, selector: string): string => {

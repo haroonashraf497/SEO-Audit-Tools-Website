@@ -1,5 +1,58 @@
 import { useEffect, type FC } from 'react';
-import { useCms, type CmsState } from '../cms/store';
+import { resolveToolCategory, toolCategoryHref, toolCategorySummary, useCms, type CmsState, type CmsToolCategory } from '../cms/store';
+import { TOOLS_PATH, routeSlugForStored, storedSlugForRoute } from '../router';
+
+/**
+ * SEO entry for a tool category page. The name, URL and description all come
+ * from the list managed in Admin → Tool Categories; a built-in category keeps
+ * its original top-level URL (/ip-tools) as the canonical one, and every
+ * category also answers on /tools/category/<slug>.
+ */
+const toolCategorySeo = (cms: CmsState, cat: CmsToolCategory, ctx: { origin: string; brand: string; og: string }): PageSeo => {
+  const { origin, brand, og } = ctx;
+  const list = cms.tools.filter(t => t.status === 'live' && t.category === cat.key);
+  const label = cat.name;
+  const path = toolCategoryHref(cms, cat.key);
+  const description = `${toolCategorySummary(cms, cat.key)} ${list.length} free ${label.toLowerCase()}, no sign-up — most run instantly in your browser.`.replace(/\s+/g, ' ').trim();
+  return {
+    title: `${label} — ${list.length} Free Online Tools | ${brand}`,
+    description,
+    path,
+    origin,
+    image: og,
+    jsonLd: {
+      '@context': 'https://schema.org',
+      '@graph': [
+        {
+          '@type': 'CollectionPage',
+          name: label,
+          description,
+          url: `${origin}${path}`,
+          isPartOf: { '@id': `${origin}/#website` },
+        },
+        {
+          '@type': 'ItemList',
+          name: label,
+          numberOfItems: list.length,
+          itemListElement: list.map((t, i) => ({
+            '@type': 'ListItem',
+            position: i + 1,
+            name: t.name,
+            url: `${origin}/${t.slug}`,
+          })),
+        },
+        {
+          '@type': 'BreadcrumbList',
+          itemListElement: [
+            { '@type': 'ListItem', position: 1, name: 'Home', item: `${origin}/` },
+            { '@type': 'ListItem', position: 2, name: 'Free SEO Tools', item: `${origin}${TOOLS_PATH}` },
+            { '@type': 'ListItem', position: 3, name: label, item: `${origin}${path}` },
+          ],
+        },
+      ],
+    },
+  };
+};
 
 export const DEFAULT_ORIGIN = 'https://seoaudittools.pk';
 export const DEFAULT_OG_PATH = '/og.jpg';
@@ -51,12 +104,33 @@ const originOf = (cms: CmsState): string => {
   return `https://${host}`;
 };
 
+/**
+ * Build the absolute canonical/OG URL for a path.
+ *
+ * The site uses clean History-API URLs, so canonical and social URLs must be
+ * clean too — `https://seoaudittools.pk/#/about` is a different URL to
+ * `https://seoaudittools.pk/about` as far as search engines are concerned, and
+ * hash URLs never index. Legacy hash-style values (from an older CMS entry or
+ * an old override) are converted to their clean path, and the legacy
+ * `/tools`, `/tool`, `/free-tools` and `/free-seo-tool` collapse to the
+ * `/free-seo-tools` index, and every nested tool spelling
+ * (`/free-seo-tools/<slug>`, `/tool/<slug>`, …) to the top-level `/<slug>`.
+ */
 const absoluteUrl = (origin: string, path: string): string => {
   if (!path || path === '/' || path === '#/' || path === '#') return `${origin}/`;
   if (/^https?:\/\//i.test(path)) return path;
-  if (path.startsWith('#')) return `${origin}/${path}`;
-  const clean = path.startsWith('/') ? path : `/${path}`;
-  return `${origin}/#${clean}`;
+  let clean = path.startsWith('#') ? path.slice(1) : path;
+  if (!clean.startsWith('/')) clean = `/${clean}`;
+  clean = clean.replace(/^\/p(?=\/|$)/, '').replace(/\/{2,}/g, '/');
+  // Tool pages are top level: /free-seo-tools/<slug>, /tool/<slug>,
+  // /free-tools/<slug> and /free-seo-tool/<slug> all canonicalise to /<slug>.
+  for (const prefix of [TOOLS_PATH, '/tool', '/free-tools', '/free-seo-tool']) {
+    if (clean.startsWith(`${prefix}/`)) clean = clean.slice(prefix.length);
+  }
+  if (clean === '/tools' || clean === '/tool' || clean === '/free-tools' || clean === '/free-seo-tool') clean = TOOLS_PATH;
+  if (clean === '' || clean === '/') return `${origin}/`;
+  if (clean.length > 1) clean = clean.replace(/\/+$/, '');
+  return `${origin}${clean}`;
 };
 
 const defaultOg = (origin: string) => `${origin}${DEFAULT_OG_PATH}`;
@@ -64,18 +138,10 @@ const defaultOg = (origin: string) => `${origin}${DEFAULT_OG_PATH}`;
 const orgNode = (origin: string, brand: string) => ({
   '@type': 'Organization',
   '@id': `${origin}/#organization`,
-  name: 'EKSTRUH LTD',
-  alternateName: brand,
+  name: brand,
   url: `${origin}/`,
   email: 'help@seoaudittools.pk',
   areaServed: 'Pakistan',
-  address: {
-    '@type': 'PostalAddress',
-    streetAddress: 'Victoria Grove',
-    addressLocality: 'Bolton',
-    postalCode: 'BL1 4JW',
-    addressCountry: 'GB',
-  },
 });
 
 const websiteNode = (origin: string, brand: string) => ({
@@ -117,8 +183,8 @@ export const resolvePageSeo = (route: string, cms: CmsState): PageSeo => {
 
   if (route === 'home') {
     const seo = cms.seo.home;
-    const title = seo?.title || `SEO Audit Tools — Free Website SEO Checker | EKSTRUH LTD`;
-    const description = seo?.description || 'Free SEO audit tool plus 150+ practical SEO, speed, IP, PDF, calculator and converter tools from EKSTRUH LTD — built for website owners in Pakistan and worldwide.';
+    const title = seo?.title || `${brand} — Free Website SEO Checker & 150+ Online Tools`;
+    const description = seo?.description || 'Free SEO audit tool plus 150+ practical SEO, speed, IP, PDF, calculator and converter tools — built for website owners in Pakistan and worldwide.';
     return {
       title,
       description,
@@ -142,11 +208,11 @@ export const resolvePageSeo = (route: string, cms: CmsState): PageSeo => {
     const live = cms.tools.filter(t => t.status === 'live');
     const seo = cms.seo.tools;
     const title = seo?.title || `${live.length}+ Free SEO Tools — Audit, Speed, Calculator & Converter Tools`;
-    const description = seo?.description || `Browse ${live.length}+ free tools from EKSTRUH LTD for Pakistan and worldwide: website SEO audit, page speed, keyword research, backlinks, IP lookup, PDF tools, calculators and unit converters.`;
+    const description = seo?.description || `Browse ${live.length}+ free tools for Pakistan and worldwide: website SEO audit, page speed, keyword research, backlinks, IP lookup, PDF tools, calculators and unit converters.`;
     return {
       title,
       description,
-      path: '/free-tools',
+      path: '/free-seo-tools',
       origin,
       noindex: seo?.noindex,
       canonicalOverride: seo?.slug,
@@ -160,10 +226,28 @@ export const resolvePageSeo = (route: string, cms: CmsState): PageSeo => {
           '@type': 'ListItem',
           position: i + 1,
           name: t.name,
-          url: `${origin}/tool/${t.slug}`,
+          url: `${origin}/${t.slug}`,
         })),
       },
     };
+  }
+
+  // A tool category page: /ip-tools (built-in, canonical) and
+  // /tools/category/<slug> (every managed category, Admin → Tool Categories).
+  if (route.startsWith('cat/') || route.startsWith('toolcat/')) {
+    const value = route.startsWith('cat/') ? route.slice(4) : route.slice('toolcat/'.length);
+    const cat = resolveToolCategory(cms, value);
+    if (!cat) {
+      return {
+        title: `Tools not found | ${brand}`,
+        description: 'That category is not available. Browse the free SEO tools directory instead.',
+        path: TOOLS_PATH,
+        origin,
+        noindex: true,
+        image: og,
+      };
+    }
+    return toolCategorySeo(cms, cat, { origin, brand, og });
   }
 
   if (route.startsWith('tool/')) {
@@ -173,7 +257,7 @@ export const resolvePageSeo = (route: string, cms: CmsState): PageSeo => {
       return {
         title: `Tool not found | ${brand}`,
         description: 'That tool is not available. Browse the free SEO tools directory instead.',
-        path: `/tool/${slug}`,
+        path: `/${slug}`,
         origin,
         noindex: true,
         image: og,
@@ -182,11 +266,11 @@ export const resolvePageSeo = (route: string, cms: CmsState): PageSeo => {
     const seo = cms.seo[`tool:${tool.slug}`];
     const title = seo?.title || `${tool.name} — Free Online Tool | ${brand}`;
     const description = seo?.description || tool.description;
-    const url = `${origin}/tool/${tool.slug}`;
+    const url = `${origin}/${tool.slug}`;
     return {
       title,
       description,
-      path: `/tool/${tool.slug}`,
+      path: `/${tool.slug}`,
       origin,
       noindex: seo?.noindex,
       canonicalOverride: seo?.slug,
@@ -215,6 +299,67 @@ export const resolvePageSeo = (route: string, cms: CmsState): PageSeo => {
         description,
         url: `${origin}/blog`,
         publisher: { '@id': `${origin}/#organization` },
+        // Every category answers on its own clean URL.
+        hasPart: (cms.blogCategories || []).filter(c => c.visible).map(c => ({
+          '@type': 'CollectionPage',
+          name: c.name,
+          url: `${origin}/blog/category/${c.slug}`,
+        })),
+      },
+    };
+  }
+
+  if (route.startsWith('blogcat/')) {
+    const slug = route.slice('blogcat/'.length);
+    const category = (cms.blogCategories || []).find(c => c.slug === slug);
+    const posts = category ? cms.posts.filter(p => p.status === 'live' && p.category === category.name) : [];
+    const path = `/blog/category/${slug}`;
+    if (!category || !category.visible) {
+      return {
+        title: `Category not found | ${brand}`,
+        description: 'That blog category is not available. Browse the SEO blog instead.',
+        path: '/blog',
+        origin,
+        noindex: true,
+        image: og,
+      };
+    }
+    const description = `${posts.length} free, practical ${category.name} guides from ${brand}: fixes for the SEO problems website owners actually hit.`;
+    return {
+      title: `${category.name} — SEO Guides & Fixes | ${brand}`,
+      description,
+      path,
+      origin,
+      image: og,
+      jsonLd: {
+        '@context': 'https://schema.org',
+        '@graph': [
+          {
+            '@type': 'CollectionPage',
+            name: `${category.name} articles`,
+            description,
+            url: `${origin}${path}`,
+            isPartOf: { '@id': `${origin}/#website` },
+          },
+          {
+            '@type': 'ItemList',
+            numberOfItems: posts.length,
+            itemListElement: posts.map((p, i) => ({
+              '@type': 'ListItem',
+              position: i + 1,
+              name: p.title,
+              url: `${origin}/blog/${p.slug}`,
+            })),
+          },
+          {
+            '@type': 'BreadcrumbList',
+            itemListElement: [
+              { '@type': 'ListItem', position: 1, name: 'Home', item: `${origin}/` },
+              { '@type': 'ListItem', position: 2, name: 'Blog', item: `${origin}/blog` },
+              { '@type': 'ListItem', position: 3, name: category.name, item: `${origin}${path}` },
+            ],
+          },
+        ],
       },
     };
   }
@@ -261,13 +406,34 @@ export const resolvePageSeo = (route: string, cms: CmsState): PageSeo => {
   }
 
   if (route.startsWith('p/')) {
-    const slug = route.slice(2);
+    // A top-level slug carries either a tool (/plagiarism-checker) or a CMS
+    // page (/about, /privacy — short legal URLs map onto the stored slugs).
+    const rootSlug = route.slice(2);
+    const tool = cms.tools.find(t => t.slug === rootSlug && t.status === 'live');
+    if (tool && !cms.pages.some(p => p.slug === storedSlugForRoute(rootSlug))) {
+      const toolSeo = cms.seo[`tool:${tool.slug}`];
+      const toolTitle = toolSeo?.title || `${tool.name} — Free Online Tool | ${brand}`;
+      const toolDescription = toolSeo?.description || tool.description;
+      return {
+        title: toolTitle,
+        description: toolDescription,
+        path: `/${tool.slug}`,
+        origin,
+        noindex: toolSeo?.noindex,
+        canonicalOverride: toolSeo?.slug,
+        image: tool.featuredImage || og,
+        imageAlt: tool.featuredImageAlt || tool.name,
+        jsonLd: webAppNode(origin, tool.name, toolDescription, `${origin}/${tool.slug}`),
+      };
+    }
+    // Short legal URLs (/privacy) map onto the stored CMS slugs.
+    const slug = storedSlugForRoute(rootSlug);
     const page = cms.pages.find(p => p.slug === slug);
     if (!page || page.status !== 'live') {
       return {
         title: `Page not available | ${brand}`,
         description: 'This page has not been published yet.',
-        path: `/${slug}`,
+        path: `/${routeSlugForStored(slug)}`,
         origin,
         noindex: true,
         image: og,
@@ -279,7 +445,7 @@ export const resolvePageSeo = (route: string, cms: CmsState): PageSeo => {
     return {
       title,
       description,
-      path: `/${page.slug}`,
+      path: `/${routeSlugForStored(page.slug)}`,
       origin,
       noindex: seo?.noindex,
       canonicalOverride: seo?.slug,
@@ -290,7 +456,7 @@ export const resolvePageSeo = (route: string, cms: CmsState): PageSeo => {
         '@type': 'WebPage',
         name: page.title,
         description,
-        url: `${origin}/${page.slug}`,
+        url: `${origin}/${routeSlugForStored(page.slug)}`,
         isPartOf: { '@id': `${origin}/#website` },
         publisher: { '@id': `${origin}/#organization` },
       },
@@ -326,15 +492,18 @@ export const resolvePageSeo = (route: string, cms: CmsState): PageSeo => {
   }
 
   return {
-    title: `${brand} | EKSTRUH LTD`,
-    description: cms.settings.tagline || 'Free SEO audit and online tools from EKSTRUH LTD.',
+    title: brand,
+    description: cms.settings.tagline || `Free SEO audit and online tools from ${brand}.`,
     path: '/',
     origin,
     image: og,
   };
 };
 
-export const applyPageSeo = (page: PageSeo) => {
+/** The author/site name used across meta tags — always the CMS brand. */
+const FALLBACK_BRAND = 'SEO Audit Tools';
+
+export const applyPageSeo = (page: PageSeo, brandName: string = FALLBACK_BRAND) => {
   const canonical = page.canonicalOverride
     ? (/^https?:\/\//i.test(page.canonicalOverride)
       ? page.canonicalOverride
@@ -346,10 +515,10 @@ export const applyPageSeo = (page: PageSeo) => {
   document.title = page.title;
   setMeta('name', 'description', page.description);
   setMeta('name', 'robots', robots);
-  setMeta('name', 'author', 'EKSTRUH LTD');
+  setMeta('name', 'author', brandName);
   setLink('canonical', canonical);
 
-  setMeta('property', 'og:site_name', 'SEO Audit Tools');
+  setMeta('property', 'og:site_name', brandName);
   setMeta('property', 'og:locale', 'en_GB');
   setMeta('property', 'og:type', page.type || 'website');
   setMeta('property', 'og:url', canonical);
@@ -386,7 +555,7 @@ export const applyPageSeo = (page: PageSeo) => {
 export const SeoManager: FC<{ route: string }> = ({ route }) => {
   const { state } = useCms();
   useEffect(() => {
-    applyPageSeo(resolvePageSeo(route, state));
+    applyPageSeo(resolvePageSeo(route, state), state.settings.name || FALLBACK_BRAND);
   }, [route, state]);
   return null;
 };

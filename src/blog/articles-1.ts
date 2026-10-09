@@ -10,7 +10,7 @@ export const articlesCoreWebVitals: BlogArticle[] = [
     category: 'Core Web Vitals',
     date: '2025-01-14',
     readTime: '6 min read',
-    author: 'SEO Audit Pro Team',
+    author: 'SAT Team',
     excerpt: 'When Google swapped FID for INP in March 2024, sites that passed Core Web Vitals for years suddenly started failing. Here\u2019s why, and what you can actually do about it.',
     content: `
 On March 12, 2024, Google quietly pulled off one of the biggest shake-ups in Core Web Vitals history. First Input Delay (FID) was retired, and Interaction to Next Paint (INP) took its place. Sites that had passed Core Web Vitals for years woke up failing. If that happened to you, you're in good company. Industry crawls at the time suggested that a large share of sites passing FID did not pass INP.
@@ -91,7 +91,7 @@ The good news is that INP fixes tend to be felt by real people. Faster menus, sn
     category: 'Core Web Vitals',
     date: '2025-01-08',
     readTime: '7 min read',
-    author: 'SEO Audit Pro Team',
+    author: 'SAT Team',
     excerpt: 'Everyone tells you to "optimize images" and calls it a day. Real LCP fixes go deeper. Here\u2019s the diagnostic process we use on actual client sites.',
     content: `
 Largest Contentful Paint measures one simple thing: how long it takes for the biggest visible element on your page to render. Usually that's a hero image, a banner, or a big headline. Google wants it done in 2.5 seconds or less for 75% of your visitors. Anything over 4 seconds is officially "poor."
@@ -179,7 +179,7 @@ Get under 2.5 seconds and you're not just pleasing an algorithm. You're inside t
     category: 'Core Web Vitals',
     date: '2024-12-19',
     readTime: '6 min read',
-    author: 'SEO Audit Pro Team',
+    author: 'SAT Team',
     excerpt: 'You go to tap a link and an ad shoves it down the page at the last second. That\u2019s layout shift, Google measures it, and your site probably has more of it than you think.',
     content: `
 You know the feeling. You're reading an article on your phone, you go to tap a link, and at the exact moment your thumb lands, an ad loads above it and the whole page lurches. You've just tapped something else entirely. Maybe bought something. Definitely sworn a little.

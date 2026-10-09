@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useMemo, useState } from 'react';
-import { PrivacyNote, DropZone, Progress, ErrorBox, Btn, StatBox, FileInfoPanel, Thumbnails, ResultPanel, usePdfFile } from './ui';
-import { loadPdfLib, loadPdfJs, fmtBytes, readFile, download, inspectPdf, parseRanges, compressToTarget, renderPages, imagesToPdf, type PdfInfo, type PdfDoc } from './engine';
+import { PrivacyNote, DropZone, Progress, ErrorBox, Btn, StatBox, FileInfoPanel, Thumbnails, ResultPanel, CompressMore, usePdfFile } from './ui';
+import { loadPdfLib, loadPdfJs, copyBuffer, fmtBytes, readFile, download, inspectPdf, parseRanges, compressToTarget, renderPages, imagesToPdf, type PdfInfo, type PdfDoc } from './engine';
 
 const base = (name: string) => name.replace(/\.pdf$/i, '');
 
@@ -11,6 +11,8 @@ export const MergePdf: React.FC = () => {
   const [busy, setBusy] = useState(false);
   const [pct, setPct] = useState(0);
   const [out, setOut] = useState<Uint8Array | null>(null);
+  const [merged, setMerged] = useState<Uint8Array | null>(null);
+  const [compressedLabel, setCompressedLabel] = useState<string | null>(null);
   const [err, setErr] = useState('');
   const add = async (files: File[]) => {
     setErr(''); setOut(null);
@@ -30,7 +32,8 @@ export const MergePdf: React.FC = () => {
         setPct(((i + 1) / items.length) * 100);
       }
       doc.setProducer('SEO Audit Tool PDF Tools'); doc.setCreator('SEO Audit Tool');
-      setOut(await doc.save());
+      const bytes = await doc.save();
+      setMerged(bytes); setOut(bytes); setCompressedLabel(null);
     } catch (e) { setErr(`Merge failed: ${String((e as Error).message || e).slice(0, 160)}. Encrypted files must be unlocked first.`); }
     setBusy(false);
   };
@@ -57,7 +60,24 @@ export const MergePdf: React.FC = () => {
         </>
       )}
       {err && <ErrorBox msg={err} />}
-      {out && <ResultPanel title="PDFs merged successfully" bytes={out.byteLength} onDownload={() => download(out, 'merged.pdf')} onReset={() => { setItems([]); setOut(null); }} fileName="merged.pdf"><p className="text-sm text-slate-600 mt-4">{items.length} files · {totalPages} pages combined in order shown.</p></ResultPanel>}
+      {out && (
+        <ResultPanel
+          title={compressedLabel ? 'PDFs merged & compressed' : 'PDFs merged successfully'}
+          bytes={out.byteLength}
+          before={totalSize}
+          onDownload={() => download(out, compressedLabel ? 'merged-compressed.pdf' : 'merged.pdf')}
+          onReset={() => { setItems([]); setOut(null); setMerged(null); setCompressedLabel(null); }}
+          fileName={compressedLabel ? 'merged-compressed.pdf' : 'merged.pdf'}
+        >
+          <p className="text-sm text-slate-600 mt-4">{items.length} files · {totalPages} pages combined in order shown. Original files totalled {fmtBytes(totalSize)}.</p>
+          <CompressMore
+            bytes={out}
+            appliedLabel={compressedLabel}
+            onApply={(bytes, label) => { setOut(bytes); setCompressedLabel(label); }}
+            onKeepOriginal={merged ? () => { setOut(merged); setCompressedLabel(null); } : undefined}
+          />
+        </ResultPanel>
+      )}
     </div>
   );
 };
@@ -112,7 +132,7 @@ export const SplitPdf: React.FC = () => {
       {f.error && <ErrorBox msg={f.error} />}
       {outs.length > 0 && (
         <div className="bg-white rounded-2xl border-2 border-emerald-200 p-6 animate-fade-in">
-          <div className="flex flex-wrap items-center justify-between gap-3 mb-4"><h3 className="font-bold text-slate-900">✓ {outs.length} file{outs.length === 1 ? '' : 's'} ready</h3><div className="flex gap-2"><Btn onClick={downloadAll}>⬇ Download all</Btn><Btn variant="secondary" onClick={() => setOuts([])}>Back</Btn></div></div>
+          <div className="flex flex-wrap items-center justify-between gap-3 mb-4"><h3 className="heading-card font-bold text-slate-900">✓ {outs.length} file{outs.length === 1 ? '' : 's'} ready</h3><div className="flex gap-2"><Btn onClick={downloadAll}>⬇ Download all</Btn><Btn variant="secondary" onClick={() => setOuts([])}>Back</Btn></div></div>
           <div className="divide-y divide-slate-100 max-h-80 overflow-y-auto">{outs.map(o => <div key={o.name} className="py-2.5 flex items-center justify-between gap-3 text-sm"><div className="min-w-0"><p className="font-semibold text-slate-800 truncate">{o.name}</p><p className="text-xs text-slate-500">Pages {o.pages} · {fmtBytes(o.bytes.byteLength)}</p></div><button type="button" onClick={() => download(o.bytes, o.name)} className="px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-xs font-semibold text-slate-700 flex-shrink-0">Download</button></div>)}</div>
         </div>
       )}
@@ -246,7 +266,9 @@ export const UnlockPdf: React.FC = () => {
       if (!done) {
         if (!pw) throw new Error('This PDF requires its open password. Enter the password and try again.');
         const pdfjs = await loadPdfJs();
-        const src = await pdfjs.getDocument({ data: new Uint8Array(f.buf), password: pw }).promise; // throws on wrong password
+        // copyBuffer: pdf.js detaches the buffer it is given, and f.buf is still
+        // needed for the render below (and for further attempts).
+        const src = await pdfjs.getDocument({ data: copyBuffer(f.buf), password: pw }).promise; // throws on wrong password
         const total: number = src.numPages;
         const imgs = await renderPages(f.buf, { scale: 2, quality: 0.92, password: pw });
         setOut(await imagesToPdf(imgs));

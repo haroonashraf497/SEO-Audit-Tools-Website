@@ -83,7 +83,7 @@ export const SerpSnippet: React.FC<SnippetProps> = ({ url, title, description, l
     <article className="rounded-2xl border border-slate-200 overflow-hidden bg-white h-full flex flex-col">
       {(label || live !== undefined) && (
         <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-slate-100">
-          {label ? <h3 className="text-xl font-bold text-slate-900">{label}</h3> : <span />}
+          {label ? <h3 className="heading-card text-xl font-bold text-slate-900">{label}</h3> : <span />}
           {live
             ? <span className="text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-100 rounded-full px-2 py-0.5">Live page</span>
             : live === false
@@ -142,7 +142,7 @@ export const SerpCompare: React.FC<{
     <section>
       <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
         <div>
-          <h2 className="text-xl font-bold text-slate-900">Google search preview</h2>
+          <h2 className="heading-card text-xl font-bold text-slate-900">Google search preview</h2>
           <p className="text-sm text-slate-500 mt-0.5">{LIMITS[mode].note}. Both sites use the same preview size.</p>
         </div>
         <SerpModeTabs mode={mode} onChange={setMode} />
@@ -161,7 +161,7 @@ const SerpPreview: React.FC<PreviewProps> = ({ url, title, description, live }) 
     <section>
       <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
         <div>
-          <h3 className="text-xl font-bold text-slate-900">Google search preview</h3>
+          <h3 className="heading-card text-xl font-bold text-slate-900">Google search preview</h3>
           <p className="text-sm text-slate-500 mt-0.5">{LIMITS[mode].note}</p>
         </div>
         <SerpModeTabs mode={mode} onChange={setMode} />

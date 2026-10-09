@@ -177,3 +177,168 @@ export const flagEmoji = (cc: string): string =>
   cc && cc.length === 2
     ? String.fromCodePoint(...cc.toUpperCase().split('').map(c => 127397 + c.charCodeAt(0)))
     : '';
+
+// ---- DNS-over-HTTPS (dns.google, CORS-open, keyless) ----
+// Browsers cannot use the native resolver, but DoH is a plain HTTPS JSON API,
+// so these are REAL lookups — not simulated.
+export interface DohAnswer { name: string; type: number; TTL: number; data: string }
+export interface DohResult { Status: number; Answer?: DohAnswer[] }
+
+export async function dohQuery(name: string, type: string, ms = 8000): Promise<DohAnswer[]> {
+  const providers = [
+    `https://dns.google/resolve?name=${encodeURIComponent(name)}&type=${encodeURIComponent(type)}`,
+    `https://cloudflare-dns.com/dns-query?name=${encodeURIComponent(name)}&type=${encodeURIComponent(type)}`,
+  ];
+  for (const url of providers) {
+    try {
+      const res = await fetch(url, { headers: { accept: 'application/dns-json' }, signal: withTimeout(ms) });
+      if (!res.ok) continue;
+      const j = (await res.json()) as DohResult;
+      return j.Answer ?? [];
+    } catch { /* try next provider */ }
+  }
+  return [];
+}
+
+/** Real IPv4 addresses a domain resolves to (empty when none/unresolvable). */
+export async function resolveA(host: string): Promise<string[]> {
+  const answers = await dohQuery(host, 'A');
+  return answers.map(a => a.data).filter(d => /^(\d{1,3}\.){3}\d{1,3}$/.test(d));
+}
+
+/** Real IPv6 addresses a domain resolves to. */
+export async function resolveAAAA(host: string): Promise<string[]> {
+  const answers = await dohQuery(host, 'AAAA');
+  return answers.map(a => a.data).filter(d => d.includes(':'));
+}
+
+/** Real reverse-DNS (PTR) hostnames for an IP. */
+export async function resolvePtr(ip: string): Promise<string[]> {
+  if (detectVersion(ip) !== 'IPv4') return [];
+  const arpa = ip.split('.').reverse().join('.') + '.in-addr.arpa';
+  const answers = await dohQuery(arpa, 'PTR');
+  return answers.map(a => a.data.replace(/\.$/, '')).filter(Boolean);
+}
+
+/** Resolve a domain-or-IP to a single IPv4 (input passes through when already an IP). */
+export async function toIpv4(hostOrIp: string): Promise<string> {
+  const v = hostOrIp.trim();
+  if (/^(\d{1,3}\.){3}\d{1,3}$/.test(v)) return v;
+  const a = await resolveA(v);
+  return a[0] || '';
+}
+
+// ---- Reverse IP (domains sharing an IP) via HackerTarget through a CORS relay ----
+const HT_RELAY = (u: string) => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`;
+
+/**
+ * Real list of domains observed pointing at an IP (HackerTarget passive DNS).
+ * Fetched through a CORS relay; returns [] when unavailable so callers can show
+ * an honest "no data" state instead of invented results.
+ */
+export async function reverseIpDomains(ip: string): Promise<{ domains: string[]; error?: string }> {
+  const target = `https://api.hackertarget.com/reverseiplookup/?q=${encodeURIComponent(ip)}`;
+  try {
+    const res = await fetch(HT_RELAY(target), { signal: withTimeout(15000) });
+    if (!res.ok) return { domains: [], error: `Reverse-IP service responded with HTTP ${res.status}.` };
+    const text = (await res.text()).trim();
+    if (!text) return { domains: [] };
+    if (/^error\b/i.test(text)) return { domains: [], error: text.replace(/^error:?\s*/i, '') };
+    const domains = text
+      .split(/\r?\n/)
+      .map(l => l.trim().toLowerCase())
+      .filter(l => l && l.includes('.') && !/\s/.test(l));
+    return { domains };
+  } catch {
+    return { domains: [], error: 'The reverse-IP service could not be reached (it may be rate-limiting). Try again shortly.' };
+  }
+}
+
+// ---- Real public proxy list (ProxyScrape mirror on jsDelivr; CORS-open, keyless) ----
+export interface ProxyEntry {
+  protocol: string; ip: string; port: number; country: string; country_code: string;
+  city: string; anonymity: string; ssl: boolean; uptime_percent: number; asn: string;
+  isp: string; latency_ms: number; last_checked: number;
+}
+export interface ProxyStats {
+  total: number; by_protocol: Record<string, number>; country_count: number; by_country: Record<string, number>;
+}
+
+const PROXY_BASE = 'https://cdn.jsdelivr.net/gh/proxyscrape/free-proxy-list@main/proxies';
+export const PROXY_PROTOCOLS = ['http', 'https', 'socks4', 'socks5'] as const;
+export type ProxyProtocol = typeof PROXY_PROTOCOLS[number];
+
+export async function fetchProxyStats(): Promise<ProxyStats | null> {
+  try {
+    const res = await fetch(`${PROXY_BASE}/stats.json`, { signal: withTimeout(12000) });
+    if (!res.ok) return null;
+    return (await res.json()) as ProxyStats;
+  } catch { return null; }
+}
+
+export async function fetchProxyList(protocol: ProxyProtocol): Promise<ProxyEntry[]> {
+  const res = await fetch(`${PROXY_BASE}/protocols/${protocol}/data.json`, { signal: withTimeout(20000) });
+  if (!res.ok) throw new Error(`Proxy list unavailable (HTTP ${res.status}).`);
+  const j = (await res.json()) as ProxyEntry[];
+  return Array.isArray(j) ? j : [];
+}
+
+/** Relative "checked X ago" from a unix-seconds timestamp. */
+export const checkedAgo = (unixSeconds: number): string => {
+  if (!unixSeconds) return '—';
+  const s = Math.max(0, Math.floor(Date.now() / 1000 - unixSeconds));
+  if (s < 60) return `${s}s ago`;
+  if (s < 3600) return `${Math.floor(s / 60)}m ago`;
+  if (s < 86400) return `${Math.floor(s / 3600)}h ago`;
+  return `${Math.floor(s / 86400)}d ago`;
+};
+
+// ---- IP WHOIS / registration data (RDAP via rdap.org; CORS-open, keyless) ----
+export interface IpWhois {
+  handle?: string; name?: string; country?: string; type?: string;
+  startAddress?: string; endAddress?: string; cidr?: string;
+  org?: string; abuseEmail?: string; abusePhone?: string;
+  registered?: string; changed?: string; source?: string;
+}
+
+export async function ipWhois(ip: string): Promise<IpWhois | null> {
+  try {
+    const res = await fetch(`https://rdap.org/ip/${encodeURIComponent(ip)}`, {
+      headers: { Accept: 'application/rdap+json, application/json' }, signal: withTimeout(10000),
+    });
+    if (!res.ok) return null;
+    const j = await res.json();
+    const events: { eventAction?: string; eventDate?: string }[] = Array.isArray(j.events) ? j.events : [];
+    const ev = (action: string) => events.find(e => e.eventAction === action)?.eventDate;
+    type Entity = { roles?: string[]; vcardArray?: [string, unknown[]][]; entities?: Entity[] };
+    // ARIN nests abuse/tech contacts inside the registrant's own entities — flatten.
+    const flat: Entity[] = [];
+    const walk = (list: Entity[] | undefined) => (list || []).forEach(e => { flat.push(e); walk(e.entities); });
+    walk(Array.isArray(j.entities) ? j.entities : []);
+    const vcardVal = (entity: Entity | undefined, key: string): string | undefined => {
+      const props = entity?.vcardArray?.[1];
+      if (!Array.isArray(props)) return undefined;
+      const hit = props.find(p => Array.isArray(p) && p[0] === key);
+      return Array.isArray(hit) && typeof hit[3] === 'string' ? (hit[3] as string) : undefined;
+    };
+    const abuse = flat.find(e => Array.isArray(e.roles) && e.roles.includes('abuse'));
+    const registrant = flat.find(e => Array.isArray(e.roles) && e.roles.includes('registrant'));
+    const cidrArr: { v4prefix?: string; v6prefix?: string; length?: number }[] = Array.isArray(j.cidr0_cidrs) ? j.cidr0_cidrs : [];
+    const cidr = cidrArr[0] && cidrArr[0].length != null
+      ? `${cidrArr[0].v4prefix || cidrArr[0].v6prefix || ''}/${cidrArr[0].length}`
+      : undefined;
+    return {
+      handle: typeof j.handle === 'string' ? j.handle : undefined,
+      name: typeof j.name === 'string' ? j.name : undefined,
+      country: typeof j.country === 'string' ? j.country : undefined,
+      type: typeof j.type === 'string' ? j.type : undefined,
+      startAddress: typeof j.startAddress === 'string' ? j.startAddress : undefined,
+      endAddress: typeof j.endAddress === 'string' ? j.endAddress : undefined,
+      cidr,
+      org: vcardVal(registrant, 'fn'),
+      abuseEmail: vcardVal(abuse, 'email'),
+      abusePhone: vcardVal(abuse, 'tel'),
+      registered: ev('registration'), changed: ev('last changed'), source: 'RDAP (RIR)',
+    };
+  } catch { return null; }
+}

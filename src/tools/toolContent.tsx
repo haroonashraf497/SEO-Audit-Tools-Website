@@ -1,7 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import type { ToolDef, ToolCategory } from './data';
-import { categoryLabels } from './data';
-import { useCms } from '../cms/store';
+import { toolCategoryName, useCms } from '../cms/store';
 import { sanitizeRichHtml } from '../utils/sanitize';
 import { rewriteLegacyLinks } from '../router';
 
@@ -399,7 +398,7 @@ const copy: Record<ToolCategory | 'calculatorLegacy' | 'converterLegacy', Catego
 };
 
 const strip = (value: string) => value.replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim();
-const shortName = (name: string) => name.replace(/\s*(Free Online|Online|Free)\s*/gi, '').replace(/tool/i, '').trim() || name;
+const shortName = (name: string) => name.replace(/\s*(Free Online|Online|Free)\s*/gi, '').replace(/free-seo-tools/i, '').trim() || name;
 
 const Chevron: React.FC<{ open: boolean }> = ({ open }) => (
   <svg className={`w-4 h-4 text-indigo-600 transition-transform ${open ? 'rotate-180' : ''}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9" /></svg>
@@ -422,22 +421,25 @@ export const ToolRelatedContent: React.FC<{ tool: ToolDef; related: ToolDef[] }>
   }), [base.faqs, name]);
   const [openFaq, setOpenFaq] = useState<number | null>(0);
   // A custom "About" written in the CMS overrides the category template.
-  const cmsTool = useCms().state.tools.find(t => t.slug === tool.slug);
+  const cmsState = useCms().state;
+  const cmsTool = cmsState.tools.find(t => t.slug === tool.slug);
+  // Built-in label or the name managed in Admin → Tool Categories.
+  const categoryName = toolCategoryName(cmsState, tool.category);
   const aboutOverride = cmsTool?.about && cmsTool.about.replace(/<[^>]*>/g, '').trim() ? rewriteLegacyLinks(sanitizeRichHtml(cmsTool.about)) : '';
 
   return (
     <div className="mt-10 space-y-8">
       {aboutOverride ? (
         <section className="bg-white rounded-2xl border border-slate-200 p-6 md:p-8 shadow-sm">
-          <p className="text-xs font-bold uppercase tracking-wide text-indigo-600 mb-2">{categoryLabels[tool.category]}</p>
-          <h2 className="text-2xl md:text-3xl font-extrabold text-slate-900 mb-4">About the {name}</h2>
+          <p className="text-xs font-bold uppercase tracking-wide text-indigo-600 mb-2">{categoryName}</p>
+          <h2 className="font-extrabold text-slate-900 mb-4">About the {name}</h2>
           <div className="rich-text text-slate-600" dangerouslySetInnerHTML={{ __html: aboutOverride }} />
         </section>
       ) : (
       <>
       <section className="bg-white rounded-2xl border border-slate-200 p-6 md:p-8 shadow-sm">
-        <p className="text-xs font-bold uppercase tracking-wide text-indigo-600 mb-2">{categoryLabels[tool.category]}</p>
-        <h2 className="text-2xl md:text-3xl font-extrabold text-slate-900 mb-4">About the {name}</h2>
+        <p className="text-xs font-bold uppercase tracking-wide text-indigo-600 mb-2">{categoryName}</p>
+        <h2 className="font-extrabold text-slate-900 mb-4">About the {name}</h2>
         <div className="space-y-4 mb-7">
           {base.overview.map((paragraph, index) => <p key={index} className="text-slate-600 leading-relaxed">{paragraph}</p>)}
         </div>
@@ -461,13 +463,13 @@ export const ToolRelatedContent: React.FC<{ tool: ToolDef; related: ToolDef[] }>
 
       <section className="bg-white rounded-2xl border border-slate-200 p-6 md:p-8 shadow-sm">
         <p className="text-xs font-bold uppercase tracking-wide text-indigo-600 mb-2">Use cases</p>
-        <h2 className="text-2xl md:text-3xl font-extrabold text-slate-900 mb-2">Where you can use the {name}</h2>
+        <h2 className="font-extrabold text-slate-900 mb-2">Where you can use the {name}</h2>
         <p className="text-sm text-slate-500 mb-6">Practical scenarios where this type of tool saves time, reduces errors or improves the quality of a website and its content.</p>
         <div className="grid sm:grid-cols-2 gap-4">
           {base.places.map(([title, text]) => (
             <div key={title} className="flex gap-3 rounded-xl border border-slate-200 p-4 hover:border-indigo-200 hover:bg-indigo-50/30 transition-colors">
               <span className="w-8 h-8 rounded-lg bg-indigo-600 text-white flex items-center justify-center flex-shrink-0 text-sm font-bold">✓</span>
-              <div><h3 className="text-sm font-bold text-slate-800">{title}</h3><p className="text-xs text-slate-500 mt-1 leading-relaxed">{text}</p></div>
+              <div><h3 className="heading-card text-sm font-bold text-slate-800">{title}</h3><p className="text-xs text-slate-500 mt-1 leading-relaxed">{text}</p></div>
             </div>
           ))}
         </div>
@@ -475,12 +477,12 @@ export const ToolRelatedContent: React.FC<{ tool: ToolDef; related: ToolDef[] }>
 
       <section className="bg-gradient-to-br from-indigo-50 to-white rounded-2xl border border-indigo-100 p-6 md:p-8">
         <p className="text-xs font-bold uppercase tracking-wide text-indigo-600 mb-2">Benefits</p>
-        <h2 className="text-2xl md:text-3xl font-extrabold text-slate-900 mb-6">Why use this tool?</h2>
+        <h2 className="font-extrabold text-slate-900 mb-6">Why use this tool?</h2>
         <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {base.benefits.map(benefit => (
             <div key={benefit.title} className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
               <div className="w-9 h-9 rounded-lg bg-indigo-600 text-white flex items-center justify-center mb-3">★</div>
-              <h3 className="text-sm font-bold text-slate-800 mb-1">{benefit.title}</h3>
+              <h3 className="heading-card text-sm font-bold text-slate-800 mb-1">{benefit.title}</h3>
               <p className="text-xs text-slate-500 leading-relaxed">{benefit.text}</p>
             </div>
           ))}
@@ -489,14 +491,14 @@ export const ToolRelatedContent: React.FC<{ tool: ToolDef; related: ToolDef[] }>
 
       <section className="bg-white rounded-2xl border border-slate-200 p-6 md:p-8 shadow-sm">
         <p className="text-xs font-bold uppercase tracking-wide text-indigo-600 mb-2">Answers</p>
-        <h2 className="text-2xl md:text-3xl font-extrabold text-slate-900 mb-5">{name} FAQs</h2>
+        <h2 className="font-extrabold text-slate-900 mb-5">{name} FAQs</h2>
         <div className="divide-y divide-slate-100 border-y border-slate-100">
           {faqs.map((faq, index) => {
             const open = openFaq === index;
             return (
               <div key={faq.q}>
                 <button type="button" onClick={() => setOpenFaq(open ? null : index)} aria-expanded={open} className="w-full flex items-center justify-between gap-4 py-4 text-left">
-                  <h3 className="text-sm md:text-base font-bold text-slate-800">{faq.q}</h3>
+                  <h3 className="heading-card text-sm md:text-base font-bold text-slate-800">{faq.q}</h3>
                   <Chevron open={open} />
                 </button>
                 {open && <p className="pb-4 pr-8 text-sm text-slate-600 leading-relaxed">{faq.a}</p>}
@@ -511,12 +513,12 @@ export const ToolRelatedContent: React.FC<{ tool: ToolDef; related: ToolDef[] }>
 
       {related.length > 0 && (
         <section className="bg-white rounded-2xl border border-slate-200 p-6 md:p-8 shadow-sm">
-          <h2 className="text-2xl font-extrabold text-slate-900 mb-1">Related tools</h2>
-          <p className="text-sm text-slate-500 mb-5">Continue with these related {categoryLabels[tool.category].toLowerCase()}.</p>
+          <h2 className="font-extrabold text-slate-900 mb-1">Related tools</h2>
+          <p className="text-sm text-slate-500 mb-5">Continue with these related {categoryName.toLowerCase()}.</p>
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {related.map(t => (
-              <a key={t.slug} href={`/tool/${t.slug}`} className="group rounded-xl border border-slate-200 p-4 hover:border-indigo-300 hover:shadow-md transition-all">
-                <h3 className="text-sm font-bold text-slate-800 group-hover:text-indigo-600 mb-1">{t.name}</h3>
+              <a key={t.slug} href={`/${t.slug}`} className="group rounded-xl border border-slate-200 p-4 hover:border-indigo-300 hover:shadow-md transition-all">
+                <h3 className="heading-card text-sm font-bold text-slate-800 group-hover:text-indigo-600 mb-1">{t.name}</h3>
                 <p className="text-xs text-slate-500 line-clamp-3 leading-relaxed">{strip(t.description)}</p>
               </a>
             ))}

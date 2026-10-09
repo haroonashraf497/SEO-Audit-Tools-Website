@@ -1,28 +1,34 @@
-import React, { Suspense, useState, useCallback, useMemo, useEffect, useRef } from 'react';
-import { categoryDescriptions, categoryLabels, ToolIcon } from './tools/data';
+import React, { useState, useCallback, useMemo, useEffect, useLayoutEffect, useRef } from 'react';
+import { ToolIcon } from './tools/data';
 import { fetchPageData, type LivePageData } from './utils/pageFetch';
 import { fetchDomainInfo, type DomainInfo } from './utils/domainLookup';
 import { sanitizeRichHtml } from './utils/sanitize';
-import { CmsProvider, useCms, liveTools, livePosts, findPage, blocksToHtml } from './cms/store';
+import {
+  CmsProvider, useCms, liveTools, livePosts, findPage, blocksToHtml, renderCopyright, defaultFooterColumns,
+  resolveToolCategory, toolCategoriesOf, toolCategoryHref, toolCategoryName, toolCategorySummary, type SocialLinks,
+} from './cms/store';
+import { ToolCategoriesMenu, ToolCategoriesMobileSection } from './components/ToolCategoriesMenu';
 import SerpPreview from './components/SerpPreview';
 import { SeoManager } from './utils/seo';
-import { cleanHref, getRoute, navigate, rewriteLegacyLinks, subscribe } from './router';
-import { lazyRoute } from './utils/lazyRetry';
-import { LoadingFallback, RouteBoundary } from './components/ErrorBoundary';
+import { categoryKeyOfRoute, cleanHref, getRoute, lastNavigationKind, navigate, rewriteLegacyLinks, storedSlugForRoute, subscribe, TOOLS_PATH } from './router';
+import { RouteBoundary } from './components/ErrorBoundary';
+import { BlogList, BlogArticlePage, BlogCategoryPage } from './blog/Blog';
+import { ToolsList, ToolPage } from './tools/Tools';
+import CompetitorAnalysis, { CompetitorToolContent } from './tools/CompetitorAnalysis';
+import { AdminApp } from './cms/Admin';
+import { AdminLoginPage, AdminResetPage } from './cms/AdminLogin';
 
-// Route modules are evaluated only when visited. The production build keeps
-// them as separate chunks, so each one is a network request that can fail or
-// stall: `lazyRoute` retries the import and hands a permanent failure to
-// <RouteBoundary> instead of leaving the fallback spinner on screen forever.
-const BlogList = lazyRoute(() => import('./blog/Blog').then(m => ({ default: m.BlogList })));
-const BlogArticlePage = lazyRoute(() => import('./blog/Blog').then(m => ({ default: m.BlogArticlePage })));
-const ToolsList = lazyRoute(() => import('./tools/Tools').then(m => ({ default: m.ToolsList })));
-const ToolPage = lazyRoute(() => import('./tools/Tools').then(m => ({ default: m.ToolPage })));
-const CompetitorAnalysis = lazyRoute(() => import('./tools/CompetitorAnalysis'));
-const CompetitorToolContent = lazyRoute(() => import('./tools/CompetitorAnalysis').then(m => ({ default: m.CompetitorToolContent })));
-const AdminApp = lazyRoute(() => import('./cms/Admin').then(m => ({ default: m.AdminApp })));
-const AdminLoginPage = lazyRoute(() => import('./cms/AdminLogin').then(m => ({ default: m.AdminLoginPage })));
-const AdminResetPage = lazyRoute(() => import('./cms/AdminLogin').then(m => ({ default: m.AdminResetPage })));
+/* ---------------- route modules (all eager) ----------------
+   Every route is a plain static import, so all of them are evaluated as part
+   of the initial script and render synchronously on the very first click:
+   there is no `React.lazy`, no `<Suspense>` and no fallback anywhere in the
+   app. Switching routes swaps the content in a single React commit, so the
+   visitor never sees an empty frame, a spinner or a "Loading…" state.
+
+   Normally eager imports would mean a bigger first download — but the build is
+   one self-contained dist/index.html with `inlineDynamicImports`, so this code
+   was already part of the document. Removing the asynchronous boundary is
+   therefore free: nothing extra is downloaded, and nothing is deferred. */
 
 // Inline SVG icons for critical UI (no JS overhead)
 const InlineIcons = {
@@ -115,6 +121,23 @@ interface SEOIssue {
 interface KeywordCheck { label: string; pass: boolean; detail: string }
 interface LinkSample { href: string; internal: boolean; nofollow: boolean; anchor: string }
 
+/** One live external-mention source behind the Backlinks & Authority section. */
+interface AuthoritySignal {
+  source: string;
+  label: string;
+  value: string;
+  status: IssueType;
+  detail: string;
+}
+interface AuthorityData {
+  /** false when no public source could be reached from this network. */
+  available: boolean;
+  score: number | null;
+  firstArchived: string | null;
+  archivedMonths: number | null;
+  signals: AuthoritySignal[];
+}
+
 interface OnPageDetails {
   primaryKeyword: string;
   pageName: string;
@@ -161,7 +184,9 @@ interface AuditResult {
     mobile: { score: number; issues: SEOIssue[] };
     security: { score: number; issues: SEOIssue[] };
     performance: { score: number; issues: SEOIssue[] };
+    backlinks: { score: number; issues: SEOIssue[] };
   };
+  authority: AuthorityData;
   summary: {
     totalIssues: number;
     errors: number;
@@ -229,7 +254,7 @@ const IssueCard: React.FC<{ issue: SEOIssue; expanded: boolean; onToggle: () => 
       >
         <span className={iconColor}><IconComp /></span>
         <div className="flex-1 min-w-0">
-          <h4 className="font-semibold text-slate-800 truncate">{issue.title}</h4>
+          <h4 className="heading-card font-semibold text-slate-800 truncate">{issue.title}</h4>
           <p className="text-sm text-slate-500 line-clamp-1">{issue.description}</p>
         </div>
         <span className={`px-2 py-1 rounded-full text-xs font-medium whitespace-nowrap ${priorityClass}`}>
@@ -279,7 +304,7 @@ const CategoryCard: React.FC<{
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-white/20 rounded-lg text-white">{icon}</div>
-            <h3 className="text-lg font-semibold text-white">{title}</h3>
+            <h3 className="heading-card text-lg font-semibold text-white">{title}</h3>
           </div>
           <ScoreGauge score={score} size="sm" />
         </div>
@@ -407,7 +432,7 @@ const OnPageResults: React.FC<{ details: OnPageDetails }> = ({ details }) => {
           <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-xl flex items-center justify-center text-white">
             <CategoryIcon.onPage />
           </div>
-          <h3 className="text-2xl font-bold text-slate-900">On-Page SEO Results</h3>
+          <h3 className="font-bold text-slate-900">On-Page SEO Results</h3>
         </div>
         <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-full pl-3 pr-4 py-1.5 shadow-sm">
           <span className="text-xs text-slate-400">Primary keyword:</span>
@@ -424,7 +449,7 @@ const OnPageResults: React.FC<{ details: OnPageDetails }> = ({ details }) => {
         {/* Title Tag */}
         <article className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
           <div className="flex items-center justify-between mb-3">
-            <h4 className="font-semibold text-slate-800">Title Tag</h4>
+            <h4 className="heading-card font-semibold text-slate-800">Title Tag</h4>
             <StatusBadge status={details.titleTag.status} />
           </div>
           {details.titleTag.value ? (
@@ -451,7 +476,7 @@ const OnPageResults: React.FC<{ details: OnPageDetails }> = ({ details }) => {
         {/* Meta Description */}
         <article className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
           <div className="flex items-center justify-between mb-3">
-            <h4 className="font-semibold text-slate-800">Meta Description</h4>
+            <h4 className="heading-card font-semibold text-slate-800">Meta Description</h4>
             <StatusBadge status={details.metaDescription.status} />
           </div>
           {details.metaDescription.value ? (
@@ -478,7 +503,7 @@ const OnPageResults: React.FC<{ details: OnPageDetails }> = ({ details }) => {
         <article className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h4 className="font-semibold text-slate-800">URL Vulnerability</h4>
+              <h4 className="heading-card font-semibold text-slate-800">URL Vulnerability</h4>
               <p className="text-xs text-slate-500 mt-0.5">Checks structures that create duplicate URLs or crawl waste.</p>
             </div>
             <StatusBadge status={details.urlInfo.status} />
@@ -492,7 +517,7 @@ const OnPageResults: React.FC<{ details: OnPageDetails }> = ({ details }) => {
         {/* H1 & Heading Structure */}
         <article className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
           <div className="flex items-center justify-between mb-3">
-            <h4 className="font-semibold text-slate-800">H1 &amp; Heading Structure</h4>
+            <h4 className="heading-card font-semibold text-slate-800">H1 &amp; Heading Structure</h4>
             <StatusBadge status={details.h1.status} />
           </div>
           <div className="bg-slate-50 rounded-lg p-3 border border-slate-100 mb-4">
@@ -518,7 +543,7 @@ const OnPageResults: React.FC<{ details: OnPageDetails }> = ({ details }) => {
         {/* Images & Alt Text */}
         <article className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
           <div className="flex items-center justify-between mb-4">
-            <h4 className="font-semibold text-slate-800">Images &amp; Alt Text</h4>
+            <h4 className="heading-card font-semibold text-slate-800">Images &amp; Alt Text</h4>
             <StatusBadge status={details.images.status} />
           </div>
           <div className="grid grid-cols-3 gap-3 mb-4">
@@ -551,7 +576,7 @@ const OnPageResults: React.FC<{ details: OnPageDetails }> = ({ details }) => {
         <article className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm md:col-span-2">
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h4 className="font-semibold text-slate-800">Internal &amp; External Link Analysis</h4>
+              <h4 className="heading-card font-semibold text-slate-800">Internal &amp; External Link Analysis</h4>
               <p className="text-xs text-slate-500 mt-0.5">Crawlable links, external references and rel="nofollow" attributes.</p>
             </div>
             <div className="flex items-center gap-2">
@@ -643,7 +668,7 @@ const OnPageResults: React.FC<{ details: OnPageDetails }> = ({ details }) => {
         {/* Content & Canonical */}
         <article className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
           <div className="flex items-center justify-between mb-4">
-            <h4 className="font-semibold text-slate-800">Content &amp; Canonical</h4>
+            <h4 className="heading-card font-semibold text-slate-800">Content &amp; Canonical</h4>
             <StatusBadge status={details.wordCount.status} />
           </div>
           <div className="flex items-center gap-4 mb-4">
@@ -672,7 +697,7 @@ const OnPageResults: React.FC<{ details: OnPageDetails }> = ({ details }) => {
         {/* Social Tags & Technical Meta */}
         <article className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
           <div className="flex items-center justify-between mb-4">
-            <h4 className="font-semibold text-slate-800">Social Tags &amp; Meta</h4>
+            <h4 className="heading-card font-semibold text-slate-800">Social Tags &amp; Meta</h4>
             <StatusBadge status={details.social.status} />
           </div>
           <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide mb-2">Open Graph &amp; Twitter</p>
@@ -691,7 +716,7 @@ const OnPageResults: React.FC<{ details: OnPageDetails }> = ({ details }) => {
         {/* Keyword Optimization Checklist (full width) */}
         <article className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm md:col-span-2">
           <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
-            <h4 className="font-semibold text-slate-800">Keyword Optimization Checklist</h4>
+            <h4 className="heading-card font-semibold text-slate-800">Keyword Optimization Checklist</h4>
             <span className={`text-xs font-bold rounded-full px-3 py-1 ${checksPassed === details.keywordChecks.length ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>
               {checksPassed}/{details.keywordChecks.length} checks passed
             </span>
@@ -712,7 +737,7 @@ const OnPageResults: React.FC<{ details: OnPageDetails }> = ({ details }) => {
         {/* Keyword Density (full width) */}
         <article className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm md:col-span-2">
           <div className="flex items-center justify-between mb-4">
-            <h4 className="font-semibold text-slate-800">Top Keywords &amp; Density</h4>
+            <h4 className="heading-card font-semibold text-slate-800">Top Keywords &amp; Density</h4>
             <span className="text-xs text-slate-400">Ideal density: 1–3% · calculated against {details.wordCount.value.toLocaleString()} words</span>
           </div>
           <div className="space-y-3">
@@ -733,8 +758,89 @@ const OnPageResults: React.FC<{ details: OnPageDetails }> = ({ details }) => {
   );
 };
 
-// Generate mock audit data
-const generateMockAudit = (url: string, live: LivePageData | null = null, fetchedDomainInfo: DomainInfo | null = null): AuditResult => {
+/** DNS-over-HTTPS lookup via dns.google (CORS-open, no key). */
+const doh = async (name: string, type: string): Promise<string[] | null> => {
+  try {
+    const r = await Promise.race([
+      fetch(`https://dns.google/resolve?name=${encodeURIComponent(name)}&type=${type}`),
+      new Promise<Response>((_res, rej) => setTimeout(() => rej(new Error('doh timeout')), 6000)),
+    ]);
+    if (!r.ok) return null;
+    const j = await r.json() as { Answer?: { data: string }[] };
+    return (j.Answer || []).map(a => a.data.replace(/^"|"$/g, ''));
+  } catch { return null; }
+};
+
+interface DnsSignals { mx: number | null; spf: boolean | null; dmarc: boolean | null }
+const fetchDnsSignals = async (domain: string): Promise<DnsSignals> => {
+  const [mx, txt, dmarc] = await Promise.all([doh(domain, 'MX'), doh(domain, 'TXT'), doh(`_dmarc.${domain}`, 'TXT')]);
+  return {
+    mx: mx ? mx.length : null,
+    spf: txt ? txt.some(t => /v=spf1/i.test(t)) : null,
+    dmarc: dmarc ? dmarc.some(t => /v=DMARC1/i.test(t)) : null,
+  };
+};
+
+/** robots.txt + sitemap.xml probed through the CORS relays. */
+const fetchCrawlBasics = async (domain: string): Promise<{ robots: 'present' | 'missing' | 'unknown'; sitemap: 'present' | 'missing' | 'unknown' }> => {
+  const probe = async (path: string, okRe: RegExp): Promise<'present' | 'missing' | 'unknown'> => {
+    try {
+      const page = await Promise.race([fetchPageData(`https://${domain}${path}`), new Promise<null>(r => setTimeout(() => r(null), 6000))]);
+      if (!page) return 'unknown';
+      return okRe.test(page.html || page.bodyText || '') ? 'present' : 'missing';
+    } catch { return 'unknown'; }
+  };
+  const [robots, sitemap] = await Promise.all([
+    probe('/robots.txt', /user-agent\s*:/i),
+    probe('/sitemap.xml', /<urlset|<sitemapindex/i),
+  ]);
+  return { robots, sitemap };
+};
+
+/**
+ * Real backlink/authority evidence from public, keyless, CORS-open sources:
+ * Hacker News (Algolia), GitHub repository search, Stack Exchange search and
+ * the Internet Archive CDX (first crawl + archived months).
+ */
+const fetchAuthoritySignals = async (domain: string): Promise<AuthorityData> => {
+  const cap = <T,>(p: Promise<T>, fb: T): Promise<T> =>
+    Promise.race([p, new Promise<T>(r => setTimeout(() => r(fb), 6000))]).catch(() => fb);
+  const num = (r: Promise<Response>, pick: (j: unknown) => number | null) =>
+    r.then(res => (res.ok ? res.json() : null)).then(pick);
+  const [hn, gh, so, first, months] = await Promise.all([
+    cap(num(fetch(`https://hn.algolia.com/api/v1/search?query=${encodeURIComponent(domain)}`), j => (j && typeof (j as { nbHits?: unknown }).nbHits === 'number' ? (j as { nbHits: number }).nbHits : null)), null),
+    cap(num(fetch(`https://api.github.com/search/repositories?q=${encodeURIComponent(domain)}&per_page=1`, { headers: { Accept: 'application/vnd.github+json' } }), j => (j && typeof (j as { total_count?: unknown }).total_count === 'number' ? (j as { total_count: number }).total_count : null)), null),
+    cap(num(fetch(`https://api.stackexchange.com/2.3/search/advanced?order=desc&sort=activity&q=${encodeURIComponent(domain)}&site=stackoverflow`), j => (j && typeof (j as { total?: unknown }).total === 'number' ? (j as { total: number }).total : null)), null),
+    cap(fetch(`https://web.archive.org/cdx/search/cdx?url=${encodeURIComponent(domain)}&output=json&fl=timestamp&limit=1`).then(r => (r.ok ? r.json() : null)).then(j => (Array.isArray(j) && j[1] ? String(j[1][0]) : null)), null),
+    cap(fetch(`https://web.archive.org/cdx/search/cdx?url=${encodeURIComponent(domain)}&output=json&fl=timestamp&collapse=timestamp:6&limit=1000`).then(r => (r.ok ? r.json() : null)).then(j => (Array.isArray(j) ? Math.max(0, j.length - 1) : null)), null),
+  ]);
+  const available = [hn, gh, so, first, months].some(v => v !== null);
+  const years = first ? Math.max(0, (Date.now() - new Date(`${first.slice(0, 4)}-01-01T00:00:00Z`).getTime()) / 31557600000) : null;
+  const mention = (n: number | null, strong: number): IssueType => (n === null ? 'warning' : n >= strong ? 'success' : n >= 1 ? 'warning' : 'error');
+  const signals: AuthoritySignal[] = [
+    { source: 'Hacker News', label: 'Hacker News mentions', value: hn === null ? '—' : String(hn), status: hn === null ? 'warning' : mention(hn, 10), detail: hn === null ? 'The HN Algolia API was unreachable from your network.' : hn === 0 ? `No Hacker News stories or comments reference ${domain}.` : `${hn} Hacker News stories/comments reference ${domain} — real editorial discussion and links.` },
+    { source: 'GitHub', label: 'GitHub repositories referencing', value: gh === null ? '—' : String(gh), status: gh === null ? 'warning' : mention(gh, 10), detail: gh === null ? 'The GitHub search API was unreachable from your network.' : gh === 0 ? `No public GitHub repositories mention ${domain}.` : `${gh} public GitHub repositories mention ${domain} — developer-world citations.` },
+    { source: 'Stack Exchange', label: 'Stack Overflow questions', value: so === null ? '—' : String(so), status: so === null ? 'warning' : mention(so, 5), detail: so === null ? 'The Stack Exchange API was unreachable from your network.' : so === 0 ? `No Stack Overflow questions mention ${domain}.` : `${so} Stack Overflow questions mention ${domain}.` },
+    { source: 'Internet Archive', label: 'First archived', value: first ? `${first.slice(0, 4)}-${first.slice(4, 6)}-${first.slice(6, 8)}` : '—', status: first === null ? 'warning' : (years ?? 0) >= 5 ? 'success' : 'warning', detail: first === null ? 'The Internet Archive CDX API was unreachable.' : `The Wayback Machine first crawled ${domain} in ${first.slice(0, 4)} — ${Math.floor(years ?? 0)} years of public history.` },
+    { source: 'Internet Archive', label: 'Archived months (sample, max 1,000)', value: months === null ? '—' : String(months), status: months === null ? 'warning' : months > 0 ? 'success' : 'warning', detail: months === null ? 'Snapshot data unavailable.' : `${months} distinct months have archived snapshots of ${domain} — a proxy for long-term crawl interest.` },
+  ];
+  const ls = (n: number | null, w: number) => (n === null ? 0 : w * Math.log10(1 + n));
+  const score = available
+    ? Math.max(3, Math.min(100, Math.round(ls(hn, 22) + ls(gh, 22) + ls(so, 18) + Math.min(38, (years ?? 0) * 3))))
+    : null;
+  return { available, score, firstArchived: first, archivedMonths: months, signals };
+};
+
+/** Category score derived from its own checks instead of a dice roll. */
+const scoreFromIssues = (issues: SEOIssue[]): number => {
+  const e = issues.filter(i => i.type === 'error').length;
+  const w = issues.filter(i => i.type === 'warning').length;
+  return Math.max(5, Math.min(100, 100 - e * 18 - w * 8));
+};
+
+// Generate the audit from the live measurements (simulated values only stand in
+// when the page itself could not be fetched, and that fact is flagged).
+const generateMockAudit = (url: string, live: LivePageData | null = null, fetchedDomainInfo: DomainInfo | null = null, authority: AuthorityData | null = null, crawl: { robots: 'present' | 'missing' | 'unknown'; sitemap: 'present' | 'missing' | 'unknown' } | null = null, dns: DnsSignals | null = null): AuditResult => {
   // Deterministic seed based on URL for consistent results
   let seed = url.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0);
   const random = () => {
@@ -742,58 +848,10 @@ const generateMockAudit = (url: string, live: LivePageData | null = null, fetche
     return seed / 233280;
   };
 
-  const baseScore = Math.floor(random() * 30) + 60;
 
-  const makeIssues = (categories: Array<[string, IssueType, string, string, string, IssuePriority]>, offset: number): SEOIssue[] =>
-    categories.map((cat, i) => ({
-      id: String(offset + i),
-      type: cat[1],
-      category: cat[0],
-      title: cat[2],
-      description: cat[3],
-      recommendation: cat[4],
-      priority: cat[5],
-    }));
-
-  const onPageIssues = makeIssues([
-    ['On-Page', 'error', 'Missing Meta Description', 'The homepage is missing a meta description tag.', 'Add a compelling meta description between 150-160 characters that includes your target keywords.', 'high'],
-    ['On-Page', 'warning', 'Title Tag Too Long', 'Your title tag is 78 characters. Recommended maximum is 60.', 'Shorten your title tag to ensure it displays properly in search results.', 'medium'],
-    ['On-Page', 'success', 'H1 Tag Present', 'Your page has a properly structured H1 tag.', 'Continue using descriptive H1 tags that include target keywords.', 'low'],
-    ['On-Page', 'warning', 'Missing Alt Text on Images', '5 images are missing alt text attributes.', 'Add descriptive alt text to all images for better accessibility and SEO.', 'medium'],
-    ['On-Page', 'error', 'Duplicate Title Tags', '3 pages have identical title tags.', 'Create unique, descriptive title tags for each page.', 'high'],
-  ], 1);
-
-  const technicalIssues = makeIssues([
-    ['Technical', 'success', 'XML Sitemap Found', 'XML sitemap detected at /sitemap.xml', 'Ensure your sitemap is kept up-to-date with new content.', 'low'],
-    ['Technical', 'error', 'Broken Internal Links', '12 internal links return 404 errors.', 'Fix or remove broken links to improve user experience and crawlability.', 'high'],
-    ['Technical', 'warning', 'Redirect Chains Detected', '3 URLs have redirect chains (3+ hops).', 'Update links to point directly to the final destination.', 'medium'],
-    ['Technical', 'success', 'Robots.txt Valid', 'Robots.txt file is properly configured.', 'Regularly review robots.txt when making site changes.', 'low'],
-    ['Technical', 'warning', 'Missing Schema Markup', 'No structured data detected on key pages.', 'Implement schema.org markup for better search result appearance.', 'medium'],
-  ], 6);
-
-  const mobileIssues = makeIssues([
-    ['Mobile', 'success', 'Mobile-Friendly Design', 'Page is responsive and mobile-friendly.', 'Continue testing on various device sizes.', 'low'],
-    ['Mobile', 'warning', 'Touch Elements Too Close', 'Some clickable elements are too close together on mobile.', 'Increase spacing between interactive elements for better usability.', 'medium'],
-    ['Mobile', 'error', 'Viewport Not Configured', 'Viewport meta tag is missing or incorrect.', 'Add proper viewport meta tag: <meta name="viewport" content="width=device-width, initial-scale=1">', 'high'],
-  ], 11);
-
-  const securityIssues = makeIssues([
-    ['Security', 'success', 'HTTPS Enabled', 'Site is served over HTTPS with valid SSL certificate.', 'Ensure SSL certificate is renewed before expiration.', 'low'],
-    ['Security', 'warning', 'Mixed Content Warnings', '2 resources are loaded over HTTP on HTTPS pages.', 'Update all resource URLs to use HTTPS.', 'medium'],
-    ['Security', 'success', 'HSTS Header Present', 'HTTP Strict Transport Security header is configured.', 'Consider increasing max-age value for stronger security.', 'low'],
-  ], 14);
-
-  const performanceIssues = makeIssues([
-    ['Performance', 'warning', 'Slow LCP', 'Largest Contentful Paint is 3.2s (target: <2.5s)', 'Optimize images, reduce server response time, and eliminate render-blocking resources.', 'high'],
-    ['Performance', 'success', 'Good CLS Score', 'Cumulative Layout Shift is 0.05 (target: <0.1)', 'Continue maintaining stable layout during page load.', 'low'],
-    ['Performance', 'warning', 'High TBT', 'Total Blocking Time is 450ms (target: <300ms)', 'Reduce JavaScript execution time and break up long tasks.', 'medium'],
-    ['Performance', 'error', 'Unoptimized Images', '8 images could be compressed further, saving ~2.3MB.', 'Use modern image formats (WebP, AVIF) and implement lazy loading.', 'high'],
-  ], 17);
-
-  const allIssues = [...onPageIssues, ...technicalIssues, ...mobileIssues, ...securityIssues, ...performanceIssues];
-  const errors = allIssues.filter(i => i.type === 'error').length;
-  const warnings = allIssues.filter(i => i.type === 'warning').length;
-  const passed = allIssues.filter(i => i.type === 'success').length;
+  // Issue lists are derived further down from the measured onPageDetails
+  // values (and the live robots/sitemap/DNS/authority probes), so every
+  // finding quotes a real measurement instead of canned copy.
 
   // ---------- Parse the EXACT URL the user submitted ----------
   let workUrl = url.trim();
@@ -1114,18 +1172,188 @@ const generateMockAudit = (url: string, live: LivePageData | null = null, fetche
     keywords,
   };
 
+  // ---------- Derive every issue from the measurements ----------
+  const d = onPageDetails;
+  let issueId = 0;
+  const iss = (type: IssueType, category: string, title: string, description: string, recommendation: string, priority: IssuePriority): SEOIssue =>
+    ({ id: String(++issueId), type, category, title, description, recommendation, priority });
+  const onPageIssues: SEOIssue[] = [];
+  const technicalIssues: SEOIssue[] = [];
+  const mobileIssues: SEOIssue[] = [];
+  const securityIssues: SEOIssue[] = [];
+  const performanceIssues: SEOIssue[] = [];
+  const backlinkIssues: SEOIssue[] = [];
+
+  if (!live) onPageIssues.push(iss('warning', 'On-Page', 'Live page could not be fetched', `${fullUrl} was unreachable through every relay, so the on-page numbers below are estimates rather than measurements.`, 'Re-run the audit; the site may block proxy crawlers.', 'medium'));
+
+  onPageIssues.push(
+    d.titleTag.status === 'success'
+      ? iss('success', 'On-Page', 'Title tag well sized', `“${d.titleTag.value.slice(0, 80)}” — ${d.titleTag.length} characters, within the 30–60 range search results show in full.`, 'Keep every page title unique and keyword-led.', 'low')
+      : d.titleTag.status === 'error'
+        ? iss('error', 'On-Page', d.titleTag.length === 0 ? 'Missing title tag' : `Title tag too ${d.titleTag.length > 70 ? 'long' : 'short'}`, d.titleTag.length === 0 ? 'The page has no <title> at all.' : `Title is ${d.titleTag.length} characters; ${d.titleTag.length > 70 ? 'anything past ~70 is truncated in results.' : 'under 30 wastes the result line.'}`, 'Rewrite to 30–60 characters with the primary keyword near the start.', 'high')
+        : iss('warning', 'On-Page', 'Title tag length off-target', `Title is ${d.titleTag.length} characters — usable, but not optimal.`, 'Aim for 30–60 characters.', 'medium'));
+
+  onPageIssues.push(
+    d.metaDescription.status === 'success'
+      ? iss('success', 'On-Page', 'Meta description well sized', `${d.metaDescription.length} characters — inside the 120–160 window.`, 'Make every description a compelling ad for the page.', 'low')
+      : d.metaDescription.status === 'error'
+        ? iss('error', 'On-Page', d.metaDescription.length === 0 ? 'Missing meta description' : 'Meta description too long', d.metaDescription.length === 0 ? 'No meta description tag was found.' : `Description is ${d.metaDescription.length} characters; search snippets cut off around 160.`, 'Write a 120–160 character description including the primary keyword.', 'high')
+        : iss('warning', 'On-Page', 'Meta description too short', `Description is only ${d.metaDescription.length} characters.`, 'Expand to 120–160 characters.', 'medium'));
+
+  onPageIssues.push(
+    d.h1.status === 'success'
+      ? iss('success', 'On-Page', 'Exactly one H1', `“${d.h1.value.slice(0, 80)}” — a single, properly structured H1.`, 'Keep one H1 per page, mirroring the title topic.', 'low')
+      : iss('error', 'On-Page', d.h1.count === 0 ? 'No H1 heading' : `${d.h1.count} H1 headings`, d.h1.count === 0 ? 'The page has no H1 heading.' : 'Multiple H1s dilute the page topic.', 'Use exactly one H1 that states the page topic.', 'high'));
+
+  onPageIssues.push(
+    d.images.total === 0
+      ? iss('warning', 'On-Page', 'No images detected', 'The page markup contains no <img> tags — visual content aids engagement and image search.', 'Add relevant images with descriptive alt text.', 'low')
+      : d.images.status === 'success'
+        ? iss('success', 'On-Page', 'All images have alt text', `${d.images.total} images, none missing alt attributes${d.images.altWithKeyword ? `; ${d.images.altWithKeyword} use the keyword` : ''}.`, 'Keep alt text descriptive, not keyword-stuffed.', 'low')
+        : iss(d.images.status === 'error' ? 'error' : 'warning', 'On-Page', `${d.images.missingAlt} of ${d.images.total} images missing alt text`, 'Missing alt attributes hurt accessibility and image search.', 'Add descriptive alt text to every image.', d.images.status === 'error' ? 'high' : 'medium'));
+
+  onPageIssues.push(
+    d.wordCount.status === 'success'
+      ? iss('success', 'On-Page', 'Substantial content', `${d.wordCount.value.toLocaleString()} words of visible text — above the 600-word benchmark.`, 'Keep the copy current and genuinely useful.', 'low')
+      : iss('warning', 'On-Page', 'Thin content', `Only ${d.wordCount.value.toLocaleString()} words of visible text (600+ is the usual benchmark).`, 'Expand the page with original, useful copy.', 'medium'));
+
+  onPageIssues.push(
+    d.canonical.status === 'success'
+      ? iss('success', 'On-Page', 'Self-referencing canonical', `Canonical points at ${d.canonical.value}.`, 'No action needed.', 'low')
+      : iss('warning', 'On-Page', 'Canonical does not match this URL', `Canonical is ${d.canonical.value} but the audited URL is ${fullUrl}.`, 'Point the canonical at the preferred version of this exact page.', 'medium'));
+
+  const ogMissing = [!d.social.ogTitle && 'og:title', !d.social.ogDescription && 'og:description', !d.social.ogImage && 'og:image', !d.social.ogUrl && 'og:url', !d.social.twitterCard && 'twitter:card'].filter(Boolean) as string[];
+  onPageIssues.push(ogMissing.length === 0
+    ? iss('success', 'On-Page', 'Complete social sharing tags', 'og:title, og:description, og:image, og:url and twitter:card are all present.', 'No action needed.', 'low')
+    : iss(ogMissing.length > 2 ? 'error' : 'warning', 'On-Page', 'Incomplete Open Graph tags', `Missing ${ogMissing.join(', ')} — shares will render as bare links.`, 'Add the missing tags so social previews look professional.', 'medium'));
+
+  onPageIssues.push(d.links.internal === 0
+    ? iss('warning', 'On-Page', 'No internal links found', 'The page links to no other page on the site — a dead end for crawlers and users.', 'Add contextual internal links to key pages.', 'medium')
+    : iss('success', 'On-Page', 'Internal linking measured', `${d.links.internal} internal and ${d.links.external} external links; ${d.links.nofollow} carry rel="nofollow".`, 'Keep primary navigation crawlable (avoid sitewide nofollow).', 'low'));
+
+  if (!d.titleTag.keywordPresent && d.titleTag.length) onPageIssues.push(iss('warning', 'On-Page', 'Keyword missing from title', `Primary keyword “${d.primaryKeyword}” does not appear in the title tag.`, 'Add the keyword near the start of the title.', 'medium'));
+  if (!d.metaDescription.keywordPresent && d.metaDescription.length) onPageIssues.push(iss('warning', 'On-Page', 'Keyword missing from meta description', `“${d.primaryKeyword}” is absent from the description snippet.`, 'Weave the keyword into the description naturally.', 'low'));
+  if (!d.h1.keywordPresent && d.h1.count) onPageIssues.push(iss('warning', 'On-Page', 'Keyword missing from H1', 'The H1 does not contain the primary keyword.', 'Mirror the title topic in the H1.', 'low'));
+
+  // ---------- Technical ----------
+  technicalIssues.push(/noindex/i.test(d.metaTags.robots)
+    ? iss('error', 'Technical', 'Robots meta blocks indexing', `The page meta robots is “${d.metaTags.robots}” — search engines will drop it.`, 'Remove noindex unless the page must stay private.', 'high')
+    : iss('success', 'Technical', 'Indexable robots meta', `Meta robots “${d.metaTags.robots || 'not set (indexable by default)'}”.`, 'No action needed.', 'low'));
+  technicalIssues.push(d.metaTags.charset
+    ? iss('success', 'Technical', 'Character encoding declared', 'A charset meta/HTTP declaration was found.', 'Keep UTF-8 declared first in <head>.', 'low')
+    : iss('warning', 'Technical', 'Charset not declared', 'No character-encoding declaration detected.', 'Add <meta charset="utf-8"> as the first head element.', 'medium'));
+  technicalIssues.push(d.metaTags.lang
+    ? iss('success', 'Technical', 'Language declared', 'The html element carries a lang attribute.', 'Add hreflang if you serve multiple locales.', 'low')
+    : iss('warning', 'Technical', 'No lang attribute', 'The html tag declares no language.', 'Set lang (e.g. lang="en") on the html element.', 'low'));
+  technicalIssues.push(d.favicon
+    ? iss('success', 'Technical', 'Favicon linked', 'A favicon reference was found in the markup.', 'Serve it over HTTPS at a stable URL.', 'low')
+    : iss('warning', 'Technical', 'No favicon reference', 'No favicon link detected — browsers still request /favicon.ico.', 'Link a favicon explicitly for brand consistency in tabs and results.', 'low'));
+  const rb = crawl?.robots ?? 'unknown';
+  technicalIssues.push(rb === 'present'
+    ? iss('success', 'Technical', 'robots.txt found', `https://${domain}/robots.txt answers with crawler rules.`, 'Reference the sitemap from robots.txt and review it when sections change.', 'low')
+    : rb === 'missing'
+      ? iss('warning', 'Technical', 'No robots.txt', `https://${domain}/robots.txt returned no crawler rules.`, 'Publish a robots.txt and reference your XML sitemap.', 'medium')
+      : iss('warning', 'Technical', 'robots.txt could not be probed', 'The relay probe could not reach robots.txt this run.', `Re-run, or fetch https://${domain}/robots.txt manually.`, 'medium'));
+  const sm = crawl?.sitemap ?? 'unknown';
+  technicalIssues.push(sm === 'present'
+    ? iss('success', 'Technical', 'XML sitemap found', `https://${domain}/sitemap.xml is a valid urlset/sitemapindex.`, 'Keep it updated and submitted in Search Console.', 'low')
+    : sm === 'missing'
+      ? iss('warning', 'Technical', 'No XML sitemap at /sitemap.xml', 'The default sitemap path returned no urlset.', 'Generate a sitemap and reference it in robots.txt.', 'medium')
+      : iss('warning', 'Technical', 'Sitemap could not be probed', 'The relay probe could not reach sitemap.xml this run.', `Re-run, or fetch https://${domain}/sitemap.xml manually.`, 'medium'));
+  if (live) technicalIssues.push(live.hasJsonLd
+    ? iss('success', 'Technical', 'Structured data (JSON-LD) detected', 'Schema.org JSON-LD was found in the page source.', 'Extend with Organization/WebSite/Breadcrumb markup.', 'low')
+    : iss('warning', 'Technical', 'No structured data', 'No JSON-LD schema found in the source.', 'Add schema.org markup for rich-result eligibility.', 'medium'));
+
+  // ---------- Mobile ----------
+  mobileIssues.push(d.metaTags.viewport
+    ? iss('success', 'Mobile', 'Viewport configured', 'A width=device-width viewport meta is present — the page lays out at device width.', 'Check tap-target spacing on a real phone.', 'low')
+    : iss('error', 'Mobile', 'Viewport not configured', 'Missing/invalid viewport meta — phones render the page zoomed out.', 'Add <meta name="viewport" content="width=device-width, initial-scale=1">.', 'high'));
+  if (live) mobileIssues.push(live.smallFontRisk
+    ? iss('warning', 'Mobile', 'Small-font risk', 'The markup suggests very small base type, hard to read on phones.', 'Use 16px+ body text.', 'medium')
+    : iss('success', 'Mobile', 'Readable type sizes', 'No small-font risk detected in the markup.', 'Keep body copy at 16px+.', 'low'));
+
+  // ---------- Security ----------
+  securityIssues.push(https
+    ? iss('success', 'Security', 'Served over HTTPS', 'The audited URL uses TLS.', 'Renew certificates before expiry.', 'low')
+    : iss('error', 'Security', 'Not HTTPS', 'The audited URL is plain HTTP — browsers flag it as not secure.', 'Install TLS and 301 all HTTP traffic to HTTPS.', 'high'));
+  const mixed = live ? (live.html.match(/(?:src|href)=["']http:\/\/(?!www\.w3\.org)/gi) || []).length : null;
+  if (mixed !== null) securityIssues.push(mixed === 0
+    ? iss('success', 'Security', 'No mixed content', 'No http:// asset references found in the HTTPS markup.', 'Keep new assets on https URLs.', 'low')
+    : iss('warning', 'Security', `${mixed} insecure resource reference${mixed > 1 ? 's' : ''}`, 'The markup loads assets over http:// on an HTTPS page — browsers may block them.', 'Switch every asset URL to HTTPS.', 'medium'));
+  securityIssues.push(dns?.mx == null
+    ? iss('warning', 'Security', 'Mail records unknown', 'The DNS (DoH) lookup for MX records did not complete this run.', 'Re-run, or check MX at dns.google.', 'medium')
+    : dns.mx > 0
+      ? iss('success', 'Security', 'Email infrastructure present', `${dns.mx} MX record${dns.mx > 1 ? 's' : ''} found — the domain can receive mail.`, 'Publish SPF and DMARC alongside MX.', 'low')
+      : iss('warning', 'Security', 'No MX record', 'DNS returns no MX record — email to the domain will not deliver.', 'Add MX records if the domain should receive mail.', 'medium'));
+  securityIssues.push(dns?.spf == null
+    ? iss('warning', 'Security', 'SPF record unknown', 'The TXT lookup did not complete this run.', 'Re-run, or check TXT at dns.google.', 'medium')
+    : dns.spf
+      ? iss('success', 'Security', 'SPF published', 'A v=spf1 TXT record authorises your senders.', 'Keep SPF within 10 DNS lookups.', 'low')
+      : iss('warning', 'Security', 'No SPF record', 'No v=spf1 TXT record — anyone can spoof the domain in email.', 'Publish an SPF record for the domain.', 'medium'));
+  securityIssues.push(dns?.dmarc == null
+    ? iss('warning', 'Security', 'DMARC record unknown', 'The _dmarc TXT lookup did not complete this run.', 'Re-run, or check _dmarc.' + domain + ' at dns.google.', 'medium')
+    : dns.dmarc
+      ? iss('success', 'Security', 'DMARC published', 'A v=DMARC1 policy protects the domain from spoofing.', 'Move toward p=reject once monitoring is clean.', 'low')
+      : iss('warning', 'Security', 'No DMARC record', 'No v=DMARC1 record at _dmarc.' + domain + '.', 'Start with p=none monitoring, then tighten.', 'medium'));
+
+  // ---------- Performance (markup-derived) ----------
+  if (live) {
+    performanceIssues.push(live.scripts > 40
+      ? iss('warning', 'Performance', `${live.scripts} script tags on the page`, `${live.externalScripts} external scripts — heavy JS slows first paint.`, 'Defer non-critical JS; consolidate tag managers.', 'medium')
+      : iss('success', 'Performance', 'Reasonable script count', `${live.scripts} script tags (${live.externalScripts} external).`, 'Continue deferring non-critical JS.', 'low'));
+    performanceIssues.push(live.stylesheets > 8
+      ? iss('warning', 'Performance', `${live.stylesheets} stylesheets`, 'Many blocking stylesheets delay first render.', 'Inline critical CSS; merge the rest.', 'medium')
+      : iss('success', 'Performance', 'Stylesheet count healthy', `${live.stylesheets} linked stylesheets.`, 'No action needed.', 'low'));
+    performanceIssues.push(live.iframes > 2
+      ? iss('warning', 'Performance', `${live.iframes} iframes embedded`, 'Iframes are expensive to load and often invisible to SEO.', 'Lazy-load or replace heavy embeds.', 'medium')
+      : iss('success', 'Performance', 'Few or no iframes', `${live.iframes} iframes on the page.`, 'No action needed.', 'low'));
+    performanceIssues.push(live.imagesWithoutDimensions > 0
+      ? iss('warning', 'Performance', `${live.imagesWithoutDimensions} images without width/height`, 'Missing dimensions cause layout shift while images load.', 'Add width/height attributes (or aspect-ratio CSS).', 'medium')
+      : iss('success', 'Performance', 'Images declare dimensions', 'No dimension-less images detected — layout shift risk is low.', 'Keep explicit dimensions on all media.', 'low'));
+    performanceIssues.push(live.textRatio < 0.05
+      ? iss('warning', 'Performance', `Low text-to-HTML ratio (${(live.textRatio * 100).toFixed(1)}%)`, 'Most of the payload is markup/script rather than content.', 'Trim wrapper markup; server-render key content.', 'medium')
+      : iss('success', 'Performance', 'Healthy text-to-HTML ratio', `${(live.textRatio * 100).toFixed(1)}% of the payload is visible text.`, 'No action needed.', 'low'));
+  } else {
+    performanceIssues.push(iss('warning', 'Performance', 'Performance checks skipped', 'The page could not be fetched, so markup-weight checks did not run.', 'Re-run when the site is reachable.', 'medium'));
+  }
+
+  // ---------- Backlinks & authority (live public sources only) ----------
+  const auth: AuthorityData = authority ?? { available: false, score: null, firstArchived: null, archivedMonths: null, signals: [] };
+  for (const s of auth.signals) {
+    backlinkIssues.push(iss(s.status, 'Backlinks', s.label, s.detail,
+      s.status === 'success' ? 'Healthy external footprint — keep earning genuine mentions.' : 'Earn genuine mentions: publish linkable research, tools and guides; appear where your audience links.',
+      s.status === 'error' ? 'medium' : 'low'));
+  }
+  if (!auth.available) backlinkIssues.push(iss('warning', 'Backlinks', 'Authority sources unreachable this run', 'None of the public mention APIs (Hacker News, GitHub, Stack Exchange, Internet Archive) answered from your network.', 'Re-run on an open network — counts are never invented.', 'medium'));
+
+  // ---------- Scores derived from each category's own checks ----------
+  const onPageScore = scoreFromIssues(onPageIssues);
+  const technicalScore = scoreFromIssues(technicalIssues);
+  const mobileScore = scoreFromIssues(mobileIssues);
+  const securityScore = scoreFromIssues(securityIssues);
+  const performanceScore = scoreFromIssues(performanceIssues);
+  const backlinksScore = auth.available ? (auth.score ?? scoreFromIssues(backlinkIssues)) : 0;
+  const overallScore = Math.round(onPageScore * 0.25 + technicalScore * 0.2 + securityScore * 0.2 + mobileScore * 0.15 + performanceScore * 0.1 + backlinksScore * 0.1);
+
+  const allIssues = [...onPageIssues, ...technicalIssues, ...mobileIssues, ...securityIssues, ...performanceIssues, ...backlinkIssues];
+  const errors = allIssues.filter(i => i.type === 'error').length;
+  const warnings = allIssues.filter(i => i.type === 'warning').length;
+  const passed = allIssues.filter(i => i.type === 'success').length;
+
   return {
     url,
-    overallScore: baseScore,
+    overallScore,
     timestamp: Date.now(),
     domainInfo,
     onPageDetails,
+    authority: auth,
     categories: {
-      onPage: { score: Math.floor(random() * 25) + 65, issues: onPageIssues },
-      technical: { score: Math.floor(random() * 25) + 60, issues: technicalIssues },
-      mobile: { score: Math.floor(random() * 20) + 70, issues: mobileIssues },
-      security: { score: Math.floor(random() * 15) + 75, issues: securityIssues },
-      performance: { score: Math.floor(random() * 25) + 55, issues: performanceIssues },
+      onPage: { score: onPageScore, issues: onPageIssues },
+      technical: { score: technicalScore, issues: technicalIssues },
+      mobile: { score: mobileScore, issues: mobileIssues },
+      security: { score: securityScore, issues: securityIssues },
+      performance: { score: performanceScore, issues: performanceIssues },
+      backlinks: { score: backlinksScore, issues: backlinkIssues },
     },
     summary: { totalIssues: allIssues.length, errors, warnings, passed },
   };
@@ -1183,6 +1411,7 @@ const buildAuditReportHtml = (report: AuditResult): string => {
   <header class="head"><div class="brand">SEO Audit Tool</div><h1>Website SEO Audit Report</h1><div class="url">${escapeReportHtml(report.url)}</div><div class="meta">Generated ${escapeReportHtml(date)} · ${escapeReportHtml(scoreLabel)}</div></header>
   <section class="summary"><div class="scorebox"><b>${report.overallScore}</b><span>Overall score</span></div><div class="cards"><div class="card total"><small>Total checks</small><b>${report.summary.totalIssues}</b></div><div class="card errors"><small>Errors</small><b>${report.summary.errors}</b></div><div class="card warnings"><small>Warnings</small><b>${report.summary.warnings}</b></div><div class="card passed"><small>Passed</small><b>${report.summary.passed}</b></div></div></section>
   <section class="section"><div class="section-head"><h2>Domain Information</h2><span class="score">${domain.live ? 'RDAP registry data' : 'Registry unavailable'}</span></div><div class="grid"><div class="datum"><small>Domain</small><b>${escapeReportHtml(domain.domain)}</b></div><div class="datum"><small>Current registration age</small><b>${escapeReportHtml(domain.ageLabel)}</b><small>Created ${escapeReportHtml(domain.registered || 'date unavailable')}</small></div><div class="datum"><small>Expiry date</small><b class="${domain.daysToExpiry !== null && domain.daysToExpiry < 30 ? 'bad' : ''}">${escapeReportHtml(domain.expiry || 'Unavailable')}</b><small>${domain.daysToExpiry === null ? 'Expiry unavailable' : `${domain.daysToExpiry} days remaining`}</small></div><div class="datum"><small>Registrar</small><b>${escapeReportHtml(domain.registrar || 'Unavailable')}</b><small>${domain.dnssec === null ? 'DNSSEC unknown' : domain.dnssec ? 'DNSSEC enabled' : 'DNSSEC not signed'}</small></div></div><p style="color:#64748b;font-size:9px;margin:8px 0 0">Current registration age is calculated from the registry creation event. If a domain expired and was re-registered, RDAP cannot prove its first-ever historical creation date.</p></section>
+  <section class="section"><div class="section-head"><h2>Backlinks &amp; Authority Signals</h2><span class="score">${report.authority.available ? `${report.authority.score ?? 0}/100` : 'Sources unreachable'}</span></div><div class="grid">${report.authority.signals.map(s => `<div class="datum"><small>${escapeReportHtml(s.label)}</small><b class="${s.status === 'success' ? 'fine' : s.status === 'warning' ? 'warn' : 'bad'}">${escapeReportHtml(s.value)}</b><small>${escapeReportHtml(s.detail)}</small></div>`).join('')}</div><p style="color:#64748b;font-size:9px;margin:8px 0 0">Live mention counts from Hacker News, GitHub, Stack Exchange and the Internet Archive; fetched at audit time, never invented.</p></section>
   <section class="section"><div class="section-head"><h2>URL Vulnerability</h2><span class="score">${escapeReportHtml(detail.urlInfo.full)}</span></div><div class="split"><div>${urlChecks.slice(0,4).map(([label, ok]) => `<div class="check"><span class="${ok ? 'yes' : 'no'}">${ok ? '✓' : '×'}</span>${escapeReportHtml(label as string)}</div>`).join('')}</div><div>${urlChecks.slice(4).map(([label, ok]) => `<div class="check"><span class="${ok ? 'yes' : 'no'}">${ok ? '✓' : '×'}</span>${escapeReportHtml(label as string)}</div>`).join('')}</div></div></section>
   <section class="section"><div class="section-head"><h2>Internal & External Link Analysis</h2><span class="score">${linkTotal} unique links</span></div><div class="grid"><div class="datum"><small>Internal</small><b>${detail.links.internal}</b><small>${detail.links.internalNofollow} nofollow</small></div><div class="datum"><small>External</small><b>${detail.links.external}</b><small>${detail.links.externalNofollow} nofollow</small></div><div class="datum"><small>Total nofollow</small><b>${detail.links.nofollow}</b><small>rel="nofollow" attributes</small></div><div class="datum"><small>Broken links</small><b class="${detail.links.broken === null ? 'warn' : detail.links.broken ? 'bad' : 'fine'}">${detail.links.broken === null ? 'Not crawled' : detail.links.broken}</b><small>${detail.links.broken === null ? 'Use a full crawl to verify' : detail.links.broken ? 'Fix crawl errors' : 'No broken links found'}</small></div></div><div class="split"><div><h3 style="font-size:12px;margin:12px 0 0">Internal URLs (sample)</h3><ul class="url-list">${internalUrls.length ? internalUrls.map(link => `<li><b>${escapeReportHtml(link.anchor)}${link.nofollow ? ' <em class="nofollow">nofollow</em>' : ''}</b><span>${escapeReportHtml(link.href)}</span></li>`).join('') : '<li><span>No internal URL samples available.</span></li>'}</ul></div><div><h3 style="font-size:12px;margin:12px 0 0">External URLs (sample)</h3><ul class="url-list">${externalUrls.length ? externalUrls.map(link => `<li><b>${escapeReportHtml(link.anchor)}${link.nofollow ? ' <em class="nofollow">nofollow</em>' : ''}</b><span>${escapeReportHtml(link.href)}</span></li>`).join('') : '<li><span>No external URL samples available.</span></li>'}</ul></div></div></section>
   ${findings}
@@ -1279,36 +1508,84 @@ const AudienceIcon: React.FC<{ type: string }> = ({ type }) => {
 };
 
 // Routing lives in src/router.ts — the route is derived from the clean URL
-// pathname (/tools, /blog/slug, /about, …). Legacy #/ hash links are rewritten
-// to it before the first render, and .htaccess 301s the old /p/… paths.
+// pathname (/free-seo-tools, /blog/slug, /about, …). Legacy #/ hash links are
+// rewritten to it before the first render, and .htaccess 301s both the old
+// /p/… paths and /tools → /free-seo-tools.
 
-// Footer social links — placeholder platform URLs, replace with real profiles.
-const footerSocials = [
-  { label: 'X (Twitter)', href: 'https://x.com/', icon: () => (<svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zM17.083 19.77h1.833L7.084 4.126H5.117z" /></svg>) },
-  { label: 'Facebook', href: 'https://www.facebook.com/', icon: () => (<svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" /></svg>) },
+/** The five social profiles the CMS can fill in (Admin → Sections & Nav →
+ *  Brand & footer). A blank URL hides that icon, so the footer only ever
+ *  links to profiles the site owner actually configured. */
+const SOCIAL_META: { key: keyof SocialLinks; label: string; icon: React.FC }[] = [
+  { key: 'facebook', label: 'Facebook', icon: () => (<svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" /></svg>) },
+  { key: 'x', label: 'X (Twitter)', icon: () => (<svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zM17.083 19.77h1.833L7.084 4.126H5.117z" /></svg>) },
+  { key: 'linkedin', label: 'LinkedIn', icon: () => (<svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M20.45 20.45h-3.55v-5.57c0-1.33-.02-3.04-1.85-3.04-1.85 0-2.13 1.45-2.13 2.94v5.67H9.36V9h3.41v1.56h.05c.47-.9 1.63-1.85 3.36-1.85 3.6 0 4.27 2.37 4.27 5.45v6.29zM5.34 7.43a2.06 2.06 0 1 1 0-4.12 2.06 2.06 0 0 1 0 4.12zm1.78 13.02H3.56V9h3.56v11.45zM22.22 0H1.77C.79 0 0 .77 0 1.72v20.56C0 23.23.79 24 1.77 24h20.45c.98 0 1.78-.77 1.78-1.72V1.72C24 .77 23.2 0 22.22 0z" /></svg>) },
+  { key: 'instagram', label: 'Instagram', icon: () => (<svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2.16c3.2 0 3.58.01 4.85.07 1.17.05 1.8.25 2.23.41.56.22.96.48 1.38.9.42.42.68.82.9 1.38.16.42.36 1.06.41 2.23.06 1.27.07 1.65.07 4.85s-.01 3.58-.07 4.85c-.05 1.17-.25 1.8-.41 2.23-.22.56-.48.96-.9 1.38-.42.42-.82.68-1.38.9-.42.16-1.06.36-2.23.41-1.27.06-1.65.07-4.85.07s-3.58-.01-4.85-.07c-1.17-.05-1.8-.25-2.23-.41a3.7 3.7 0 0 1-1.38-.9 3.7 3.7 0 0 1-.9-1.38c-.16-.42-.36-1.06-.41-2.23C2.17 15.58 2.16 15.2 2.16 12s.01-3.58.07-4.85c.05-1.17.25-1.8.41-2.23.22-.56.48-.96.9-1.38.42-.42.82-.68 1.38-.9.42-.16 1.06-.36 2.23-.41C8.42 2.17 8.8 2.16 12 2.16Zm0 3.68a6.16 6.16 0 1 0 0 12.32 6.16 6.16 0 0 0 0-12.32Zm0 10.16a4 4 0 1 1 0-8 4 4 0 0 1 0 8Zm7.85-10.4a1.44 1.44 0 1 1-2.88 0 1.44 1.44 0 0 1 2.88 0Z" /></svg>) },
+  { key: 'youtube', label: 'YouTube', icon: () => (<svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M23.5 6.2a3.02 3.02 0 0 0-2.12-2.14C19.5 3.55 12 3.55 12 3.55s-7.5 0-9.38.51A3.02 3.02 0 0 0 .5 6.2C0 8.09 0 12 0 12s0 3.91.5 5.8a3.02 3.02 0 0 0 2.12 2.14c1.88.51 9.38.51 9.38.51s7.5 0 9.38-.51a3.02 3.02 0 0 0 2.12-2.14C24 15.91 24 12 24 12s0-3.91-.5-5.8ZM9.55 15.57V8.43L15.82 12l-6.27 3.57Z" /></svg>) },
 ];
 
+/** The three legal documents on their canonical short URLs, as shown in the
+ *  footer's bottom bar. `short` is the compact label; the full title stays as
+ *  the tooltip / accessible name. */
+const FOOTER_LEGAL_LINKS: { label: string; short: string; href: string }[] = [
+  { label: 'Privacy Policy', short: 'Privacy', href: '/privacy' },
+  { label: 'Cookie Policy', short: 'Cookie', href: '/cookies' },
+  { label: 'Terms & Conditions', short: 'Terms', href: '/terms' },
+];
+
+/**
+ * Jump to a scroll offset without animating. `html { scroll-behavior: smooth }`
+ * is set for in-page anchors, but a route change must land instantly — an
+ * animated scroll just after a page swap reads as a flash of the wrong
+ * position.
+ */
+const scrollInstantly = (top: number): void => {
+  const root = document.documentElement;
+  const previous = root.style.scrollBehavior;
+  root.style.scrollBehavior = 'auto';
+  window.scrollTo(0, Math.max(0, top));
+  root.style.scrollBehavior = previous;
+};
+
 type Crumb = { label: string; href?: string };
+
+/** Home › <category page> › <tool>, used by every tool URL. */
+const toolCrumbs = (home: Crumb, slug: string, state: ReturnType<typeof useCms>['state']): Crumb[] => {
+  const tool = state.tools.find(t => t.slug === slug);
+  const catLabel = tool ? toolCategoryName(state, tool.category) : 'Free SEO Tools';
+  const catHref = tool ? toolCategoryHref(state, tool.category) : TOOLS_PATH;
+  return [home, { label: catLabel, href: catHref }, { label: tool?.name || 'Tool' }];
+};
 const SiteBreadcrumbs: React.FC<{ route: string }> = ({ route }) => {
   const { state } = useCms();
   const crumbs: Crumb[] = (() => {
     const home: Crumb = { label: 'Home', href: '/' };
     if (route === 'home') return [];
     if (route === 'free-tools' || route === 'tools') return [home, { label: 'Free SEO Tools' }];
-    if (route.startsWith('tool/')) {
-      const tool = state.tools.find(t => t.slug === route.slice(5));
-      const catLabel = tool ? (categoryLabels[tool.category] || 'Free SEO Tools') : 'Free SEO Tools';
-      const catHref = tool ? `/free-tools?cat=${tool.category}` : '/free-tools';
-      return [home, { label: catLabel, href: catHref }, { label: tool?.name || 'Tool' }];
+    if (route.startsWith('cat/')) {
+      const cat = categoryKeyOfRoute(route) || route.slice(4);
+      return [home, { label: 'Free SEO Tools', href: TOOLS_PATH }, { label: cat ? toolCategoryName(state, cat) : 'Tools' }];
+    }
+    if (route.startsWith('toolcat/')) {
+      const slug = route.slice('toolcat/'.length);
+      return [home, { label: 'Free SEO Tools', href: TOOLS_PATH }, { label: resolveToolCategory(state, slug)?.name || 'Tools' }];
+    }
+    if (route.startsWith('tool/')) return toolCrumbs(home, route.slice(5), state);
+    // root slug: a tool page (or a CMS page, handled below)
+    if (route.startsWith('p/') && state.tools.some(t => t.slug === route.slice(2))) {
+      return toolCrumbs(home, route.slice(2), state);
     }
     if (route === 'blog') return [home, { label: 'Blog' }];
+    if (route.startsWith('blogcat/')) {
+      const cat = (state.blogCategories || []).find(c => c.slug === route.slice('blogcat/'.length));
+      return [home, { label: 'Blog', href: '/blog' }, { label: cat?.name || 'Category' }];
+    }
     if (route.startsWith('blog/')) {
       const post = state.posts.find(p => p.slug === route.slice(5));
       return [home, { label: 'Blog', href: '/blog' }, { label: post?.title || 'Article' }];
     }
     if (route === 'competitor-analysis') return [home, { label: 'Competitor Analysis' }];
     if (route.startsWith('p/')) {
-      const page = findPage(state, route.slice(2));
+      const page = findPage(state, storedSlugForRoute(route.slice(2)));
       return [home, { label: page?.title || 'Page' }];
     }
     if (route === 'admin') return [home, { label: 'Admin' }];
@@ -1368,12 +1645,26 @@ const SiteApp: React.FC = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [cookiePrefsOpen, setCookiePrefsOpen] = useState(false);
   const [route, setRoute] = useState<string>(getRoute);
+  // Bumped on every navigation that lands on home, so a logo/Home click while
+  // the audit report is open both clears it and re-runs the scroll effect
+  // (the route string alone stays 'home' and would not trigger either).
+  const [homeTick, setHomeTick] = useState(0);
 
   useEffect(() => {
     // Follow clean-URL navigation (intercepted link clicks + back/forward).
     return subscribe(r => {
       setRoute(r);
       setMobileMenuOpen(false);
+      // Landing on home always shows the fresh landing page: a logo or Home
+      // click (or any other navigation back here) dismisses an open audit
+      // report, and bumping the run counter discards any in-flight analysis.
+      if (r === 'home') {
+        auditRuns.current += 1;
+        setIsAnalyzing(false);
+        setResult(null);
+        setAuditError('');
+        setHomeTick(t => t + 1);
+      }
     });
   }, []);
 
@@ -1390,22 +1681,44 @@ const SiteApp: React.FC = () => {
     return () => document.removeEventListener('keydown', onKey);
   }, [mobileMenuOpen]);
 
-  useEffect(() => {
-    // Plain in-page fragments (#features, #audiences) scroll to their section;
-    // every other navigation starts from the top.
+  // Scroll handling runs in a layout effect, so it happens in the same frame as
+  // the route swap: the new page is never painted at the previous page's offset
+  // and then yanked to the top.
+  useLayoutEffect(() => {
+    const kind = lastNavigationKind();
+    // A fragment (#features, #audiences) jumps straight to its section.
     const frag = window.location.hash.slice(1);
     if (frag) {
       const el = document.getElementById(frag);
       if (el) {
-        el.scrollIntoView();
+        scrollInstantly(window.scrollY + el.getBoundingClientRect().top - 96); // 96px = scroll-padding-top
         return;
       }
     }
-    window.scrollTo(0, 0);
-  }, [route]);
+    // Back/forward and the first paint keep the reader's position — the browser
+    // restores it, and forcing the top would throw it away.
+    if (kind === 'pop' || kind === 'init') return;
+    // A link click opens the new page at the top, immediately.
+    scrollInstantly(0);
+    // homeTick: re-runs this effect when a logo/Home click lands on home while
+    // already there (route string unchanged) so the cleared report also jumps
+    // back to the top of the landing page.
+  }, [route, homeTick]);
 
-  const isBlog = route === 'blog' || route.startsWith('blog/');
-  const isTools = route === 'free-tools' || route === 'tools' || route.startsWith('tool/');
+  const isBlog = route === 'blog' || route.startsWith('blog/') || route.startsWith('blogcat/');
+  const isAdminRoute = route === 'admin' || route === 'admin-login' || route === 'admin-reset';
+  const isTools = route === 'free-tools' || route === 'tools' || route.startsWith('tool/') || route.startsWith('cat/') || route.startsWith('toolcat/') || (route.startsWith('p/') && cms.state.tools.some(t => t.slug === route.slice(2)) && !findPage(cms.state, storedSlugForRoute(route.slice(2))));
+
+  // Footer content is live: every value below is read straight from the CMS
+  // store, so a save in Admin → Sections & Nav → Brand & footer updates the
+  // rendered footer immediately (and persists across reloads).
+  const footerLogo = (cms.state.settings.footerLogoUrl || '').trim();
+  const footerNote = (cms.state.settings.footerNote || '').trim();
+  // All four footer columns are CMS-driven (Admin → Sections & Nav → Brand & footer).
+  const footerColumns = cms.state.footerColumns?.length ? cms.state.footerColumns : defaultFooterColumns;
+  const footerSocials = SOCIAL_META
+    .map(meta => ({ ...meta, href: (cms.state.settings.social?.[meta.key] || '').trim() }))
+    .filter(entry => entry.href);
 
   const handleAnalyze = useCallback(async () => {
     const trimmed = url.trim();
@@ -1427,6 +1740,12 @@ const SiteApp: React.FC = () => {
       const kwGuess = normalized.replace(/^https?:\/\//, '').split('/').filter(Boolean).slice(1).pop()?.split('?')[0]?.replace(/\.\\w+$/, '').replace(/[-_]+/g, ' ') || '';
       const livePromise = fetchPageData(normalized, kwGuess).catch(() => null);
       const domainPromise = fetchDomainInfo(normalized).catch(() => null);
+      // Backlink/authority evidence + crawl/DNS probes run in parallel with the
+      // page fetch; each source is individually capped and failure-tolerant.
+      const authHost = (() => { try { return new URL(normalized).hostname.replace(/^www\./, ''); } catch { return ''; } })();
+      const authorityPromise = authHost ? fetchAuthoritySignals(authHost).catch(() => null) : Promise.resolve(null);
+      const crawlPromise = authHost ? fetchCrawlBasics(authHost).catch(() => null) : Promise.resolve(null);
+      const dnsPromise = authHost ? fetchDnsSignals(authHost).catch(() => null) : Promise.resolve(null);
 
       const animation = new Promise<void>((resolve) => {
         const start = performance.now();
@@ -1447,16 +1766,19 @@ const SiteApp: React.FC = () => {
 
       // Read page and registry data in parallel: each source is capped, and the
       // whole read has a hard ceiling so the button can never stay disabled.
-      const [live, domainInfo] = await withDeadline(Promise.all([
+      const [live, domainInfo, authority, crawl, dns] = await withDeadline(Promise.all([
         Promise.race([livePromise, new Promise<null>((r) => setTimeout(() => r(null), ANALYSIS_FETCH_MS))]),
         Promise.race([domainPromise, new Promise<null>((r) => setTimeout(() => r(null), ANALYSIS_FETCH_MS))]),
+        Promise.race([authorityPromise, new Promise<null>((r) => setTimeout(() => r(null), ANALYSIS_FETCH_MS))]),
+        Promise.race([crawlPromise, new Promise<null>((r) => setTimeout(() => r(null), ANALYSIS_FETCH_MS))]),
+        Promise.race([dnsPromise, new Promise<null>((r) => setTimeout(() => r(null), ANALYSIS_FETCH_MS))]),
       ]), ANALYSIS_TOTAL_MS);
       if (auditRuns.current !== run) return;
 
       setAnalysisProgress(100);
       await delay(180);
       if (auditRuns.current !== run) return;
-      setResult(generateMockAudit(trimmed, live, domainInfo));
+      setResult(generateMockAudit(trimmed, live, domainInfo, authority, crawl, dns));
       setTimeout(() => {
         document.getElementById('results')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
       }, 50);
@@ -1492,7 +1814,7 @@ const SiteApp: React.FC = () => {
       { title: 'Mobile', icon: <CategoryIcon.mobile />, score: result.categories.mobile.score, issues: result.categories.mobile.issues, color: 'bg-gradient-to-br from-pink-500 to-rose-500' },
       { title: 'Security', icon: <CategoryIcon.security />, score: result.categories.security.score, issues: result.categories.security.issues, color: 'bg-gradient-to-br from-emerald-500 to-teal-500' },
       { title: 'Performance', icon: <CategoryIcon.performance />, score: result.categories.performance.score, issues: result.categories.performance.issues, color: 'bg-gradient-to-br from-amber-500 to-orange-500' },
-      { title: 'Backlinks', icon: <CategoryIcon.backlink />, score: 72, issues: [], color: 'bg-gradient-to-br from-indigo-500 to-blue-500' },
+      { title: 'Backlinks & Authority', icon: <CategoryIcon.backlink />, score: result.categories.backlinks.score, issues: result.categories.backlinks.issues, color: 'bg-gradient-to-br from-indigo-500 to-blue-500' },
     ];
   }, [result]);
 
@@ -1513,16 +1835,19 @@ const SiteApp: React.FC = () => {
               </span>
             </a>
 
+            {/* Every header link comes from Admin → Sections & Nav, in list order. */}
             <div className="hidden md:flex items-center gap-7">
-              <a href="/" aria-current={route === 'home' ? 'page' : undefined} className={`rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 ${route === 'home' ? 'text-indigo-600 font-semibold' : 'text-slate-600 hover:text-indigo-600'}`}>Home</a>
               {cms.state.nav.filter(n => n.visible && (!(n.href || '').includes('/admin') || cms.loggedIn)).map(n => {
-                const href = cleanHref(n.href) || n.href;
-                const active = (isTools && (href.includes('tools') || href.includes('free-tools'))) || (isBlog && href.includes('blog')) || href.includes('competitor');
+                if (n.kind === 'tool-categories') return <ToolCategoriesMenu key={n.id} route={route} label={n.label} />;
+                const href = cleanHref(n.href) || n.href || '/';
+                const active = (href === '/' && route === 'home')
+                  || (isTools && (href.includes('tools') || href.includes('free-tools')))
+                  || (isBlog && href.includes('blog'))
+                  || (href.includes('competitor') && route === 'competitor-analysis');
                 return (
-                  <a key={n.id} href={href} aria-current={active ? 'page' : undefined} className={`rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 ${active ? 'text-indigo-600 font-semibold' : 'text-slate-600 hover:text-indigo-600'}`}>{n.label}</a>
+                  <a key={n.id} href={href} aria-current={active ? 'page' : undefined} className={`rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 ${active ? 'text-indigo-600' : 'text-slate-600 hover:text-indigo-600'}`}>{n.label}</a>
                 );
               })}
-              <a href="/competitor-analysis" aria-current={route === 'competitor-analysis' ? 'page' : undefined} className={`rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 ${route === 'competitor-analysis' ? 'text-indigo-600 font-semibold' : 'text-slate-600 hover:text-indigo-600'}`}>Competitor Analysis</a>
               {cms.loggedIn && (
                 <>
                   <a href="/admin" className="text-slate-600 hover:text-indigo-600 transition-colors" title="Content manager">Admin</a>
@@ -1546,15 +1871,17 @@ const SiteApp: React.FC = () => {
 
         <div id="site-mobile-menu" className={`md:hidden bg-white border-t border-slate-200 py-4 -mx-4 px-4 ${mobileMenuOpen ? '' : 'hidden'}`}>
           <div className="flex flex-col gap-4">
-            <a href="/" aria-current={route === 'home' ? 'page' : undefined} className={`rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 ${route === 'home' ? 'text-indigo-600 font-semibold' : 'text-slate-600 hover:text-indigo-600'}`} onClick={() => setMobileMenuOpen(false)}>Home</a>
             {cms.state.nav.filter(n => n.visible && (!(n.href || '').includes('/admin') || cms.loggedIn)).map(n => {
-              const href = cleanHref(n.href) || n.href;
-              const active = (isTools && (href.includes('tools') || href.includes('free-tools'))) || (isBlog && href.includes('blog')) || href.includes('competitor');
+              if (n.kind === 'tool-categories') return <ToolCategoriesMobileSection key={n.id} onNavigate={() => setMobileMenuOpen(false)} label={n.label} />;
+              const href = cleanHref(n.href) || n.href || '/';
+              const active = (href === '/' && route === 'home')
+                || (isTools && (href.includes('tools') || href.includes('free-tools')))
+                || (isBlog && href.includes('blog'))
+                || (href.includes('competitor') && route === 'competitor-analysis');
               return (
-                <a key={n.id} href={href} aria-current={active ? 'page' : undefined} className={`rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 ${active ? 'text-indigo-600 font-semibold' : 'text-slate-600 hover:text-indigo-600'}`} onClick={() => setMobileMenuOpen(false)}>{n.label}</a>
+                <a key={n.id} href={href} aria-current={active ? 'page' : undefined} className={`rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 ${active ? 'text-indigo-600' : 'text-slate-600 hover:text-indigo-600'}`} onClick={() => setMobileMenuOpen(false)}>{n.label}</a>
               );
             })}
-            <a href="/competitor-analysis" aria-current={route === 'competitor-analysis' ? 'page' : undefined} className={`rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 ${route === 'competitor-analysis' ? 'text-indigo-600 font-semibold' : 'text-slate-600 hover:text-indigo-600'}`} onClick={() => setMobileMenuOpen(false)}>Competitor Analysis</a>
             {cms.loggedIn && (
               <>
                 <a href="/admin" className="rounded-md text-slate-600 hover:text-indigo-600 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500" onClick={() => setMobileMenuOpen(false)}>Admin</a>
@@ -1565,26 +1892,31 @@ const SiteApp: React.FC = () => {
         </div>
       </nav>
       <div className="h-16 shrink-0" aria-hidden="true" />
-      <main id="main-content" tabIndex={-1}>
+      {/* content-shell keeps the content column at least one viewport tall
+          (minus the 4rem header), so the footer always sits below the fold
+          instead of touching the navigation on short pages. */}
+      <main id="main-content" tabIndex={-1} className={`content-shell${isAdminRoute ? ' admin-shell' : ''}`}>
       <SiteBreadcrumbs route={route} />
-      {/* keyed by route: navigating away from a failed chunk gets a fresh
-          boundary instead of keeping the error panel on screen */}
+      {/* keyed by route: if a page ever fails to render, navigating elsewhere
+          gets a fresh boundary instead of keeping the error panel on screen */}
       <RouteBoundary key={route} label={`route ${route}`}>
-      <Suspense fallback={<LoadingFallback />}>
 
       {/* Blog routes */}
       {route === 'blog' && <BlogList />}
+      {route.startsWith('blogcat/') && <BlogCategoryPage slug={route.slice('blogcat/'.length)} />}
       {route.startsWith('blog/') && <BlogArticlePage slug={route.slice(5)} />}
 
       {/* Tools routes */}
       {(route === 'free-tools' || route === 'tools') && <ToolsList />}
+      {route.startsWith('cat/') && <ToolsList category={categoryKeyOfRoute(route) || undefined} />}
+      {route.startsWith('toolcat/') && <ToolsList categorySlug={route.slice('toolcat/'.length)} />}
       {route.startsWith('tool/') && <ToolPage slug={route.slice(5)} />}
 
       {/* Admin (CMS) */}
       {route === 'admin' && cms.loggedIn && <AdminApp />}
       {route === 'admin-login' && <AdminLoginPage />}
       {route === 'admin-reset' && <AdminResetPage />}
-      {route.startsWith('p/') && <CmsPageView slug={route.slice(2)} />}
+      {route.startsWith('p/') && <RootSlugView slug={route.slice(2)} />}
       {route === 'notfound' && <NotFoundView />}
 
       {/* Competitor Analysis */}
@@ -1599,14 +1931,12 @@ const SiteApp: React.FC = () => {
 
       {route === 'home' && (<>
       {/* Hero Section */}
-      <section className={`pt-16 pb-20 px-4 bg-gradient-to-br from-indigo-100 via-violet-50 to-purple-100 ${cms.state.sections.hero ? '' : 'hidden'}`}>
+      <section className={`px-4 py-16 md:py-20 bg-gradient-to-br from-indigo-100 via-violet-50 to-purple-100 ${cms.state.sections.hero ? '' : 'hidden'}`}>
         <div className="max-w-7xl mx-auto">
-          <header className="text-center mb-12">
-            <div className="inline-flex items-center gap-2 bg-white/80 backdrop-blur-sm px-4 py-2 rounded-full border border-slate-200 mb-6">
-              <span className="text-indigo-500"><InlineIcons.Award /></span>
-              <span className="text-sm font-medium text-slate-600">Trusted by 10,000+ websites across Pakistan &amp; beyond</span>
-            </div>
-            <h1 className="text-4xl md:text-6xl font-bold text-slate-900 mb-6 leading-tight">
+          {/* no trailing margin here: the section's own padding is the whole
+              gap, so the band keeps equal space above and below its content */}
+          <header className="text-center">
+            <h1 className="font-bold text-slate-900 mb-6 leading-tight">
               Free{' '}
               <span className="bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
                 SEO Audit Tool
@@ -1709,7 +2039,7 @@ const SiteApp: React.FC = () => {
           <div className="max-w-7xl mx-auto">
             <div className="flex flex-wrap items-center justify-between gap-4 mb-8">
               <div>
-                <h2 className="text-3xl font-bold text-slate-900">SEO Audit Report</h2>
+                <h2 className="font-bold text-slate-900">SEO Audit Report</h2>
                 <p className="text-slate-600 mt-1 break-all">{result.url}</p>
               </div>
               <button
@@ -1757,7 +2087,7 @@ const SiteApp: React.FC = () => {
               {/* Live registry information is part of the score overview */}
               <div className="mt-6 pt-6 border-t border-slate-200">
                 <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-                  <div><h4 className="font-bold text-slate-900">Domain Information</h4><p className="text-xs text-slate-500 mt-0.5">Registration and expiry data from the public RDAP registry.</p></div>
+                  <div><h4 className="heading-card font-bold text-slate-900">Domain Information</h4><p className="text-xs text-slate-500 mt-0.5">Registration and expiry data from the public RDAP registry.</p></div>
                   {result.domainInfo.live ? <span className="inline-flex items-center gap-1.5 text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-100 rounded-full px-2.5 py-1"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />Registry data</span> : <span className="inline-flex items-center gap-1.5 text-[11px] font-bold bg-amber-50 text-amber-700 border border-amber-100 rounded-full px-2.5 py-1"><span className="w-1.5 h-1.5 rounded-full bg-amber-500" />Registry unavailable</span>}
                 </div>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -1773,13 +2103,35 @@ const SiteApp: React.FC = () => {
                 </div>
                 {(result.domainInfo.nameservers.length > 0 || result.domainInfo.statuses.length > 0 || result.domainInfo.error) && <div className="flex flex-wrap gap-2 mt-3 text-xs">{result.domainInfo.nameservers.map(ns => <span key={ns} className="bg-white border border-slate-200 rounded-lg px-2 py-1 font-mono text-slate-600">NS {ns}</span>)}{result.domainInfo.statuses.map(status => <span key={status} className="bg-slate-200 rounded-lg px-2 py-1 text-slate-600">{status}</span>)}{result.domainInfo.error && <span className="text-amber-700">{result.domainInfo.error}</span>}</div>}
               </div>
+
+              {/* Live backlink / authority evidence from public sources */}
+              <div className="mt-6 pt-6 border-t border-slate-200">
+                <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+                  <div><h4 className="heading-card font-bold text-slate-900">Backlinks &amp; Authority Signals</h4><p className="text-xs text-slate-500 mt-0.5">Live mention counts from public sources — Hacker News, GitHub, Stack Exchange and the Internet Archive.</p></div>
+                  {result.authority.available
+                    ? <span className="inline-flex items-center gap-1.5 text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-100 rounded-full px-2.5 py-1"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />Live signals</span>
+                    : <span className="inline-flex items-center gap-1.5 text-[11px] font-bold bg-amber-50 text-amber-700 border border-amber-100 rounded-full px-2.5 py-1"><span className="w-1.5 h-1.5 rounded-full bg-amber-500" />Sources unreachable</span>}
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                  {result.authority.signals.map(s => (
+                    <div key={s.label} className="bg-white rounded-xl border border-slate-200 p-4">
+                      <p className="text-xs text-slate-500">{s.label}</p>
+                      <p className={`text-lg font-bold tabular-nums ${s.status === 'success' ? 'text-emerald-600' : s.status === 'warning' ? 'text-amber-600' : 'text-rose-600'}`}>{s.value}</p>
+                      <p className="text-[11px] text-slate-400 leading-relaxed">{s.detail}</p>
+                    </div>
+                  ))}
+                </div>
+                <p className="mt-3 text-xs text-slate-500">
+                  Authority score {result.authority.score === null ? 'unavailable — no public source responded from your network' : `${result.authority.score}/100`} · computed from log-scaled mention counts plus archive age. Counts are fetched live and never invented; the detailed category card below lists each signal as a finding.
+                </p>
+              </div>
             </div>
 
             {/* On-Page SEO Results */}
             <OnPageResults details={result.onPageDetails} />
 
             {/* Category Cards */}
-            <h3 className="text-2xl font-bold text-slate-900 mb-6">Detailed Category Breakdown</h3>
+            <h3 className="font-bold text-slate-900 mb-6">Detailed Category Breakdown</h3>
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
               {categoryCards.map((cat) => (
                 <CategoryCard key={cat.title} {...cat} />
@@ -1793,7 +2145,7 @@ const SiteApp: React.FC = () => {
       <section id="features" className={`scroll-mt-24 py-20 px-4 cv-auto ${cms.state.sections.features ? '' : 'hidden'}`}>
         <div className="max-w-7xl mx-auto">
           <header className="text-center mb-16">
-            <h2 className="text-3xl md:text-4xl font-bold text-slate-900 mb-4">
+            <h2 className="font-bold text-slate-900 mb-4">
               Everything You Need for Complete SEO Analysis
             </h2>
             <p className="text-lg text-slate-600 max-w-2xl mx-auto">
@@ -1809,7 +2161,7 @@ const SiteApp: React.FC = () => {
                     <path d="M9 11l3 3L22 4" /><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
                   </svg>
                 </div>
-                <h3 className="text-lg font-semibold text-slate-800 mb-2">{feature.title}</h3>
+                <h3 className="heading-card text-lg font-semibold text-slate-800 mb-2">{feature.title}</h3>
                 <p className="text-slate-600 text-sm leading-relaxed">{feature.description}</p>
               </article>
             ))}
@@ -1821,7 +2173,7 @@ const SiteApp: React.FC = () => {
       <section id="how-it-works" className={`scroll-mt-24 py-20 px-4 bg-white cv-auto ${cms.state.sections.howItWorks ? '' : 'hidden'}`}>
         <div className="max-w-7xl mx-auto">
           <header className="text-center mb-16">
-            <h2 className="text-3xl md:text-4xl font-bold text-slate-900 mb-4">
+            <h2 className="font-bold text-slate-900 mb-4">
               Get Your SEO Audit in 4 Simple Steps
             </h2>
             <p className="text-lg text-slate-600 max-w-2xl mx-auto">
@@ -1835,7 +2187,7 @@ const SiteApp: React.FC = () => {
                 <div className="w-16 h-16 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl flex items-center justify-center text-white text-2xl font-bold shadow-lg mb-4">
                   {i + 1}
                 </div>
-                <h3 className="text-lg font-semibold text-slate-800 mb-2">{step.title}</h3>
+                <h3 className="heading-card text-lg font-semibold text-slate-800 mb-2">{step.title}</h3>
                 <p className="text-slate-600 text-sm max-w-xs">{step.description}</p>
               </article>
             ))}
@@ -1849,7 +2201,7 @@ const SiteApp: React.FC = () => {
           <div className="bg-gradient-to-br from-slate-900 to-slate-800 rounded-3xl p-8 md:p-12 text-white">
             <div className="grid md:grid-cols-2 gap-12 items-center">
               <div>
-                <h2 className="text-3xl md:text-4xl font-bold mb-6">
+                <h2 className="font-bold mb-6">
                   Why Is an SEO Audit Important?
                 </h2>
                 <p className="text-slate-300 mb-6 leading-relaxed">
@@ -1884,7 +2236,7 @@ const SiteApp: React.FC = () => {
       <section id="audiences" className={`scroll-mt-24 py-20 px-4 bg-white cv-auto ${cms.state.sections.whoBenefits ? '' : 'hidden'}`}>
         <div className="max-w-7xl mx-auto">
           <header className="text-center mb-16">
-            <h2 className="text-3xl md:text-4xl font-bold text-slate-900 mb-4">
+            <h2 className="font-bold text-slate-900 mb-4">
               Who Can Benefit from Our SEO Audit Tool?
             </h2>
             <p className="text-lg text-slate-600 max-w-2xl mx-auto">
@@ -1898,7 +2250,7 @@ const SiteApp: React.FC = () => {
                 <div className="w-14 h-14 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center text-white mb-4">
                   <AudienceIcon type={item.icon} />
                 </div>
-                <h3 className="text-lg font-semibold text-slate-800 mb-2">{item.title}</h3>
+                <h3 className="heading-card text-lg font-semibold text-slate-800 mb-2">{item.title}</h3>
                 <p className="text-slate-600 text-sm">{item.description}</p>
               </article>
             ))}
@@ -1910,7 +2262,7 @@ const SiteApp: React.FC = () => {
       <section className={`py-20 px-4 cv-auto ${cms.state.sections.freeTools ? '' : 'hidden'}`}>
         <div className="max-w-7xl mx-auto">
           <header className="text-center mb-12">
-            <h2 className="text-3xl md:text-4xl font-bold text-slate-900 mb-4">
+            <h2 className="font-bold text-slate-900 mb-4">
               {visibleTools.length}+ Free{' '}
               <span className="bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">SEO Tools</span>
             </h2>
@@ -1920,13 +2272,13 @@ const SiteApp: React.FC = () => {
             </p>
           </header>
 
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4 mb-10 items-stretch">
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4 items-stretch">
             {visibleTools.filter(t => t.custom ? false : ['plagiarism-checker', 'percentage-calculator', 'bmi-calculator', 'what-is-my-ip', 'keyword-density-checker', 'backlink-checker', 'unit-converter', 'website-seo-score-checker'].includes(t.slug)).slice(0, 8).map(t => (
-              <a key={t.slug} href={`/tool/${t.slug}`}
+              <a key={t.slug} href={`/${t.slug}`}
                 className="group h-full flex flex-col bg-white rounded-2xl border border-slate-200 p-5 shadow-sm hover:shadow-lg hover:border-indigo-200 transition-all">
                 <div className="flex items-center gap-3 mb-2 min-h-[1.25rem]">
                   <span className="text-indigo-600 flex-shrink-0"><ToolIcon category={t.category} className="w-5 h-5" /></span>
-                  <h3 className="font-bold text-slate-900 text-sm group-hover:text-indigo-600 transition-colors truncate">{t.name}</h3>
+                  <h3 className="heading-card font-bold text-slate-900 text-sm group-hover:text-indigo-600 transition-colors truncate">{t.name}</h3>
                 </div>
                 <p className="text-xs text-slate-500 leading-relaxed line-clamp-2 h-10">{t.description}</p>
               </a>
@@ -1934,25 +2286,25 @@ const SiteApp: React.FC = () => {
           </div>
 
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 items-stretch">
-            {(['text', 'keyword', 'backlink', 'checker', 'domain', 'ip', 'management', 'pdf', 'image', 'calculator', 'converter'] as const).map(cat => {
-              const count = visibleTools.filter(t => t.category === cat).length;
+            {toolCategoriesOf(cms.state).map(cat => {
+              const count = visibleTools.filter(t => t.category === cat.key).length;
               return (
-                <a key={cat} href={`/free-tools?cat=${cat}`} className="group h-full flex flex-col bg-white rounded-2xl border border-slate-200 p-5 shadow-sm hover:shadow-lg hover:border-indigo-200 transition-all">
+                <a key={cat.key} href={toolCategoryHref(cms.state, cat.key)} className="group h-full flex flex-col bg-white rounded-2xl border border-slate-200 p-5 shadow-sm hover:shadow-lg hover:border-indigo-200 transition-all">
                   <div className="flex items-center justify-between gap-3 mb-2 min-h-[1.25rem]">
                     <span className="flex items-center gap-3 min-w-0">
-                      <span className="text-indigo-600 flex-shrink-0"><ToolIcon category={cat} className="w-5 h-5" /></span>
-                      <h3 className="font-bold text-slate-900 text-sm group-hover:text-indigo-600 transition-colors truncate">{categoryLabels[cat]}</h3>
+                      <span className="text-indigo-600 flex-shrink-0"><ToolIcon category={cat.key} className="w-5 h-5" /></span>
+                      <h3 className="heading-card font-bold text-slate-900 text-sm group-hover:text-indigo-600 transition-colors truncate">{cat.name}</h3>
                     </span>
                     <span className="text-xs text-slate-500 font-medium whitespace-nowrap">{count} tools</span>
                   </div>
-                  <p className="text-xs text-slate-500 leading-relaxed line-clamp-2 h-10">{categoryDescriptions[cat]}</p>
+                  <p className="text-xs text-slate-500 leading-relaxed line-clamp-2 h-10">{toolCategorySummary(cms.state, cat.key)}</p>
                 </a>
               );
             })}
           </div>
 
           <div className="text-center mt-10">
-            <a href="/free-tools" className="inline-block bg-gradient-to-r from-indigo-500 to-purple-600 text-white px-8 py-3.5 rounded-xl font-semibold hover:shadow-lg hover:shadow-indigo-500/25 transition-all">
+            <a href="/free-seo-tools" className="inline-block bg-gradient-to-r from-indigo-500 to-purple-600 text-white px-8 py-3.5 rounded-xl font-semibold hover:shadow-lg hover:shadow-indigo-500/25 transition-all">
               Explore All {visibleTools.length} Free Tools
             </a>
           </div>
@@ -1963,7 +2315,7 @@ const SiteApp: React.FC = () => {
       <section className={`py-20 px-4 cv-auto bg-white ${cms.state.sections.fromBlog ? '' : 'hidden'}`}>
         <div className="max-w-7xl mx-auto">
           <header className="text-center mb-12">
-            <h2 className="text-3xl md:text-4xl font-bold text-slate-900 mb-4">From the Blog</h2>
+            <h2 className="font-bold text-slate-900 mb-4">From the Blog</h2>
             <p className="text-lg text-slate-600 max-w-2xl mx-auto">
               Practical guides on the SEO problems people are actually struggling with right now.
             </p>
@@ -1972,7 +2324,7 @@ const SiteApp: React.FC = () => {
             {visiblePosts.slice(0, 3).map(article => (
               <article key={article.slug} className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm hover:shadow-lg hover:border-indigo-200 transition-all flex flex-col">
                 <span className="text-xs font-semibold text-indigo-600 mb-3">{article.category}</span>
-                <h3 className="text-lg font-bold text-slate-900 leading-snug mb-3">
+                <h3 className="heading-card text-lg font-bold text-slate-900 leading-snug mb-3">
                   <a href={`/blog/${article.slug}`} className="hover:text-indigo-600 transition-colors">{article.title}</a>
                 </h3>
                 <p className="text-sm text-slate-600 leading-relaxed mb-4 flex-1">{article.excerpt}</p>
@@ -1993,7 +2345,7 @@ const SiteApp: React.FC = () => {
       {/* CTA Section */}
       <section id="cta" className={`scroll-mt-24 py-20 px-4 ${cms.state.sections.cta ? '' : 'hidden'}`}>
         <div className="max-w-4xl mx-auto text-center">
-          <h2 className="text-3xl md:text-4xl font-bold text-slate-900 mb-6">
+          <h2 className="font-bold text-slate-900 mb-6">
             Ready to Improve Your Website's SEO?
           </h2>
           <p className="text-lg text-slate-600 mb-8 max-w-2xl mx-auto">
@@ -2020,74 +2372,87 @@ const SiteApp: React.FC = () => {
       </section>
       </>)}
 
-      </Suspense>
       </RouteBoundary>
       </main>
 
       {/* Footer — simple, lightweight */}
       <footer className={`bg-slate-900 text-white pt-10 pb-6 px-4 ${cms.state.sections.footer ? '' : 'hidden'}`}>
         <div className="max-w-7xl mx-auto">
-          {/* Brand + social icons */}
+          {/* Brand + social icons — every value here comes from the CMS */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-5 pb-8 border-b border-slate-800">
             <a href="/" className="flex items-center gap-2.5">
-              <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center text-white">
-                <InlineIcons.BarChart3 />
-              </div>
+              {footerLogo ? (
+                <img
+                  src={footerLogo}
+                  alt={`${cms.state.settings.name} logo`}
+                  width={40}
+                  height={40}
+                  loading="lazy"
+                  decoding="async"
+                  className="w-10 h-10 rounded-xl object-cover bg-white/5"
+                />
+              ) : (
+                <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center text-white">
+                  <InlineIcons.BarChart3 />
+                </div>
+              )}
               <span>
                 <span className="block text-lg font-bold leading-tight">{cms.state.settings.name}</span>
                 <span className="block text-xs text-slate-400">{cms.state.settings.tagline}</span>
               </span>
             </a>
-            <div className="flex items-center gap-2">
-              {footerSocials.map(s => (
-                <a key={s.label} href={s.href} target="_blank" rel="noopener noreferrer" aria-label={s.label} title={s.label} className="w-9 h-9 rounded-lg bg-slate-800 hover:bg-indigo-600 flex items-center justify-center text-slate-400 hover:text-white transition-colors">
-                  <s.icon />
-                </a>
+            {footerSocials.length > 0 && (
+              <div className="flex items-center gap-2">
+                {footerSocials.map(s => (
+                  <a key={s.key} href={s.href} target="_blank" rel="noopener noreferrer" aria-label={s.label} title={s.label} className="w-9 h-9 rounded-lg bg-slate-800 hover:bg-indigo-600 flex items-center justify-center text-slate-400 hover:text-white transition-colors">
+                    <s.icon />
+                  </a>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {footerNote && (
+            <p className="pt-8 text-sm text-slate-400 leading-relaxed max-w-3xl">{footerNote}</p>
+          )}
+
+          {/* Four equal columns: Quick Links, SEO Tools, Resources, Company —
+              all four editable from Admin → Sections & Nav → Brand & footer
+              (title + links per column). The legal links live in the bottom bar
+              below, next to the cookie-preferences control. */}
+          <div className="grid grid-cols-2 gap-8 py-10 md:grid-cols-4">
+            {footerColumns.map(col => {
+              const links = col.links.filter(link => link.visible && link.label.trim());
+              return (
+                <nav key={col.id} aria-label={col.title}>
+                  <h3 className="heading-card text-[18px] font-bold capitalize tracking-[0px] text-slate-400 mb-4">{col.title}</h3>
+                  <ul className="space-y-2.5">
+                    {links.map(l => (
+                      <li key={l.id}><a href={cleanHref(l.href) || l.href} className="text-sm text-slate-400 hover:text-white transition-colors">{l.label}</a></li>
+                    ))}
+                  </ul>
+                </nav>
+              );
+            })}
+          </div>
+
+          {/* Bottom bar — copyright on the left, the short legal links and the
+              cookie-preferences control on the right:
+                Privacy · Cookie · Terms · Cookie preferences
+              The copyright line stays editable (Admin → Brand & footer); the
+              links carry their full name as the accessible name / tooltip. */}
+          <div className="border-t border-slate-800 pt-6 flex flex-col gap-3 text-xs text-slate-400 sm:flex-row sm:items-center sm:justify-between">
+            <p>{renderCopyright(cms.state.settings.footerCopyright, cms.state.settings.name, cms.state.settings.domain)}</p>
+            <nav aria-label="Legal documents" className="flex flex-wrap items-center gap-x-2 gap-y-1 sm:justify-end">
+              {FOOTER_LEGAL_LINKS.map((l, i) => (
+                <React.Fragment key={l.label}>
+                  {i > 0 && <span aria-hidden="true" className="text-slate-600">·</span>}
+                  <a href={l.href} title={l.label} aria-label={l.label} className="hover:text-white transition-colors">{l.short}</a>
+                </React.Fragment>
               ))}
-            </div>
-          </div>
-
-          {/* Four link columns */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-8 py-10">
-            {[
-              { title: 'SEO Tools', links: [
-                { label: 'Free SEO Audit', href: '/' },
-                { label: 'Free SEO Tools', href: '/free-tools' },
-                { label: 'Competitor Analysis', href: '/competitor-analysis' },
-              ] },
-              { title: 'Resources', links: [
-                { label: 'Blog', href: '/blog' },
-                { label: 'FAQ', href: '/faq' },
-                { label: "Who It's For", href: '/#audiences' },
-              ] },
-              { title: 'Company', links: [
-                { label: 'About', href: '/about' },
-                { label: 'Contact', href: '/contact' },
-              ] },
-            ].map(col => (
-              <nav key={col.title} aria-label={col.title}>
-                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-4">{col.title}</h3>
-                <ul className="space-y-2.5">
-                  {col.links.map(l => (
-                    <li key={l.label}><a href={l.href} className="text-sm text-slate-400 hover:text-white transition-colors">{l.label}</a></li>
-                  ))}
-                </ul>
-              </nav>
-            ))}
-            <nav aria-label="Legal">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-4">Legal</h3>
-              <ul className="space-y-2.5">
-                <li><a href="/privacy-policy" className="text-sm text-slate-400 hover:text-white transition-colors">Privacy Policy</a></li>
-                <li><a href="/cookie-policy" className="text-sm text-slate-400 hover:text-white transition-colors">Cookie Policy</a></li>
-                <li><a href="/terms-of-service" className="text-sm text-slate-400 hover:text-white transition-colors">Terms &amp; Conditions</a></li>
-                <li><button type="button" onClick={() => setCookiePrefsOpen(true)} className="text-sm text-slate-400 hover:text-white transition-colors underline decoration-dotted underline-offset-4">Cookie preferences</button></li>
-              </ul>
+              <span aria-hidden="true" className="text-slate-600">·</span>
+              <button type="button" onClick={() => setCookiePrefsOpen(true)} className="hover:text-white transition-colors">Cookie preferences</button>
             </nav>
-          </div>
-
-          {/* Bottom bar */}
-          <div className="border-t border-slate-800 pt-6 text-xs text-slate-400">
-            <p>© {new Date().getFullYear()} EKSTRUH LTD · Trading as {cms.state.settings.name} ({cms.state.settings.domain}) · Free SEO tools for Pakistan &amp; worldwide. All rights reserved.</p>
           </div>
         </div>
       </footer>
@@ -2103,16 +2468,32 @@ const SiteApp: React.FC = () => {
 // Pages are edited as a single rich-text document. Legacy block-based pages
 // are converted once at load time (withPageContent), and any stored
 // #/… links are rewritten to clean paths at render time.
+/**
+ * A top-level slug carries either a CMS page (/about, /privacy) or a tool page
+ * (/plagiarism-checker, /merge-pdf). The store is consulted synchronously, so
+ * the right view renders on the first paint — no loading state, no redirect.
+ * A slug that matches neither falls through to the 404 view.
+ */
+const RootSlugView: React.FC<{ slug: string }> = ({ slug }) => {
+  const { state } = useCms();
+  const page = findPage(state, storedSlugForRoute(slug));
+  if (page) return <CmsPageView slug={slug} />;
+  if (state.tools.some(t => t.slug === slug && t.status === 'live')) return <ToolPage slug={slug} />;
+  return <NotFoundView />;
+};
+
 const CmsPageView: React.FC<{ slug: string }> = ({ slug }) => {
   const { state } = useCms();
-  const page = findPage(state, slug);
+  // Short legal URLs (/privacy) render the page stored under its CMS slug
+  // (privacy-policy) — see LEGAL_PAGE_ALIASES in router.ts.
+  const page = findPage(state, storedSlugForRoute(slug));
   useEffect(() => {
     window.scrollTo(0, 0);
   }, [page]);
   if (!page || page.status !== 'live') {
     return (
       <div className="pt-10 pb-24 px-4 text-center min-h-screen">
-        <h1 className="text-3xl font-bold text-slate-900 mb-3">Page not available</h1>
+        <h1 className="font-bold text-slate-900 mb-3">Page not available</h1>
         <p className="text-slate-600 mb-6">This page has not been published yet.</p>
         <Btn href="/" />
       </div>
@@ -2122,7 +2503,7 @@ const CmsPageView: React.FC<{ slug: string }> = ({ slug }) => {
   return (
     <section className="pt-10 pb-20 px-4 bg-white min-h-screen">
       <div className="max-w-7xl mx-auto w-full">
-        <h1 className="text-3xl md:text-5xl font-extrabold text-slate-900 mb-8">{page.title}</h1>
+        <h1 className="font-extrabold text-slate-900 mb-8">{page.title}</h1>
         {page.featuredImage && (
           <figure className="mb-8 overflow-hidden rounded-2xl border border-slate-200 bg-slate-100 aspect-[1.91/1]">
             <img src={page.featuredImage} alt={page.featuredImageAlt || page.title} width="1200" height="630" loading="lazy" decoding="async" className="w-full h-full object-cover" onError={e => { e.currentTarget.parentElement?.classList.add('hidden'); }} />
@@ -2140,11 +2521,11 @@ const CmsPageView: React.FC<{ slug: string }> = ({ slug }) => {
 const NotFoundView: React.FC = () => (
   <div className="pt-10 pb-24 px-4 text-center min-h-screen bg-white">
     <p className="text-6xl font-extrabold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent mb-4">404</p>
-    <h1 className="text-3xl font-bold text-slate-900 mb-3">Page not found</h1>
+    <h1 className="font-bold text-slate-900 mb-3">Page not found</h1>
     <p className="text-slate-600 mb-8 max-w-md mx-auto">The page you are looking for does not exist or has been moved. Head back to the free SEO audit tool.</p>
     <div className="flex items-center justify-center gap-3">
       <Btn href="/" />
-      <a href="/free-tools" className="inline-block bg-white text-slate-700 px-6 py-3 rounded-xl font-semibold border border-slate-300 hover:bg-slate-50 transition-colors">Browse tools</a>
+      <a href="/free-seo-tools" className="inline-block bg-white text-slate-700 px-6 py-3 rounded-xl font-semibold border border-slate-300 hover:bg-slate-50 transition-colors">Browse tools</a>
     </div>
   </div>
 );
@@ -2212,7 +2593,7 @@ const CookieConsent: React.FC<{ prefsOpen: boolean; onPrefsOpen: (v: boolean) =>
       <div className="fixed inset-0 z-[70] flex items-end sm:items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm" role="dialog" aria-modal="true" aria-label="Cookie preferences">
         <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl border border-slate-200 overflow-hidden">
           <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
-            <h2 className="font-bold text-slate-900">Manage cookie preferences</h2>
+            <h2 className="heading-card font-bold text-slate-900">Manage cookie preferences</h2>
             <button type="button" onClick={() => onPrefsOpen(false)} aria-label="Close cookie preferences" className="cookie-close text-slate-500 hover:text-slate-600 text-xl leading-none">&times;</button>
           </div>
           <div className="px-5 py-2 divide-y divide-slate-100">
@@ -2222,7 +2603,7 @@ const CookieConsent: React.FC<{ prefsOpen: boolean; onPrefsOpen: (v: boolean) =>
             <CookieToggle title="Affiliate tracking" description="Credits referrals when you click partner links, at no cost to you." checked={draft.affiliate} onChange={v => setDraft(d => ({ ...d, affiliate: v }))} />
           </div>
           <div className="px-5 py-4 border-t border-slate-100 bg-slate-50 flex flex-col sm:flex-row items-center justify-between gap-3">
-            <a href="/cookie-policy" onClick={() => onPrefsOpen(false)} className="text-xs font-semibold text-indigo-600 hover:underline">Read our Cookie Policy</a>
+            <a href="/cookies" onClick={() => onPrefsOpen(false)} className="text-xs font-semibold text-indigo-600 hover:underline">Read our Cookie Policy</a>
             <button type="button" autoFocus onClick={() => save(draft)} className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-bold text-sm hover:shadow-lg transition-shadow">Save Preferences</button>
           </div>
         </div>
@@ -2233,10 +2614,10 @@ const CookieConsent: React.FC<{ prefsOpen: boolean; onPrefsOpen: (v: boolean) =>
         <div className="max-w-5xl mx-auto bg-white border border-slate-200 rounded-2xl shadow-2xl p-4 sm:p-5">
           <div className="flex flex-col lg:flex-row lg:items-center gap-4">
             <div className="flex-1 min-w-0">
-              <h2 className="text-sm font-bold text-slate-900">We use cookies</h2>
+              <h2 className="heading-card text-sm font-bold text-slate-900">We use cookies</h2>
               <p className="text-xs sm:text-[13px] text-slate-600 mt-1 leading-relaxed">
                 We use essential cookies to make our site work. With your consent, we may also use analytics, advertising, and affiliate tracking cookies to improve your experience and understand how visitors use our site.{' '}
-                <a href="/cookie-policy" className="font-semibold text-indigo-600 hover:underline">Read our Cookie Policy</a>.
+                <a href="/cookies" className="font-semibold text-indigo-600 hover:underline">Read our Cookie Policy</a>.
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-2 flex-shrink-0">

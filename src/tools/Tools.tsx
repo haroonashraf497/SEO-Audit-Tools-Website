@@ -1,13 +1,15 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  categoryLabels, categoryOrder, categoryStyles, ToolIcon,
+  categoryDescriptions, categoryHref, categoryLabel, categoryLabels, categoryStyle, toolTagline, ToolIcon,
   type ToolDef, type ToolCategory,
 } from './data';
-import { useCms } from '../cms/store';
-import { navigate, subscribe } from '../router';
-import { buildReport, type SimReport, type RowStatus, Seeded } from './simulator';
+import { resolveToolCategory, toolCategoriesOf, type CmsToolCategory, useCms } from '../cms/store';
+import { sanitizeRichHtml } from '../utils/sanitize';
+import { TOOLS_PATH, navigate, subscribe, toolCategoryPath } from '../router';
+import { buildReport, type SimReport, type RowStatus } from './simulator';
 import { fetchPageData } from '../utils/pageFetch';
 import { WhatIsMyIp, IpLocationTool, ReverseIpTool, ProxyListTool, ClassCTool } from './IpTools';
+import { BacklinkCheckerTool, BacklinkMakerTool, LinksCountTool, LinkTrackerTool, LinkPriceTool, ReciprocalLinkTool, LinkAnalyzerTool, BrokenLinkTool } from './BacklinkTools';
 import { PlagiarismChecker } from './PlagiarismChecker';
 import { GrammarChecker } from './GrammarChecker';
 import { ArticleRewriter } from './ArticleRewriter';
@@ -15,34 +17,26 @@ import { SeoScoreTool, MetaAnalyzerTool, OgCheckerTool, SnooperTool, HeadersTool
 import { QrTool, HtaccessTool, OgGeneratorTool, TwitterCardTool, UrlCodecTool, AdsenseTool, UrlRewriteTool, HitCounterTool, ScreenSimTool, ScreenshotTool, SpeedTestTool, ShortenerTool, SuggestTool, VideoInfoTool } from './WebGenerators';
 import { AgeCalc, AvgCalc, CICalc, GstCalc, MarginCalc, PctCalc, ProbCalc, TaxCalc, LtvCalc, DiscountCalc, CpmCalc, PaypalCalc, EpsCalc, BmiCalc } from './CalculatorTools';
 import { UnitConverter, LengthConverter, TempConverter, TimezoneConverter, PressureConverter, VoltageConverter, PowerConverter, SpeedConverter, AreaConverter, WeightConverter } from './ConverterTools';
+import { SitemapGeneratorTool } from './SitemapGenerator';
 import { HtmlFormatterTool, XmlFormatterTool, PhpFormatterTool, HtmlEditorTool, HtmlViewerTool } from './CodeTools';
 import { Sidebar } from './Sidebar';
 import { PdfGuide } from './pdf/PdfGuide';
 import { ToolRelatedContent } from './toolContent';
-import { importWithRetry } from '../utils/lazyRetry';
-import { LoadingFallback, RouteBoundary } from '../components/ErrorBoundary';
+import { RouteBoundary } from '../components/ErrorBoundary';
+import { MergePdf, SplitPdf, RotatePdf, LockPdf, UnlockPdf, CompressPdf } from './pdf/PdfTools';
+import { TextToPdf, WordToPdf, PdfToWord, PdfToJpg, JpgToPdf, PptToPdf, ExcelToPdf } from './pdf/ConvertTools';
 
-// PDF tools are code-split so the PDF libraries load only when a PDF tool page opens.
-const PdfLoadingLabel: React.FC = () => (
-  <span className="flex flex-col items-center gap-3 text-sm text-slate-600"><span className="w-8 h-8 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />Loading PDF engine (one-time, then cached)…</span>
-);
-// The PDF engine is the heaviest chunk on the site, so it gets a longer
-// deadline than a normal route before the fallback admits it has stalled.
-const PDF_LOAD_TIMEOUT_MS = 20_000;
+// PDF tool UIs are plain static imports too — they are part of the single-file
+// build, so a PDF tool page renders in the same commit as any other route with
+// no spinner in between. The PDF *libraries* (pdf-lib, pdf.js) still load from
+// their CDN on demand inside the tool, which is what the in-tool progress bar
+// reports; the page itself is never blank.
 type AnyComp = React.ComponentType<Record<string, unknown>>;
-const lazyCache = new Map<string, React.LazyExoticComponent<AnyComp>>();
-const pickLazy = (mod: 'pdf' | 'convert', name: string) => {
-  const key = `${mod}:${name}`;
-  if (!lazyCache.has(key)) {
-    // A dropped request for this chunk used to strand the spinner forever;
-    // importWithRetry re-issues it before the failure reaches the boundary.
-    lazyCache.set(key, React.lazy(() => importWithRetry(async () => {
-      const m = (mod === 'pdf' ? await import('./pdf/PdfTools') : await import('./pdf/ConvertTools')) as unknown as Record<string, AnyComp>;
-      return { default: m[name] };
-    })));
-  }
-  return lazyCache.get(key)!;
+const PDF_COMPONENTS: Record<string, AnyComp> = {
+  MergePdf, SplitPdf, RotatePdf, LockPdf, UnlockPdf, CompressPdf,
+  TextToPdf, WordToPdf, PdfToWord, PdfToJpg, JpgToPdf, PptToPdf, ExcelToPdf,
 };
+const pickEngine = (name: string): AnyComp | null => PDF_COMPONENTS[name] || null;
 const PDF_ENGINES: Record<string, ['pdf' | 'convert', string]> = {
   'pdf-merge': ['pdf', 'MergePdf'], 'pdf-split': ['pdf', 'SplitPdf'], 'pdf-rotate': ['pdf', 'RotatePdf'], 'pdf-lock': ['pdf', 'LockPdf'], 'pdf-unlock': ['pdf', 'UnlockPdf'], 'pdf-compress': ['pdf', 'CompressPdf'],
   'text-to-pdf': ['convert', 'TextToPdf'], 'word-to-pdf': ['convert', 'WordToPdf'], 'pdf-to-word': ['convert', 'PdfToWord'], 'pdf-to-jpg': ['convert', 'PdfToJpg'], 'jpg-to-pdf': ['convert', 'JpgToPdf'], 'ppt-to-pdf': ['convert', 'PptToPdf'], 'excel-to-pdf': ['convert', 'ExcelToPdf'],
@@ -51,18 +45,26 @@ const PdfSwitch: React.FC<{ engine: string }> = ({ engine }) => {
   const isTarget = engine.startsWith('pdf-compress-');
   const entry = isTarget ? PDF_ENGINES['pdf-compress'] : PDF_ENGINES[engine];
   if (!entry) return null;
-  const C = pickLazy(entry[0], entry[1]);
+  const C = pickEngine(entry[1]);
+  if (!C) return null;
   const props = isTarget ? { targetKb: Number(engine.split('-').pop()) } : {};
   return (
     <RouteBoundary key={engine} label={`PDF tool ${engine}`}>
-      <React.Suspense fallback={<LoadingFallback label={<PdfLoadingLabel />} timeoutMs={PDF_LOAD_TIMEOUT_MS} />}>
-        <C {...props} />
-        <PdfGuide engine={engine} />
-      </React.Suspense>
+      <C {...props} />
+      <PdfGuide engine={engine} />
     </RouteBoundary>
   );
 };
-import { WorkingEngine, PrimaryBtn, MetaGen, RobotsGen, ImageTool } from './engines';
+import { WorkingEngine, PrimaryBtn, MetaGen, RobotsGen, ImageTool, ImageToText } from './engines';
+import { DomainAgeTool, DomainAuthorityTool, DomainIpTool, DomainHostingTool, DnsRecordsTool, DomainSearchTool, BlacklistTool, ExpiredDomainsTool } from './DomainTools';
+import { KeywordRankTool, KeywordDensityTool, KeywordSuggestionsTool, WebsiteKeywordsTool, KeywordDomainsTool, RelatedKeywordsTool, LongTailTool, CompetitionTool } from './KeywordTools';
+import {
+  ArchiveCheckerTool, WhoisCheckerTool, MozRankTool, PageAuthorityTool, IndexCheckerTool,
+  TrafficRankTool, RedirectCheckerTool, SimilarPageTool, CloakingCheckerTool, MalwareCheckerTool,
+  GzipCheckerTool, SslCheckerTool, ServerStatusTool, RatioTool, RankCompareTool,
+  PageCompareTool, SpiderSimTool, ComparisonSearchTool, PokemonProbeTool, BlogFinderTool,
+  AppsRankTool, SocialStatsTool,
+} from './CheckerTools';
 
 // ---------- Status dot ----------
 const statusStyle: Record<RowStatus, { dot: string; text: string; label: string }> = {
@@ -75,7 +77,7 @@ const statusStyle: Record<RowStatus, { dot: string; text: string; label: string 
 const ReportView: React.FC<{ report: SimReport }> = ({ report }) => (
   <div className="animate-fade-in">
     <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm mb-6">
-      <h3 className="text-lg font-bold text-slate-900 mb-1 break-all">{report.headline}</h3>
+      <h3 className="heading-card text-lg font-bold text-slate-900 mb-1 break-all">{report.headline}</h3>
       <p className="text-sm text-slate-500 mb-5">{report.summary}</p>
       <div className="grid sm:grid-cols-2 gap-3">
         {report.rows.map((row, i) => (
@@ -269,43 +271,6 @@ const TextRunner: React.FC<{ tool: ToolDef }> = ({ tool }) => {
   );
 };
 
-// ---------- Backlink maker (simulated submissions) ----------
-const DIRECTORIES = ['aboutus.com', 'intellifinder.com', 'hotfrog.com', 'brownbook.net', 'spoke.com', 'cybo.com', 'yelu.com', 'find-us-here.com', 'directory2020.com', 'trustpilot.com', 'yelp.com', 'foursquare.com'];
-const BacklinkMaker: React.FC<{ tool: ToolDef }> = ({ tool }) => {
-  const [domain, setDomain] = useState('');
-  const [results, setResults] = useState<{ site: string; status: string }[]>([]);
-  const [running, setRunning] = useState(false);
-  const run = () => {
-    if (!domain.trim()) return;
-    setRunning(true); setResults([]);
-    const rng = new Seeded(domain);
-    DIRECTORIES.forEach((site, i) => {
-      setTimeout(() => {
-        setResults(prev => [...prev, { site, status: rng.next() > 0.25 ? 'Submitted successfully' : 'Already listed' }]);
-        if (i === DIRECTORIES.length - 1) setRunning(false);
-      }, i * 220);
-    });
-  };
-  return (
-    <div>
-      <div className="flex flex-col sm:flex-row gap-3 mb-5">
-        <input value={domain} onChange={e => setDomain(e.target.value)} placeholder={tool.placeholder} className="flex-1 px-4 py-3.5 rounded-xl border border-slate-300 outline-none text-sm" />
-        <PrimaryBtn type="button" onClick={run} disabled={running}>{running ? 'Submitting…' : 'Create Backlinks'}</PrimaryBtn>
-      </div>
-      {results.length > 0 && (
-        <div className="bg-white rounded-2xl border border-slate-200 divide-y divide-slate-100 overflow-hidden">
-          {results.map((r, i) => (
-            <div key={i} className="flex items-center justify-between px-4 py-3 text-sm">
-              <span className="text-slate-700 font-medium">{r.site}</span>
-              <span className={r.status.includes('success') ? 'text-emerald-600 font-semibold' : 'text-amber-600 font-semibold'}>{r.status}</span>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-};
-
 // ---------- What is my Browser (instant, no request) ----------
 const BrowserInfo: React.FC = () => {
   const info = useMemo(() => {
@@ -357,114 +322,71 @@ const BrowserInfo: React.FC = () => {
   );
 };
 
-// ---------- Pokemon Go server status ----------
-const PokemonStatus: React.FC = () => {
-  const [rows, setRows] = useState<{ name: string; status: string; ok: boolean }[] | null>(null);
-  const check = () => {
-    const rng = new Seeded(Date.now().toString());
-    const defs: [string, number][] = [
-      ['Login / Authentication', 0.95], ['Game Servers (Global)', 0.97],
-      ['Pokemon Trainer Club', 0.9], ['Google Sign-in', 0.97],
-      ['Friends & Gifting', 0.93], ['Trading', 0.9],
-      ['Raid Battles', 0.92], ['GO Battle League', 0.88],
-      ['PokéStops & Gyms', 0.95], ['In-app Purchases', 0.96],
-    ];
-    setRows(defs.map(([name, uptime]) => {
-      const ok = rng.next() < uptime;
-      return { name, ok, status: ok ? (rng.next() > 0.15 ? 'Operational' : 'Intermittent') : 'Down' };
-    }));
-  };
-  return (
-    <div>
-      <PrimaryBtn type="button" onClick={check} className="mb-5">{rows ? 'Refresh Status' : 'Check Server Status'}</PrimaryBtn>
-      {rows && (
-        <div className="bg-white rounded-2xl border border-slate-200 divide-y divide-slate-100 overflow-hidden">
-          {rows.map(s => (
-            <div key={s.name} className="flex items-center justify-between px-5 py-3">
-              <span className="text-sm font-medium text-slate-800">{s.name}</span>
-              <span className={`flex items-center gap-2 text-sm font-semibold ${s.status === 'Down' ? 'text-red-600' : s.status === 'Intermittent' ? 'text-amber-600' : 'text-emerald-600'}`}>
-                <span className={`w-2 h-2 rounded-full ${s.status === 'Down' ? 'bg-red-500' : s.status === 'Intermittent' ? 'bg-amber-500' : 'bg-emerald-500'}`} />
-                {s.status}
-              </span>
-            </div>
-          ))}
-          <div className="px-5 py-3 text-xs text-slate-400">Illustrative status check refreshed on demand. Always verify official channels during outages.</div>
-        </div>
-      )}
-    </div>
-  );
-};
-
 // ---------- Domain availability ----------
-const DomainAvail: React.FC<{ tool: ToolDef }> = ({ tool }) => {
-  const [keyword, setKeyword] = useState('');
-  const [rows, setRows] = useState<{ domain: string; available: boolean; price: string }[]>([]);
-  const run = () => {
-    const k = keyword.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
-    if (!k) return;
-    const tlds = ['.com', '.net', '.org', '.co', '.io', '.info', '.biz', '.online', '.store', '.site'];
-    const rng = new Seeded(k);
-    setRows(tlds.map(t => ({
-      domain: k + t,
-      available: rng.next() > 0.35,
-      price: `$${(rng.next() * 30 + 8).toFixed(2)}/yr`,
-    })));
-  };
-  return (
-    <div>
-      <div className="flex flex-col sm:flex-row gap-3 mb-5">
-        <input value={keyword} onChange={e => setKeyword(e.target.value)} onKeyDown={e => e.key === 'Enter' && run()} placeholder={tool.placeholder} className="flex-1 px-4 py-3.5 rounded-xl border border-slate-300 outline-none text-sm" />
-        <PrimaryBtn type="button" onClick={run}>Search Domains</PrimaryBtn>
-      </div>
-      {rows.length > 0 && (
-        <div className="bg-white rounded-2xl border border-slate-200 divide-y divide-slate-100 overflow-hidden">
-          {rows.map(r => (
-            <div key={r.domain} className="flex items-center justify-between px-4 py-3 text-sm">
-              <span className="font-mono text-slate-800">{r.domain}</span>
-              <span className="flex items-center gap-4">
-                <span className="text-slate-500">{r.price}</span>
-                <span className={`font-semibold ${r.available ? 'text-emerald-600' : 'text-red-500'}`}>
-                  {r.available ? 'Available' : 'Taken'}
-                </span>
-              </span>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-};
-
 // ---------- Tools listing page ----------
+/** Card and heading type scale, exactly as specified by the design:
+ *  category heading 1.35rem, tool name 1rem. */
+const CATEGORY_HEADING_SIZE = { fontSize: '1.35rem' } as const;
+const TOOL_NAME_SIZE = { fontSize: '1rem' } as const;
+
+/** The search term is the only filter that lives in the query string now:
+ *  a category is a real page with its own URL (/ip-tools), so `?cat=` no longer
+ *  exists — the router moves it onto the category page before the first paint. */
 const readSearchParams = () => {
   const p = new URLSearchParams(window.location.search);
-  return { q: p.get('q') || '', cat: (p.get('cat') || 'all') as 'all' | ToolCategory };
+  return p.get('q') || '';
 };
 
-export const ToolsList: React.FC = () => {
+/**
+ * Tool directory. Rendered twice:
+ *  • `/free-seo-tools` — every category, grouped into sections (the index)
+ *  • `/<category-slug>` (e.g. /ip-tools) — one category, via the `category`
+ *    prop, with its own canonical URL, heading and description.
+ * Search filters within whichever page is open and stays in ?q=.
+ */
+/**
+ * Tool directory. Rendered three ways:
+ *  • `/free-seo-tools` — every category, grouped into sections (the index)
+ *  • `/<category-slug>` (e.g. /ip-tools) — one built-in category, via the
+ *    `category` prop, with its own canonical URL, heading and description
+ *  • `/tools/category/<slug>` — any category by slug, via `categorySlug`,
+ *    including the ones added in Admin → Tool Categories (a built-in category
+ *    answering there keeps its original page as the canonical URL)
+ * Names, slugs, descriptions and the order of the sections all come from the
+ * managed list, so an edit in the admin shows up here immediately.
+ * Search filters within whichever page is open and stays in ?q=.
+ */
+export const ToolsList: React.FC<{ category?: ToolCategory; categorySlug?: string }> = ({ category, categorySlug }) => {
   const { state: cmsState } = useCms();
   const tools = useMemo<ToolDef[]>(() => cmsState.tools.filter(t => t.status === 'live') as unknown as ToolDef[], [cmsState.tools]);
-  const initial = readSearchParams();
-  const [query, setQuery] = useState(initial.q);
-  const [activeCat, setActiveCat] = useState<'all' | ToolCategory>(initial.cat);
+  // The managed category this page is about — undefined on the index.
+  const active = useMemo<CmsToolCategory | undefined>(
+    () => (category || categorySlug ? resolveToolCategory(cmsState, categorySlug || category || '') : undefined),
+    [cmsState, category, categorySlug],
+  );
+  const activeKey = active?.key || category || '';
+  const activeName = active?.name || (category ? categoryLabels[category] : '');
+  // While searching, stay on the URL the visitor arrived on.
+  const basePath = categorySlug ? toolCategoryPath(categorySlug) : category ? categoryHref(category) : TOOLS_PATH;
+  const [query, setQuery] = useState(readSearchParams);
 
-  // React to sidebar searches / breadcrumb category links while already on the index
+  // React to sidebar searches / breadcrumb links while a tools page is open
   useEffect(() => {
-    const onRoute = () => { const p = readSearchParams(); setQuery(p.q); setActiveCat(p.cat); };
+    const onRoute = () => setQuery(readSearchParams());
     return subscribe(onRoute);
   }, []);
 
   useEffect(() => {
     window.scrollTo(0, 0);
-  }, []);
+  }, [category, categorySlug]);
 
   const filtered = useMemo(() => tools.filter(t =>
-    (activeCat === 'all' || t.category === activeCat) &&
+    (!activeKey || t.category === activeKey) &&
     (t.name.toLowerCase().includes(query.toLowerCase()) || t.description.toLowerCase().includes(query.toLowerCase()))
-  ), [query, activeCat]);
+  ), [query, activeKey, tools]);
 
   const grouped = useMemo(() => {
-    const map = new Map<ToolCategory, ToolDef[]>();
+    const map = new Map<string, ToolDef[]>();
     filtered.forEach(t => {
       const arr = map.get(t.category) || [];
       arr.push(t); map.set(t.category, arr);
@@ -472,42 +394,87 @@ export const ToolsList: React.FC = () => {
     return map;
   }, [filtered]);
 
-  // Per-category totals for the filter pills (stable while browsing).
-  const countByCat = useMemo(() => {
-    const map = new Map<ToolCategory, number>();
-    tools.forEach(t => map.set(t.category, (map.get(t.category) || 0) + 1));
-    return map;
-  }, [tools]);
+  /**
+   * The sections this page shows: every managed category in admin order, plus
+   * any category a tool still points at, so a tool can never fall off the site.
+   */
+  const sections = useMemo<CmsToolCategory[]>(() => {
+    const managed = toolCategoriesOf(cmsState);
+    const known = new Set(managed.map(c => c.key));
+    const strays = [...new Set(filtered.map(t => t.category))]
+      .filter(key => !known.has(key))
+      .map(key => ({ id: `stray-${key}`, key, name: categoryLabel(key), slug: key, description: '', builtin: false }));
+    return [...managed, ...strays];
+  }, [cmsState, filtered]);
 
-  // Keep the URL in step with the active filters so filtered views are
-  // shareable and survive reload. replaceState: filtering is not navigation.
-  const syncUrl = useCallback((q: string, cat: 'all' | ToolCategory) => {
+  // Keep the URL in step with the search term so a filtered view is shareable
+  // and survives reload. replaceState: searching is not navigation.
+  const syncUrl = useCallback((q: string) => {
     const params = new URLSearchParams();
     if (q.trim()) params.set('q', q.trim());
-    if (cat !== 'all') params.set('cat', cat);
     const qs = params.toString();
-    navigate(qs ? `/free-tools?${qs}` : '/free-tools', { replace: true });
-  }, []);
+    navigate(qs ? `${basePath}?${qs}` : basePath, { replace: true });
+  }, [basePath]);
 
-  const onQueryChange = useCallback((q: string) => { setQuery(q); syncUrl(q, activeCat); }, [activeCat, syncUrl]);
-  const onCatChange = useCallback((cat: 'all' | ToolCategory) => { setActiveCat(cat); syncUrl(query, cat); }, [query, syncUrl]);
-  const clearFilters = useCallback(() => { setQuery(''); setActiveCat('all'); syncUrl('', 'all'); }, [syncUrl]);
+  const onQueryChange = useCallback((q: string) => { setQuery(q); syncUrl(q); }, [syncUrl]);
+  // "Show all N tools" — leaves a category page for the index.
+  const clearFilters = useCallback(() => { setQuery(''); navigate(TOOLS_PATH); }, []);
 
-  const pillCls = (active: boolean) =>
-    `px-4 py-2 rounded-full text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 ${active ? 'bg-indigo-600 text-white shadow-md' : 'bg-white border border-slate-200 text-slate-600 hover:border-indigo-300'}`;
+  // A category URL whose category no longer exists (removed in the admin).
+  if ((category || categorySlug) && !active) {
+    return (
+      <div className="pt-16 pb-20 px-4 text-center min-h-screen">
+        <div className="max-w-xl mx-auto">
+          <p className="text-sm font-semibold text-indigo-600 uppercase tracking-wide mb-3">Tools</p>
+          <h1 className="font-bold text-slate-900 mb-4">Category not found</h1>
+          <p className="text-slate-600 mb-8">That tool category is not available. Browse the free SEO tools directory instead.</p>
+          <a href={TOOLS_PATH} className="inline-block px-6 py-3 rounded-xl bg-indigo-600 text-white font-semibold hover:bg-indigo-700 transition-colors">Browse all free SEO tools</a>
+        </div>
+      </div>
+    );
+  }
+
+  // A category can be published before it has any tools in it.
+  const categoryIsEmpty = !!activeKey && tools.every(t => t.category !== activeKey);
+
+  const activeSubtitle = active
+    ? active.builtin
+      ? `${categoryDescriptions[active.key as ToolCategory]} Every tool is free, needs no sign-up and most run instantly in your browser.`
+      : 'Every tool is free, needs no sign-up and most run instantly in your browser.'
+    : '';
 
   return (
-    <div className="pt-10 pb-20 px-4 min-h-screen">
-      <div className="max-w-7xl mx-auto">
-        <header className="text-center mb-10">
-          <h1 className="text-4xl md:text-5xl font-bold text-slate-900 mb-4">
-            Free{' '}
-            <span className="bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">SEO Tools</span>
-          </h1>
-          <p className="text-lg text-slate-600 max-w-2xl mx-auto">
-            {tools.length}+ free tools for text analysis, keyword research, backlinks, website management,
-            security checks and domains. No sign-up, most run instantly in your browser.
-          </p>
+    <div className="pb-20 min-h-screen">
+      {/* Hero band — same background as the home page hero */}
+      <section className="pt-16 pb-16 px-4 bg-gradient-to-br from-indigo-100 via-violet-50 to-purple-100">
+        <div className="max-w-7xl mx-auto">
+        <header className="text-center mb-8">
+          {activeKey ? (
+            <>
+              <nav aria-label="Breadcrumb" className="text-sm text-slate-500 mb-3">
+                <a href="/free-seo-tools" className="text-indigo-600 hover:text-indigo-700">{tools.length} free SEO tools</a>
+                <span className="mx-2 text-slate-400" aria-hidden="true">/</span>
+                <span className="text-slate-600">{activeName}</span>
+              </nav>
+              <h1 className="capitalize font-bold text-slate-900 mb-4">
+                <span className="bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">{activeName}</span>
+              </h1>
+              <p className="text-lg text-slate-600 max-w-2xl mx-auto">
+                {activeSubtitle}
+              </p>
+            </>
+          ) : (
+            <>
+              <h1 className="capitalize font-bold text-slate-900 mb-4">
+                Free{' '}
+                <span className="bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">SEO Tools</span>
+              </h1>
+              <p className="text-lg text-slate-600 max-w-2xl mx-auto">
+                {tools.length}+ free tools for text analysis, keyword research, backlinks, website management,
+                security checks and domains. No sign-up, most run instantly in your browser.
+              </p>
+            </>
+          )}
         </header>
 
         <div className="max-w-xl mx-auto mb-8">
@@ -518,7 +485,7 @@ export const ToolsList: React.FC = () => {
               onChange={e => onQueryChange(e.target.value)}
               type="search"
               aria-label="Search tools"
-              placeholder="Search tools… e.g. plagiarism, sitemap, SSL"
+              placeholder={activeKey ? `Search ${activeName}…` : 'Search tools… e.g. plagiarism, sitemap, SSL'}
               className="w-full pl-12 pr-11 py-3.5 rounded-xl border border-slate-300 bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 outline-none text-sm"
             />
             {query && (
@@ -533,61 +500,94 @@ export const ToolsList: React.FC = () => {
             )}
           </div>
         </div>
-
-        <div className="flex flex-wrap justify-center gap-2 mb-6">
-          <button onClick={() => onCatChange('all')} aria-pressed={activeCat === 'all'} className={pillCls(activeCat === 'all')}>
-            All Tools ({tools.length})
-          </button>
-          {categoryOrder.map(cat => (
-            <button key={cat} onClick={() => onCatChange(cat)} aria-pressed={activeCat === cat} className={pillCls(activeCat === cat)}>
-              {categoryLabels[cat].replace(' Tools', '')} ({countByCat.get(cat) || 0})
-            </button>
-          ))}
         </div>
+      </section>
 
+      <div className="px-4 pt-10">
+        <div className="max-w-7xl mx-auto">
         <div className="min-h-[1.5rem] mb-6 text-center" aria-live="polite">
-          {(query.trim() || activeCat !== 'all') && (
+          {(query.trim() || activeKey) && (
             <p className="text-sm text-slate-500">
               Showing <strong className="text-slate-700">{filtered.length}</strong> of {tools.length} tools
-              {activeCat !== 'all' && <> in {categoryLabels[activeCat]}</>}
+              {activeKey && <> in {activeName}</>}
+
               {query.trim() && <> matching “{query.trim()}”</>}
+              {' · '}
+              <button
+                type="button"
+                onClick={clearFilters}
+                className="text-indigo-600 hover:text-indigo-700 underline decoration-indigo-300 underline-offset-2 transition-colors rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2"
+              >
+                Show all {tools.length} tools
+              </button>
             </p>
           )}
         </div>
 
-        {categoryOrder.map(cat => {
-          const list = grouped.get(cat);
+        {sections.map(cat => {
+          const list = grouped.get(cat.key);
           if (!list?.length) return null;
           return (
-            <section key={cat} className="mb-12">
-              <div className="flex items-center gap-3 mb-5">
-                <div className={`w-9 h-9 rounded-lg flex items-center justify-center border ${categoryStyles[cat]}`}>
-                  <ToolIcon category={cat} />
-                </div>
-                <h2 className="text-xl font-bold text-slate-900">{categoryLabels[cat]}</h2>
+            <section key={cat.key} className="mb-12">
+              <div className="flex items-center gap-3 mb-3">
+                {/* On the index the heading opens that category's own page; on a
+                    category page it is the current page, so it stays plain text. */}
+                {activeKey ? (
+                  <>
+                    <span className={`w-9 h-9 rounded-lg flex items-center justify-center border ${categoryStyle(cat.key)}`}>
+                      <ToolIcon category={cat.key} />
+                    </span>
+                    {/* The H1 above already names the category, so the section
+                        heading labels the list instead of repeating it. */}
+                    <h2 className="heading-card font-bold text-slate-900" style={CATEGORY_HEADING_SIZE}>All {cat.name}</h2>
+                  </>
+                ) : (
+                  <a
+                    href={cat.builtin ? `/${cat.slug}` : toolCategoryPath(cat.slug)}
+                    className="group/heading flex items-center gap-3 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2"
+                  >
+                    <span className={`w-9 h-9 rounded-lg flex items-center justify-center border ${categoryStyle(cat.key)}`}>
+                      <ToolIcon category={cat.key} />
+                    </span>
+                    <h2 className="heading-card font-bold text-slate-900 group-hover/heading:text-indigo-600 transition-colors" style={CATEGORY_HEADING_SIZE}>{cat.name}</h2>
+                  </a>
+                )}
                 <span className="text-sm text-slate-400">({list.length})</span>
               </div>
-              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {/* SEO introduction for this category — the copy search engines read
+                  on the category URL, shown on the index and on its own page.
+                  Managed in Admin → Tool Categories. */}
+              {cat.description && <p className="text-[15px] sm:text-base text-slate-600 leading-relaxed mb-6">{cat.description}</p>}
+              <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 {list.map(t => (
-                  <a key={t.slug} href={`/tool/${t.slug}`}
+                  <a key={t.slug} href={`/${t.slug}`}
                     className="group bg-white rounded-2xl border border-slate-200 p-5 shadow-sm hover:shadow-lg hover:border-indigo-200 transition-all flex flex-col">
-                    <div className="flex items-center justify-between mb-3">
-                      <span className={`w-9 h-9 rounded-lg flex items-center justify-center border ${categoryStyles[t.category]}`}>
-                        <ToolIcon category={t.category} className="w-4 h-4" />
-                      </span>
-                      {t.engine && (
-                        <span className="text-[10px] font-bold uppercase tracking-wide text-emerald-600 bg-emerald-50 border border-emerald-100 px-2 py-0.5 rounded-full">Instant</span>
-                      )}
-                    </div>
-                    <h3 className="font-bold text-slate-900 mb-1.5 group-hover:text-indigo-600 transition-colors text-sm">{t.name}</h3>
-                    <p className="text-xs text-slate-500 leading-relaxed flex-1">{t.description}</p>
+                    <h3 className="heading-card font-bold text-slate-900 mb-1.5 group-hover:text-indigo-600 transition-colors" style={TOOL_NAME_SIZE}>{t.name}</h3>
+                    {/* line-clamp-2 + a reserved two-line height: every card shows the
+                        same two-line description block, whatever the tagline length. */}
+                    <p className="text-xs text-slate-500 leading-relaxed line-clamp-2 min-h-[2.5rem]">{toolTagline(t)}</p>
                   </a>
                 ))}
               </div>
             </section>
           );
         })}
-        {filtered.length === 0 && (
+        {/* Admin-managed rich content for this category page — written in
+            Admin → Tools (editor under the tool list) and rendered here,
+            below the tool grid. Sanitised like every other CMS string. */}
+        {active?.content && (
+          <section className="mb-12 max-w-4xl mx-auto bg-white rounded-2xl border border-slate-200 p-6 sm:p-8 shadow-sm">
+            <div className="rich-text" dangerouslySetInnerHTML={{ __html: sanitizeRichHtml(active.content) }} />
+          </section>
+        )}
+        {filtered.length === 0 && categoryIsEmpty && !query.trim() && (
+          <div className="text-center py-16 text-slate-500">
+            <p className="text-lg font-semibold mb-1">No tools in this category yet</p>
+            <p className="text-sm mb-5">Every other tool in the directory is still one click away.</p>
+            <a href={TOOLS_PATH} className="inline-block px-5 py-2.5 rounded-full bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-700 transition-colors">Browse all {tools.length} free tools</a>
+          </div>
+        )}
+        {filtered.length === 0 && !(categoryIsEmpty && !query.trim()) && (
           <div className="text-center py-16 text-slate-500">
             <p className="text-lg font-semibold mb-1">No tools found</p>
             <p className="text-sm mb-5">Try a different search term or category.</p>
@@ -600,6 +600,7 @@ export const ToolsList: React.FC = () => {
             </button>
           </div>
         )}
+        </div>
       </div>
     </div>
   );
@@ -620,8 +621,8 @@ export const ToolPage: React.FC<{ slug: string }> = ({ slug }) => {
   if (!tool) {
     return (
       <div className="pt-16 pb-20 px-4 text-center min-h-screen">
-        <h1 className="text-3xl font-bold text-slate-900 mb-4">Tool not found</h1>
-        <a href="/free-tools" className="text-indigo-600 font-semibold hover:underline">Browse all tools</a>
+        <h1 className="font-bold text-slate-900 mb-4">Tool not found</h1>
+        <a href="/free-seo-tools" className="text-indigo-600 font-semibold hover:underline">Browse all tools</a>
       </div>
     );
   }
@@ -670,10 +671,54 @@ export const ToolPage: React.FC<{ slug: string }> = ({ slug }) => {
     }
     if (tool.slug === 'meta-tag-generator') return <MetaGen />;
     if (tool.slug === 'robots-txt-generator') return <RobotsGen />;
-    if (tool.slug === 'backlink-maker') return <BacklinkMaker tool={tool} />;
-    if (tool.slug === 'domain-name-search') return <DomainAvail tool={tool} />;
+    if (tool.slug === 'backlink-maker') return <BacklinkMakerTool />;
+    if (tool.slug === 'backlink-checker') return <BacklinkCheckerTool />;
+    if (tool.slug === 'website-links-count-checker') return <LinksCountTool />;
+    if (tool.slug === 'link-tracker') return <LinkTrackerTool />;
+    if (tool.slug === 'link-price-calculator') return <LinkPriceTool />;
+    if (tool.slug === 'reciprocal-link-checker') return <ReciprocalLinkTool />;
+    if (tool.slug === 'website-link-analyzer-tool') return <LinkAnalyzerTool />;
+    if (tool.slug === 'websites-broken-link-checker') return <BrokenLinkTool />;
+    if (tool.slug === 'domain-age-checker') return <DomainAgeTool />;
+    if (tool.slug === 'domain-authority-checker') return <DomainAuthorityTool />;
+    if (tool.slug === 'domain-ip-lookup') return <DomainIpTool />;
+    if (tool.slug === 'domain-hosting-checker') return <DomainHostingTool />;
+    if (tool.slug === 'find-dns-records') return <DnsRecordsTool />;
+    if (tool.slug === 'domain-name-search') return <DomainSearchTool />;
+    if (tool.slug === 'blacklist-lookup') return <BlacklistTool />;
+    if (tool.slug === 'expired-domains-tool') return <ExpiredDomainsTool />;
+    if (tool.slug === 'keyword-rank-checker') return <KeywordRankTool />;
+    if (tool.slug === 'keyword-density-checker') return <KeywordDensityTool />;
+    if (tool.slug === 'keywords-suggestions-tool') return <KeywordSuggestionsTool />;
+    if (tool.slug === 'website-keywords-suggestions-tool') return <WebsiteKeywordsTool />;
+    if (tool.slug === 'keyword-rich-domains-suggestions-tool') return <KeywordDomainsTool />;
+    if (tool.slug === 'related-keywords-finder') return <RelatedKeywordsTool />;
+    if (tool.slug === 'long-tail-keyword-generator') return <LongTailTool />;
+    if (tool.slug === 'keyword-competition-checker') return <CompetitionTool />;
     if (tool.slug === 'what-is-my-browser') return <BrowserInfo />;
-    if (tool.slug === 'pokemon-go-server-status') return <PokemonStatus />;
+    if (tool.slug === 'pokemon-go-server-status') return <PokemonProbeTool />;
+    // Website Checker Tools — real live-data engines (CheckerTools.tsx)
+    if (tool.slug === 'google-cache-checker') return <ArchiveCheckerTool />;
+    if (tool.slug === 'whois-checker') return <WhoisCheckerTool />;
+    if (tool.slug === 'mozrank-checker') return <MozRankTool />;
+    if (tool.slug === 'page-authority-checker') return <PageAuthorityTool />;
+    if (tool.slug === 'google-index-checker') return <IndexCheckerTool />;
+    if (tool.slug === 'alexa-rank-checker') return <TrafficRankTool />;
+    if (tool.slug === 'redirect-checker') return <RedirectCheckerTool />;
+    if (tool.slug === 'similar-page-checker') return <SimilarPageTool />;
+    if (tool.slug === 'cloaking-checker') return <CloakingCheckerTool />;
+    if (tool.slug === 'google-malware-checker') return <MalwareCheckerTool />;
+    if (tool.slug === 'check-gzip-compression') return <GzipCheckerTool />;
+    if (tool.slug === 'ssl-checker') return <SslCheckerTool />;
+    if (tool.slug === 'server-status-checker') return <ServerStatusTool />;
+    if (tool.slug === 'code-to-text-ratio-checker') return <RatioTool />;
+    if (tool.slug === 'alexa-rank-comparison') return <RankCompareTool />;
+    if (tool.slug === 'page-comparison') return <PageCompareTool />;
+    if (tool.slug === 'spider-simulator') return <SpiderSimTool />;
+    if (tool.slug === 'comparison-search') return <ComparisonSearchTool />;
+    if (tool.slug === 'blog-finder-tool') return <BlogFinderTool />;
+    if (tool.slug === 'apps-rank-tracking-tool') return <AppsRankTool />;
+    if (tool.slug === 'social-stats-checker') return <SocialStatsTool />;
     // IP tools (live geolocation APIs, fired only on demand)
     if (tool.slug === 'what-is-my-ip') return <WhatIsMyIp />;
     if (tool.slug === 'ip-location') return <IpLocationTool placeholder={tool.placeholder} />;
@@ -697,6 +742,7 @@ export const ToolPage: React.FC<{ slug: string }> = ({ slug }) => {
     if (tool.slug === 'earnings-per-share-calculator') return <EpsCalc />;
     if (tool.slug === 'bmi-calculator') return <BmiCalc />;
     // Unit converter tools
+    if (tool.slug === 'xml-sitemap-generator') return <SitemapGeneratorTool />;
     if (tool.slug === 'unit-converter') return <UnitConverter />;
     if (tool.slug === 'length-converter') return <LengthConverter />;
     if (tool.slug === 'temperature-converter') return <TempConverter />;
@@ -707,6 +753,7 @@ export const ToolPage: React.FC<{ slug: string }> = ({ slug }) => {
     if (tool.slug === 'speed-converter') return <SpeedConverter />;
     if (tool.slug === 'area-converter') return <AreaConverter />;
     if (tool.slug === 'weight-converter') return <WeightConverter />;
+    if (tool.slug === 'image-to-text-converter') return <ImageToText />;
     if (tool.engine === 'image-compress') return <ImageTool mode="compress" />;
     if (tool.engine === 'image-resize') return <ImageTool mode="resize" />;
     if (tool.engine) return <TextRunner tool={tool} />;
@@ -727,36 +774,70 @@ export const ToolPage: React.FC<{ slug: string }> = ({ slug }) => {
 
   const wide = ['plagiarism-checker', 'grammar-checker', 'article-rewriter'].includes(tool.slug) || ['wm-htmleditor', 'wm-screensim', 'wm-snooper', 'wm-mobile', 'wm-htmlviewer'].includes(tool.engine || '') || tool.category === 'pdf';
 
+  /* Text Analysis Tools get the wide layout: the tool panel spans the full
+     content width and the sidebar (search, other relevant tools, popular
+     tools, latest articles) starts level with the "About the …" section
+     underneath it instead of sitting beside the panel. Everything is
+     mobile-first: single column, full-width controls, no sideways scroll. */
+  const stacked = tool.category === 'text';
+
+  const header = (
+    <header className={`text-center ${stacked ? 'mb-5 sm:mb-6' : 'mb-6'}`}>
+      {/* the title is the first thing in the header: the category icon and the
+          green "Instant · runs in your browser" pill that used to sit above it
+          are both gone from every tool page */}
+      <h1 className={`tool-page-title font-extrabold text-slate-900 mb-4${stacked ? ' leading-[1.15]' : ''}`}>{tool.name}</h1>
+      <p className={`text-slate-600 max-w-3xl mx-auto leading-relaxed ${stacked ? 'text-[15px] sm:text-base md:text-lg' : 'text-base md:text-lg'}`}>{tool.description}</p>
+    </header>
+  );
+
+  const featuredImage = tool.featuredImage ? (
+    <figure className="mb-6 overflow-hidden rounded-2xl border border-slate-200 bg-slate-100 aspect-[1.91/1]">
+      <img src={tool.featuredImage} alt={tool.featuredImageAlt || tool.name} width="1200" height="630" loading="lazy" decoding="async" className="w-full h-full object-cover" onError={e => { e.currentTarget.parentElement?.classList.add('hidden'); }} />
+    </figure>
+  ) : null;
+
+  const panel = (
+    <div className={`${wide ? 'bg-white shadow-md' : 'bg-slate-50'} rounded-2xl border border-slate-200 ${stacked ? '' : 'mb-10'} ${wide
+      ? (stacked ? 'p-3 sm:p-4 md:p-6' : 'p-4 md:p-6')
+      : (stacked ? 'p-4 sm:p-5 md:p-7' : 'p-5 md:p-7')}`} key={tool.slug}>
+      {renderBody()}
+    </div>
+  );
+
+  if (stacked) {
+    return (
+      <div className="pt-8 sm:pt-10 pb-16 sm:pb-20 px-3 sm:px-4 min-h-screen">
+        <div className="max-w-7xl mx-auto">
+          {/* Full-width tool panel */}
+          {header}
+          {featuredImage}
+          {panel}
+
+          {/* Sidebar starts in front of the About / FAQ / Related-tools column */}
+          <div className="grid lg:grid-cols-[minmax(0,1fr)_minmax(0,300px)] gap-8 items-start">
+            <div className="min-w-0">
+              <ToolRelatedContent tool={tool} related={related} />
+            </div>
+            <div className="mt-10 min-w-0">
+              <Sidebar category={tool.category} currentSlug={tool.slug} />
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="pt-10 pb-20 px-4 min-h-screen">
       <div className="max-w-7xl mx-auto grid lg:grid-cols-[minmax(0,1fr)_minmax(0,300px)] gap-8 items-start">
         {/* ---------- Main column ---------- */}
         <div className="min-w-0">
-          {/* Professional centered header */}
-          <header className="text-center mb-6">
-            <div className="inline-flex items-center gap-2 mb-4">
-              <span className={`w-10 h-10 rounded-xl flex items-center justify-center border ${categoryStyles[tool.category]}`}>
-                <ToolIcon category={tool.category} className="w-5 h-5" />
-              </span>
-              {tool.engine && (
-                <span className="text-[11px] font-bold uppercase tracking-wide text-emerald-600 bg-emerald-50 border border-emerald-100 px-2.5 py-1 rounded-full">
-                  Instant · runs in your browser
-                </span>
-              )}
-            </div>
-            <h1 className="text-3xl md:text-5xl font-extrabold text-slate-900 uppercase tracking-tight mb-4">{tool.name}</h1>
-            <p className="text-base md:text-lg text-slate-600 max-w-3xl mx-auto leading-relaxed">{tool.description}</p>
-          </header>
+          {header}
 
-          {tool.featuredImage && (
-            <figure className="mb-6 overflow-hidden rounded-2xl border border-slate-200 bg-slate-100 aspect-[1.91/1]">
-              <img src={tool.featuredImage} alt={tool.featuredImageAlt || tool.name} width="1200" height="630" loading="lazy" decoding="async" className="w-full h-full object-cover" onError={e => { e.currentTarget.parentElement?.classList.add('hidden'); }} />
-            </figure>
-          )}
+          {featuredImage}
 
-          <div className={`${wide ? 'bg-white p-4 md:p-6 shadow-md' : 'bg-slate-50 p-5 md:p-7'} rounded-2xl border border-slate-200 mb-10`} key={tool.slug}>
-            {renderBody()}
-          </div>
+          {panel}
 
           <ToolRelatedContent tool={tool} related={related} />
         </div>
